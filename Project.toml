@@ -12,7 +12,7 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 TrajectoryIndexingUtils = "6dad8b7f-dd9a-4c28-9b70-85b9a079bfc8"
 
 [compat]
-NamedTrajectories = "0.2"
+NamedTrajectories = "0.2, 0.3"
 PiccoloPlots = "0.1"
 PiccoloQuantumObjects = "0.3"
 QuantumCollocation = "0.6"
