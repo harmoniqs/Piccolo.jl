@@ -30,11 +30,118 @@ prob = UnitarySmoothPulseProblem(
 )
 
 # solve the problem
-solve!(prob; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">NamedTrajectory{Float64}([1.0 0.998722235088884 … -0.007664230836593155 -0.007141192003805868; 0.0 2.1382173976683063e-30 … -0.06315582272753595 -0.012640118600844286; … ; -0.07905006520374631 -0.07335804763409672 … 0.07469694279323986 -5.106828878922305e-18; 0.2527889126678805 0.2527889126678805 … 0.2527889126678805 0.2527889126678805], [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0  …  -0.007141192003800022, -1.0000219263699868, 0.004616688432386114, 0.0, 0.0, 0.0, 0.0, -3.0983721738143773e-18, -5.106828878922305e-18, 0.2527889126678805], 50, :Δt, 15, (Ũ⃗ = 8, a = 2, da = 2, dda = 2, Δt = 1, states = 12, controls = 3), (a = ([-0.2, -0.2], [0.2, 0.2]), da = ([-Inf, -Inf], [Inf, Inf]), dda = ([-0.1, -0.1], [0.1, 0.1]), Δt = ([0.1], [0.30000000000000004])), (Ũ⃗ = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0], a = [0.0, 0.0], da = [0.0, 0.0]), (a = [0.0, 0.0], da = [0.0, 0.0]), (Ũ⃗ = [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],), (Ũ⃗ = 1:8, a = 9:10, da = 11:12, dda = 13:14, Δt = 15:15, states = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], controls = [13, 14, 15]), NamedTuple(), 0, NamedTuple(), NamedTuple(), (:Ũ⃗, :a, :da, :dda, :Δt), (:Ũ⃗, :a, :da), (:dda, :Δt))</code></pre><p>The above output comes from the Ipopt.jl solver. The problem&#39;s trajectory has been updated with the solution. We can see the final control amplitudes and the final unitary by accessing the <code>a</code> and <code>Ũ⃗</code> fields of the trajectory.</p><pre><code class="language-julia hljs">size(prob.trajectory.a) |&gt; println
+solve!(prob; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing UnitarySmoothPulseProblem...
+	using integrator: typeof(UnitaryIntegrator)
+	control derivative names: [:da, :dda]
+	applying timesteps_all_equal constraint: Δt
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of a
+        applying constraint: final value of a
+        applying constraint: bounds on a
+        applying constraint: bounds on da
+        applying constraint: bounds on dda
+        applying constraint: bounds on Δt
+This is Ipopt version 3.14.17, running with linear solver MUMPS 5.7.3.
+
+Number of nonzeros in equality constraint Jacobian...:     5502
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:     2739
+
+Total number of variables............................:      738
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      246
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      637
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  5.7321046e-04 3.97e-01 2.97e+00  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  3.1664794e+01 2.45e-01 4.74e+01  -1.0 1.23e+00   0.0 2.65e-02 3.91e-01h  1
+   2  7.6941703e+01 6.99e-02 1.52e+01  -1.0 7.14e-01   1.3 4.27e-01 7.29e-01h  1
+   3  7.8774650e+01 5.65e-03 2.12e+01  -1.0 3.57e-01   1.8 7.81e-01 9.16e-01f  1
+   4  5.2170866e+01 3.81e-03 1.10e+01  -1.0 4.09e-01   1.3 6.28e-01 6.60e-01f  1
+   5  3.6576297e+01 4.08e-03 1.52e+01  -1.0 8.50e-01   0.8 3.14e-01 1.27e-01f  1
+   6  2.1968789e+01 1.18e-03 1.59e+01  -1.0 1.72e-01   1.2 7.76e-01 1.00e+00f  1
+   7  2.4388540e+00 3.17e-03 1.38e+01  -1.0 1.16e+00    -  2.42e-01 1.69e-01f  1
+   8  1.8688941e+00 1.52e-03 2.03e+02  -1.0 2.93e-01    -  4.22e-01 1.00e+00F  1
+   9  1.7037827e+00 1.96e-03 1.88e+02  -1.0 1.90e+00    -  1.20e-01 7.63e-02f  2
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  4.6234566e-01 9.54e-05 1.99e+02  -1.0 5.84e-02   0.7 1.00e+00 1.00e+00f  1
+  11  2.7200120e+00 2.54e-04 1.92e+01  -1.0 2.10e-01   1.2 7.81e-01 1.00e+00H  1
+  12  2.1762934e-01 9.58e-05 3.16e+00  -1.0 1.19e-01    -  1.00e+00 1.00e+00F  1
+  13  1.0847690e-01 1.27e-04 5.78e-01  -1.0 3.70e-02    -  1.00e+00 1.00e+00f  1
+  14  6.9978099e-02 2.52e-05 2.00e+02  -1.7 2.36e-02    -  1.00e+00 1.00e+00h  1
+  15  3.3234345e-02 1.18e-05 2.00e+02  -1.7 1.30e-02    -  1.00e+00 1.00e+00f  1
+  16  1.6370101e-02 5.02e-06 6.84e-01  -1.7 7.57e-03   1.6 1.00e+00 1.00e+00h  1
+  17  1.2106438e-03 6.37e-06 2.00e+02  -1.7 9.50e-03    -  1.00e+00 1.00e+00h  1
+  18  6.5800162e-03 4.96e-06 5.00e+01  -1.7 1.24e-02    -  1.00e+00 2.50e-01h  3
+  19  1.3610870e-03 2.85e-06 2.50e+01  -1.7 6.08e-03    -  1.00e+00 5.00e-01h  2
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  5.5209457e-03 6.68e-08 4.93e-02  -1.7 9.86e-04    -  1.00e+00 1.00e+00h  1
+  21  4.0725141e-03 1.01e-06 2.00e+02  -2.5 5.36e-03    -  1.00e+00 1.00e+00f  1
+  22  9.4894604e-04 4.40e-07 2.00e+02  -2.5 2.60e-03    -  1.00e+00 1.00e+00h  1
+  23  1.1827643e-03 7.23e-09 2.98e-02  -2.5 2.80e-04   2.0 1.00e+00 1.00e+00h  1
+  24  6.0315060e-04 3.77e-07 2.00e+02  -2.5 2.51e-03    -  1.00e+00 1.00e+00f  1
+  25  9.1250892e-04 1.44e-07 2.00e+02  -2.5 1.80e-03    -  1.00e+00 1.00e+00h  1
+  26  5.2303125e-04 1.22e-07 1.02e-01  -2.5 1.13e-03   1.6 1.00e+00 1.00e+00h  1
+  27  4.8593903e-04 1.25e-09 1.37e-04  -2.5 1.43e-03    -  1.00e+00 1.00e+00H  1
+  28  4.7438432e-04 2.50e-08 2.00e+02  -3.8 8.51e-04    -  1.00e+00 1.00e+00h  1
+  29  3.8114527e-04 1.40e-07 2.00e+02  -3.8 1.36e-03    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  3.8174715e-04 2.74e-11 1.60e-03  -3.8 1.69e-05   2.0 1.00e+00 1.00e+00h  1
+  31  3.8005323e-04 8.53e-08 2.00e+02  -3.8 1.14e-03    -  1.00e+00 1.00e+00h  1
+  32  3.8002863e-04 6.54e-08 1.00e+02  -3.8 1.29e-03    -  1.00e+00 5.00e-01h  2
+  33  3.8018951e-04 4.31e-11 9.34e-04  -3.8 2.12e-05   1.5 1.00e+00 1.00e+00h  1
+  34  3.7952437e-04 2.92e-08 2.00e+02  -4.0 4.76e-04    -  1.00e+00 1.00e+00h  1
+  35  3.7974969e-04 2.27e-08 1.00e+02  -4.0 1.07e-03    -  1.00e+00 5.00e-01h  2
+  36  3.7960663e-04 1.78e-10 2.00e+02  -4.0 4.29e-05   1.0 1.00e+00 1.00e+00h  1
+  37  3.7982501e-04 1.33e-08 2.00e+02  -4.0 4.39e-04    -  1.00e+00 1.00e+00h  1
+  38  3.7944012e-04 1.88e-10 2.00e+02  -4.0 4.47e-05   1.4 1.00e+00 1.00e+00h  1
+  39  3.7947004e-04 1.70e-10 2.50e+01  -4.0 7.32e-05    -  1.00e+00 1.25e-01h  4
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  3.7945596e-04 6.85e-11 1.25e+01  -4.0 3.57e-05    -  1.00e+00 5.00e-01h  2
+  41  3.7952571e-04 1.88e-11 4.89e-04  -4.0 1.49e-05    -  1.00e+00 1.00e+00h  1
+  42  3.7954127e-04 3.32e-13 1.22e-04  -4.0 2.45e-06    -  1.00e+00 1.00e+00h  1
+  43  3.7954169e-04 2.56e-14 4.08e-05  -4.0 8.15e-07    -  1.00e+00 1.00e+00h  1
+  44  3.7954173e-04 2.83e-15 1.36e-05  -4.0 2.72e-07    -  1.00e+00 1.00e+00h  1
+  45  3.7954173e-04 3.61e-16 4.53e-06  -4.0 9.06e-08    -  1.00e+00 1.00e+00h  1
+  46  3.7954173e-04 3.33e-16 1.51e-06  -4.0 3.02e-08    -  1.00e+00 1.00e+00h  1
+  47  3.7954173e-04 3.33e-16 5.03e-07  -4.0 1.01e-08    -  1.00e+00 1.00e+00h  1
+  48  3.7954173e-04 3.33e-16 1.68e-07  -4.0 3.36e-09    -  1.00e+00 1.00e+00h  1
+  49  3.7954173e-04 2.22e-16 5.59e-08  -4.0 1.12e-09    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  3.7954173e-04 2.22e-16 1.86e-08  -4.0 3.73e-10    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 50
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.7954173042072553e-04    3.7954173042072553e-04
+Dual infeasibility......:   1.8644174365404396e-08    1.8644174365404396e-08
+Constraint violation....:   2.2204460492503131e-16    2.2204460492503131e-16
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0000000000000003e-04    1.0000000000000003e-04
+Overall NLP error.......:   1.8644174365404396e-08    1.8644174365404396e-08
+
+
+Number of objective function evaluations             = 71
+Number of objective gradient evaluations             = 51
+Number of equality constraint evaluations            = 71
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 51
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 50
+Total seconds in IPOPT                               = 14.868
+
+EXIT: Maximum Number of Iterations Exceeded.</code></pre><p>The above output comes from the Ipopt.jl solver. The problem&#39;s trajectory has been updated with the solution. We can see the final control amplitudes and the final unitary by accessing the <code>a</code> and <code>Ũ⃗</code> fields of the trajectory.</p><pre><code class="language-julia hljs">size(prob.trajectory.a) |&gt; println
 size(prob.trajectory.Ũ⃗) |&gt; println</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(2, 50)
 (8, 50)</code></pre><p>The <code>Ũ⃗</code> field is a vectorized representation of the unitary, which we can convert back to a matrix using the <code>iso_vec_to_operator</code> function exported by PiccoloQuantumObjects.jl.</p><pre><code class="language-julia hljs">iso_vec_to_operator(prob.trajectory.Ũ⃗[:, end]) |&gt; pretty_print</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×2 Matrix{ComplexF64}:
- -0.00714119-0.00461669im    0.0126401-1.00002im
-  -0.0126401-1.00002im     -0.00714119+0.00461669im</code></pre><p>To see the final fidelity we can use the <code>unitary_rollout_fidelity</code> function exported by QuantumCollocation.jl.</p><pre><code class="language-julia hljs">println(&quot;Final fidelity: &quot;, unitary_rollout_fidelity(prob.trajectory, system))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Final fidelity: 0.9997695315797877</code></pre><p>We can also easily plot the solutions using the <code>plot</code> function exported by NamedTrajectories.jl.</p><pre><code class="language- hljs">plot(prob.trajectory, [:Ũ⃗, :a])</code></pre><h2 id="Minimum-Time-Problems"><a class="docs-heading-anchor" href="#Minimum-Time-Problems">Minimum Time Problems</a><a id="Minimum-Time-Problems-1"></a><a class="docs-heading-anchor-permalink" href="#Minimum-Time-Problems" title="Permalink"></a></h2><p>We can also easily set up and solve a minimum time problem, where we enforce a constraint on the final fidelity:</p><p class="math-container">\[\mathcal{F}(U_T, U_{\text{goal}}) \geq \mathcal{F}_{\text{min}}\]</p><p>Using the problem we just solved we can do the following:</p><pre><code class="language- hljs"># final fidelity constraint
+ -3.39113e-5-1.89912e-5im  -1.59158e-7-1.0im
+  1.59158e-7-1.0im         -3.39113e-5+1.89912e-5im</code></pre><p>To see the final fidelity we can use the <code>unitary_rollout_fidelity</code> function exported by QuantumCollocation.jl.</p><pre><code class="language-julia hljs">println(&quot;Final fidelity: &quot;, unitary_rollout_fidelity(prob.trajectory, system))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Final fidelity: 0.9999999984893322</code></pre><p>We can also easily plot the solutions using the <code>plot</code> function exported by NamedTrajectories.jl.</p><pre><code class="language- hljs">plot(prob.trajectory, [:Ũ⃗, :a])</code></pre><h2 id="Minimum-Time-Problems"><a class="docs-heading-anchor" href="#Minimum-Time-Problems">Minimum Time Problems</a><a id="Minimum-Time-Problems-1"></a><a class="docs-heading-anchor-permalink" href="#Minimum-Time-Problems" title="Permalink"></a></h2><p>We can also easily set up and solve a minimum time problem, where we enforce a constraint on the final fidelity:</p><p class="math-container">\[\mathcal{F}(U_T, U_{\text{goal}}) \geq \mathcal{F}_{\text{min}}\]</p><p>Using the problem we just solved we can do the following:</p><pre><code class="language- hljs"># final fidelity constraint
 final_fidelity = 0.99
 
 min_time_prob = UnitaryMinimumTimeProblem(prob, system; final_fidelity = final_fidelity)
@@ -47,4 +154,4 @@ println(&quot;Minimum duration:  &quot;, min_time_duration)
 println(&quot;Duration decrease: &quot;, initial_duration - min_time_duration)
 
 # We can also plot the solutions for the minimum time problem, and see that the control amplitudes saturate the bound.
-plot(min_time_prob.trajectory, [:Ũ⃗, :a])</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../multilevel_transmon/">Multilevel Transmon »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.1 on <span class="colophon-date" title="Sunday 16 March 2025 06:50">Sunday 16 March 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(min_time_prob.trajectory, [:Ũ⃗, :a])</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../multilevel_transmon/">Multilevel Transmon »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.0 on <span class="colophon-date" title="Monday 12 May 2025 16:43">Monday 12 May 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
