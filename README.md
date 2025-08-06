@@ -90,10 +90,9 @@ julia --project=docs
 > servedocs(literate_dir="docs/literate", skip_dirs=["docs/src/generated", "docs/src/assets/"], skip_files=["docs/src/index.md"])
 ```
 
-## NOTE:
-servedocs needs to watch a subset of the files in the `docs/` folder. If it watches files that are generated on a docs build/re-build, servedocs will continuously try to reserve the pages.
-
-To prevent this, ensure all generated files are included in the skip dirs or skip files args for servedocs.
+> **Note:** `servedocs` needs to watch a subset of the files in the `docs/` folder. If it watches files that are generated on a docs build/re-build, `servedocs` will continuously try to reserve the pages.
+> 
+> To prevent this, ensure all generated files are included in the skip dirs or skip files args for `servedocs`.
 
 For example, if we forget index.md like so:
 ```
