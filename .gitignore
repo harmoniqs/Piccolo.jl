@@ -20,6 +20,8 @@ docs/clones/
 docs/out/
 docs/src/generated/
 
+docs/src/assets/
+
 # Build artifact for using README as index (probably shouldn't have this checked into version control)
 docs/src/index.md
 
