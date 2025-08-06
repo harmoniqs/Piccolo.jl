@@ -9,7 +9,7 @@ pages = [
     "Release Notes" => "release_notes.md",
 ]
 
-include("util.jl")
+include("utils.jl")
 
 generate_docs(
     @__DIR__,
