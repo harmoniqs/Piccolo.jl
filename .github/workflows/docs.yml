@@ -31,10 +31,10 @@ jobs:
           ref: ${{ env.DOC_TEMPLATE_VERSION }}
           path: doc_template_temp
           fetch-depth: 1
-      - name: Copy util.jl from doc_template
+      - name: Copy utils.jl from doc_template
         run: |
           ls
-          cp ./doc_template_temp/util.jl ./docs/util.jl
+          cp ./doc_template_temp/utils.jl ./docs/utils.jl
           rm -rf ./Piccolo.jl/doc_template_temp
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
