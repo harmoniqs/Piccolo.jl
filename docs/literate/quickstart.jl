@@ -25,6 +25,7 @@ we can do the following:
 
 =#
 
+using CairoMakie
 using Piccolo
 
 ## set time parameters
@@ -43,7 +44,7 @@ U_goal = GATES.X
 
 ## set bounds on the drive
 a_bound = 0.2
-dda_bound = 0.1
+dda_bound = 5.0
 
 ## build the problem
 prob = UnitarySmoothPulseProblem(
@@ -88,7 +89,7 @@ plot(prob.trajectory, [:Ũ⃗, :a])
 ## final fidelity constraint
 final_fidelity = 0.99
 
-min_time_prob = UnitaryMinimumTimeProblem(prob, system; final_fidelity = final_fidelity)
+min_time_prob = UnitaryMinimumTimeProblem(prob, U_goal; final_fidelity = final_fidelity)
 
 solve!(min_time_prob; max_iter = 50)
 

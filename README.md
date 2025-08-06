@@ -73,4 +73,26 @@ pkg> add Piccolo
 
 -----
 
+### Building Documentation
+This package uses a Documenter config that is shared with many of our other repositories. To build the docs, you will need to run the docs setup script to clone and pull down the utility. 
+```
+# first time only
+./docs/get_docs_utils.sh   # or ./get_docs_utils.sh if cwd is in ./docs/
+```
+
+To build the docs pages:
+```
+julia --project=docs docs/make.jl
+```
+
+or editing the docs live:
+```
+julia --project=docs
+> using LiveServer, Piccolo, Revise
+> servedocs(literate_dir="docs/literate", skip_dir="docs/src/generated")
+```
+
+## NOTE:
+There is a bug with LiveServer and servedocs here where if: `<insert explanation here>` the the serve keeps trying to re-build and re-deploy the docs.
+
 *"Technologies are ways of commandeering nature: the sky belongs to those who know how to fly; the sea belongs to those who know how to swim and navigate." – Simone de Beauvoir*
