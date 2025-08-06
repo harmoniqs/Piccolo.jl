@@ -20,10 +20,10 @@ jobs:
     env:
       DOC_TEMPLATE_VERSION: "v0.1.1"  # Change this to the specific tag version you want
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
       - name: Checkout doc_template repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: harmoniqs/doc_template
           ref: ${{ env.DOC_TEMPLATE_VERSION }}
