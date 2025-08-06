@@ -21,9 +21,7 @@ jobs:
       DOC_TEMPLATE_VERSION: "v0.1.1"  # Change this to the specific tag version you want
     steps:
       - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
-        with:
-          version: '1'
+      - uses: julia-actions/setup-julia@v2
       - name: Checkout doc_template repository
         uses: actions/checkout@v2
         with:
@@ -35,6 +33,7 @@ jobs:
         run: |
           cp ./doc_template_temp/utils.jl ./docs/utils.jl
           rm -rf ./doc_template_temp
+      - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         env:
