@@ -18,7 +18,7 @@ jobs:
       contents: write
       statuses: write
     env:
-      DOC_TEMPLATE_VERSION: "v0.1.0"  # Change this to the specific tag version you want
+      DOC_TEMPLATE_VERSION: "v0.1.1"  # Change this to the specific tag version you want
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
@@ -33,8 +33,9 @@ jobs:
           fetch-depth: 1
       - name: Copy util.jl from doc_template
         run: |
-          cp doc_template_temp/util.jl ./docs/util.jl
-          rm -rf doc_template_temp
+          pwd
+          cp ./Piccolo.jl/doc_template_temp/util.jl ./Piccolo.jl/docs/util.jl
+          rm -rf ./Piccolo.jl/doc_template_temp
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         env:
