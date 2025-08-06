@@ -21,10 +21,6 @@ generate_docs(
     "Piccolo",
     Piccolo,
     pages;
-    format_kwargs = (
-        canonical = "https://docs.harmoniqs.co/Piccolo.jl",
-    ),
-    makedocs_kwargs = (
-        draft = true,
-    ),
+    format_kwargs = (canonical = "https://docs.harmoniqs.co/Piccolo.jl",),
+    makedocs_kwargs = (draft = true,),
 )
