@@ -71,8 +71,6 @@ This package is registered! To install enter the Julia REPL, type `]` to enter p
 pkg> add Piccolo
 ```
 
------
-
 ### Building Documentation
 This package uses a Documenter config that is shared with many of our other repositories. To build the docs, you will need to run the docs setup script to clone and pull down the utility. 
 ```
@@ -89,10 +87,22 @@ or editing the docs live:
 ```
 julia --project=docs
 > using LiveServer, Piccolo, Revise
-> servedocs(literate_dir="docs/literate", skip_dir="docs/src/generated")
+> servedocs(literate_dir="docs/literate", skip_dirs=["docs/src/generated", "docs/src/assets/"], skip_files=["docs/src/index.md"])
 ```
 
 ## NOTE:
-There is a bug with LiveServer and servedocs here where if: `<insert explanation here>` the the serve keeps trying to re-build and re-deploy the docs.
+servedocs needs to watch a subset of the files in the `docs/` folder. If it watches files that are generated on a docs build/re-build, servedocs will continuously try to reserve the pages.
+
+To prevent this, ensure all generated files are included in the skip dirs or skip files args for servedocs.
+
+For example, if we forget index.md like so:
+```
+julia --project=docs
+> using LiveServer, Piccolo, Revise
+> servedocs(literate_dir="docs/literate", skip_dirs=["docs/src/generated", "docs/src/assets/"])
+```
+it will not build and serve.
+
+-----
 
 *"Technologies are ways of commandeering nature: the sky belongs to those who know how to fly; the sea belongs to those who know how to swim and navigate." – Simone de Beauvoir*
