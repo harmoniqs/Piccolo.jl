@@ -33,7 +33,6 @@ jobs:
           fetch-depth: 1
       - name: Copy utils.jl from doc_template
         run: |
-          ls
           cp ./doc_template_temp/utils.jl ./docs/utils.jl
           rm -rf ./Piccolo.jl/doc_template_temp
       - uses: julia-actions/julia-buildpkg@v1
