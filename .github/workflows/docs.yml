@@ -1,0 +1,47 @@
+name: Documentation
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags: ['*']
+concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+jobs:
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
+    env:
+      DOC_TEMPLATE_VERSION: "v0.1.0"  # Change this to the specific tag version you want
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1'
+      - name: Checkout doc_template repository
+        uses: actions/checkout@v2
+        with:
+          repository: harmoniqs/doc_template
+          ref: ${{ env.DOC_TEMPLATE_VERSION }}
+          path: doc_template_temp
+          fetch-depth: 1
+      - name: Copy util.jl from doc_template
+        run: |
+          cp doc_template_temp/util.jl ./docs/util.jl
+          rm -rf doc_template_temp
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-docdeploy@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          julia --project=docs -e '
+            using Documenter: DocMeta, doctest
+            using Piccolo
+            DocMeta.setdocmeta!(Piccolo, :DocTestSetup, :(using Piccolo); recursive=true)
+            doctest(Piccolo)'
