@@ -24,25 +24,13 @@ fi
 # Temporary directory for cloning
 TEMP_DIR="$PROJECT_ROOT/doc_template_temp"
 DOCS_DIR="$PROJECT_ROOT/docs"
-UTILS_TARGET="$DOCS_DIR/utils.jl"
-
-# Clean up any existing temporary directory
-if [[ -d "$TEMP_DIR" ]]; then
-    rm -rf "$TEMP_DIR"
-fi
 
 # Clone the repository
-echo "Cloning harmoniqs/doc_template at version $DOC_TEMPLATE_VERSION"
-# Suppress detached HEAD warning by redirecting stderr and filtering out the warning
-if ! git clone --quiet --depth 1 --branch "$DOC_TEMPLATE_VERSION" "https://github.com/harmoniqs/doc_template.git" "$TEMP_DIR" >/dev/null 2>&1; then
-    echo "Failed to clone repository at version $DOC_TEMPLATE_VERSION"
-    exit 1
-fi
+echo "Grabbing PiccoloDocsTemplate at version $DOC_TEMPLATE_VERSION"
+julia --project="$PROJECT_ROOT/docs" -e "
+using Pkg
+Pkg.activate(\"docs\")
+Pkg.add(url=\"https://github.com/harmoniqs/PiccoloDocsTemplate.jl\", rev=\"$DOC_TEMPLATE_VERSION\")
+Pkg.instantiate()"
 
-
-UTILS_SOURCE="$TEMP_DIR/utils.jl"
-
-cp "$UTILS_SOURCE" "$UTILS_TARGET"
-rm -rf "$TEMP_DIR"
-
-echo "Successfully updated docs/utils.jl with version $DOC_TEMPLATE_VERSION"
+echo "Successfully updated PiccoloDocsTemplate with version $DOC_TEMPLATE_VERSION"

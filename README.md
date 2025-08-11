@@ -72,7 +72,7 @@ pkg> add Piccolo
 ```
 
 ### Building Documentation
-This package uses a Documenter config that is shared with many of our other repositories. To build the docs, you will need to run the docs setup script to clone and pull down the utility. 
+This package uses a Documenter config that is shared with many of our other repositories. To build the docs, you will need to run the docs setup script to clone and pull down the template. 
 ```
 # first time only
 ./docs/get_docs_utils.sh   # or ./get_docs_utils.sh if cwd is in ./docs/

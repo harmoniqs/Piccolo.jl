@@ -18,21 +18,18 @@ jobs:
       contents: write
       statuses: write
     env:
-      DOC_TEMPLATE_VERSION: "v0.1.1"  # Change this to the specific tag version you want
+      DOC_TEMPLATE_VERSION: "v0.2.0"  # Change this to the specific tag version you want
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
-      - name: Checkout doc_template repository
-        uses: actions/checkout@v4
-        with:
-          repository: harmoniqs/doc_template
-          ref: ${{ env.DOC_TEMPLATE_VERSION }}
-          path: doc_template_temp
-          fetch-depth: 1
-      - name: Copy utils.jl from doc_template
+      - name: Use Documentation Template
         run: |
-          cp ./doc_template_temp/utils.jl ./docs/utils.jl
-          rm -rf ./doc_template_temp
+          echo "Using documentation template version: $DOC_TEMPLATE_VERSION"
+          julia --project=docs -e "
+            using Pkg
+            Pkg.activate(\"docs\")
+            Pkg.add(url=\"https://github.com/harmoniqs/PiccoloDocsTemplate.jl\", rev=\"$DOC_TEMPLATE_VERSION\")
+            Pkg.instantiate()"
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
