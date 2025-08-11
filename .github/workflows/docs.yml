@@ -22,11 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
+      - uses: julia-actions/cache@v2
       - name: Use Documentation Template
         run: |
           echo "Using documentation template version: $DOC_TEMPLATE_VERSION"
           julia --project=docs -e 'using Pkg; Pkg.add(url="https://github.com/harmoniqs/PiccoloDocsTemplate.jl", rev="${{ env.DOC_TEMPLATE_VERSION }}")'
-      - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         env:
