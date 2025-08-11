@@ -48,6 +48,12 @@ window.MathJax = {
         "\\)"
       ]
     ],
+    "macros": {
+      "minimize": [
+        "\\underset{#1}{\\operatorname{minimize}}",
+        1
+      ]
+    },
     "tags": "ams"
   },
   "loader": {
