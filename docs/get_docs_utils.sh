@@ -29,10 +29,6 @@ if [[ -z "$DOC_TEMPLATE_VERSION" ]]; then
     exit 1
 fi
 
-# Temporary directory for cloning
-TEMP_DIR="$PROJECT_ROOT/doc_template_temp"
-DOCS_DIR="$PROJECT_ROOT/docs"
-
 # Clone the repository
 echo "Grabbing PiccoloDocsTemplate at version $DOC_TEMPLATE_VERSION"
 julia --project="$PROJECT_ROOT/docs" -e "
