@@ -25,8 +25,7 @@ jobs:
       - uses: julia-actions/cache@v2
       - name: Use Documentation Template
         run: |
-          echo "Using documentation template version: $DOC_TEMPLATE_VERSION"
-          julia --project=docs -e 'using Pkg; Pkg.add(url="https://github.com/harmoniqs/PiccoloDocsTemplate.jl", rev="${{ env.DOC_TEMPLATE_VERSION }}")'
+          ./docs/get_docs_utils.sh ${{ env.DOC_TEMPLATE_VERSION }}
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         env:
