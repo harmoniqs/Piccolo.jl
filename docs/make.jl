@@ -3,10 +3,10 @@ using PiccoloDocsTemplate
 
 pages = [
     "Home" => "index.md",
-    # "Quickstart" => "generated/quickstart.md",
+    "Quickstart" => "generated/quickstart.md",
     "Features" => "generated/features.md",
     "Other Considerations" => "generated/other.md",
-    # "Examples" => ["generated/multilevel_transmon.md"],
+    "Examples" => ["generated/multilevel_transmon.md"],
     "Contribution Guide" => "contribution_guide.md",
     "Release Notes" => "release_notes.md",
 ]
