@@ -13,7 +13,7 @@ concurrency:
 jobs:
   docs:
     name: Documentation
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       statuses: write
