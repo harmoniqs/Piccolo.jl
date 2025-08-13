@@ -10,7 +10,7 @@ General overview of the workflow to use this package:
 4. Do one of the following:
 
     a. Build an optimization problem using initial trajectory, Objectives, Constraints+Dynamics, Initialization
-
+    
     b. Use a problem template to quickly set up a problem
 
 5. Solve and get trajectory
@@ -19,6 +19,8 @@ General overview of the workflow to use this package:
 # ### Some Basic Systems
 # Building a hamiltonian
 using Piccolo
+
+
 
 # Annihilation, creation, number operators
 # [Link to operators]
