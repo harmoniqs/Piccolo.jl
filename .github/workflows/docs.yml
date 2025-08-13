@@ -13,7 +13,8 @@ concurrency:
 jobs:
   docs:
     name: Documentation
-    runs-on: self-hosted
+    runs-on:
+      group: harmoniqs-sysimage-runners
     permissions:
       contents: write
       statuses: write
