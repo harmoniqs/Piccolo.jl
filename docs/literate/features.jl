@@ -20,7 +20,12 @@ General overview of the workflow to use this package:
 # Building a hamiltonian
 using Piccolo
 
-
+# We can build a hamiltonian from operators, e.g. the Pauli operators, creation/annihilation operators, etc.
+# They are defined in the `PiccoloQuantumObjects.Gates.PAULIS` NamedTuple and `PiccoloQuantumObjects.QuantumObjectUtils` module.
+#md # ```@docs
+#md # Piccolo.Gates.PAULIS
+#md # Piccolo.QuantumObjectUtils
+#md # ```
 
 # Annihilation, creation, number operators
 # [Link to operators]
