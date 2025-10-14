@@ -1,7 +1,10 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+DocumenterInterLinks = "d12716ef-a0f6-4df4-a9f1-a5a34e75c656"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
 Piccolo = "c4671d76-df94-11ed-2057-43d4fd632fad"
 PiccoloDocsTemplate = "a90a139f-c522-4b23-980b-4210ddb8d065"
+PiccoloQuantumObjects = "5a402ddf-f93c-42eb-975e-5582dcda653d"
+QuantumCollocation = "0dc23a59-5ffb-49af-b6bd-932a8ae77adf"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
