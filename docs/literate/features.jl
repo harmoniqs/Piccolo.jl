@@ -12,12 +12,10 @@ General overview of the Piccolo.jl workflow:
 2. Create a `QuantumSystem` from the Hamiltonian
 3. Define a target unitary (or state)
 4. Do one of the following:
-
     a. Build an optimization problem using initial trajectory, Objectives, Constraints+Dynamics, Initialization
-
     b. Use a problem template to quickly set up a problem
 
-5. Solve and get trajectory
+5. Finally, solve and get trajectory/pulse
 =#
 
 # ### Some Basic Systems
@@ -29,27 +27,23 @@ using SparseArrays
 #=
 ```@docs; canonical = false
 PAULIS
+create
+annihilate
 ```
 =#
 PAULIS.X
 
-# Annihilation, creation operators are defined in the following
-#=
-```@docs; canonical = false;
-PiccoloQuantumObjects.QuantumObjectUtils.create
-PiccoloQuantumObjects.QuantumObjectUtils.annihilate
-```
-=#
 # Number operator (on 3 level qubit) is just:
-number_op = create(3) * annihilate(3)
+number_op =  create(3) * annihilate(3)
 number_op
 
 # Build single qubit system from paper
+# ## TODO
 
 # Build two qubit system from paper
 levels = [2, 2]
 
-a = sparse(lift_operator(annihilate(levels[1]), 1, levels))
+a = sparse(lift_operator(create(levels[1]), 1, levels))
 b = sparse(lift_operator(create(levels[2]), 2, levels))
 
 g = 0.1 * 2 * π # 100 MHz
@@ -71,13 +65,13 @@ system = QuantumSystem(H_drift, H_drives)
 # Build multilevel_transmon example from QC docs
 levels = 5
 
-a = sparse(annihilate(levels)) # no lift operator required here as there is only one qubit
+a = sparse(create(levels)) # no lift operator required here as there is only one qubit
 
 ω = 4.0 # 4 GHz
 δ = 0.2 # 0.2 GHz
 
 function single_qubit_5_level_transmon()
-    H_drift = ω * a' * a - δ / 2 * a' * a * a' * a  # duffing lab frame
+    H_drift = -δ / 2 * a' * a' * a * a  # rotating frame
     H_drives = [
         a + a',
         im * (a - a')
@@ -97,7 +91,7 @@ TransmonSystem
 =#
 
 system = TransmonSystem(levels=levels, δ=δ)
-system.params
+system
 
 # Build three qubit system from paper
 # Build Cat system (TODO: (aaron) write about this)
