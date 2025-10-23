@@ -2,7 +2,7 @@
 <div align="center">
   <a href="https://github.com/harmoniqs/Piccolo.jl">
     <img src="assets/piccolo_logo.svg" alt="Piccolo.jl" width="25%"/>
-  </a> 
+  </a>
 </div>
 
 <div align="center">
@@ -66,13 +66,16 @@ using Piccolo
 ```
 
 ### Installation
-This package is registered! To install enter the Julia REPL, type `]` to enter pkg mode, activate your environment `activate`, and then run 
+This package is registered! To install enter the Julia REPL, type `]` to enter pkg mode, activate your environment `activate`, and then run
 ```Julia
 pkg> add Piccolo
 ```
 
+<!--### [Getting Started](@ref Main.features)-->
+Check out the walkthrough on our features page
+
 ### Building Documentation
-This package uses a Documenter config that is shared with many of our other repositories. To build the docs, you will need to run the docs setup script to clone and pull down the template. 
+This package uses a Documenter config that is shared with many of our other repositories. To build the docs, you will need to run the docs setup script to clone and pull down the utility.
 ```
 # first time only
 ./docs/get_docs_utils.sh   # or ./get_docs_utils.sh if cwd is in ./docs/
@@ -91,7 +94,7 @@ julia --project=docs
 ```
 
 > **Note:** `servedocs` needs to watch a subset of the files in the `docs/` folder. If it watches files that are generated on a docs build/re-build, `servedocs` will continuously try to re-serve the pages.
-> 
+>
 > To prevent this, ensure all generated files are included in the skip dirs or skip files args for `servedocs`.
 
 For example, if we forget index.md like so:
