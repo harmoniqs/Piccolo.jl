@@ -71,8 +71,9 @@ This package is registered! To install enter the Julia REPL, type `]` to enter p
 pkg> add Piccolo
 ```
 
-<!--### [Getting Started](@ref Main.features)-->
-Check out the walkthrough on our features page
+<!--### Getting Started-->
+- Check out a basic example and walkthrough on our [quickstart page](https://docs.harmoniqs.co/Piccolo/dev/generated/quickstart/)
+- Check out full feature listing, guide, and examples on our [features page](https://docs.harmoniqs.co/Piccolo/dev/generated/features/)
 
 ### Building Documentation
 This package uses a Documenter config that is shared with many of our other repositories. To build the docs, you will need to run the docs setup script to clone and pull down the utility.

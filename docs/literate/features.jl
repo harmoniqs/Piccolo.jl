@@ -2,10 +2,18 @@
 # CollapsedDocStrings = true
 # ```
 
-# Feature Listing
+# # Features
+# Please use the sidebar and the table of contents below to navigate this long single page
+# This page's goal is to provide a repository for commonly used features and usage patterns
+# that users frequently use.
+#=
+```@contents
+Pages = ["features.md"]
+Depth = 2:3
+```
+=#
 
-# ## Quantum Systems
-
+# ## General Overview
 #=
 General overview of the Piccolo.jl workflow:
 1. Define a Hamiltonian (drift and drive)
@@ -18,7 +26,8 @@ General overview of the Piccolo.jl workflow:
 5. Finally, solve and get trajectory/pulse
 =#
 
-# ### Some Basic Systems
+# ## Quantum Systems
+# ### Systems Basics
 # Building a hamiltonian
 using Piccolo
 using SparseArrays
@@ -31,24 +40,42 @@ create
 annihilate
 ```
 =#
-PAULIS.X
 
-# Number operator (on 3 level qubit) is just:
+# Number operator (on a 3-level qutrit) is just:
 number_op =  create(3) * annihilate(3)
 number_op
 
-# Build single qubit system from paper
-# ## TODO
+# Pauli X, Y, Z, I are also defined there
+PAULIS.Y
 
-# Build two qubit system from paper
+# Operators often act on certain subsystems, specific qubits, or on specific subspaces in the system.
+# Placing them correctly can be done via the [`lift_operator`](@extref PiccoloQuantumObjects.QuantumSystems.lift_operator) function
+
+# Example: lifting the Pauli X to act on the second qubit of a 2, 2 level quantum system. Equivalent to the below
+#=
+```math
+I \otimes X = \begin{bmatrix} 0 & 1 & 0 & 0 \\ 1 & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \\ 0 & 0 & 1 & 0 \end{bmatrix}
+```
+=#
 levels = [2, 2]
+sparse(lift_operator(PAULIS.X, 2, levels))
+
+# For systems with more levels, its as simple as defining the number of levels for each subsystem, and then placing the operator on
+# the right subsystem.
+levels = [2, 3]
+sparse(lift_operator(create(levels[2]), 2, levels))
+
+# ### Example multi-qudit system
+# Here are 2 qudits with 5 levels.
+# We use [`lift_operator`](@extref PiccoloQuantumObjects.QuantumSystems.lift_operator) to place the operator for each respective subsystem into a sparse matrix.
+levels = [5, 5]
 
 a = sparse(lift_operator(create(levels[1]), 1, levels))
 b = sparse(lift_operator(create(levels[2]), 2, levels))
 
 g = 0.1 * 2 * π # 100 MHz
 
-function two_qubit_2_2_level_system()
+function my_system()
     H_drift = g * (a'a) * (b'b)
     H_drives = [
         a + a',
@@ -59,18 +86,19 @@ function two_qubit_2_2_level_system()
     return [H_drift, H_drives]
 end
 
-H_drift, H_drives = two_qubit_2_2_level_system()
+H_drift, H_drives = my_system()
 system = QuantumSystem(H_drift, H_drives)
 
-# Build multilevel_transmon example from QC docs
+# ### Example multi-level transmon system
+# As in the [multilevel_transmon example from the QC docs](@extref generated/examples/multilevel_transmon)
 levels = 5
 
-a = sparse(create(levels)) # no lift operator required here as there is only one qubit
+a = sparse(create(levels)) # no lift operator required here as there is only one qudit
 
 ω = 4.0 # 4 GHz
 δ = 0.2 # 0.2 GHz
 
-function single_qubit_5_level_transmon()
+function single_5_level_transmon()
     H_drift = -δ / 2 * a' * a' * a * a  # rotating frame
     H_drives = [
         a + a',
@@ -79,7 +107,7 @@ function single_qubit_5_level_transmon()
     return [H_drift, H_drives]
 end
 
-H_drift, H_drives = single_qubit_5_level_transmon()
+H_drift, H_drives = single_5_level_transmon()
 system = QuantumSystem(H_drift, H_drives)
 
 # or you could use one of our built-in systems like [`TransmonSystem`](@extref QuantumCollocation.QuantumSystemTemplates.TransmonSystem)
@@ -89,20 +117,33 @@ system = QuantumSystem(H_drift, H_drives)
 TransmonSystem
 ```
 =#
-
+levels = 5 # hide
 system = TransmonSystem(levels=levels, δ=δ)
-system
 
-# Build three qubit system from paper
-# Build Cat system (TODO: (aaron) write about this)
+# ### (TODO) Example: Build three qubit system from paper
 
-# ### Time-dependent Systems
-# Example of defining hamiltonian as lambda,
-# shortcuts for carrier waves and offets -> special constructor
+# ### (TODO) Example: Build Cat system (TODO: (aaron) write about this)
+
+# ### Example: Time-dependent Systems
+# You can define Hamiltonians that are dependent on time as well and pass them into the [`QuantumSystems`](@extref PiccoloQuantumObjects.QuantumSystems) constructor.
+# For example, this hamiltonian:
+#=
+```math
+H(a, t) = Z + a_1 \cos \left( t \right)\, X
+```
+=#
+H(a, t) = PAULIS.Z + a[1] * cos(t) * PAULIS.X
+n_drives = 1  # our `a` vector has one element
+TimeDependentQuantumSystem(H, n_drives)
+
+# See more on the PiccoloQuantumObjects [Time-dependent quantum systems examples](@extref Time-Dependent-Quantum-Systems)
+
+# ### (TODO: Gennadi) shortcuts for carrier waves and offets -> special constructor
 # for time-dependent systems
 
 # ### Open Systems
 # From PQO can rip example
+
 
 # ### Composite systems
 # From PQO can rip example - fix up wording? (TODO (andy) review wording)
@@ -144,7 +185,7 @@ QuantumCollocation.TrajectoryInitialization.unitary_linear_interpolation
 ```
 =#
 
-# more on interpolations [here](@extref NamedTrajectories.trajectory_interpolation)
+# more on interpolations [here](@extref NamedTrajectories.MethodsNamedTrajectory.trajectory_interpolation)
 
 # ## Hamiltonian construction + limitations
 
