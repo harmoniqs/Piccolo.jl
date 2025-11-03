@@ -1,5 +1,25 @@
 pretty_print(X::AbstractMatrix) = Base.show(stdout, "text/plain", X); # Helper function
 
+```
+* compute a rollout with zero controls
+* compute a rollout with random controls
+* compute a fidelity show its bad
+* compute good controls
+    * trajectory initialization
+    * objectives
+    * dynamics (technically constraints)
+    * constraints
+    * note: integrators, [link to integrators]
+    * run solve!
+    * get controls out
+* compute a fidelity show its good
+** note: I use grape for this! [link to more on grape vs Piccolo section]
+
+Build single qubit system from paper
+* skip intermediate steps and use problem template
+* run min-time
+```
+
 #=
 
 # Quickstart Guide
