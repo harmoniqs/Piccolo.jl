@@ -1,4 +1,5 @@
 using Piccolo
+using PiccoloDocsTemplate
 
 pages = [
     "Home" => "index.md",
@@ -7,14 +8,6 @@ pages = [
     "Contribution Guide" => "contribution_guide.md",
     "Release Notes" => "release_notes.md",
 ]
-
-# Check if utils.jl exists and warn if not found
-utils_path = joinpath(@__DIR__, "utils.jl")
-if !isfile(utils_path)
-    error("docs/utils.jl is required but not found. Please run get_docs_utils.sh")
-end
-
-include(utils_path)
 
 generate_docs(
     @__DIR__,
