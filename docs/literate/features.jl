@@ -16,8 +16,8 @@ Depth = 2:3
 # ## General Overview
 #=
 General overview of the Piccolo.jl workflow:
-1. Define a Hamiltonian (drift and drive)
-2. Create a `QuantumSystem` from the Hamiltonian
+1. Define a hamiltonian (drift and drive)
+2. Create a `QuantumSystem` from the hamiltonian
 3. Define a target unitary (or state)
 4. Do one of the following:
     a. Build an optimization problem using initial trajectory, Objectives, Constraints+Dynamics, Initialization
@@ -63,15 +63,15 @@ sparse(lift_operator(PAULIS.X, 2, levels))
 # For systems with more levels, its as simple as defining the number of levels for each subsystem, and then placing the operator on
 # the right subsystem.
 levels = [2, 3]
-sparse(lift_operator(create(levels[2]), 2, levels))
+sparse(lift_operator(annihilate(levels[2]), 2, levels))
 
 # ### Example multi-qudit system
 # Here are 2 qudits with 5 levels.
 # We use [`lift_operator`](@extref PiccoloQuantumObjects.QuantumSystems.lift_operator) to place the operator for each respective subsystem into a sparse matrix.
 levels = [5, 5]
 
-a = sparse(lift_operator(create(levels[1]), 1, levels))
-b = sparse(lift_operator(create(levels[2]), 2, levels))
+a = sparse(lift_operator(annihilate(levels[1]), 1, levels))
+b = sparse(lift_operator(annihilate(levels[2]), 2, levels))
 
 g = 0.1 * 2 * π # 100 MHz
 
@@ -93,7 +93,7 @@ system = QuantumSystem(H_drift, H_drives)
 # As in the [multilevel_transmon example from the QC docs](@extref generated/examples/multilevel_transmon)
 levels = 5
 
-a = sparse(create(levels)) # no lift operator required here as there is only one qudit
+a = sparse(annihilate(levels)) # no lift operator required here as there is only one qudit
 
 ω = 4.0 # 4 GHz
 δ = 0.2 # 0.2 GHz
@@ -125,7 +125,7 @@ system = TransmonSystem(levels=levels, δ=δ)
 # ### (TODO) Example: Build Cat system (TODO: (aaron) write about this)
 
 # ### Example: Time-dependent Systems
-# You can define Hamiltonians that are dependent on time as well and pass them into the [`QuantumSystems`](@extref PiccoloQuantumObjects.QuantumSystems) constructor.
+# You can define hamiltonians that are dependent on time as well and pass them into the [`TimeDependentQuantumSystem`](@extref PiccoloQuantumObjects.QuantumSystems.TimeDependentQuantumSystem) constructor.
 # For example, this hamiltonian:
 #=
 ```math
@@ -136,14 +136,25 @@ H(a, t) = PAULIS.Z + a[1] * cos(t) * PAULIS.X
 n_drives = 1  # our `a` vector has one element
 TimeDependentQuantumSystem(H, n_drives)
 
-# See more on the PiccoloQuantumObjects [Time-dependent quantum systems examples](@extref Time-Dependent-Quantum-Systems)
+# See more on PiccoloQuantumObjects: [Time-dependent quantum systems examples](@extref Time-Dependent-Quantum-Systems)
 
 # ### (TODO: Gennadi) shortcuts for carrier waves and offets -> special constructor
 # for time-dependent systems
 
 # ### Open Systems
-# From PQO can rip example
+# You can define hamiltonians and dissapation operators for open quantum systems defined via Lindblad dynamics
+#=
+```math
+\rho
+```
+=#
 
+H_drives = [PAULIS[:X]]
+a = annihilate(2)
+dissipation_operators = [a'a, a]
+system = OpenQuantumSystem(H_drives, dissipation_operators=dissipation_operators)
+
+# See more on PiccoloQuantumObjects: [Open Quantum Systems](@extref Open-quantum-systems)
 
 # ### Composite systems
 # From PQO can rip example - fix up wording? (TODO (andy) review wording)
