@@ -8,52 +8,200 @@ using SparseArrays
 using Random;
 Random.seed!(123);
 
+using CairoMakie
+
 # define the time parameters
 
 T₀ = 10     # total time in ns
-T = 50      # number of time steps
-Δt = T₀ / T # time step
+N = 50      # number of time steps
+Δt = T₀ / N # time step
 
 # define the system parameters
 levels = 5
 δ = 0.2
 
 # add a bound to the controls
-a_bound = 0.2
-dda_bound = 1.0
+u_bound = [0.2, 0.2]
+ddu_bound = 1.0
 
 # create the system
-sys = TransmonSystem(levels = levels, δ = δ)
+sys = TransmonSystem(drive_bounds = u_bound, levels = levels, δ = δ)
 
-# let&#39;s look at the parameters of the system
-sys.params</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><p>Since this is a multilevel transmon and we want to implement an, let&#39;s say, <span>$X$</span> gate on the qubit subspace, i.e., the first two levels we can utilize the <code>EmbeddedOperator</code> type to define the target operator.</p><pre><code class="language-julia hljs"># define the target operator
+# let&#39;s look at the drives of the system
+get_drives(sys)[1] |&gt; sparse</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5×5 SparseArrays.SparseMatrixCSC{ComplexF64, Int64} with 8 stored entries:
+         ⋅      6.28319+0.0im          ⋅              ⋅              ⋅    
+ 6.28319+0.0im          ⋅      8.88577+0.0im          ⋅              ⋅    
+         ⋅      8.88577+0.0im          ⋅      10.8828+0.0im          ⋅    
+         ⋅              ⋅      10.8828+0.0im          ⋅      12.5664+0.0im
+         ⋅              ⋅              ⋅      12.5664+0.0im          ⋅    </code></pre><p>Since this is a multilevel transmon and we want to implement an, let&#39;s say, <span>$X$</span> gate on the qubit subspace, i.e., the first two levels we can utilize the <code>EmbeddedOperator</code> type to define the target operator.</p><pre><code class="language-julia hljs"># define the target operator
 op = EmbeddedOperator(:X, sys)
 
 # show the full operator
-op.operator |&gt; sparse</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><p>We can then pass this embedded operator to the <code>UnitarySmoothPulseProblem</code> template to create</p><pre><code class="language-julia hljs"># create the problem
-prob = UnitarySmoothPulseProblem(sys, op, T, Δt; a_bound = a_bound, dda_bound = dda_bound)
+op.operator |&gt; sparse</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5×5 SparseArrays.SparseMatrixCSC{ComplexF64, Int64} with 2 stored entries:
+     ⋅      1.0+0.0im      ⋅          ⋅          ⋅    
+ 1.0+0.0im      ⋅          ⋅          ⋅          ⋅    
+     ⋅          ⋅          ⋅          ⋅          ⋅    
+     ⋅          ⋅          ⋅          ⋅          ⋅    
+     ⋅          ⋅          ⋅          ⋅          ⋅    </code></pre><p>We can then pass this embedded operator to the <code>UnitarySmoothPulseProblem</code> template to create</p><pre><code class="language-julia hljs"># create the problem
+prob = UnitarySmoothPulseProblem(sys, op, N, Δt; ddu_bound = ddu_bound)
 
 # solve the problem
-solve!(prob; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language-julia hljs">println(
+load_path =</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing UnitarySmoothPulseProblem...
+	using integrator: typeof(UnitaryIntegrator)
+	control derivative names: [:du, :ddu]
+	applying timesteps_all_equal constraint: Δt</code></pre><pre><code class="language-julia hljs">solve!(prob; max_iter=50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    initializing optimizer...
+    applying constraint: timesteps all equal constraint
+    applying constraint: initial value of Ũ⃗
+    applying constraint: initial value of u
+    applying constraint: final value of u
+    applying constraint: bounds on u
+    applying constraint: bounds on du
+    applying constraint: bounds on ddu
+    applying constraint: bounds on Δt
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.1.
+
+Number of nonzeros in equality constraint Jacobian...:   130578
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:    11223
+
+Total number of variables............................:     2796
+                 variables with only lower bounds:        0
+            variables with lower and upper bounds:      246
+                 variables with only upper bounds:        0
+Total number of equality constraints.................:     2695
+Total number of inequality constraints...............:        0
+    inequality constraints with only lower bounds:        0
+inequality constraints with lower and upper bounds:        0
+    inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+0  6.3299435e-04 9.98e-01 1.21e+01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+
+1  1.7461331e+01 4.87e-01 3.66e+03  -0.6 1.02e+00   2.0 6.32e-01 5.00e-01h  2
+2  1.1690187e+01 1.94e-01 6.11e+03   0.0 9.75e-01   2.4 1.00e+00 6.00e-01h  1
+3  1.0956380e+00 1.36e-01 4.05e+03  -0.3 6.45e-01   2.9 1.00e+00 3.00e-01f  1
+4  3.9110348e+00 1.13e-01 3.98e+03  -1.0 5.07e-01   3.3 1.00e+00 1.68e-01h  1
+
+<...snip...>
+
+ 45  3.3045607e-01 3.45e-06 9.48e-02  -4.0 4.85e-03   0.9 1.00e+00 1.00e+00f  1
+ 46  2.9815119e-01 2.50e-05 8.55e-02  -4.0 1.35e-02   0.4 1.00e+00 1.00e+00h  1
+ 47  2.8948071e-01 3.32e-06 3.25e-02  -4.1 4.88e-03   0.8 1.00e+00 1.00e+00h  1
+ 48  2.5998426e-01 2.55e-05 6.31e-02  -4.0 1.35e-02   0.3 1.00e+00 1.00e+00h  1
+ 49  2.5126499e-01 3.58e-06 2.93e-02  -4.1 4.94e-03   0.8 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 50  2.2337171e-01 2.87e-05 8.86e-02  -4.0 1.34e-02   0.3 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 50
+
+                                  (scaled)                 (unscaled)
+Objective...............:   2.2337171204275508e-01    2.2337171204275508e-01
+Dual infeasibility......:   8.8610846418504252e-02    8.8610846418504252e-02
+Constraint violation....:   2.8712906816219519e-05    2.8712906816219519e-05
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0048178594192366e-04    1.0048178594192366e-04
+Overall NLP error.......:   8.8610846418504252e-02    8.8610846418504252e-02
+
+
+Number of objective function evaluations             = 55
+Number of objective gradient evaluations             = 51
+Number of equality constraint evaluations            = 55
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 51
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 50
+Total seconds in IPOPT                               = 364.464
+
+EXIT: Maximum Number of Iterations Exceeded.
+</code><button class="copy-button fa-solid fa-copy" aria-label="Copy this code block" title="Copy"></button></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language-julia hljs">println(
     &quot;Fidelity: &quot;,
     unitary_rollout_fidelity(prob.trajectory, sys; subspace = op.subspace),
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function.</p><pre><code class="language-julia hljs">plot_unitary_populations(prob.trajectory)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><h2 id="Leakage-suppresion"><a class="docs-heading-anchor" href="#Leakage-suppresion">Leakage suppresion</a><a id="Leakage-suppresion-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppresion" title="Permalink"></a></h2><p>As can be seen from the above plot, there is a substantial amount of leakage into the higher levels during the evolution. To mitigate this, we have implemented the ability to add a cost to populating the leakage levels, in particular this is an <span>$L_1$</span> norm cost, which is implemented via slack variables and should ideally drive those leakage populations down to zero. To implement this, pass <code>leakage_suppresion=true</code> and <code>R_leakage={value}</code> to the <code>UnitarySmoothPulseProblem</code> template.</p><pre><code class="language-julia hljs"># create the a leakage suppression problem, initializing with the previous solution
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.9977791511191532</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function.</p><pre><code class="language-julia hljs">plot_unitary_populations(prob.trajectory; fig_size = (900, 700))</code></pre><img src="d7ff17df.png" alt="Example block output"/><h2 id="Leakage-suppresion"><a class="docs-heading-anchor" href="#Leakage-suppresion">Leakage suppresion</a><a id="Leakage-suppresion-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppresion" title="Permalink"></a></h2><p>As can be seen from the above plot, there is a substantial amount of leakage into the higher levels during the evolution. To mitigate this, we have implemented the ability to add a cost to populating the leakage levels, in particular this is an <span>$L_1$</span> norm cost, which is implemented via slack variables and should ideally drive those leakage populations down to zero. To implement this, pass <code>leakage_suppresion=true</code> and <code>R_leakage={value}</code> to the <code>UnitarySmoothPulseProblem</code> template.</p><pre><code class="language-julia hljs"># create the a leakage suppression problem, initializing with the previous solution
 
 prob_leakage = UnitarySmoothPulseProblem(
     sys,
     op,
-    T,
+    N,
     Δt;
-    a_bound = a_bound,
-    dda_bound = dda_bound,
-    leakage_suppression = true,
-    R_leakage = 1e-1,
-    a_guess = prob.trajectory.a,
+    u_guess = prob.trajectory.u[:, :],
+    piccolo_options = PiccoloOptions(
+        leakage_constraint = true,
+        leakage_constraint_value = 1e-2,
+        leakage_cost = 1e-2,
+    ),
 )
 
 # solve the problem
+load_path = joinpath(
+    dirname(Base.active_project()),
+    &quot;data/multilevel_transmon_example_leakage_0aad72.jld2&quot;,</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing UnitarySmoothPulseProblem...
+	using integrator: typeof(UnitaryIntegrator)
+	control derivative names: [:du, :ddu]
+	applying leakage suppression: Ũ⃗ &lt; 0.01
+	applying timesteps_all_equal constraint: Δt</code></pre><pre><code class="language-julia hljs">solve!(prob_leakage; max_iter=50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    initializing optimizer...
+    applying constraint: timesteps all equal constraint
+    applying constraint: initial value of Ũ⃗
+    applying constraint: initial value of u
+    applying constraint: final value of u
+    applying constraint: bounds on u
+    applying constraint: bounds on du
+    applying constraint: bounds on ddu
+    applying constraint: bounds on Δt
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.1.
 
-solve!(prob_leakage; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language-julia hljs">println(
+Number of nonzeros in equality constraint Jacobian...:   130578
+Number of nonzeros in inequality constraint Jacobian.:    58800
+Number of nonzeros in Lagrangian Hessian.............:   196198
+
+Total number of variables............................:     2796
+                 variables with only lower bounds:        0
+            variables with lower and upper bounds:      246
+                 variables with only upper bounds:        0
+Total number of equality constraints.................:     2695
+Total number of inequality constraints...............:     1200
+    inequality constraints with only lower bounds:        0
+inequality constraints with lower and upper bounds:        0
+    inequality constraints with only upper bounds:     1200
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+0  2.2434810e-01 1.80e-01 2.30e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+1  5.1360583e-01 1.65e-01 1.95e+02  -1.4 7.80e-01   0.0 3.96e-01 1.19e-01h  1
+2  3.3978388e-01 1.50e-01 1.74e+02  -2.6 9.24e-01    -  1.15e-01 1.04e-01h  1
+3  1.5298834e-01 1.41e-01 1.63e+02  -1.4 1.88e+00    -  1.06e-01 6.31e-02f  1
+4  1.7494458e-01 1.29e-01 4.47e+01  -2.1 1.72e+00    -  9.03e-02 8.41e-02h  1
+
+<...snip...>
+
+45  1.5363973e+01 4.82e-03 2.08e+01  -3.7 9.38e-01  -1.3 4.76e-01 1.70e-01h  1
+46  1.5272261e+01 7.92e-03 2.18e+01  -2.5 4.89e+00  -1.8 1.16e-01 9.52e-02f  1
+47  1.5200598e+01 6.91e-03 1.79e+01  -4.0 5.60e-01  -1.4 1.63e-01 1.67e-01h  1
+48  1.5101997e+01 3.17e-03 9.84e+00  -3.3 1.68e-01  -1.0 1.00e+00 5.43e-01h  1
+49  1.5130171e+01 3.72e-03 6.11e+00  -2.4 1.19e+00  -1.4 2.86e-01 3.25e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+50  1.4961267e+01 2.34e-03 2.16e-01  -3.0 2.31e-01  -1.0 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 50
+
+                                 (scaled)                 (unscaled)
+Objective...............:   1.4961267426236368e+01    1.4961267426236368e+01
+Dual infeasibility......:   2.1592831986818251e-01    2.1592831986818251e-01
+Constraint violation....:   2.3390517083278634e-03    2.3390517083278634e-03
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   2.4416293226221632e-03    2.4416293226221632e-03
+Overall NLP error.......:   2.1592831986818251e-01    2.1592831986818251e-01
+
+
+Number of objective function evaluations             = 62
+Number of objective gradient evaluations             = 51
+Number of equality constraint evaluations            = 62
+Number of inequality constraint evaluations          = 62
+Number of equality constraint Jacobian evaluations   = 51
+Number of inequality constraint Jacobian evaluations = 51
+Number of Lagrangian Hessian evaluations             = 50
+Total seconds in IPOPT                               = 352.605
+
+EXIT: Maximum Number of Iterations Exceeded.
+</code><button class="copy-button fa-solid fa-copy" aria-label="Copy this code block" title="Copy"></button></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language-julia hljs">println(
     &quot;Fidelity: &quot;,
     unitary_rollout_fidelity(prob_leakage.trajectory, sys; subspace = op.subspace),
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function from PiccoloPlots.jl</p><pre><code class="language-julia hljs">plot_unitary_populations(prob_leakage.trajectory)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><p>Here we can see that the leakage populations have been driven substantially down.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../quickstart/">« Quickstart</a><a class="docs-footer-nextpage" href="../../contribution_guide/">Contribution Guide »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Monday 3 November 2025 05:00">Monday 3 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.9999981183152394</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function from PiccoloPlots.jl</p><pre><code class="language-julia hljs">plot_unitary_populations(prob_leakage.trajectory)</code></pre><img src="9e07a922.png" alt="Example block output"/><p>Here we can see that the leakage populations have been driven substantially down.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../quickstart/">« Quickstart</a><a class="docs-footer-nextpage" href="../../contribution_guide/">Contribution Guide »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Thursday 6 November 2025 21:52">Thursday 6 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
