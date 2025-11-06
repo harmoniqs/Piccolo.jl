@@ -18,5 +18,4 @@ generate_docs(
     make_literate = true,
     make_assets = true,
     format_kwargs = (canonical = "https://docs.harmoniqs.co/Piccolo.jl",),
-    makedocs_kwargs = (draft = true,),
 )
