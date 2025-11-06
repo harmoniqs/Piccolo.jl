@@ -45,7 +45,7 @@ u_bound = [0.2, 0.2]
 ddu_bound = 1.0
 
 ## create the system
-sys = TransmonSystem(drive_bounds=u_bound, levels=levels, δ=δ)
+sys = TransmonSystem(drive_bounds = u_bound, levels = levels, δ = δ)
 
 ## let's look at the drives of the system
 get_drives(sys)[1] |> sparse
@@ -62,10 +62,11 @@ op.operator |> sparse
 # We can then pass this embedded operator to the `UnitarySmoothPulseProblem` template to create
 
 ## create the problem
-prob = UnitarySmoothPulseProblem(sys, op, N, Δt; ddu_bound=ddu_bound)
+prob = UnitarySmoothPulseProblem(sys, op, N, Δt; ddu_bound = ddu_bound)
 
 ## solve the problem
-load_path = joinpath(dirname(Base.active_project()), "data/multilevel_transmon_example_0aad72.jld2") # hide
+load_path =
+    joinpath(dirname(Base.active_project()), "data/multilevel_transmon_example_0aad72.jld2") # hide
 prob.trajectory = load_traj(load_path) # hide
 nothing # hide
 #=
@@ -147,12 +148,12 @@ EXIT: Maximum Number of Iterations Exceeded.
 
 println(
     "Fidelity: ",
-    unitary_rollout_fidelity(prob.trajectory, sys; subspace=op.subspace),
+    unitary_rollout_fidelity(prob.trajectory, sys; subspace = op.subspace),
 )
 
 # and plot the result using the `plot_unitary_populations` function.
 
-plot_unitary_populations(prob.trajectory; fig_size=(900, 700))
+plot_unitary_populations(prob.trajectory; fig_size = (900, 700))
 
 # ## Leakage suppresion
 # As can be seen from the above plot, there is a substantial amount of leakage into the higher levels during the evolution. To mitigate this, we have implemented the ability to add a cost to populating the leakage levels, in particular this is an $L_1$ norm cost, which is implemented via slack variables and should ideally drive those leakage populations down to zero.
@@ -160,17 +161,24 @@ plot_unitary_populations(prob.trajectory; fig_size=(900, 700))
 
 ## create the a leakage suppression problem, initializing with the previous solution
 
-prob_leakage = UnitarySmoothPulseProblem(sys, op, N, Δt;
-    u_guess=prob.trajectory.u[:, :],
-    piccolo_options=PiccoloOptions(
-        leakage_constraint=true,
-        leakage_constraint_value=1e-2,
-        leakage_cost=1e-2,
+prob_leakage = UnitarySmoothPulseProblem(
+    sys,
+    op,
+    N,
+    Δt;
+    u_guess = prob.trajectory.u[:, :],
+    piccolo_options = PiccoloOptions(
+        leakage_constraint = true,
+        leakage_constraint_value = 1e-2,
+        leakage_cost = 1e-2,
     ),
 )
 
 ## solve the problem
-load_path = joinpath(dirname(Base.active_project()), "data/multilevel_transmon_example_leakage_0aad72.jld2") # hide
+load_path = joinpath(
+    dirname(Base.active_project()),
+    "data/multilevel_transmon_example_leakage_0aad72.jld2",
+) # hide
 prob_leakage.trajectory = load_traj(load_path) # hide
 nothing # hide
 #=
@@ -250,7 +258,7 @@ EXIT: Maximum Number of Iterations Exceeded.
 
 println(
     "Fidelity: ",
-    unitary_rollout_fidelity(prob_leakage.trajectory, sys; subspace=op.subspace),
+    unitary_rollout_fidelity(prob_leakage.trajectory, sys; subspace = op.subspace),
 )
 
 # and plot the result using the `plot_unitary_populations` function from PiccoloPlots.jl

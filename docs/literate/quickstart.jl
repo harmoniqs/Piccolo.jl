@@ -48,16 +48,10 @@ U_goal = GATES.X
 ddu_bound = 5.0
 
 ## build the problem
-prob = UnitarySmoothPulseProblem(
-    system,
-    U_goal,
-    N,
-    Δt;
-    ddu_bound=ddu_bound,
-)
+prob = UnitarySmoothPulseProblem(system, U_goal, N, Δt; ddu_bound = ddu_bound)
 
 ## solve the problem
-solve!(prob; max_iter=50)
+solve!(prob; max_iter = 50)
 
 #=
 The above output comes from the Ipopt.jl solver. The problem's trajectory has been updated with the solution.
@@ -89,9 +83,9 @@ plot(prob.trajectory, [:Ũ⃗, :u])
 ## final fidelity constraint
 final_fidelity = 0.99
 
-min_time_prob = UnitaryMinimumTimeProblem(prob, U_goal; final_fidelity=final_fidelity)
+min_time_prob = UnitaryMinimumTimeProblem(prob, U_goal; final_fidelity = final_fidelity)
 
-solve!(min_time_prob; max_iter=50)
+solve!(min_time_prob; max_iter = 50)
 
 # We can see that the final fidelity is indeed greater than the minimum fidelity we set.
 

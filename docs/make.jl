@@ -14,8 +14,8 @@ generate_docs(
     "Piccolo",
     Piccolo,
     pages;
-    make_index=true,
-    make_literate=true,
-    make_assets=true,
-    format_kwargs=(canonical="https://docs.harmoniqs.co/Piccolo.jl",),
+    make_index = true,
+    make_literate = true,
+    make_assets = true,
+    format_kwargs = (canonical = "https://docs.harmoniqs.co/Piccolo.jl",),
 )
