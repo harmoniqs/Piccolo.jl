@@ -42,14 +42,14 @@ op.operator |&gt; sparse</code></pre><pre class="documenter-example-output"><cod
  1.0+0.0im      ⋅          ⋅          ⋅          ⋅    
      ⋅          ⋅          ⋅          ⋅          ⋅    
      ⋅          ⋅          ⋅          ⋅          ⋅    
-     ⋅          ⋅          ⋅          ⋅          ⋅    </code></pre><p>We can then pass this embedded operator to the <code>UnitarySmoothPulseProblem</code> template to create</p><pre><code class="language-julia hljs"># create the problem
+     ⋅          ⋅          ⋅          ⋅          ⋅    </code></pre><p>We can then pass this embedded operator to the <code>UnitarySmoothPulseProblem</code> template to create</p><pre><code class="language- hljs"># create the problem
 prob = UnitarySmoothPulseProblem(sys, op, N, Δt; ddu_bound = ddu_bound)
 
 # solve the problem
-load_path =</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing UnitarySmoothPulseProblem...
-	using integrator: typeof(UnitaryIntegrator)
-	control derivative names: [:du, :ddu]
-	applying timesteps_all_equal constraint: Δt</code></pre><pre><code class="language-julia hljs">solve!(prob; max_iter=50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    initializing optimizer...
+load_path =
+    joinpath(dirname(Base.active_project()), &quot;data/multilevel_transmon_example_0aad72.jld2&quot;) # hide
+prob.trajectory = load_traj(load_path) # hide
+nothing # hide</code></pre><pre><code class="language-julia hljs">solve!(prob; max_iter=50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    initializing optimizer...
     applying constraint: timesteps all equal constraint
     applying constraint: initial value of Ũ⃗
     applying constraint: initial value of u
@@ -113,10 +113,10 @@ Number of Lagrangian Hessian evaluations             = 50
 Total seconds in IPOPT                               = 364.464
 
 EXIT: Maximum Number of Iterations Exceeded.
-</code><button class="copy-button fa-solid fa-copy" aria-label="Copy this code block" title="Copy"></button></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language-julia hljs">println(
+</code><button class="copy-button fa-solid fa-copy" aria-label="Copy this code block" title="Copy"></button></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language- hljs">println(
     &quot;Fidelity: &quot;,
     unitary_rollout_fidelity(prob.trajectory, sys; subspace = op.subspace),
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.9977791511191532</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function.</p><pre><code class="language-julia hljs">plot_unitary_populations(prob.trajectory; fig_size = (900, 700))</code></pre><img src="d7ff17df.png" alt="Example block output"/><h2 id="Leakage-suppresion"><a class="docs-heading-anchor" href="#Leakage-suppresion">Leakage suppresion</a><a id="Leakage-suppresion-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppresion" title="Permalink"></a></h2><p>As can be seen from the above plot, there is a substantial amount of leakage into the higher levels during the evolution. To mitigate this, we have implemented the ability to add a cost to populating the leakage levels, in particular this is an <span>$L_1$</span> norm cost, which is implemented via slack variables and should ideally drive those leakage populations down to zero. To implement this, pass <code>leakage_suppresion=true</code> and <code>R_leakage={value}</code> to the <code>UnitarySmoothPulseProblem</code> template.</p><pre><code class="language-julia hljs"># create the a leakage suppression problem, initializing with the previous solution
+)</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function.</p><pre><code class="language- hljs">plot_unitary_populations(prob.trajectory; fig_size = (900, 700))</code></pre><h2 id="Leakage-suppresion"><a class="docs-heading-anchor" href="#Leakage-suppresion">Leakage suppresion</a><a id="Leakage-suppresion-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppresion" title="Permalink"></a></h2><p>As can be seen from the above plot, there is a substantial amount of leakage into the higher levels during the evolution. To mitigate this, we have implemented the ability to add a cost to populating the leakage levels, in particular this is an <span>$L_1$</span> norm cost, which is implemented via slack variables and should ideally drive those leakage populations down to zero. To implement this, pass <code>leakage_suppresion=true</code> and <code>R_leakage={value}</code> to the <code>UnitarySmoothPulseProblem</code> template.</p><pre><code class="language- hljs"># create the a leakage suppression problem, initializing with the previous solution
 
 prob_leakage = UnitarySmoothPulseProblem(
     sys,
@@ -134,11 +134,10 @@ prob_leakage = UnitarySmoothPulseProblem(
 # solve the problem
 load_path = joinpath(
     dirname(Base.active_project()),
-    &quot;data/multilevel_transmon_example_leakage_0aad72.jld2&quot;,</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing UnitarySmoothPulseProblem...
-	using integrator: typeof(UnitaryIntegrator)
-	control derivative names: [:du, :ddu]
-	applying leakage suppression: Ũ⃗ &lt; 0.01
-	applying timesteps_all_equal constraint: Δt</code></pre><pre><code class="language-julia hljs">solve!(prob_leakage; max_iter=50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    initializing optimizer...
+    &quot;data/multilevel_transmon_example_leakage_0aad72.jld2&quot;,
+) # hide
+prob_leakage.trajectory = load_traj(load_path) # hide
+nothing # hide</code></pre><pre><code class="language-julia hljs">solve!(prob_leakage; max_iter=50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    initializing optimizer...
     applying constraint: timesteps all equal constraint
     applying constraint: initial value of Ũ⃗
     applying constraint: initial value of u
@@ -201,7 +200,7 @@ Number of Lagrangian Hessian evaluations             = 50
 Total seconds in IPOPT                               = 352.605
 
 EXIT: Maximum Number of Iterations Exceeded.
-</code><button class="copy-button fa-solid fa-copy" aria-label="Copy this code block" title="Copy"></button></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language-julia hljs">println(
+</code><button class="copy-button fa-solid fa-copy" aria-label="Copy this code block" title="Copy"></button></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language- hljs">println(
     &quot;Fidelity: &quot;,
     unitary_rollout_fidelity(prob_leakage.trajectory, sys; subspace = op.subspace),
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.9999981183152394</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function from PiccoloPlots.jl</p><pre><code class="language-julia hljs">plot_unitary_populations(prob_leakage.trajectory)</code></pre><img src="9e07a922.png" alt="Example block output"/><p>Here we can see that the leakage populations have been driven substantially down.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../quickstart/">« Quickstart</a><a class="docs-footer-nextpage" href="../../contribution_guide/">Contribution Guide »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Thursday 6 November 2025 21:52">Thursday 6 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function from PiccoloPlots.jl</p><pre><code class="language- hljs">plot_unitary_populations(prob_leakage.trajectory)</code></pre><p>Here we can see that the leakage populations have been driven substantially down.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../quickstart/">« Quickstart</a><a class="docs-footer-nextpage" href="../../contribution_guide/">Contribution Guide »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Wednesday 21 January 2026 08:59">Wednesday 21 January 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
