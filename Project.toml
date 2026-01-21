@@ -1,7 +1,7 @@
 name = "Piccolo"
 uuid = "c4671d76-df94-11ed-2057-43d4fd632fad"
 authors = ["Aaron Trowbridge <aaron.j.trowbridge@gmail.com> and contributors"]
-version = "0.10.0"
+version = "0.11.0"
 
 [deps]
 NamedTrajectories = "538bc3a1-5ab9-4fc3-b776-35ca1e893e08"
@@ -12,10 +12,10 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 TrajectoryIndexingUtils = "6dad8b7f-dd9a-4c28-9b70-85b9a079bfc8"
 
 [compat]
-NamedTrajectories = "0.6"
-PiccoloPlots = "0.3"
-PiccoloQuantumObjects = "0.7"
-QuantumCollocation = "0.9"
+NamedTrajectories = "0.8"
+PiccoloPlots = "0.4"
+PiccoloQuantumObjects = "0.10"
+QuantumCollocation = "0.10"
 Reexport = "1.2"
 TrajectoryIndexingUtils = "0.1"
 julia = "1.10, 1.11, 1.12"
