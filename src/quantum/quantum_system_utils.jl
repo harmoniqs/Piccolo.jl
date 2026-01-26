@@ -14,7 +14,8 @@ using TestItems
 
 commutator(A::AbstractMatrix{<:Number}, B::AbstractMatrix{<:Number}) = A * B - B * A
 
-is_hermitian(H::AbstractMatrix{<:Number}; atol=eps(Float32)) = all(isapprox.(H - H', 0.0, atol=atol))
+is_hermitian(H::AbstractMatrix{<:Number}; atol = eps(Float32)) =
+    all(isapprox.(H - H', 0.0, atol = atol))
 
 # ----------------------------------------------------------------------------- #
 # Linear independence
@@ -25,16 +26,18 @@ is_hermitian(H::AbstractMatrix{<:Number}; atol=eps(Float32)) = all(isapprox.(H -
 
 Check if the columns of the matrix `M` are linearly dependent.
 """
-function is_linearly_dependent(M::AbstractMatrix; eps=eps(Float32), verbose=true)
+function is_linearly_dependent(M::AbstractMatrix; eps = eps(Float32), verbose = true)
     if size(M, 2) > size(M, 1)
         if verbose
-            println("Linearly dependent because columns > rows, $(size(M, 2)) > $(size(M, 1)).")
+            println(
+                "Linearly dependent because columns > rows, $(size(M, 2)) > $(size(M, 1)).",
+            )
         end
         return true
     end
     # QR decomposition has a zero R on diagonal if linearly dependent
     val = minimum(abs.(diag(qr(M).R)))
-    return isapprox(val, 0.0, atol=eps)
+    return isapprox(val, 0.0, atol = eps)
 end
 
 is_linearly_dependent(basis::Vector{<:AbstractMatrix{<:Number}}; kwargs...) =
@@ -42,8 +45,8 @@ is_linearly_dependent(basis::Vector{<:AbstractMatrix{<:Number}}; kwargs...) =
 
 function linearly_independent_indices(
     basis::Vector{<:AbstractMatrix{<:Number}};
-    order=1:length(basis),
-    kwargs...
+    order = 1:length(basis),
+    kwargs...,
 )
     @assert issetequal(order, 1:length(basis)) "Order must enumerate entire basis."
     bᵢ = Int[]
@@ -72,7 +75,7 @@ end
 
 traceless(M::AbstractMatrix) = M - tr(M) * I / size(M, 1)
 
-function clean(M::AbstractMatrix; normalize::Bool=true, remove_trace::Bool=true)
+function clean(M::AbstractMatrix; normalize::Bool = true, remove_trace::Bool = true)
     M_ = remove_trace ? traceless(M) : M
     return normalize && norm(M_) > 0 ? M_ / norm(M_) : M_
 end
@@ -93,12 +96,12 @@ Compute the Lie algebra basis for the given `generators`.
 """
 function operator_algebra(
     generators::Vector{<:AbstractMatrix{T}};
-    return_layers::Bool=false,
-    remove_trace::Bool=true,
-    normalize::Bool=true,
-    verbose::Bool=false,
-    atol::Float64=1e-10,
-) where T <: Number
+    return_layers::Bool = false,
+    remove_trace::Bool = true,
+    normalize::Bool = true,
+    verbose::Bool = false,
+    atol::Float64 = 1e-10,
+) where {T<:Number}
     N = size(first(generators), 1)
     max_dim = N^2 - 1
 
@@ -109,7 +112,7 @@ function operator_algebra(
 
     # Prepare initial generators
     for g in generators
-        M = clean(g, normalize=normalize, remove_trace=remove_trace)
+        M = clean(g, normalize = normalize, remove_trace = remove_trace)
         v = vec(M)
         if size(q_basis, 2) == 0
             q_basis = reshape(v / norm(v), :, 1)
@@ -145,7 +148,7 @@ function operator_algebra(
             end
 
             comm = is_hermitian(comm) ? comm : im * comm
-            comm = clean(comm, normalize=normalize, remove_trace=remove_trace)
+            comm = clean(comm, normalize = normalize, remove_trace = remove_trace)
 
             v = vec(comm)
             proj = q_basis * (q_basis' * v)
@@ -182,7 +185,7 @@ end
 
 function fit_gen_to_basis(
     gen::AbstractMatrix{<:Number},
-    basis::AbstractVector{<:AbstractMatrix{<:Number}}
+    basis::AbstractVector{<:AbstractMatrix{<:Number}},
 )
     A = stack(vec.(basis))
     b = vec(gen)
@@ -192,9 +195,9 @@ end
 function is_in_span(
     gen::AbstractMatrix{<:Number},
     basis::AbstractVector{<:AbstractMatrix{<:Number}};
-    subspace::AbstractVector{Int}=1:size(gen, 1),
-    atol=eps(Float32),
-    return_effective_gen=false,
+    subspace::AbstractVector{Int} = 1:size(gen, 1),
+    atol = eps(Float32),
+    return_effective_gen = false,
 )
     g_basis = [deepcopy(b[subspace, subspace]) for b ∈ basis]
     linearly_independent_subset!(g_basis)
@@ -234,11 +237,11 @@ See also [`QuantumSystemUtils.operator_algebra`](@ref).
 function is_reachable(
     gate::AbstractMatrix{<:Number},
     hamiltonians::AbstractVector{<:AbstractMatrix{<:Number}};
-    subspace::AbstractVector{Int}=1:size(gate, 1),
-    compute_basis=true,
-    remove_trace=true,
-    verbose=true,
-    atol=eps(Float32)
+    subspace::AbstractVector{Int} = 1:size(gate, 1),
+    compute_basis = true,
+    remove_trace = true,
+    verbose = true,
+    atol = eps(Float32),
 )
     @assert size(gate, 1) == length(subspace) "Gate must be given in the subspace."
     generator = im * log(gate)
@@ -248,17 +251,13 @@ function is_reachable(
     end
 
     if compute_basis
-        basis = operator_algebra(hamiltonians, remove_trace=remove_trace, verbose=verbose)
+        basis =
+            operator_algebra(hamiltonians, remove_trace = remove_trace, verbose = verbose)
     else
         basis = hamiltonians
     end
 
-    return is_in_span(
-        generator,
-        basis,
-        subspace=subspace,
-        atol=atol
-    )
+    return is_in_span(generator, basis, subspace = subspace, atol = atol)
 end
 
 """
@@ -273,8 +272,8 @@ Check if the `gate` is reachable using the given `system`.
 function is_reachable(
     gate::AbstractMatrix{<:Number},
     system::AbstractQuantumSystem;
-    use_drift::Bool=true,
-    kwargs...
+    use_drift::Bool = true,
+    kwargs...,
 )
     H_drift = get_drift(system)
     H_drives = get_drives(system)
@@ -285,7 +284,7 @@ function is_reachable(
 end
 
 is_reachable(gate::EmbeddedOperator, args...; kwargs...) =
-    is_reachable(unembed(gate), args...; subspace=gate.subspace, kwargs...)
+    is_reachable(unembed(gate), args...; subspace = gate.subspace, kwargs...)
 
 # ****************************************************************************** #
 
@@ -294,38 +293,38 @@ is_reachable(gate::EmbeddedOperator, args...; kwargs...) =
 
     # Check 1 qubit with complete basis
     gen = operator_from_string.(["X", "Y"])
-    basis = operator_algebra(gen, return_layers=false, verbose=false)
+    basis = operator_algebra(gen, return_layers = false, verbose = false)
     @test length(basis) == size(first(gen), 1)^2-1
 
     # Check 1 qubit with complete basis and layers
-    basis, layers = operator_algebra(gen, return_layers=true, verbose=false)
+    basis, layers = operator_algebra(gen, return_layers = true, verbose = false)
     @test length(basis) == size(first(gen), 1)^2-1
 
     # Check 1 qubit with subspace
     gen = operator_from_string.(["X"])
-    basis = operator_algebra(gen, verbose=false)
+    basis = operator_algebra(gen, verbose = false)
     @test length(basis) == 1
 
     # Check 2 qubit with complete basis
     gen = operator_from_string.(["XX", "YY", "XI", "YI", "IY", "IX"])
-    basis = operator_algebra(gen, verbose=false)
+    basis = operator_algebra(gen, verbose = false)
     @test length(basis) == size(first(gen), 1)^2-1
 
     # Check 2 qubit linearly dependent
     res = ["XX", "XI"]
-    gen = operator_from_string.(["XX", "XX", "XI", "XI",])
-    basis = operator_algebra(gen, verbose=false)
+    gen = operator_from_string.(["XX", "XX", "XI", "XI"])
+    basis = operator_algebra(gen, verbose = false)
     @test length(basis) == length(res)
 
     # Check 2 qubit with linearly dependent basis
     res = ["XX", "YY", "XI", "IX", "ZY", "YZ", "ZZ"]
     gen = operator_from_string.(["XX", "YY", "XI", "XI", "IX"])
-    basis = operator_algebra(gen, verbose=false)
+    basis = operator_algebra(gen, verbose = false)
     length(basis) == length(res)
 
     # Check 2 qubit with pair of 1-qubit subspaces
     gen = operator_from_string.(["XI", "YI", "IY", "IX"])
-    basis = operator_algebra(gen, verbose=false)
+    basis = operator_algebra(gen, verbose = false)
     @test length(basis) == 2 * (2^2 - 1)
 end
 
@@ -333,17 +332,20 @@ end
     # Check 1 qubit with complete basis
     gen = [PAULIS[:X], PAULIS[:Y]]
     target = PAULIS[:Z]
-    @test is_reachable(target, gen, compute_basis=true, verbose=false)
+    @test is_reachable(target, gen, compute_basis = true, verbose = false)
 
     # System
-    sys = QuantumSystem([PAULIS[:X], PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)])
+    sys = QuantumSystem(
+        [PAULIS[:X], PAULIS[:Y], PAULIS[:Z]],
+        [(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)],
+    )
     target = PAULIS[:Z]
-    @test is_reachable(target, sys, verbose=false)
+    @test is_reachable(target, sys, verbose = false)
 
     # System with drift
     sys = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
     target = PAULIS[:Z]
-    @test is_reachable(target, sys, verbose=false)
+    @test is_reachable(target, sys, verbose = false)
 end
 
 @testitem "Lie Algebra reachability two qubits" begin
@@ -370,42 +372,43 @@ end
     CX = GATES[:CX]
 
     # Pass
-    @test is_reachable(R2, complete_gen, verbose=false)
-    @test is_reachable(CZ, complete_gen, verbose=false)
-    @test is_reachable(CX, complete_gen, verbose=false)
-    @test is_reachable(XI, complete_gen, verbose=false)
+    @test is_reachable(R2, complete_gen, verbose = false)
+    @test is_reachable(CZ, complete_gen, verbose = false)
+    @test is_reachable(CX, complete_gen, verbose = false)
+    @test is_reachable(XI, complete_gen, verbose = false)
 
     # Mostly fail
-    @test !is_reachable(R2, incomplete_gen, verbose=false)
-    @test !is_reachable(CZ, incomplete_gen, verbose=false)
-    @test !is_reachable(CX, incomplete_gen, verbose=false)
-    @test is_reachable(XI, incomplete_gen, verbose=false)
+    @test !is_reachable(R2, incomplete_gen, verbose = false)
+    @test !is_reachable(CZ, incomplete_gen, verbose = false)
+    @test !is_reachable(CX, incomplete_gen, verbose = false)
+    @test is_reachable(XI, incomplete_gen, verbose = false)
 
     # QuantumSystems
     complete_gen_sys = QuantumSystem(complete_gen, fill((-1.0, 1.0), length(complete_gen)))
-    incomplete_gen_sys = QuantumSystem(incomplete_gen, fill((-1.0, 1.0), length(incomplete_gen)))
+    incomplete_gen_sys =
+        QuantumSystem(incomplete_gen, fill((-1.0, 1.0), length(incomplete_gen)))
     # Pass
-    @test is_reachable(R2, complete_gen_sys, verbose=false)
-    @test is_reachable(CZ, complete_gen_sys, verbose=false)
-    @test is_reachable(CX, complete_gen_sys, verbose=true)
-    @test is_reachable(XI, complete_gen_sys, verbose=false)
+    @test is_reachable(R2, complete_gen_sys, verbose = false)
+    @test is_reachable(CZ, complete_gen_sys, verbose = false)
+    @test is_reachable(CX, complete_gen_sys, verbose = true)
+    @test is_reachable(XI, complete_gen_sys, verbose = false)
 
     # Mostly fail
-    @test !is_reachable(R2, incomplete_gen_sys, verbose=false)
-    @test !is_reachable(CZ, incomplete_gen_sys, verbose=false)
-    @test !is_reachable(CX, incomplete_gen_sys, verbose=false)
-    @test is_reachable(XI, incomplete_gen_sys, verbose=false)
+    @test !is_reachable(R2, incomplete_gen_sys, verbose = false)
+    @test !is_reachable(CZ, incomplete_gen_sys, verbose = false)
+    @test !is_reachable(CX, incomplete_gen_sys, verbose = false)
+    @test is_reachable(XI, incomplete_gen_sys, verbose = false)
 end
 
 @testitem "Lie Algebra embedded subspace reachability" begin
     # Check 1 qubit with complete basis
     gen = [PAULIS[:X], PAULIS[:Y]]
     target = EmbeddedOperator(PAULIS[:Z], 1:2, 4)
-    @test is_reachable(target, gen, verbose=false)
+    @test is_reachable(target, gen, verbose = false)
 
     # System
     sys = QuantumSystem([GATES[:X], GATES[:Y]], [(-1.0, 1.0), (-1.0, 1.0)])
-    @test is_reachable(target, sys, verbose=false)
+    @test is_reachable(target, sys, verbose = false)
 end
 
 end

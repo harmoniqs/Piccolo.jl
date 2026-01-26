@@ -17,7 +17,8 @@ Trajectory for quantum state transfer. The ODE solution is computed at construct
 # Callable
 `traj(t)` returns the state at time `t` by interpolating the solution.
 """
-mutable struct KetTrajectory{P<:AbstractPulse, S<:ODESolution} <: AbstractQuantumTrajectory{P}
+mutable struct KetTrajectory{P<:AbstractPulse,S<:ODESolution} <:
+               AbstractQuantumTrajectory{P}
     system::QuantumSystem
     pulse::P
     initial::Vector{ComplexF64}
@@ -44,17 +45,17 @@ function KetTrajectory(
     pulse::AbstractPulse,
     initial::AbstractVector{<:Number},
     goal::AbstractVector{<:Number};
-    algorithm=MagnusGL4(),
+    algorithm = MagnusGL4(),
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
-    
+
     ψ0 = Vector{ComplexF64}(initial)
     ψg = Vector{ComplexF64}(goal)
-    times = collect(range(0.0, duration(pulse), length=101))
+    times = collect(range(0.0, duration(pulse), length = 101))
     prob = KetOperatorODEProblem(system, pulse, ψ0, times)
-    sol = solve(prob, algorithm; saveat=times)
-    
-    return KetTrajectory{typeof(pulse), typeof(sol)}(system, pulse, ψ0, ψg, sol)
+    sol = solve(prob, algorithm; saveat = times)
+
+    return KetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0, ψg, sol)
 end
 
 """
@@ -77,8 +78,8 @@ function KetTrajectory(
     initial::AbstractVector{<:Number},
     goal::AbstractVector{<:Number},
     T::Real;
-    drive_name::Symbol=:u,
-    algorithm=MagnusGL4(),
+    drive_name::Symbol = :u,
+    algorithm = MagnusGL4(),
 )
     times = [0.0, T]
     controls = randn(system.n_drives, 2)
@@ -95,51 +96,51 @@ end
 
 @testitem "KetTrajectory construction" begin
     using LinearAlgebra
-    
+
     # Simple 2-level system
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
-    
+
     # Create with duration
     T = 1.0
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(system, ψ0, ψg, T)
-    
+
     @test qtraj isa KetTrajectory
     @test qtraj.system === system
     @test qtraj.initial ≈ ψ0
     @test qtraj.goal ≈ ψg
-    
+
     # Create with explicit pulse
     times = [0.0, 0.5, 1.0]
     controls = 0.1 * randn(1, 3)
     pulse = ZeroOrderPulse(controls, times)
     qtraj2 = KetTrajectory(system, pulse, ψ0, ψg)
-    
+
     @test qtraj2 isa KetTrajectory
     @test duration(qtraj2) ≈ 1.0
 end
 
 @testitem "KetTrajectory callable" begin
     using LinearAlgebra
-    
+
     system = QuantumSystem([PAULIS.X], [1.0])
-    
+
     T = 1.0
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(system, ψ0, ψg, T)
-    
+
     # Test at initial time
     ψ_init = qtraj(0.0)
     @test ψ_init ≈ ψ0
-    
+
     # Test at intermediate time
     ψ_mid = qtraj(0.5)
     @test ψ_mid isa Vector{ComplexF64}
     @test length(ψ_mid) == 2
     @test norm(ψ_mid) ≈ 1.0  # Should preserve normalization
-    
+
     # Test at final time
     ψ_final = qtraj(T)
     @test norm(ψ_final) ≈ 1.0
@@ -147,21 +148,21 @@ end
 
 @testitem "KetTrajectory fidelity" begin
     using LinearAlgebra
-    
+
     # System with X drive
     σx = ComplexF64[0 1; 1 0]
     system = QuantumSystem([σx], [1.0])
-    
+
     # Pulse to transfer |0⟩ → |1⟩: exp(-i π/2 σx) |0⟩ = -i|1⟩
     T = π / 2
     times = [0.0, T]
     controls = ones(1, 2)
     pulse = ZeroOrderPulse(controls, times)
-    
+
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(system, pulse, ψ0, ψg)
-    
+
     # Fidelity should be high
     fid = fidelity(qtraj)
     @test fid > 0.99

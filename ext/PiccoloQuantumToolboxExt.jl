@@ -53,11 +53,11 @@ Plot the trajectory of a quantum state on the Bloch sphere.
 """
 function QuantumToolbox.plot_bloch(
     traj::NamedTrajectory;
-    index::Union{Nothing, Int} = nothing,
+    index::Union{Nothing,Int} = nothing,
     state_name::Symbol = :ψ̃,
     state_type::Symbol = :ket,
     subspace::AbstractVector{Int} = 1:2,
-    kwargs...
+    kwargs...,
 )
     @assert state_name in traj.names "$state_name ∉ traj.names"
     bloch_pts = map(eachcol(traj[state_name])) do s
@@ -76,7 +76,7 @@ function QuantumToolbox.plot_bloch(
     fig, lscene = QuantumToolbox.render(b; kwargs...)
 
     # Add line connecting points
-    lines!(lscene, bloch_pts, color=:black)
+    lines!(lscene, bloch_pts, color = :black)
 
     if !isnothing(index)
         @assert 1 ≤ index ≤ length(bloch_pts) "Invalid vector index."
@@ -89,7 +89,9 @@ function QuantumToolbox.plot_bloch(
 
         # Draw the saved vec observable
         arrows3d!(
-            lscene, [Point3f(0, 0, 0)], fig.attributes[:vec],
+            lscene,
+            [Point3f(0, 0, 0)],
+            fig.attributes[:vec],
             shaftradius = b.vector_width,
             tiplength = b.vector_tiplength,
             tipradius = b.vector_tipradius,
@@ -101,12 +103,7 @@ function QuantumToolbox.plot_bloch(
 end
 
 
-function Piccolo.plot_bloch!(
-    fig::Figure,
-    traj::NamedTrajectory,
-    idx::Int;
-    kwargs...
-)
+function Piccolo.plot_bloch!(fig::Figure, traj::NamedTrajectory, idx::Int; kwargs...)
     @assert 1 ≤ idx ≤ traj.N "Invalid knot point index."
 
     if haskey(fig.attributes, :vec)
@@ -123,20 +120,20 @@ end
 
 function Piccolo.animate_bloch(
     traj::NamedTrajectory;
-    fps::Int=24,
-    mode::Symbol=:inline,
-    filename="bloch_animation.mp4",
-    kwargs...
+    fps::Int = 24,
+    mode::Symbol = :inline,
+    filename = "bloch_animation.mp4",
+    kwargs...,
 )
-    fig = QuantumToolbox.plot_bloch(traj; index=1, kwargs...)
+    fig = QuantumToolbox.plot_bloch(traj; index = 1, kwargs...)
 
     return Piccolo.animate_figure(
         fig,
         1:traj.N,
         i -> plot_bloch!(fig, traj, i; kwargs...),
-        mode=mode,
-        fps=fps,
-        filename=filename
+        mode = mode,
+        fps = fps,
+        filename = filename,
     )
 end
 
@@ -171,7 +168,7 @@ function QuantumToolbox.plot_wigner(
     idx::Int;
     state_name::Symbol = :ψ̃,
     state_type::Symbol = :ket,
-    kwargs...
+    kwargs...,
 )
     @assert 1 ≤ idx ≤ traj.N "Invalid knot point index."
 
@@ -191,7 +188,7 @@ function QuantumToolbox.plot_wigner(
     fig.attributes[:state_type] = state_type
     fig.attributes[:ax] = ax
     fig.attributes[:hm] = hm
-    fig.attributes[:label] = Label(fig[0, 1], "Timestep $idx", tellwidth=false)
+    fig.attributes[:label] = Label(fig[0, 1], "Timestep $idx", tellwidth = false)
 
     return fig
 end
@@ -221,10 +218,10 @@ end
 
 function Piccolo.animate_wigner(
     traj::NamedTrajectory;
-    mode=:inline, 
-    fps::Int=24,
-    filename="wigner_animation.mp4",
-    kwargs...
+    mode = :inline,
+    fps::Int = 24,
+    filename = "wigner_animation.mp4",
+    kwargs...,
 )
     # Setup: plot first frame and capture observables
     fig = QuantumToolbox.plot_wigner(traj, 1; kwargs...)
@@ -233,9 +230,9 @@ function Piccolo.animate_wigner(
         fig,
         1:traj.N,
         i -> plot_wigner!(fig, traj, i),
-        mode=mode,
-        fps=fps,
-        filename=filename
+        mode = mode,
+        fps = fps,
+        filename = filename,
     )
 
     return fig
@@ -253,8 +250,8 @@ end
 
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
-    
-    comps = (ψ̃ = hcat(ket_to_iso(x), ket_to_iso(y)), Δt = [1.0; 1.0],)
+
+    comps = (ψ̃ = hcat(ket_to_iso(x), ket_to_iso(y)), Δt = [1.0; 1.0])
     traj = NamedTrajectory(comps)
 
     fig = QuantumToolbox.plot_bloch(traj)
@@ -270,9 +267,9 @@ end
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
     ρ̃⃗ = hcat(density_to_iso_vec(x * x'), density_to_iso_vec(y * y'))
-    traj = NamedTrajectory((ρ̃⃗ = ρ̃⃗, Δt = [1.0; 1.0],))
+    traj = NamedTrajectory((ρ̃⃗ = ρ̃⃗, Δt = [1.0; 1.0]))
 
-    fig = QuantumToolbox.plot_bloch(traj, state_name=:ρ̃⃗, state_type=:density)
+    fig = QuantumToolbox.plot_bloch(traj, state_name = :ρ̃⃗, state_type = :density)
     @test fig isa Figure
 end
 
@@ -285,9 +282,9 @@ end
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
     ψ̃ = hcat(ket_to_iso(x), ket_to_iso(y))
-    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = [1.0; 1.0],))
+    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = [1.0; 1.0]))
 
-    fig = QuantumToolbox.plot_bloch(traj, index=1)
+    fig = QuantumToolbox.plot_bloch(traj, index = 1)
     @test fig isa Figure
 end
 
@@ -298,11 +295,10 @@ end
     using CairoMakie
 
     T = 20
-    ts = range(0, π/2; length=T)
+    ts = range(0, π/2; length = T)
 
     kets = [
-        QuantumObject(cos(θ) * [1.0 + 0im, 0.0 + 0im] + sin(θ) * [0.0 + 0im, 1.0 + 0im]) 
-        for θ in ts
+        QuantumObject(cos(θ) * [1.0 + 0im, 0.0 + 0im] + sin(θ) * [0.0 + 0im, 1.0 + 0im]) for θ in ts
     ]
 
     iso_kets = ket_to_iso.(ψ.data for ψ in kets)
@@ -310,9 +306,9 @@ end
     ψ̃ = hcat(iso_kets...)
     Δt = fill(1.0, T)
 
-    comps = (ψ̃ = ψ̃, Δt = Δt,)
+    comps = (ψ̃ = ψ̃, Δt = Δt)
     traj = NamedTrajectory(comps)
-    fig = QuantumToolbox.plot_bloch(traj, state_name=:ψ̃)
+    fig = QuantumToolbox.plot_bloch(traj, state_name = :ψ̃)
     @test fig isa Figure
 end
 
@@ -326,8 +322,8 @@ end
     α = 1.5 + 0.5im
     ψ = coherent(N, α)
 
-    traj = NamedTrajectory((ψ̃ = hcat(ket_to_iso(ψ.data)), Δt = [1.0],))
-    fig = QuantumToolbox.plot_wigner(traj, 1, state_name=:ψ̃)
+    traj = NamedTrajectory((ψ̃ = hcat(ket_to_iso(ψ.data)), Δt = [1.0]))
+    fig = QuantumToolbox.plot_wigner(traj, 1, state_name = :ψ̃)
 
     @test fig isa Figure
 end
@@ -343,8 +339,8 @@ end
     ψ = coherent(N, α)
     ρ = ψ * ψ'
 
-    traj = NamedTrajectory((ρ̃⃗ = hcat(density_to_iso_vec(ρ.data)), Δt = [1.0],))
-    fig = QuantumToolbox.plot_wigner(traj, 1, state_name=:ρ̃⃗, state_type=:density)
+    traj = NamedTrajectory((ρ̃⃗ = hcat(density_to_iso_vec(ρ.data)), Δt = [1.0]))
+    fig = QuantumToolbox.plot_wigner(traj, 1, state_name = :ρ̃⃗, state_type = :density)
 
     @test fig isa Figure
 end

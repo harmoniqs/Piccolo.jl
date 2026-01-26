@@ -33,12 +33,12 @@ H_coupling = 0.1 * kron(PAULIS[:Z], PAULIS[:Z])
 csys = CompositeQuantumSystem(H_coupling, [sys1, sys2], Float64[])
 ```
 """
-struct CompositeQuantumSystem{F1<:Function, F2<:Function} <: AbstractQuantumSystem
+struct CompositeQuantumSystem{F1<:Function,F2<:Function} <: AbstractQuantumSystem
     H::F1
     G::F2
-    H_drift::SparseMatrixCSC{ComplexF64, Int}
-    H_drives::Vector{SparseMatrixCSC{ComplexF64, Int}}
-    drive_bounds::Vector{Tuple{Float64, Float64}}
+    H_drift::SparseMatrixCSC{ComplexF64,Int}
+    H_drives::Vector{SparseMatrixCSC{ComplexF64,Int}}
+    drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
     subsystem_levels::Vector{Int}
@@ -78,11 +78,11 @@ function CompositeQuantumSystem(
     H_drift::AbstractMatrix{<:Number},
     H_drives::AbstractVector{<:AbstractMatrix{<:Number}},
     subsystems::AbstractVector{<:QuantumSystem},
-    drive_bounds::DriveBounds
+    drive_bounds::DriveBounds,
 )
     # Normalize drive bounds to tuples
     drive_bounds = normalize_drive_bounds(drive_bounds)
-    
+
     subsystem_levels = [sys.levels for sys ∈ subsystems]
     levels = prod(subsystem_levels)
 
@@ -111,7 +111,7 @@ function CompositeQuantumSystem(
         G = (u, t) -> G_drift + sum(u .* G_drives)
     end
 
-    return CompositeQuantumSystem{typeof(H), typeof(G)}(
+    return CompositeQuantumSystem{typeof(H),typeof(G)}(
         H,
         G,
         H_drift,
@@ -120,7 +120,7 @@ function CompositeQuantumSystem(
         n_drives,
         levels,
         subsystem_levels,
-        subsystems
+        subsystems,
     )
 end
 
@@ -151,14 +151,14 @@ csys = CompositeQuantumSystem([g12], [sys1, sys2], [1.0])  # symmetric bound
 function CompositeQuantumSystem(
     H_drives::AbstractVector{<:AbstractMatrix{T}},
     subsystems::AbstractVector{<:QuantumSystem},
-    drive_bounds::DriveBounds
-) where T <: Number
+    drive_bounds::DriveBounds,
+) where {T<:Number}
     @assert !isempty(H_drives) "At least one drive is required"
     return CompositeQuantumSystem(
         spzeros(T, size(H_drives[1])),
         H_drives,
         subsystems,
-        drive_bounds
+        drive_bounds,
     )
 end
 
@@ -189,14 +189,9 @@ csys = CompositeQuantumSystem(H_coupling, [sys1, sys2], Float64[])
 function CompositeQuantumSystem(
     H_drift::AbstractMatrix{T},
     subsystems::AbstractVector{<:QuantumSystem},
-    drive_bounds::DriveBounds
-) where T <: Number
-    return CompositeQuantumSystem(
-        H_drift, 
-        Matrix{T}[], 
-        subsystems,
-        drive_bounds
-    )
+    drive_bounds::DriveBounds,
+) where {T<:Number}
+    return CompositeQuantumSystem(H_drift, Matrix{T}[], subsystems, drive_bounds)
 end
 
 """
@@ -225,16 +220,16 @@ csys = CompositeQuantumSystem([sys1, sys2], Float64[])
 """
 function CompositeQuantumSystem(
     subsystems::AbstractVector{<:QuantumSystem},
-    drive_bounds::DriveBounds
+    drive_bounds::DriveBounds,
 )
     @assert !isempty(subsystems) "At least one subsystem is required"
     T = eltype(get_drift(subsystems[1]))
     levels = prod([sys.levels for sys ∈ subsystems])
     return CompositeQuantumSystem(
-        spzeros(T, (levels, levels)), 
-        Matrix{T}[], 
+        spzeros(T, (levels, levels)),
+        Matrix{T}[],
         subsystems,
-        drive_bounds
+        drive_bounds,
     )
 end
 
@@ -242,11 +237,17 @@ end
 
 @testitem "Composite system" begin
     subsystem_levels = [4, 2, 2]
-    sys1 = QuantumSystem(kron(PAULIS[:Z], PAULIS[:Z]), [kron(PAULIS[:X], PAULIS[:Y])], [(-1.0, 1.0)])
+    sys1 = QuantumSystem(
+        kron(PAULIS[:Z], PAULIS[:Z]),
+        [kron(PAULIS[:X], PAULIS[:Y])],
+        [(-1.0, 1.0)],
+    )
     sys2 = QuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
     sys3 = QuantumSystem(zeros(ComplexF64, 2, 2))
     subsystems = [sys1, sys2, sys3]
-    g12 = 0.1 * lift_operator([kron(PAULIS[:X], PAULIS[:X]), PAULIS[:X]], [1, 2], subsystem_levels)
+    g12 =
+        0.1 *
+        lift_operator([kron(PAULIS[:X], PAULIS[:X]), PAULIS[:X]], [1, 2], subsystem_levels)
     g23 = 0.2 * lift_operator([PAULIS[:Y], PAULIS[:Y]], [2, 3], subsystem_levels)
 
     # Construct composite system
@@ -255,7 +256,8 @@ end
     @test csys.n_drives == 1 + sum([sys.n_drives for sys ∈ subsystems])
     @test csys.subsystems == subsystems
     @test csys.subsystem_levels == subsystem_levels
-    @test get_drift(csys) ≈ g12 + lift_operator(kron(PAULIS[:Z], PAULIS[:Z]), 1, subsystem_levels)
+    @test get_drift(csys) ≈
+          g12 + lift_operator(kron(PAULIS[:Z], PAULIS[:Z]), 1, subsystem_levels)
 end
 
 @testitem "Composite system from drift" begin
@@ -285,7 +287,8 @@ end
     g12 = 0.1 * lift_operator([PAULIS[:X], PAULIS[:X]], [1, 2], subsystem_levels)
     g23 = 0.2 * lift_operator([PAULIS[:Y], PAULIS[:Y]], [2, 3], subsystem_levels)
 
-    csys = CompositeQuantumSystem([g12, g23], [sys1, sys2, sys3], [(-1.0, 1.0), (-1.0, 1.0)])
+    csys =
+        CompositeQuantumSystem([g12, g23], [sys1, sys2, sys3], [(-1.0, 1.0), (-1.0, 1.0)])
     @test csys.levels == prod(subsystem_levels)
     @test csys.n_drives == 2 + sum([sys.n_drives for sys ∈ subsystems])
     @test csys.subsystems == subsystems
@@ -301,20 +304,20 @@ end
     sys2 = QuantumSystem([PAULIS[:Y]], [1.0])
     subsystems = [sys1, sys2]
     g12 = 0.1 * kron(PAULIS[:X], PAULIS[:X])
-    
+
     # Test with scalar bounds for coupling drives
     csys_scalar = CompositeQuantumSystem([g12], subsystems, [0.5])
     # The system should have subsystem bounds appended automatically
     # First drive is the coupling drive with bound (-0.5, 0.5)
     @test csys_scalar.drive_bounds[1] == (-0.5, 0.5)
-    
+
     # Test with tuple bounds for coupling drives
     csys_tuple = CompositeQuantumSystem([g12], subsystems, [(-0.3, 0.7)])
     @test csys_tuple.drive_bounds[1] == (-0.3, 0.7)
-    
+
     # Test with mixed bounds (scalars and tuples) - requires explicit type annotation
     g23 = 0.2 * kron(PAULIS[:Y], PAULIS[:Y])
-    mixed_bounds = Union{Float64, Tuple{Float64,Float64}}[0.5, (-0.2, 0.8)]
+    mixed_bounds = Union{Float64,Tuple{Float64,Float64}}[0.5, (-0.2, 0.8)]
     csys_mixed = CompositeQuantumSystem([g12, g23], subsystems, mixed_bounds)
     @test csys_mixed.drive_bounds[1] == (-0.5, 0.5)
     @test csys_mixed.drive_bounds[2] == (-0.2, 0.8)

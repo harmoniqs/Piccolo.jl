@@ -36,7 +36,7 @@ drive_bounds = [(-1.0, 1.0), 0.5, (-0.3, 0.7)]
 # Interpreted as: [(-1.0, 1.0), (-0.5, 0.5), (-0.3, 0.7)]
 ```
 """
-const DriveBounds = Vector{<:Union{Tuple{Float64, Float64}, Float64}}
+const DriveBounds = Vector{<:Union{Tuple{Float64,Float64},Float64}}
 
 """
     normalize_drive_bounds(bounds::DriveBounds)

@@ -21,7 +21,7 @@ function FinalKetFidelityConstraint(
     ψ_goal::AbstractVector{<:Complex{Float64}},
     ψ̃_name::Symbol,
     final_fidelity::Float64,
-    traj::NamedTrajectory
+    traj::NamedTrajectory,
 )
     terminal_constraint = ψ̃ -> [final_fidelity - ket_fidelity_loss(ψ̃, ψ_goal)]
 
@@ -29,8 +29,8 @@ function FinalKetFidelityConstraint(
         terminal_constraint,
         ψ̃_name,
         traj,
-        equality=false,
-        times=[traj.N]
+        equality = false,
+        times = [traj.N],
     )
 end
 
@@ -66,36 +66,36 @@ function FinalCoherentKetFidelityConstraint(
     ψ_goals::Vector{<:AbstractVector{<:Complex}},
     ψ̃_names::Vector{Symbol},
     final_fidelity::Float64,
-    traj::NamedTrajectory
+    traj::NamedTrajectory,
 )
     n_states = length(ψ_goals)
     @assert length(ψ̃_names) == n_states "Number of names must match number of goals"
-    
+
     # Convert goals to ComplexF64
     goals = [ComplexF64.(g) for g in ψ_goals]
-    
+
     # Get component info for extracting states from concatenated vector
     state_dims = [traj.dims[name] for name in ψ̃_names]
-    
+
     function terminal_constraint(z_terminal)
         # Extract each state from the concatenated vector
         ψ̃s = Vector{Vector{eltype(z_terminal)}}(undef, n_states)
         offset = 0
-        for i in 1:n_states
-            ψ̃s[i] = z_terminal[offset+1:offset+state_dims[i]]
+        for i = 1:n_states
+            ψ̃s[i] = z_terminal[(offset+1):(offset+state_dims[i])]
             offset += state_dims[i]
         end
-        
+
         # Constraint: final_fidelity - F_coherent ≤ 0
         return [final_fidelity - coherent_ket_fidelity(ψ̃s, goals)]
     end
-    
+
     return NonlinearKnotPointConstraint(
         terminal_constraint,
         ψ̃_names,
         traj,
-        equality=false,
-        times=[traj.N]
+        equality = false,
+        times = [traj.N],
     )
 end
 
@@ -107,7 +107,7 @@ function FinalUnitaryFidelityConstraint(
     U_goal::AbstractPiccoloOperator,
     Ũ⃗_name::Symbol,
     final_fidelity::Float64,
-    traj::NamedTrajectory
+    traj::NamedTrajectory,
 )
     terminal_constraint = Ũ⃗ -> [final_fidelity - unitary_fidelity_loss(Ũ⃗, U_goal)]
 
@@ -115,8 +115,8 @@ function FinalUnitaryFidelityConstraint(
         terminal_constraint,
         Ũ⃗_name,
         traj,
-        equality=false,
-        times=[traj.N]
+        equality = false,
+        times = [traj.N],
     )
 end
 
@@ -125,11 +125,11 @@ function FinalUnitaryFidelityConstraint(
     Ũ⃗_name::Symbol,
     θ_names::AbstractVector{Symbol},
     final_fidelity::Float64,
-    traj::NamedTrajectory
+    traj::NamedTrajectory,
 )
     θ_dim = sum(traj.global_dims[n] for n in θ_names)
     function terminal_constraint(z)
-        Ũ⃗, θ = z[1:end-θ_dim], z[end-θ_dim+1:end]
+        Ũ⃗, θ = z[1:(end-θ_dim)], z[(end-θ_dim+1):end]
         return [final_fidelity - unitary_fidelity_loss(Ũ⃗, U_goal(θ))]
     end
 
@@ -138,8 +138,8 @@ function FinalUnitaryFidelityConstraint(
         Ũ⃗_name,
         θ_names,
         traj,
-        equality=false,
-        times=[traj.N]
+        equality = false,
+        times = [traj.N],
     )
 end
 
@@ -158,16 +158,16 @@ function LeakageConstraint(
     indices::AbstractVector{Int},
     name::Symbol,
     traj::NamedTrajectory;
-    times=1:traj.N,
+    times = 1:traj.N,
 )
     leakage_constraint(x) = abs2.(x[indices]) .- value
-    
+
     return NonlinearKnotPointConstraint(
         leakage_constraint,
         name,
         traj,
-        equality=false,
-        times=times,
+        equality = false,
+        times = times,
     )
 end
 

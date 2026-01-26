@@ -51,8 +51,8 @@ ket_to_iso(ψ::AbstractVector{<:Number}) = [real(ψ); imag(ψ)]
 
 Convert a real isomorphism vector `ψ̃` into a ket vector.
 """
-iso_to_ket(ψ̃::AbstractVector{<:Real}) = 
-    ψ̃[1:div(length(ψ̃), 2)] + im * ψ̃[(div(length(ψ̃), 2) + 1):end]
+iso_to_ket(ψ̃::AbstractVector{<:Real}) =
+    ψ̃[1:div(length(ψ̃), 2)] + im * ψ̃[(div(length(ψ̃), 2)+1):end]
 
 # ----------------------------------------------------------------------------- #
 #                             Unitaries                                         #
@@ -63,12 +63,13 @@ iso_to_ket(ψ̃::AbstractVector{<:Real}) =
 
 Convert a real vector `Ũ⃗` into a complex matrix representing an operator.
 """
-function iso_vec_to_operator(Ũ⃗::AbstractVector{ℝ}) where ℝ <: Real
+function iso_vec_to_operator(Ũ⃗::AbstractVector{ℝ}) where {ℝ<:Real}
     Ũ⃗_dim = div(length(Ũ⃗), 2)
     N = Int(sqrt(Ũ⃗_dim))
     U = Matrix{complex(ℝ)}(undef, N, N)
-    for i=0:N-1
-        U[:, i+1] .= @view(Ũ⃗[i * 2N .+ (1:N)]) + one(ℝ) * im * @view(Ũ⃗[i * 2N .+ (N+1:2N)])
+    for i = 0:(N-1)
+        U[:, i+1] .=
+            @view(Ũ⃗[i*2N .+ (1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N .+ ((N+1):2N)])
     end
     return U
 end
@@ -78,19 +79,19 @@ end
 
 Convert a real vector `Ũ⃗` into a real matrix representing an isomorphism operator.
 """
-function iso_vec_to_iso_operator(Ũ⃗::AbstractVector{ℝ}) where ℝ <: Real
+function iso_vec_to_iso_operator(Ũ⃗::AbstractVector{ℝ}) where {ℝ<:Real}
     N = Int(sqrt(length(Ũ⃗) ÷ 2))
     Ũ = Matrix{ℝ}(undef, 2N, 2N)
     U_real = Matrix{ℝ}(undef, N, N)
     U_imag = Matrix{ℝ}(undef, N, N)
-    for i=0:N-1
+    for i = 0:(N-1)
         U_real[:, i+1] .= @view(Ũ⃗[i*2N .+ (1:N)])
-        U_imag[:, i+1] .= @view(Ũ⃗[i*2N .+ (N+1:2N)])
+        U_imag[:, i+1] .= @view(Ũ⃗[i*2N .+ ((N+1):2N)])
     end
     Ũ[1:N, 1:N] .= U_real
-    Ũ[1:N, (N + 1):end] .= -U_imag
-    Ũ[(N + 1):end, 1:N] .= U_imag
-    Ũ[(N + 1):end, (N + 1):end] .= U_real
+    Ũ[1:N, (N+1):end] .= -U_imag
+    Ũ[(N+1):end, 1:N] .= U_imag
+    Ũ[(N+1):end, (N+1):end] .= U_real
     return Ũ
 end
 
@@ -98,13 +99,13 @@ end
     operator_to_iso_vec(U::AbstractMatrix{ℂ}) where ℂ <: Number
 
 Convert a complex matrix `U` representing an operator into a real vector.
-""" 
-function operator_to_iso_vec(U::AbstractMatrix{ℂ}) where ℂ <: Number
-    N = size(U,1)
+"""
+function operator_to_iso_vec(U::AbstractMatrix{ℂ}) where {ℂ<:Number}
+    N = size(U, 1)
     Ũ⃗ = Vector{real(ℂ)}(undef, N^2 * 2)
-    for i=0:N-1
+    for i = 0:(N-1)
         Ũ⃗[i*2N .+ (1:N)] .= real(@view(U[:, i+1]))
-        Ũ⃗[i*2N .+ (N+1:2N)] .= imag(@view(U[:, i+1]))
+        Ũ⃗[i*2N .+ ((N+1):2N)] .= imag(@view(U[:, i+1]))
     end
     return Ũ⃗
 end
@@ -114,10 +115,10 @@ end
 
 Convert a real matrix `Ũ` representing an isomorphism operator into a real vector.
 """
-function iso_operator_to_iso_vec(Ũ::AbstractMatrix{ℝ}) where ℝ <: Real
+function iso_operator_to_iso_vec(Ũ::AbstractMatrix{ℝ}) where {ℝ<:Real}
     N = size(Ũ, 1) ÷ 2
     Ũ⃗ = Vector{ℝ}(undef, N^2 * 2)
-    for i=0:N-1
+    for i = 0:(N-1)
         Ũ⃗[i*2N .+ (1:2N)] .= @view Ũ[:, i+1]
     end
     return Ũ⃗
@@ -157,7 +158,7 @@ iso_vec_to_density(ρ⃗̃::AbstractVector{<:Real}) = mat(iso_to_ket(ρ⃗̃))
 
 const Im2 = [
     0 -1;
-    1  0
+    1 0
 ]
 
 @doc raw"""
@@ -199,7 +200,7 @@ See also [`Isomorphisms.iso`](@ref), [`Isomorphisms.G`](@ref).
 function H(G::AbstractMatrix{<:Real})
     dim = size(G, 1) ÷ 2
     H_imag = G[1:dim, 1:dim]
-    H_real = -G[dim+1:end, 1:dim]
+    H_real = -G[(dim+1):end, 1:dim]
     return H_real + 1.0im * H_imag
 end
 
@@ -212,7 +213,7 @@ Returns the vectorized adjoint action of a matrix `H`:
 \text{ad_vec}(H) = \mqty(1 & 0 \\ 0 & 1) \otimes H - (-1)^{\text{anti}} \mqty(0 & 1 \\ 1 & 0) \otimes H^*
 ```
 """
-function ad_vec(H::AbstractMatrix{ℂ}; anti::Bool=false) where ℂ <: Number
+function ad_vec(H::AbstractMatrix{ℂ}; anti::Bool = false) where {ℂ<:Number}
     Id = sparse(ℂ, I, size(H)...)
     return kron(Id, H) - (-1)^anti * kron(conj(H)', Id)
 end
@@ -222,8 +223,8 @@ end
 
 Returns the isomorphic representation of the Lindblad dissipator `L`.
 """
-function iso_D(L::AbstractMatrix{ℂ}) where ℂ <: Number
-    return iso(kron(conj(L), L) - 1 / 2 * ad_vec(L'L, anti=true))
+function iso_D(L::AbstractMatrix{ℂ}) where {ℂ<:Number}
+    return iso(kron(conj(L), L) - 1 / 2 * ad_vec(L'L, anti = true))
 end
 
 @doc raw"""
@@ -240,14 +241,14 @@ derivatives of `G` for parameters `a` and `b`, respectively.
 """
 function var_G(
     G::AbstractMatrix{ℝ1},
-    G_vars::AbstractVector{<:AbstractMatrix{ℝ2}}
-) where {ℝ1 <: Real, ℝ2 <: Real}
+    G_vars::AbstractVector{<:AbstractMatrix{ℝ2}},
+) where {ℝ1<:Real,ℝ2<:Real}
     n, m = size(G)
     v = length(G_vars)
     G_0 = kron(I(v + 1), G)
     G_V = spzeros(ℝ2, (v + 1) * n, (v + 1) * m)
-    for i = eachindex(G_vars)
-        G_V[i * n + 1:(i + 1) * n, 1:m] = G_vars[i]
+    for i in eachindex(G_vars)
+        G_V[(i*n+1):((i+1)*n), 1:m] = G_vars[i]
     end
     return G_0 + G_V
 end
@@ -264,7 +265,7 @@ Convert a ket to a Bloch vector representation.
 function ket_to_bloch(ψ::AbstractVector{<:Number})
     @assert length(ψ) == 2
     ρ = ψ * ψ'
-    bloch_vector =  [real(tr(ρ * P)) for P in [PAULIS.X, PAULIS.Y, PAULIS.Z]]
+    bloch_vector = [real(tr(ρ * P)) for P in [PAULIS.X, PAULIS.Y, PAULIS.Z]]
 
     return bloch_vector / norm(bloch_vector)
 end
@@ -275,14 +276,14 @@ end
 
 Convert a Bloch vector to a ket (up to global phase).
 """
-function bloch_to_ket(bloch::AbstractVector{R}; digits::Integer=6) where R <: Real
-    @assert length(bloch) == 3 
+function bloch_to_ket(bloch::AbstractVector{R}; digits::Integer = 6) where {R<:Real}
+    @assert length(bloch) == 3
     x, y, z = bloch
-    
+
     θ = acos(z)
     φ = atan(y, x)
 
-    return Complex{R}[cos(θ/2), exp(im * φ) * sin(θ/2)]
+    return Complex{R}[cos(θ/2), exp(im*φ)*sin(θ/2)]
 
 end
 
@@ -292,7 +293,7 @@ function density_to_bloch(ψ::AbstractVector{<:Number})
     return [real(tr(ρ * P)) for P in [PAULIS.X, PAULIS.Y, PAULIS.Z]]
 end
 
-function bloch_to_density(v::AbstractVector{<:Real}) 
+function bloch_to_density(v::AbstractVector{<:Real})
     @assert length(v) == 3
     return 0.5 * (I(2) + v[1]*PAULIS.X + v[2]*PAULIS.Y + v[3]*PAULIS.Z)
 end
@@ -308,24 +309,34 @@ end
 
 @testitem "Test operator isomorphisms" begin
     iso_vec_I = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
-    @test mat([1.0, 2.0, 3.0, 4.0]) ≈ [1.0 3.0; 
-                                        2.0 4.0]
-    @test iso_vec_to_operator(iso_vec_I) ≈ [1.0 0.0;
-                                           0.0 1.0]
-    @test iso_vec_to_iso_operator(iso_vec_I) ≈ [1.0 0.0 0.0 0.0; 
-                                               0.0 1.0 0.0 0.0; 
-                                               0.0 0.0 1.0 0.0; 
-                                               0.0 0.0 0.0 1.0]
+    @test mat([1.0, 2.0, 3.0, 4.0]) ≈ [
+        1.0 3.0;
+        2.0 4.0
+    ]
+    @test iso_vec_to_operator(iso_vec_I) ≈ [
+        1.0 0.0;
+        0.0 1.0
+    ]
+    @test iso_vec_to_iso_operator(iso_vec_I) ≈ [
+        1.0 0.0 0.0 0.0;
+        0.0 1.0 0.0 0.0;
+        0.0 0.0 1.0 0.0;
+        0.0 0.0 0.0 1.0
+    ]
     @test operator_to_iso_vec(Complex[1.0 0.0; 0.0 1.0]) ≈ iso_vec_I
     @test iso_operator_to_iso_vec(iso_vec_to_iso_operator(iso_vec_I)) ≈ iso_vec_I
 
     iso_vec_XY = [0, 1, 0, 1, 1, 0, -1, 0]
-    @test iso_vec_to_operator(iso_vec_XY) ≈ [0 1-im; 
-                                             1+im 0]
-    @test iso_vec_to_iso_operator(iso_vec_XY) ≈ [0 1 0 1; 
-                                                 1 0 -1 0; 
-                                                 0 -1 0 1; 
-                                                 1 0 1 0]
+    @test iso_vec_to_operator(iso_vec_XY) ≈ [
+        0 1-im;
+        1+im 0
+    ]
+    @test iso_vec_to_iso_operator(iso_vec_XY) ≈ [
+        0 1 0 1;
+        1 0 -1 0;
+        0 -1 0 1;
+        1 0 1 0
+    ]
     @test operator_to_iso_vec(Complex[0.0 1-im; 1+im 0.0]) ≈ iso_vec_XY
     @test iso_operator_to_iso_vec(iso_vec_to_iso_operator(iso_vec_XY)) ≈ iso_vec_XY
 end
@@ -343,11 +354,15 @@ end
 
     # Random
     ρ1 = [1.0 1.0; 1.0 1.0] / 2
-    U1 = [-0.831976-0.101652im  -0.422559-0.344857im;
-          -0.527557+0.138444im   0.799158+0.252713im]
+    U1 = [
+        -0.831976-0.101652im -0.422559-0.344857im;
+        -0.527557+0.138444im 0.799158+0.252713im
+    ]
     ρ2 = [1.0 0.0; 0.0 0.0]
-    U2 = [-0.784966-0.163279im   -0.597246-0.0215881im
-           0.597536+0.0109124im  -0.792681+0.120364im]
+    U2 = [
+        -0.784966-0.163279im -0.597246-0.0215881im
+        0.597536+0.0109124im -0.792681+0.120364im
+    ]
     ρ = (U1*ρ1*U1' + U2*ρ2*U2') / 2
     @test iso_vec_to_density(density_to_iso_vec(ρ)) ≈ ρ
     @test iso_vec_to_density(density_to_iso_vec(ρ)) ≈ ρ
@@ -380,26 +395,30 @@ end
 
 @testitem "Test variational G isomorphism" begin
     using .Isomorphisms
-    
+
     G = [1.0 2.0; 3.0 4.0]
     G_var1 = [0.0 1.0; 1.0 0.0]
     G_var2 = [0.0 0.0; 1.0 1.0]
 
     G_vars = [G_var1]
     Ĝ = Isomorphisms.var_G(G, G_vars)
-    @test Ĝ ≈ [1.0 2.0 0.0 0.0; 
-                   3.0 4.0 0.0 0.0; 
-                   0.0 1.0 1.0 2.0; 
-                   1.0 0.0 3.0 4.0]
+    @test Ĝ ≈ [
+        1.0 2.0 0.0 0.0;
+        3.0 4.0 0.0 0.0;
+        0.0 1.0 1.0 2.0;
+        1.0 0.0 3.0 4.0
+    ]
 
     G_vars = [G_var1, G_var2]
     Ĝ = Isomorphisms.var_G(G, G_vars)
-    @test Ĝ ≈  [1.0 2.0 0.0 0.0 0.0 0.0; 
-                    3.0 4.0 0.0 0.0 0.0 0.0; 
-                    0.0 1.0 1.0 2.0 0.0 0.0; 
-                    1.0 0.0 3.0 4.0 0.0 0.0;
-                    0.0 0.0 0.0 0.0 1.0 2.0; 
-                    1.0 1.0 0.0 0.0 3.0 4.0]
+    @test Ĝ ≈ [
+        1.0 2.0 0.0 0.0 0.0 0.0;
+        3.0 4.0 0.0 0.0 0.0 0.0;
+        0.0 1.0 1.0 2.0 0.0 0.0;
+        1.0 0.0 3.0 4.0 0.0 0.0;
+        0.0 0.0 0.0 0.0 1.0 2.0;
+        1.0 1.0 0.0 0.0 3.0 4.0
+    ]
 end
 
 @testitem "Test Bloch vector to ket and ket to Bloch vector" begin

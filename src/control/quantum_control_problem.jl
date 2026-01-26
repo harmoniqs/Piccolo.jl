@@ -138,14 +138,14 @@ function sync_trajectory!(qcp::QuantumControlProblem)
     # Extract the optimized pulse from the discrete trajectory and roll it out in-place
     pulse = extract_pulse(qcp.qtraj, qcp.prob.trajectory)
     rollout!(qcp.qtraj, pulse)
-    
+
     # Update global parameters in the system if present
     # Use get_system() to work with all trajectory types (including SamplingTrajectory)
     sys = get_system(qcp.qtraj)
     if !isempty(sys.global_params) && qcp.prob.trajectory.global_dim > 0
         update_global_params!(qcp.qtraj, qcp.prob.trajectory)
     end
-    
+
     return nothing
 end
 
@@ -160,7 +160,7 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 
 All other keyword arguments are passed to the DirectTrajOpt solver.
 """
-function solve!(qcp::QuantumControlProblem; sync::Bool=true, kwargs...)
+function solve!(qcp::QuantumControlProblem; sync::Bool = true, kwargs...)
     solve!(qcp.prob; kwargs...)
     if sync
         sync_trajectory!(qcp)
@@ -174,7 +174,7 @@ Base.getproperty(qcp::QuantumControlProblem, s::Symbol) = begin
         getfield(qcp, :qtraj)
     elseif s === :prob
         getfield(qcp, :prob)
-    # Forward to prob for common fields
+        # Forward to prob for common fields
     elseif s in (:objective, :dynamics, :constraints, :trajectory)
         getproperty(qcp.prob, s)
     else
@@ -204,53 +204,53 @@ end
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
-    
+
     # Create a simple quantum system with X drive
     levels = 2
     H_drift = zeros(ComplexF64, levels, levels)
     σx = ComplexF64[0 1; 1 0]
-    
+
     N = 11
     T = 5.0
-    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent=false)
-    
+    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+
     ψ_init = ComplexF64[1, 0]
     ψ_target = ComplexF64[0, 1]
-    
+
     # Create pulse with zero controls
-    times = collect(range(0, T, length=N))
+    times = collect(range(0, T, length = N))
     controls = zeros(1, N)
     pulse = LinearSplinePulse(controls, times)
-    
+
     # Create initial trajectory
     qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_target)
-    
+
     # Verify initial fidelity is low (controls are zero)
     initial_fid = fidelity(qtraj)
     @test initial_fid < 0.1  # Should be near 0 since |0⟩ stays at |0⟩
-    
+
     # Create a simple problem - convert QT to NamedTrajectory
     traj = NamedTrajectory(qtraj, N)
     obj = QuadraticRegularizer(:u, traj, 1.0)
     integrator = BilinearIntegrator(qtraj, N)
     prob = DirectTrajOptProblem(traj, obj, integrator)
     qcp = QuantumControlProblem(qtraj, prob)
-    
+
     # Manually modify prob.trajectory to simulate optimization
     # Set u to a constant value that will rotate |0⟩ toward |1⟩
     # For a simple rotation: exp(-i * σx * u * t) |0⟩ = cos(ut)|0⟩ - i*sin(ut)|1⟩
     # After time T with u = π/(2T), we get |1⟩
     u_opt = π / (2 * T)
     qcp.prob.trajectory.u .= u_opt
-    
+
     # Call sync to update qtraj with new controls
     sync_trajectory!(qcp)
-    
+
     # The qtraj should now have the optimized pulse
     new_pulse = get_pulse(qcp.qtraj)
     # Access underlying data from the interpolator (.u field in DataInterpolations)
     @test all(new_pulse.controls.u .≈ u_opt)
-    
+
     # The fidelity should be much better
     final_fid = fidelity(qcp.qtraj)
     @test final_fid > 0.9  # Should be near 1 now
@@ -260,102 +260,102 @@ end
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
-    
+
     # Create a minimal quantum system
     levels = 2
     H_drift = zeros(ComplexF64, levels, levels)
     σx = ComplexF64[0 1; 1 0]
-    
+
     ψ_init = ComplexF64[1, 0]
     ψ_target = ComplexF64[0, 1]
     N = 11
     T = 5.0
-    
-    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent=false)
-    
+
+    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+
     # Create pulse with zero controls
-    times = collect(range(0, T, length=N))
+    times = collect(range(0, T, length = N))
     controls = zeros(1, N)
     pulse = LinearSplinePulse(controls, times)
-    
+
     qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_target)
     traj = NamedTrajectory(qtraj, N)
-    
+
     # Create problem with simple objective
     obj = QuadraticRegularizer(:u, traj, 0.01)
     integrator = BilinearIntegrator(qtraj, N)
     prob = DirectTrajOptProblem(traj, obj, integrator)
     qcp = QuantumControlProblem(qtraj, prob)
-    
+
     # Store original pulse
     original_pulse = get_pulse(qcp.qtraj)
-    
+
     # Solve with max_iter=0 (no optimization, just test sync mechanism)
-    solve!(qcp; max_iter=0, sync=true)
-    
+    solve!(qcp; max_iter = 0, sync = true)
+
     # qtraj should be updated (in-place, but new solution)
     @test true  # If we get here without errors, sync worked
-    
+
     # Test sync=false doesn't update trajectory
     qtraj2 = KetTrajectory(sys, pulse, ψ_init, ψ_target)
     traj2 = NamedTrajectory(qtraj2, N)
     prob2 = DirectTrajOptProblem(traj2, obj, integrator)
     qcp2 = QuantumControlProblem(qtraj2, prob2)
     original_qtraj2 = qcp2.qtraj
-    
-    solve!(qcp2; max_iter=0, sync=false)
+
+    solve!(qcp2; max_iter = 0, sync = false)
     @test qcp2.qtraj === original_qtraj2  # Same object, not rebuilt
 end
 
 @testitem "extract_pulse and rollout creates new trajectory with updated pulse" begin
     using LinearAlgebra
     using NamedTrajectories
-    
+
     # Create system
     levels = 2
     H_drift = zeros(ComplexF64, levels, levels)
     σx = ComplexF64[0 1; 1 0]
     N = 11
     T = 5.0
-    
-    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent=false)
-    
+
+    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+
     ψ_init = ComplexF64[1, 0]
     ψ_goal = ComplexF64[0, 1]
-    
+
     # Create pulse with zero controls
-    times = collect(range(0, T, length=N))
+    times = collect(range(0, T, length = N))
     controls = zeros(1, N)
     pulse = LinearSplinePulse(controls, times)
-    
+
     # Create initial trajectory
     qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
-    
+
     # Get NamedTrajectory and modify controls
     traj = NamedTrajectory(qtraj, N)
     u_opt = π / (2 * T)
-    
+
     # Create modified trajectory data
     new_u = fill(u_opt, size(traj.u))
     new_traj = NamedTrajectory(
-        (; ψ̃=traj.ψ̃, t=traj.t, Δt=traj.Δt, u=new_u);
-        timestep=:Δt,
-        controls=(:Δt, :u),
-        bounds=traj.bounds,
-        initial=traj.initial,
-        goal=traj.goal
+        (; ψ̃ = traj.ψ̃, t = traj.t, Δt = traj.Δt, u = new_u);
+        timestep = :Δt,
+        controls = (:Δt, :u),
+        bounds = traj.bounds,
+        initial = traj.initial,
+        goal = traj.goal,
     )
-    
+
     # Extract pulse and rollout with new controls
     new_pulse = extract_pulse(qtraj, new_traj)
     new_qtraj = rollout(qtraj, new_pulse)
-    
+
     # Check pulse was updated (access underlying data via .u)
     @test all(new_qtraj.pulse.controls.u .≈ u_opt)
-    
+
     # Check ODE was re-solved (fidelity should be high)
     @test fidelity(new_qtraj) > 0.9
-    
+
     # Original trajectory unchanged (access underlying data via .u)
     @test all(qtraj.pulse.controls.u .≈ 0.0)
 end

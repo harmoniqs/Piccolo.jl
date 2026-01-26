@@ -68,7 +68,7 @@ Get all state names for an ensemble trajectory (`:ψ̃1`, `:ψ̃2`, etc.)
 """
 function state_names(traj::MultiKetTrajectory)
     prefix = state_name(traj)
-    return [Symbol(prefix, i) for i in 1:length(traj.initials)]
+    return [Symbol(prefix, i) for i = 1:length(traj.initials)]
 end
 
 """
@@ -129,13 +129,13 @@ See also: [`rollout`](@ref)
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory,
     pulse::AbstractPulse;
-    algorithm=MagnusGL4(),
-    n_points::Int=101
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
 )
-    times = collect(range(0.0, duration(pulse), length=n_points))
-    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, times; U0=qtraj.initial)
-    sol = solve(prob, algorithm; saveat=times)
-    
+    times = collect(range(0.0, duration(pulse), length = n_points))
+    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, times; U0 = qtraj.initial)
+    sol = solve(prob, algorithm; saveat = times)
+
     qtraj.pulse = pulse
     qtraj.solution = sol
     return nothing
@@ -167,14 +167,14 @@ See also: [`rollout`](@ref)
 """
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory;
-    algorithm=MagnusGL4(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length=n_points))
-    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, times; U0=qtraj.initial)
-    sol = solve(prob, algorithm; saveat=times, kwargs...)
-    
+    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
+    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, times; U0 = qtraj.initial)
+    sol = solve(prob, algorithm; saveat = times, kwargs...)
+
     qtraj.solution = sol
     return nothing
 end
@@ -188,13 +188,13 @@ See [`rollout!(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
 function Rollouts.rollout!(
     qtraj::KetTrajectory,
     pulse::AbstractPulse;
-    algorithm=MagnusGL4(),
-    n_points::Int=101
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
 )
-    times = collect(range(0.0, duration(pulse), length=n_points))
+    times = collect(range(0.0, duration(pulse), length = n_points))
     prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat=times)
-    
+    sol = solve(prob, algorithm; saveat = times)
+
     qtraj.pulse = pulse
     qtraj.solution = sol
     return nothing
@@ -208,14 +208,14 @@ See [`rollout!(::UnitaryTrajectory; kwargs...)`](@ref) for details.
 """
 function Rollouts.rollout!(
     qtraj::KetTrajectory;
-    algorithm=MagnusGL4(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length=n_points))
+    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
     prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat=times, kwargs...)
-    
+    sol = solve(prob, algorithm; saveat = times, kwargs...)
+
     qtraj.solution = sol
     return nothing
 end
@@ -229,18 +229,23 @@ See [`rollout!(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
 function Rollouts.rollout!(
     qtraj::MultiKetTrajectory,
     pulse::AbstractPulse;
-    algorithm=MagnusGL4(),
-    n_points::Int=101
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
 )
-    times = collect(range(0.0, duration(pulse), length=n_points))
-    
+    times = collect(range(0.0, duration(pulse), length = n_points))
+
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, times)
-    prob_func(prob, i, repeat) = remake(prob, u0=qtraj.initials[i])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func=prob_func)
-    sol = solve(ensemble_prob, algorithm; trajectories=length(qtraj.initials), saveat=times)
-    
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = times,
+    )
+
     qtraj.pulse = pulse
     qtraj.solution = sol
     return nothing
@@ -254,19 +259,25 @@ See [`rollout!(::UnitaryTrajectory; kwargs...)`](@ref) for details.
 """
 function Rollouts.rollout!(
     qtraj::MultiKetTrajectory;
-    algorithm=MagnusGL4(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length=n_points))
-    
+    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
+
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, times)
-    prob_func(prob, i, repeat) = remake(prob, u0=qtraj.initials[i])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func=prob_func)
-    sol = solve(ensemble_prob, algorithm; trajectories=length(qtraj.initials), saveat=times, kwargs...)
-    
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = times,
+        kwargs...,
+    )
+
     qtraj.solution = sol
     return nothing
 end
@@ -281,13 +292,13 @@ See [`rollout!(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
 function Rollouts.rollout!(
     qtraj::DensityTrajectory,
     pulse::AbstractPulse;
-    algorithm=Tsit5(),
-    n_points::Int=101
+    algorithm = Tsit5(),
+    n_points::Int = 101,
 )
-    times = collect(range(0.0, duration(pulse), length=n_points))
+    times = collect(range(0.0, duration(pulse), length = n_points))
     prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat=times)
-    
+    sol = solve(prob, algorithm; saveat = times)
+
     qtraj.pulse = pulse
     qtraj.solution = sol
     return nothing
@@ -302,14 +313,14 @@ See [`rollout!(::UnitaryTrajectory; kwargs...)`](@ref) for details.
 """
 function Rollouts.rollout!(
     qtraj::DensityTrajectory;
-    algorithm=Tsit5(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = Tsit5(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length=n_points))
+    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
     prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat=times, kwargs...)
-    
+    sol = solve(prob, algorithm; saveat = times, kwargs...)
+
     qtraj.solution = sol
     return nothing
 end
@@ -323,10 +334,10 @@ Delegates to the base trajectory's rollout! method.
 function Rollouts.rollout!(
     qtraj::SamplingTrajectory,
     pulse::AbstractPulse;
-    algorithm=MagnusGL4(),
-    n_points::Int=101
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
 )
-    rollout!(qtraj.base_trajectory, pulse; algorithm=algorithm, n_points=n_points)
+    rollout!(qtraj.base_trajectory, pulse; algorithm = algorithm, n_points = n_points)
     return nothing
 end
 
@@ -338,11 +349,11 @@ Delegates to the base trajectory's rollout! method.
 """
 function Rollouts.rollout!(
     qtraj::SamplingTrajectory;
-    algorithm=MagnusGL4(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    rollout!(qtraj.base_trajectory; algorithm=algorithm, n_points=n_points, kwargs...)
+    rollout!(qtraj.base_trajectory; algorithm = algorithm, n_points = n_points, kwargs...)
     return nothing
 end
 
@@ -376,12 +387,12 @@ See also: [`extract_pulse`](@ref), [`rollout!`](@ref), [`fidelity`](@ref)
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory,
     pulse::AbstractPulse;
-    algorithm=MagnusGL4(),
-    n_points::Int=101
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
 )
-    times = collect(range(0.0, duration(pulse), length=n_points))
-    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, times; U0=qtraj.initial)
-    sol = solve(prob, algorithm; saveat=times)
+    times = collect(range(0.0, duration(pulse), length = n_points))
+    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, times; U0 = qtraj.initial)
+    sol = solve(prob, algorithm; saveat = times)
     return UnitaryTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -394,12 +405,12 @@ See [`rollout(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
 function Rollouts.rollout(
     qtraj::KetTrajectory,
     pulse::AbstractPulse;
-    algorithm=MagnusGL4(),
-    n_points::Int=101
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
 )
-    times = collect(range(0.0, duration(pulse), length=n_points))
+    times = collect(range(0.0, duration(pulse), length = n_points))
     prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat=times)
+    sol = solve(prob, algorithm; saveat = times)
     return KetTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -412,25 +423,30 @@ See [`rollout(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory,
     pulse::AbstractPulse;
-    algorithm=MagnusGL4(),
-    n_points::Int=101
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
 )
-    times = collect(range(0.0, duration(pulse), length=n_points))
-    
+    times = collect(range(0.0, duration(pulse), length = n_points))
+
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, times)
-    prob_func(prob, i, repeat) = remake(prob, u0=qtraj.initials[i])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func=prob_func)
-    sol = solve(ensemble_prob, algorithm; trajectories=length(qtraj.initials), saveat=times)
-    
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = times,
+    )
+
     return MultiKetTrajectory(
         qtraj.system,
         pulse,
         qtraj.initials,
         qtraj.goals,
         qtraj.weights,
-        sol
+        sol,
     )
 end
 
@@ -444,12 +460,12 @@ See [`rollout(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
 function Rollouts.rollout(
     qtraj::DensityTrajectory,
     pulse::AbstractPulse;
-    algorithm=Tsit5(),
-    n_points::Int=101
+    algorithm = Tsit5(),
+    n_points::Int = 101,
 )
-    times = collect(range(0.0, duration(pulse), length=n_points))
+    times = collect(range(0.0, duration(pulse), length = n_points))
     prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat=times)
+    sol = solve(prob, algorithm; saveat = times)
     return DensityTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -482,13 +498,13 @@ See also: [`rollout!`](@ref)
 """
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory;
-    algorithm=MagnusGL4(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length=n_points))
-    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, times; U0=qtraj.initial)
-    sol = solve(prob, algorithm; saveat=times, kwargs...)
+    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
+    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, times; U0 = qtraj.initial)
+    sol = solve(prob, algorithm; saveat = times, kwargs...)
     return UnitaryTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -500,13 +516,13 @@ See [`rollout(::UnitaryTrajectory; kwargs...)`](@ref) for details.
 """
 function Rollouts.rollout(
     qtraj::KetTrajectory;
-    algorithm=MagnusGL4(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length=n_points))
+    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
     prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat=times, kwargs...)
+    sol = solve(prob, algorithm; saveat = times, kwargs...)
     return KetTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -518,26 +534,32 @@ See [`rollout(::UnitaryTrajectory; kwargs...)`](@ref) for details.
 """
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory;
-    algorithm=MagnusGL4(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = MagnusGL4(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length=n_points))
-    
+    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
+
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, times)
-    prob_func(prob, i, repeat) = remake(prob, u0=qtraj.initials[i])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func=prob_func)
-    sol = solve(ensemble_prob, algorithm; trajectories=length(qtraj.initials), saveat=times, kwargs...)
-    
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = times,
+        kwargs...,
+    )
+
     return MultiKetTrajectory(
         qtraj.system,
         qtraj.pulse,
         qtraj.initials,
         qtraj.goals,
         qtraj.weights,
-        sol
+        sol,
     )
 end
 
@@ -550,13 +572,13 @@ See [`rollout(::UnitaryTrajectory; kwargs...)`](@ref) for details.
 """
 function Rollouts.rollout(
     qtraj::DensityTrajectory;
-    algorithm=Tsit5(),
-    n_points::Int=101,
-    kwargs...
+    algorithm = Tsit5(),
+    n_points::Int = 101,
+    kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length=n_points))
+    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
     prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat=times, kwargs...)
+    sol = solve(prob, algorithm; saveat = times, kwargs...)
     return DensityTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -569,13 +591,16 @@ end
 
 Compute the fidelity between the final unitary and the goal.
 """
-function Rollouts.fidelity(traj::UnitaryTrajectory; subspace::Union{Nothing, AbstractVector{Int}}=nothing)
+function Rollouts.fidelity(
+    traj::UnitaryTrajectory;
+    subspace::Union{Nothing,AbstractVector{Int}} = nothing,
+)
     U_final = traj.solution.u[end]
     U_goal = traj.goal isa EmbeddedOperator ? traj.goal.operator : traj.goal
     if isnothing(subspace)
         return unitary_fidelity(U_final, U_goal)
     else
-        return unitary_fidelity(U_final, U_goal; subspace=subspace)
+        return unitary_fidelity(U_final, U_goal; subspace = subspace)
     end
 end
 
@@ -618,33 +643,33 @@ end
 
 @testitem "Common interface - getters" begin
     using LinearAlgebra
-    
+
     # UnitaryTrajectory
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
-    
+
     X_gate = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(system, X_gate, 1.0)
-    
+
     @test get_system(qtraj) === system
     @test get_pulse(qtraj) isa AbstractPulse
     @test get_initial(qtraj) ≈ Matrix{ComplexF64}(I, 2, 2)
     @test get_goal(qtraj) === X_gate
     @test duration(qtraj) ≈ 1.0
-    
+
     # KetTrajectory
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj_ket = KetTrajectory(system, ψ0, ψg, 1.0)
-    
+
     @test get_system(qtraj_ket) === system
     @test get_initial(qtraj_ket) ≈ ψ0
     @test get_goal(qtraj_ket) ≈ ψg
-    
+
     # MultiKetTrajectory
     initials = [ψ0, ψg]
     goals = [ψg, ψ0]
     qtraj_ens = MultiKetTrajectory(system, initials, goals, 1.0)
-    
+
     @test get_system(qtraj_ens) === system
     @test get_initial(qtraj_ens) == qtraj_ens.initials
     @test get_goal(qtraj_ens) == qtraj_ens.goals
@@ -652,26 +677,26 @@ end
 
 @testitem "Common interface - name accessors" begin
     using LinearAlgebra
-    
+
     system = QuantumSystem([PAULIS.X], [1.0])
-    
+
     # Test state_name for each trajectory type
     qtraj_u = UnitaryTrajectory(system, ComplexF64[0 1; 1 0], 1.0)
     @test state_name(qtraj_u) == :Ũ⃗
-    
+
     qtraj_k = KetTrajectory(system, ComplexF64[1, 0], ComplexF64[0, 1], 1.0)
     @test state_name(qtraj_k) == :ψ̃
-    
+
     qtraj_e = MultiKetTrajectory(system, [ComplexF64[1, 0]], [ComplexF64[0, 1]], 1.0)
     @test state_name(qtraj_e) == :ψ̃
     @test state_names(qtraj_e) == [:ψ̃1]
-    
+
     # Test drive_name propagation
     times = [0.0, 1.0]
-    pulse = ZeroOrderPulse(zeros(1, 2), times; drive_name=:control)
+    pulse = ZeroOrderPulse(zeros(1, 2), times; drive_name = :control)
     qtraj_custom = UnitaryTrajectory(system, pulse, ComplexF64[0 1; 1 0])
     @test drive_name(qtraj_custom) == :control
-    
+
     # Test time_name and timestep_name (always fixed)
     @test time_name(qtraj_u) == :t
     @test timestep_name(qtraj_u) == :Δt
@@ -679,14 +704,14 @@ end
 
 @testitem "Interface - DensityTrajectory getters" begin
     using LinearAlgebra
-    
+
     L = ComplexF64[0.1 0.0; 0.0 0.0]
-    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators=[L])
-    
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρg = ComplexF64[0.0 0.0; 0.0 1.0]
     qtraj = DensityTrajectory(system, ρ0, ρg, 1.0)
-    
+
     @test get_system(qtraj) === system
     @test get_initial(qtraj) ≈ ρ0
     @test get_goal(qtraj) ≈ ρg
@@ -697,75 +722,75 @@ end
     using LinearAlgebra
     using OrdinaryDiffEqLinear: MagnusGL4
     using OrdinaryDiffEqTsit5: Tsit5
-    
+
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     X_gate = ComplexF64[0 1; 1 0]
-    
+
     # Create trajectory with initial pulse (1 drive × 2 timesteps)
     pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
     qtraj = UnitaryTrajectory(system, pulse1, X_gate)
     @test length(qtraj.solution.u) == 101
     fid1 = fidelity(qtraj)
-    
+
     # Roll out a new pulse
     pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
     qtraj_new = rollout(qtraj, pulse2)
-    
+
     @test length(qtraj_new.solution.u) == 101
     @test qtraj_new.system === qtraj.system
     @test qtraj_new.pulse === pulse2
     @test qtraj_new.goal === qtraj.goal
-    
+
     # Should have different fidelity (different pulse)
     fid2 = fidelity(qtraj_new)
     @test fid2 != fid1
-    
+
     # Roll out with higher resolution
-    qtraj_fine = rollout(qtraj, pulse2; n_points=501)
+    qtraj_fine = rollout(qtraj, pulse2; n_points = 501)
     @test length(qtraj_fine.solution.u) == 501
-    
+
     # Roll out with different algorithm
-    qtraj_rk = rollout(qtraj, pulse2; algorithm=Tsit5())
+    qtraj_rk = rollout(qtraj, pulse2; algorithm = Tsit5())
     @test length(qtraj_rk.solution.u) == 101
 end
 
 @testitem "rollout - KetTrajectory" begin
     using LinearAlgebra
     using OrdinaryDiffEqLinear: MagnusGL4
-    
+
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
-    
+
     # Create trajectory
     pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
     qtraj = KetTrajectory(system, pulse1, ψ0, ψg)
-    
+
     # Roll out new pulse
     pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
-    qtraj_new = rollout(qtraj, pulse2; n_points=201)
-    
+    qtraj_new = rollout(qtraj, pulse2; n_points = 201)
+
     @test length(qtraj_new.solution.u) == 201
     @test qtraj_new.pulse === pulse2
 end
 
 @testitem "rollout - MultiKetTrajectory" begin
     using LinearAlgebra
-    
+
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
-    
+
     initials = [ψ0, ψ1]
     goals = [ψ1, ψ0]
-    
+
     pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
     qtraj = MultiKetTrajectory(system, pulse1, initials, goals)
-    
+
     # Roll out new pulse
     pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
     qtraj_new = rollout(qtraj, pulse2)
-    
+
     @test length(qtraj_new.solution) == 2
     @test qtraj_new.pulse === pulse2
 end
@@ -773,20 +798,20 @@ end
 @testitem "rollout - DensityTrajectory" begin
     using LinearAlgebra
     using OrdinaryDiffEqTsit5: Tsit5
-    
+
     L = ComplexF64[0.1 0.0; 0.0 0.0]
-    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators=[L])
-    
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρg = ComplexF64[0.0 0.0; 0.0 1.0]
-    
+
     pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
     qtraj = DensityTrajectory(system, pulse1, ρ0, ρg)
-    
+
     # Roll out new pulse
     pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
-    qtraj_new = rollout(qtraj, pulse2; n_points=301)
-    
+    qtraj_new = rollout(qtraj, pulse2; n_points = 301)
+
     @test length(qtraj_new.solution.u) == 301
     @test qtraj_new.pulse === pulse2
 end

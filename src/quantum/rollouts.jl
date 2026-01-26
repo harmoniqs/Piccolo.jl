@@ -110,9 +110,9 @@ function update_global_params!(qtraj, traj)
     if !hasfield(typeof(traj), :global_components) || isempty(traj.global_components)
         return nothing
     end
-    
+
     # Extract optimized global values from trajectory
-    global_dict = Dict{Symbol, Any}()
+    global_dict = Dict{Symbol,Any}()
     for (name, indices) in pairs(traj.global_components)
         if length(indices) == 1
             global_dict[name] = traj.global_data[indices[1]]
@@ -121,11 +121,11 @@ function update_global_params!(qtraj, traj)
             global_dict[name] = traj.global_data[indices]
         end
     end
-    
+
     # Reconstruct system with updated global_params
     sys = qtraj.system
     new_global_params = NamedTuple(global_dict)
-    
+
     # Choose reconstruction strategy based on how the system was originally constructed
     # For function-based systems, H_drives is empty. We cannot reconstruct from the 
     # original H function, but we can update the stored global_params field.
@@ -142,7 +142,7 @@ function update_global_params!(qtraj, traj)
             sys.n_drives,
             sys.levels,
             sys.time_dependent,
-            new_global_params
+            new_global_params,
         )
     else
         # Matrix-based system: reconstruct from drift and drives
@@ -150,14 +150,14 @@ function update_global_params!(qtraj, traj)
             sys.H_drift,
             sys.H_drives,
             sys.drive_bounds;
-            time_dependent=sys.time_dependent,
-            global_params=new_global_params
+            time_dependent = sys.time_dependent,
+            global_params = new_global_params,
         )
     end
-    
+
     # Update the quantum trajectory's system field (using internal method)
     _update_system!(qtraj, new_sys)
-    
+
     return nothing
 end
 
@@ -181,17 +181,17 @@ traj = NamedTrajectory(...; global_data=[0.5, 1.0], global_components=(δ=1:1, �
 g = extract_globals(traj)  # (δ = 0.5, Ω = 1.0)
 ```
 """
-function extract_globals(traj, names::Vector{Symbol}=Symbol[])
+function extract_globals(traj, names::Vector{Symbol} = Symbol[])
     # Check if trajectory has global components
     if !hasfield(typeof(traj), :global_components) || isempty(traj.global_components)
         return NamedTuple()
     end
-    
+
     if isempty(names)
         names = collect(keys(traj.global_components))
     end
-    
-    global_dict = Dict{Symbol, Any}()
+
+    global_dict = Dict{Symbol,Any}()
     for name in names
         indices = traj.global_components[name]
         if length(indices) == 1
@@ -201,7 +201,7 @@ function extract_globals(traj, names::Vector{Symbol}=Symbol[])
             global_dict[name] = traj.global_data[indices]
         end
     end
-    
+
     return NamedTuple(global_dict)
 end
 
@@ -214,10 +214,7 @@ end
 
 Calculate the fidelity between two quantum states `ψ` and `ψ_goal`.
 """
-function fidelity(
-    ψ::AbstractVector{<:Number}, 
-    ψ_goal::AbstractVector{<:Number}
-)
+function fidelity(ψ::AbstractVector{<:Number}, ψ_goal::AbstractVector{<:Number})
     return abs2(ψ'ψ_goal)
 end
 
@@ -238,7 +235,7 @@ Calculate the fidelity between unitary operators `U` and `U_goal` in the `subspa
 function unitary_fidelity(
     U::AbstractMatrix{<:Number},
     U_goal::AbstractMatrix{<:Number};
-    subspace::AbstractVector{Int}=axes(U, 1)
+    subspace::AbstractVector{Int} = axes(U, 1),
 )
     U = U[subspace, subspace]
     U_goal = U_goal[subspace, subspace]
@@ -250,15 +247,11 @@ end
 # DSL for Piccolo
 # ------------------------------------------------------------ #
 
-const SymbolIndex = Union{
-    Int,
-    AbstractVector{Int},
-    CartesianIndex{N} where N,
-    CartesianIndices{N} where N
-}
+const SymbolIndex =
+    Union{Int,AbstractVector{Int},CartesianIndex{N} where N,CartesianIndices{N} where N}
 
 function _index(name::Symbol, n::Int)
-    index = Dict{Symbol, SymbolIndex}()
+    index = Dict{Symbol,SymbolIndex}()
     for i = 1:n
         index[Symbol(name, :_, i)] = i
     end
@@ -267,8 +260,8 @@ function _index(name::Symbol, n::Int)
 end
 
 function _index(name::Symbol, n1::Int, n2::Int)
-    idx = Dict{Symbol, SymbolIndex}()
-    for i in 1:n1, j in 1:n2
+    idx = Dict{Symbol,SymbolIndex}()
+    for i = 1:n1, j = 1:n2
         idx[Symbol(name, :_, i, :_, j)] = CartesianIndex(i, j)
     end
     # block symbol: preserves matrix shape
@@ -276,16 +269,16 @@ function _index(name::Symbol, n1::Int, n2::Int)
     return idx
 end
 
-struct PiccoloRolloutSystem{T1 <: SymbolIndex}
-    state_index::Dict{Symbol, T1}
+struct PiccoloRolloutSystem{T1<:SymbolIndex}
+    state_index::Dict{Symbol,T1}
     t::Symbol
-    defaults::Dict{Symbol, Float64}
+    defaults::Dict{Symbol,Float64}
 end
 
 function PiccoloRolloutSystem(
-    state::Pair{Symbol, Int}, 
-    timestep_name::Symbol=:t,
-    defaults::Dict{Symbol,Float64}=Dict{Symbol,Float64}()
+    state::Pair{Symbol,Int},
+    timestep_name::Symbol = :t,
+    defaults::Dict{Symbol,Float64} = Dict{Symbol,Float64}(),
 )
     state_name, n_state = state
     state_index = _index(state_name, n_state)
@@ -293,18 +286,18 @@ function PiccoloRolloutSystem(
 end
 
 function PiccoloRolloutSystem(
-    state::Pair{Symbol, Tuple{Int, Int}}, 
-    timestep_name::Symbol=:t,
-    defaults::Dict{Symbol,Float64}=Dict{Symbol,Float64}()
+    state::Pair{Symbol,Tuple{Int,Int}},
+    timestep_name::Symbol = :t,
+    defaults::Dict{Symbol,Float64} = Dict{Symbol,Float64}(),
 )
     state_name, (n1, n2) = state
     state_index = _index(state_name, n1, n2)
     return PiccoloRolloutSystem(state_index, timestep_name, defaults)
 end
 
-function _construct_operator(sys::AbstractQuantumSystem, u::F) where F
+function _construct_operator(sys::AbstractQuantumSystem, u::F) where {F}
     A0 = zeros(ComplexF64, sys.levels, sys.levels)
-    
+
     # Build u_vec function that appends globals to controls
     if length(sys.global_params) > 0
         global_vals = collect(values(sys.global_params))
@@ -312,7 +305,7 @@ function _construct_operator(sys::AbstractQuantumSystem, u::F) where F
     else
         u_vec = u  # No globals, use controls directly
     end
-    
+
     function update!(A, x, p, t)
         Ht = collect(sys.H(u_vec(t), t))
         @. A = -im * Ht
@@ -321,7 +314,7 @@ function _construct_operator(sys::AbstractQuantumSystem, u::F) where F
     return SciMLOperators.MatrixOperator(A0; update_func! = update!)
 end
 
-function _construct_rhs(sys::AbstractQuantumSystem, u::F) where F
+function _construct_rhs(sys::AbstractQuantumSystem, u::F) where {F}
     # Build u_vec function that appends globals to controls
     if length(sys.global_params) > 0
         global_vals = collect(values(sys.global_params))
@@ -329,7 +322,7 @@ function _construct_rhs(sys::AbstractQuantumSystem, u::F) where F
     else
         u_vec = u  # No globals, use controls directly
     end
-    
+
     function rhs!(dx, x, p, t)
         mul!(dx, sys.H(u_vec(t), t), x, -im, 0.0)
         return nothing
@@ -337,7 +330,7 @@ function _construct_rhs(sys::AbstractQuantumSystem, u::F) where F
     return rhs!
 end
 
-function _construct_rhs(sys::OpenQuantumSystem, u::F) where F
+function _construct_rhs(sys::OpenQuantumSystem, u::F) where {F}
     Ls = sys.dissipation_operators
     Ks = map(L -> adjoint(L) * L, Ls)  # precompute L†L once
     tmp = similar(Matrix{ComplexF64}, (sys.levels, sys.levels))  # buffer
@@ -347,7 +340,7 @@ function _construct_rhs(sys::OpenQuantumSystem, u::F) where F
 
         # dρ = -im*(Hρ - ρH)  (accumulate directly)
         mul!(dρ, Ht, ρ, -im, 0.0)   # dρ = -im*H*ρ
-        mul!(dρ, ρ, Ht,  im, 1.0)   # dρ +=  im*ρ*H
+        mul!(dρ, ρ, Ht, im, 1.0)   # dρ +=  im*ρ*H
 
         # dρ += Σ [ LρL† - 1/2(Kρ + ρK) ]
         @inbounds for (L, K) in zip(Ls, Ks)
@@ -371,60 +364,66 @@ end
 # TODO: states must be vector (not sparse), but could infer eltype (NT eltype?)
 
 function KetODEProblem(
-    sys::AbstractQuantumSystem, 
-    u::F, 
-    ψ0::Vector{ComplexF64}, 
-    times::AbstractVector{<:Real}; 
-    state_name::Symbol=:ψ,
-    control_name::Symbol=:u,
-    kwargs...
-) where F
-	rhs! = _construct_rhs(sys, u)
+    sys::AbstractQuantumSystem,
+    u::F,
+    ψ0::Vector{ComplexF64},
+    times::AbstractVector{<:Real};
+    state_name::Symbol = :ψ,
+    control_name::Symbol = :u,
+    kwargs...,
+) where {F}
+    rhs! = _construct_rhs(sys, u)
     sii_sys = PiccoloRolloutSystem(state_name => sys.levels)
-	return ODEProblem(
-        ODEFunction(rhs!; sys = sii_sys), ψ0, (0, times[end]); 
-        tstops=times, 
-        saveat=times,
-        kwargs...
+    return ODEProblem(
+        ODEFunction(rhs!; sys = sii_sys),
+        ψ0,
+        (0, times[end]);
+        tstops = times,
+        saveat = times,
+        kwargs...,
     )
 end
 
 function UnitaryODEProblem(
-    sys::AbstractQuantumSystem, 
-    u::F, 
+    sys::AbstractQuantumSystem,
+    u::F,
     times::AbstractVector{<:Real};
-    U0::Matrix{ComplexF64}=Matrix{ComplexF64}(I, sys.levels, sys.levels),
-    state_name::Symbol=:U, 
-    control_name::Symbol=:u,
-    kwargs...
-) where F
-	rhs! = _construct_rhs(sys, u)
+    U0::Matrix{ComplexF64} = Matrix{ComplexF64}(I, sys.levels, sys.levels),
+    state_name::Symbol = :U,
+    control_name::Symbol = :u,
+    kwargs...,
+) where {F}
+    rhs! = _construct_rhs(sys, u)
     sii_sys = PiccoloRolloutSystem(state_name => (sys.levels, sys.levels))
-	return ODEProblem(
-        ODEFunction(rhs!; sys = sii_sys), U0, (0, times[end]);
-        tstops=times, 
-        saveat=times,
-        kwargs...
+    return ODEProblem(
+        ODEFunction(rhs!; sys = sii_sys),
+        U0,
+        (0, times[end]);
+        tstops = times,
+        saveat = times,
+        kwargs...,
     )
 end
 
 function DensityODEProblem(
-    sys::OpenQuantumSystem, 
-    u::F, 
-    ρ0::Matrix{ComplexF64}, 
-    times::AbstractVector{<:Real}; 
-    state_name::Symbol=:ρ,
-    control_name::Symbol=:u,
-    kwargs...
-) where F
+    sys::OpenQuantumSystem,
+    u::F,
+    ρ0::Matrix{ComplexF64},
+    times::AbstractVector{<:Real};
+    state_name::Symbol = :ρ,
+    control_name::Symbol = :u,
+    kwargs...,
+) where {F}
     n = sys.levels
-	rhs! = _construct_rhs(sys, u)
+    rhs! = _construct_rhs(sys, u)
     sii_sys = PiccoloRolloutSystem(state_name => (n, n))
-	return ODEProblem(
-        ODEFunction(rhs!; sys = sii_sys), ρ0, (0, times[end]);
-        tstops=times, 
-        saveat=times,
-        kwargs...
+    return ODEProblem(
+        ODEFunction(rhs!; sys = sii_sys),
+        ρ0,
+        (0, times[end]);
+        tstops = times,
+        saveat = times,
+        kwargs...,
     )
 end
 
@@ -434,44 +433,44 @@ end
 # TODO: Operator integrator for Density
 
 function KetOperatorODEProblem(
-    sys::AbstractQuantumSystem, 
-    u::F, 
-    ψ0::Vector{ComplexF64}, 
-    times::AbstractVector{<:Real}; 
-    state_name::Symbol=:ψ,
-    control_name::Symbol=:u,
-    kwargs...
-) where F
+    sys::AbstractQuantumSystem,
+    u::F,
+    ψ0::Vector{ComplexF64},
+    times::AbstractVector{<:Real};
+    state_name::Symbol = :ψ,
+    control_name::Symbol = :u,
+    kwargs...,
+) where {F}
     op! = _construct_operator(sys, u)
     sii_sys = PiccoloRolloutSystem(state_name => sys.levels)
-	return ODEProblem(
-        ODEFunction(op!; sys = sii_sys), 
-        ψ0, 
+    return ODEProblem(
+        ODEFunction(op!; sys = sii_sys),
+        ψ0,
         (0, times[end]);
-        tstops=times, 
-        saveat=times,
-        kwargs...
-     )
+        tstops = times,
+        saveat = times,
+        kwargs...,
+    )
 end
 
 function UnitaryOperatorODEProblem(
-    sys::AbstractQuantumSystem, 
-    u::F, 
-    times::AbstractVector{<:Real}; 
-    U0::Matrix{ComplexF64}=Matrix{ComplexF64}(I, sys.levels, sys.levels),
-    state_name::Symbol=:U, 
-    control_name::Symbol=:u,
-    kwargs...
-) where F
+    sys::AbstractQuantumSystem,
+    u::F,
+    times::AbstractVector{<:Real};
+    U0::Matrix{ComplexF64} = Matrix{ComplexF64}(I, sys.levels, sys.levels),
+    state_name::Symbol = :U,
+    control_name::Symbol = :u,
+    kwargs...,
+) where {F}
     op! = _construct_operator(sys, u)
     sii_sys = PiccoloRolloutSystem(state_name => (sys.levels, sys.levels))
-	return ODEProblem(
-        ODEFunction(op!; sys = sii_sys), 
+    return ODEProblem(
+        ODEFunction(op!; sys = sii_sys),
         U0,
         (0, times[end]);
-        tstops=times, 
-        saveat=times,
-        kwargs...
+        tstops = times,
+        saveat = times,
+        kwargs...,
     )
 end
 
@@ -482,12 +481,12 @@ end
 # TODO: Adapt these methods to use quantum trajectories (only _one_ rollout_fidelity method (remove unitary_rollout_fidelity), have ensemble trajectory for EnsembleProblem, etc.)
 
 function rollout_fidelity(
-    traj::NamedTrajectory, 
+    traj::NamedTrajectory,
     sys::AbstractQuantumSystem;
-    state_name::Symbol=:ψ̃,
-    control_name::Symbol=:u,
-    algorithm=MagnusGL4(),
-    interpolation::Symbol=:linear,  # :constant, :linear, or :cubic
+    state_name::Symbol = :ψ̃,
+    control_name::Symbol = :u,
+    algorithm = MagnusGL4(),
+    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     state_names = [n for n ∈ traj.names if startswith(string(n), string(state_name))]
     isempty(state_names) && error("Trajectory does not contain $(state_name).")
@@ -500,19 +499,26 @@ function rollout_fidelity(
     elseif interpolation == :cubic
         u = CubicSplineInterpolation(traj, control_name)
     else
-        error("Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic")
+        error(
+            "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
+        )
     end
     times = get_times(traj)
 
     # Blank initial state
     tmp0 = zeros(ComplexF64, sys.levels)
-    rollout = KetOperatorODEProblem(sys, u, tmp0, times, state_name=state_name)
+    rollout = KetOperatorODEProblem(sys, u, tmp0, times, state_name = state_name)
 
     # Ensemble over initial states
-    prob_func(prob, i, repeat) = remake(prob, u0=iso_to_ket(traj.initial[state_names[i]]))
-    ensemble_prob = EnsembleProblem(rollout, prob_func=prob_func)
-    ensemble_sol = solve(ensemble_prob, algorithm, trajectories=length(state_names), saveat=[times[end]])
-    
+    prob_func(prob, i, repeat) = remake(prob, u0 = iso_to_ket(traj.initial[state_names[i]]))
+    ensemble_prob = EnsembleProblem(rollout, prob_func = prob_func)
+    ensemble_sol = solve(
+        ensemble_prob,
+        algorithm,
+        trajectories = length(state_names),
+        saveat = [times[end]],
+    )
+
     fids = map(zip(ensemble_sol, state_names)) do (sol, name)
         xf = sol[state_name][end]
         xg = iso_to_ket(traj.goal[name])
@@ -522,12 +528,12 @@ function rollout_fidelity(
 end
 
 function unitary_rollout_fidelity(
-    traj::NamedTrajectory, 
+    traj::NamedTrajectory,
     sys::AbstractQuantumSystem;
-    state_name::Symbol=:Ũ⃗,
-    control_name::Symbol=:u,
-    algorithm=MagnusGL4(),
-    interpolation::Symbol=:linear,  # :constant, :linear, or :cubic
+    state_name::Symbol = :Ũ⃗,
+    control_name::Symbol = :u,
+    algorithm = MagnusGL4(),
+    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
 
@@ -539,25 +545,27 @@ function unitary_rollout_fidelity(
     elseif interpolation == :cubic
         u = CubicSplineInterpolation(traj, control_name)
     else
-        error("Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic")
+        error(
+            "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
+        )
     end
     times = get_times(traj)
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
-    rollout = UnitaryOperatorODEProblem(sys, u, times, U0=x0, state_name=state_name)
-    sol = solve(rollout, algorithm, saveat=[times[end]])
+    rollout = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
+    sol = solve(rollout, algorithm, saveat = [times[end]])
     xf = sol[state_name][end]
     xg = iso_vec_to_operator(traj.goal[state_name])
     return unitary_fidelity(xf, xg)
 end
 
 function unitary_rollout(
-    traj::NamedTrajectory, 
+    traj::NamedTrajectory,
     sys::AbstractQuantumSystem;
-    state_name::Symbol=:Ũ⃗,
-    control_name::Symbol=:u,
-    algorithm=MagnusGL4(),
-    interpolation::Symbol=:linear,  # :constant, :linear, or :cubic
+    state_name::Symbol = :Ũ⃗,
+    control_name::Symbol = :u,
+    algorithm = MagnusGL4(),
+    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
 
@@ -569,45 +577,47 @@ function unitary_rollout(
     elseif interpolation == :cubic
         u = CubicSplineInterpolation(traj, control_name)
     else
-        error("Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic")
+        error(
+            "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
+        )
     end
     times = get_times(traj)
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
-    prob = UnitaryOperatorODEProblem(sys, u, times, U0=x0, state_name=state_name)
-    sol = solve(prob, algorithm, saveat=times)
-    
+    prob = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
+    sol = solve(prob, algorithm, saveat = times)
+
     # Extract and convert to iso-vec trajectory
-    Ũ⃗_traj = hcat([operator_to_iso_vec(sol[state_name][i]) for i in 1:length(times)]...)
-    
+    Ũ⃗_traj = hcat([operator_to_iso_vec(sol[state_name][i]) for i = 1:length(times)]...)
+
     return Ũ⃗_traj
 end
 
 function ket_rollout_fidelity(
-    traj::NamedTrajectory, 
+    traj::NamedTrajectory,
     sys::AbstractQuantumSystem;
-    state_name::Symbol=:ψ̃,
-    control_name::Symbol=:u,
-    algorithm=MagnusGL4(),
-    interpolation::Symbol=:linear,  # :constant, :linear, or :cubic
+    state_name::Symbol = :ψ̃,
+    control_name::Symbol = :u,
+    algorithm = MagnusGL4(),
+    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     return rollout_fidelity(
-        traj, 
-        sys; 
-        state_name=state_name, 
-        control_name=control_name, 
-        algorithm=algorithm, 
-        interpolation=interpolation
+        traj,
+        sys;
+        state_name = state_name,
+        control_name = control_name,
+        algorithm = algorithm,
+        interpolation = interpolation,
     )
 end
 
 function ket_rollout(
-    traj::NamedTrajectory, 
+    traj::NamedTrajectory,
     sys::AbstractQuantumSystem;
-    state_name::Symbol=:ψ̃,
-    control_name::Symbol=:u,
-    algorithm=MagnusGL4(),
-    interpolation::Symbol=:linear,  # :constant, :linear, or :cubic
+    state_name::Symbol = :ψ̃,
+    control_name::Symbol = :u,
+    algorithm = MagnusGL4(),
+    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
 
@@ -619,17 +629,19 @@ function ket_rollout(
     elseif interpolation == :cubic
         u = CubicSplineInterpolation(traj, control_name)
     else
-        error("Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic")
+        error(
+            "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
+        )
     end
     times = get_times(traj)
 
     ψ0 = iso_to_ket(traj.initial[state_name])
-    prob = KetOperatorODEProblem(sys, u, ψ0, times, state_name=state_name)
-    sol = solve(prob, algorithm, saveat=times)
-    
+    prob = KetOperatorODEProblem(sys, u, ψ0, times, state_name = state_name)
+    sol = solve(prob, algorithm, saveat = times)
+
     # Extract and convert to iso-vec trajectory
-    ψ̃_traj = hcat([ket_to_iso(sol[state_name][i]) for i in 1:length(times)]...)
-    
+    ψ̃_traj = hcat([ket_to_iso(sol[state_name][i]) for i = 1:length(times)]...)
+
     return ψ̃_traj
 end
 
@@ -638,7 +650,7 @@ end
 # https://docs.sciml.ai/SymbolicIndexingInterface/
 # ------------------------------------------------------------ #
 
-_name(sym::Symbol) = sym   
+_name(sym::Symbol) = sym
 _name(::Any) = nothing
 
 SII.constant_structure(::PiccoloRolloutSystem) = true
@@ -650,7 +662,8 @@ SII.independent_variable_symbols(sys::PiccoloRolloutSystem) = [sys.t]
 
 # solved variables (state)
 SII.is_variable(sys::PiccoloRolloutSystem, sym) = haskey(sys.state_index, _name(sym))
-SII.variable_index(sys::PiccoloRolloutSystem, sym) = get(sys.state_index, _name(sym), nothing)
+SII.variable_index(sys::PiccoloRolloutSystem, sym) =
+    get(sys.state_index, _name(sym), nothing)
 SII.variable_symbols(sys::PiccoloRolloutSystem) = collect(keys(sys.state_index))
 
 # parameters (none)
@@ -665,7 +678,7 @@ SII.is_observed(sys::PiccoloRolloutSystem, sym) = false
 
 @testitem "Test ket rollout symbolic interface" begin
     using OrdinaryDiffEqTsit5
-    
+
     T, Δt = 1.0, 0.1
     sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     ψ0 = ComplexF64[1, 0]
@@ -678,12 +691,12 @@ SII.is_observed(sys::PiccoloRolloutSystem, sym) = false
     @test sol1[:ψ] ≈ sol1.u
 
     # test solve kwargs
-    sol2 = solve(rollout, Tsit5(), saveat=[times[end]])
+    sol2 = solve(rollout, Tsit5(), saveat = [times[end]])
     @test length(sol2[:ψ]) == 1
     @test length(sol2[:ψ][1]) == length(ψ0)
 
     # rename 
-    rollout = KetODEProblem(sys, u, ψ0, times, state_name=:x)
+    rollout = KetODEProblem(sys, u, ψ0, times, state_name = :x)
     sol = solve(rollout, Tsit5())
     @test sol[:x] ≈ sol.u
 end
@@ -702,12 +715,12 @@ end
     @test sol1[:U] ≈ sol1.u
 
     # test solve kwargs
-    sol2 = solve(rollout, MagnusGL4(), saveat=[times[end]])
+    sol2 = solve(rollout, MagnusGL4(), saveat = [times[end]])
     @test length(sol2[:U]) == 1
     @test size(sol2[:U][1]) == (sys.levels, sys.levels)
-    
+
     # rename 
-    rollout = UnitaryOperatorODEProblem(sys, u, times, state_name=:X)
+    rollout = UnitaryOperatorODEProblem(sys, u, times, state_name = :X)
     sol = solve(rollout, MagnusGL4())
     @test sol[:X] ≈ sol.u
 end
@@ -718,7 +731,7 @@ end
     T, Δt = 1.0, 0.1
     csys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     a = ComplexF64[0 1; 0 0]
-    sys = OpenQuantumSystem(csys, dissipation_operators=[1e-3 * a])
+    sys = OpenQuantumSystem(csys, dissipation_operators = [1e-3 * a])
     u = t -> [t; 0.0]
     times = 0:Δt:T
 
@@ -731,12 +744,12 @@ end
     @test sol1[:ρ] ≈ sol1.u
 
     # test solve kwargs
-    sol2 = solve(rollout, Tsit5(), saveat=[times[end]])
+    sol2 = solve(rollout, Tsit5(), saveat = [times[end]])
     @test length(sol2[:ρ]) == 1
     @test size(sol2[:ρ][1]) == (sys.levels, sys.levels)
 
     # rename
-    rollout = DensityODEProblem(sys, u, ρ0, times, state_name=:X)
+    rollout = DensityODEProblem(sys, u, ρ0, times, state_name = :X)
     sol = solve(rollout, Tsit5())
     @test sol[:X] ≈ sol.u
 end
@@ -746,7 +759,7 @@ end
     using OrdinaryDiffEqLinear
 
     T, Δt = 1.0, 0.1
-    sys  = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     osys = OpenQuantumSystem(sys)
 
     u = t -> [t; 0.0]
@@ -754,12 +767,12 @@ end
     ψ0 = ComplexF64[1, 0]
     ρ0 = ψ0 * ψ0'
 
-    ket_prob = KetODEProblem(sys,  u, ψ0, times)
+    ket_prob = KetODEProblem(sys, u, ψ0, times)
     U_prob = UnitaryOperatorODEProblem(sys, u, times)
     rho_prob = DensityODEProblem(osys, u, ρ0, times)
 
     # Save only final state so comparisons are well-defined
-    kw = (dense=false, save_everystep=false, save_start=false, save_end=true)
+    kw = (dense = false, save_everystep = false, save_start = false, save_end = true)
     ket_sol = solve(ket_prob, Tsit5(); kw...)
     U_sol = solve(U_prob, MagnusGL4(); kw...)
     ρ_sol = solve(rho_prob, Tsit5(); kw...)
@@ -800,25 +813,25 @@ end
         # Verify pulse is callable and returns correct shape
         @test length(pulse(0.0)) == 2
         @test pulse(0.0) ≈ [0.0, 0.0]
-        
+
         # KetODEProblem
         ket_prob = KetODEProblem(sys, pulse, ψ0, times)
         ket_sol = solve(ket_prob, Tsit5())
         @test length(ket_sol.u) == n_times
         @test length(ket_sol.u[end]) == 2  # 2-level system
-        
+
         # UnitaryOperatorODEProblem (for MagnusGL4)
         U_prob = UnitaryOperatorODEProblem(sys, pulse, times)
         U_sol = solve(U_prob, MagnusGL4())
         @test length(U_sol.u) == n_times
         @test size(U_sol.u[end]) == (2, 2)
-        
+
         # DensityODEProblem
         rho_prob = DensityODEProblem(osys, pulse, ρ0, times)
         rho_sol = solve(rho_prob, Tsit5())
         @test length(rho_sol.u) == n_times
         @test size(rho_sol.u[end]) == (2, 2)
-        
+
         # Check consistency: ψ_final should equal U_final * ψ0
         # Note: different solvers (Tsit5 vs MagnusGL4) have different accuracy
         ψT = ket_sol.u[end]
@@ -849,11 +862,11 @@ end
     @test duration(pulse) == T
     @test n_drives(pulse) == 2
     @test length(pulse(T/2)) == 2
-    
+
     # Peak should be at t = center (T/2)
     @test pulse(T/2)[1] ≈ 1.0 atol=1e-10
     @test pulse(T/2)[2] ≈ 0.5 atol=1e-10
-    
+
     # Should be symmetric around center
     @test pulse(0.25)[1] ≈ pulse(0.75)[1] atol=1e-10
 
@@ -898,13 +911,15 @@ end
         controls = :u,
         timestep = :Δt,
         initial = (Ũ⃗ = operator_to_iso_vec(I_matrix),),
-        goal = (Ũ⃗ = operator_to_iso_vec(X_gate),)
+        goal = (Ũ⃗ = operator_to_iso_vec(X_gate),),
     )
-    
+
     # Test different interpolation methods (use unitary_rollout_fidelity for unitaries)
-    fid_constant = unitary_rollout_fidelity(traj, sys; state_name=:Ũ⃗, interpolation=:constant)
-    fid_linear = unitary_rollout_fidelity(traj, sys; state_name=:Ũ⃗, interpolation=:linear)
-    
+    fid_constant =
+        unitary_rollout_fidelity(traj, sys; state_name = :Ũ⃗, interpolation = :constant)
+    fid_linear =
+        unitary_rollout_fidelity(traj, sys; state_name = :Ũ⃗, interpolation = :linear)
+
     @test fid_constant isa Float64
     @test fid_linear isa Float64
     @test 0.0 <= fid_constant <= 1.0
@@ -913,75 +928,75 @@ end
 
 @testitem "rollout with new pulse" begin
     using OrdinaryDiffEqLinear: MagnusGL4
-    
+
     # Setup
     T = 1.0
     sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     X_gate = ComplexF64[0 1; 1 0]
-    
+
     # Create initial trajectory
     pulse1 = ZeroOrderPulse([0.5 0.5; 0.1 0.1], [0.0, T])
     qtraj1 = UnitaryTrajectory(sys, pulse1, X_gate)
     fid1 = fidelity(qtraj1)
-    
+
     # Roll out a new pulse
     pulse2 = ZeroOrderPulse([0.8 0.8; 0.2 0.2], [0.0, T])
     qtraj2 = rollout(qtraj1, pulse2)
     fid2 = fidelity(qtraj2)
-    
+
     # Should have different fidelities (different pulses)
     @test fid2 != fid1
     @test qtraj2.pulse === pulse2
     @test qtraj2.system === qtraj1.system
-    
+
     # Roll out with custom resolution
-    qtraj3 = rollout(qtraj1, pulse2; n_points=501)
+    qtraj3 = rollout(qtraj1, pulse2; n_points = 501)
     @test length(qtraj3.solution.u) == 501
 end
 
 @testitem "Global parameter updates" begin
     using LinearAlgebra
     using NamedTrajectories
-    
+
     # Create a system with global parameters
     H_drives = [PAULIS[:X], PAULIS[:Y]]
     global_params = (δ = 0.5, Ω = 1.0)
-    sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params=global_params)
-    
+    sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
+
     # Create a unitary trajectory (2 drives × 2 timesteps)
     pulse = ZeroOrderPulse([0.5 0.3; 0.5 0.3], [0.0, 1.0])
     U_goal = PAULIS[:X]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    
+
     # Verify initial global parameters
     @test qtraj.system.global_params.δ == 0.5
     @test qtraj.system.global_params.Ω == 1.0
-    
+
     # Create a NamedTrajectory with different global values
     traj = NamedTrajectory(
         (u = rand(2, 10), Δt = fill(0.1, 10));
         timestep = :Δt,
         global_data = [0.8, 1.5],
-        global_components = (δ = 1:1, Ω = 2:2)
+        global_components = (δ = 1:1, Ω = 2:2),
     )
-    
+
     # Update global parameters
     Rollouts.update_global_params!(qtraj, traj)
-    
+
     # Verify updated values
     @test qtraj.system.global_params.δ == 0.8
     @test qtraj.system.global_params.Ω == 1.5
-    
+
     # Verify system structure preserved
     @test qtraj.system.n_drives == 2
     @test qtraj.system.levels == 2
     @test length(qtraj.system.H_drives) == 2
-    
+
     # Test with KetTrajectory
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     qtraj_ket = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
-    
+
     Rollouts.update_global_params!(qtraj_ket, traj)
     @test qtraj_ket.system.global_params.δ == 0.8
     @test qtraj_ket.system.global_params.Ω == 1.5
@@ -989,34 +1004,31 @@ end
 
 @testitem "extract_globals utility" begin
     using NamedTrajectories
-    
+
     # Create trajectory with globals
     traj = NamedTrajectory(
         (u = rand(2, 10), Δt = fill(0.1, 10));
         timestep = :Δt,
         global_data = [0.8, 1.5, 2.0],
-        global_components = (δ = 1:1, Ω = 2:2, α = 3:3)
+        global_components = (δ = 1:1, Ω = 2:2, α = 3:3),
     )
-    
+
     # Extract all globals
     g_all = Rollouts.extract_globals(traj)
     @test g_all isa NamedTuple
     @test g_all.δ == 0.8
     @test g_all.Ω == 1.5
     @test g_all.α == 2.0
-    
+
     # Extract specific globals
     g_partial = Rollouts.extract_globals(traj, [:δ, :Ω])
     @test g_partial isa NamedTuple
     @test g_partial.δ == 0.8
     @test g_partial.Ω == 1.5
     @test !haskey(g_partial, :α)
-    
+
     # Test with trajectory without global components (edge case)
-    traj_no_globals = NamedTrajectory(
-        (u = rand(2, 10), Δt = fill(0.1, 10));
-        timestep = :Δt
-    )
+    traj_no_globals = NamedTrajectory((u = rand(2, 10), Δt = fill(0.1, 10)); timestep = :Δt)
     g_empty = Rollouts.extract_globals(traj_no_globals)
     @test g_empty isa NamedTuple
     @test isempty(g_empty)
@@ -1024,15 +1036,15 @@ end
 
 @testitem "Multi-dimensional global parameters" begin
     using NamedTrajectories
-    
+
     # Test extract_globals with multi-dimensional globals
     traj = NamedTrajectory(
         (u = rand(2, 10), Δt = fill(0.1, 10));
         timestep = :Δt,
         global_data = [0.8, 1.5, 2.0, 3.0],  # Two scalars and one 2D vector
-        global_components = (δ = 1:1, Ω = 2:2, α = 3:4)
+        global_components = (δ = 1:1, Ω = 2:2, α = 3:4),
     )
-    
+
     g = Rollouts.extract_globals(traj)
     @test g.δ == 0.8
     @test g.Ω == 1.5
@@ -1042,21 +1054,18 @@ end
 
 @testitem "update_global_params! edge cases" begin
     using NamedTrajectories
-    
+
     # Create a system with global parameters
     H_drives = [PAULIS[:X], PAULIS[:Y]]
     global_params = (δ = 0.5, Ω = 1.0)
-    sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params=global_params)
+    sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
     pulse = ZeroOrderPulse([0.5 0.3; 0.5 0.3], [0.0, 1.0])
     U_goal = PAULIS[:X]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    
+
     # Test with trajectory without global components (should not error)
-    traj_no_globals = NamedTrajectory(
-        (u = rand(2, 10), Δt = fill(0.1, 10));
-        timestep = :Δt
-    )
-    
+    traj_no_globals = NamedTrajectory((u = rand(2, 10), Δt = fill(0.1, 10)); timestep = :Δt)
+
     # Should return nothing without error
     result = Rollouts.update_global_params!(qtraj, traj_no_globals)
     @test result === nothing

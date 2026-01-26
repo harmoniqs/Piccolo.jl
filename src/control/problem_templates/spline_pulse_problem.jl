@@ -74,18 +74,18 @@ See also: [`SmoothPulseProblem`](@ref) for piecewise constant pulses with discre
 """
 function SplinePulseProblem(
     qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse},
-    N_or_times::Union{Nothing, Int, AbstractVector{<:Real}}=nothing;
-    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}}=nothing,
-    global_names::Union{Nothing,Vector{Symbol}}=nothing,
-    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}}=nothing,
-    du_bound::Float64=Inf,
-    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}}=nothing,
-    Q::Float64=100.0,
-    R::Float64=1e-2,
-    R_u::Union{Float64,Vector{Float64}}=R,
-    R_du::Union{Float64,Vector{Float64}}=R,
-    constraints::Vector{<:AbstractConstraint}=AbstractConstraint[],
-    piccolo_options::PiccoloOptions=PiccoloOptions(),
+    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
+    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    global_names::Union{Nothing,Vector{Symbol}} = nothing,
+    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    du_bound::Float64 = Inf,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    Q::Float64 = 100.0,
+    R::Float64 = 1e-2,
+    R_u::Union{Float64,Vector{Float64}} = R,
+    R_du::Union{Float64,Vector{Float64}} = R,
+    constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
+    piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -105,7 +105,8 @@ function SplinePulseProblem(
 
     # Convert quantum trajectory to NamedTrajectory
     # N_or_times=nothing uses native pulse knot times (preserves warm-start exactly)
-    base_traj = NamedTrajectory(qtraj, N_or_times; Δt_bounds=Δt_bounds, global_data=global_data)
+    base_traj =
+        NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
     N = base_traj.N  # Get actual number of timesteps
 
     # Always add control derivatives to trajectory
@@ -113,7 +114,7 @@ function SplinePulseProblem(
     # For LinearSplinePulse, we add :du explicitly (will be constrained by DerivativeIntegrator)
     du_sym = Symbol(:d, control_sym)
     is_linear_spline = !haskey(base_traj.components, du_sym)
-    
+
     traj = if haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         # We need to update them if du_bound is specified
@@ -132,15 +133,11 @@ function SplinePulseProblem(
             add_control_derivatives(
                 base_traj,
                 1;  # Only 1 derivative for spline pulses
-                control_name=control_sym,
-                derivative_bounds=(du_bounds_vec,)
+                control_name = control_sym,
+                derivative_bounds = (du_bounds_vec,),
             )
         else
-            add_control_derivatives(
-                base_traj,
-                1;
-                control_name=control_sym
-            )
+            add_control_derivatives(base_traj, 1; control_name = control_sym)
         end
     end
 
@@ -152,12 +149,12 @@ function SplinePulseProblem(
                 "Use SplineIntegrator from Piccolissimo:\n" *
                 "  using Piccolissimo\n" *
                 "  integrator = SplineIntegrator(qtraj, N; spline_order=$(_get_spline_order(qtraj.pulse)), global_names=$global_names)\n" *
-                "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)"
+                "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
         # Default to BilinearIntegrator
         default_int = BilinearIntegrator(qtraj, N)
-        
+
         if default_int isa AbstractVector
             dynamics_integrators = AbstractIntegrator[default_int...]
         else
@@ -196,14 +193,14 @@ function SplinePulseProblem(
 
     # Add global bounds constraints if specified
     all_constraints = copy(constraints)
-    add_global_bounds_constraints!(all_constraints, global_bounds, traj; verbose=piccolo_options.verbose)
-
-    prob = DirectTrajOptProblem(
-        traj,
-        J,
-        integrators;
-        constraints=all_constraints
+    add_global_bounds_constraints!(
+        all_constraints,
+        global_bounds,
+        traj;
+        verbose = piccolo_options.verbose,
     )
+
+    prob = DirectTrajOptProblem(traj, J, integrators; constraints = all_constraints)
 
     return QuantumControlProblem(qtraj, prob)
 end
@@ -233,20 +230,20 @@ Same as the base `SplinePulseProblem` method.
 """
 function SplinePulseProblem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
-    N_or_times::Union{Nothing, Int, AbstractVector{<:Real}}=nothing;
-    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}}=nothing,
-    integrator_type::Symbol=:spline,  # :spline or :ensemble
-    parallel_backend::Symbol=:manual,  # :manual (default), :threads, :gpu
-    global_names::Union{Nothing,Vector{Symbol}}=nothing,
-    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}}=nothing,
-    du_bound::Float64=Inf,
-    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}}=nothing,
-    Q::Float64=100.0,
-    R::Float64=1e-2,
-    R_u::Union{Float64,Vector{Float64}}=R,
-    R_du::Union{Float64,Vector{Float64}}=R,
-    constraints::Vector{<:AbstractConstraint}=AbstractConstraint[],
-    piccolo_options::PiccoloOptions=PiccoloOptions(),
+    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
+    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    integrator_type::Symbol = :spline,  # :spline or :ensemble
+    parallel_backend::Symbol = :manual,  # :manual (default), :threads, :gpu
+    global_names::Union{Nothing,Vector{Symbol}} = nothing,
+    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    du_bound::Float64 = Inf,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    Q::Float64 = 100.0,
+    R::Float64 = 1e-2,
+    R_u::Union{Float64,Vector{Float64}} = R,
+    R_du::Union{Float64,Vector{Float64}} = R,
+    constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
+    piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -256,7 +253,9 @@ function SplinePulseProblem(
 
     if piccolo_options.verbose
         pulse_type = typeof(qtraj.pulse)
-        println("    constructing SplinePulseProblem for MultiKetTrajectory with $(pulse_type)...")
+        println(
+            "    constructing SplinePulseProblem for MultiKetTrajectory with $(pulse_type)...",
+        )
         println("\twith $(length(qtraj.initials)) state transfers")
     end
 
@@ -269,7 +268,8 @@ function SplinePulseProblem(
 
     # Convert quantum trajectory to NamedTrajectory
     # N_or_times=nothing uses native pulse knot times (preserves warm-start exactly)
-    base_traj = NamedTrajectory(qtraj, N_or_times; Δt_bounds=Δt_bounds, global_data=global_data)
+    base_traj =
+        NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
     N = base_traj.N  # Get actual number of timesteps
 
     # Always add control derivatives to trajectory
@@ -277,7 +277,7 @@ function SplinePulseProblem(
     # For LinearSplinePulse, we add :du explicitly (will be constrained by DerivativeIntegrator)
     du_sym = Symbol(:d, control_sym)
     is_linear_spline = !haskey(base_traj.components, du_sym)
-    
+
     traj = if haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         # We need to update them if du_bound is specified
@@ -296,15 +296,11 @@ function SplinePulseProblem(
             add_control_derivatives(
                 base_traj,
                 1;  # Only 1 derivative for spline pulses
-                control_name=control_sym,
-                derivative_bounds=(du_bounds_vec,)
+                control_name = control_sym,
+                derivative_bounds = (du_bounds_vec,),
             )
         else
-            add_control_derivatives(
-                base_traj,
-                1;
-                control_name=control_sym
-            )
+            add_control_derivatives(base_traj, 1; control_name = control_sym)
         end
     end
 
@@ -317,20 +313,21 @@ function SplinePulseProblem(
                 "Use SplineIntegrator from Piccolissimo:\n" *
                 "  using Piccolissimo\n" *
                 "  integrator = SplineIntegrator(qtraj, N; spline_order=$(_get_spline_order(qtraj.pulse)), global_names=$global_names)\n" *
-                "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)"
+                "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
         # Choose integrator type based on integrator_type parameter
         if integrator_type == :ensemble
             dynamics_integrators = EnsembleSplineIntegrator(
-                qtraj, N;
-                spline_order=_get_spline_order(qtraj.pulse),
-                parallel_backend=parallel_backend
+                qtraj,
+                N;
+                spline_order = _get_spline_order(qtraj.pulse),
+                parallel_backend = parallel_backend,
             )
         else
             dynamics_integrators = BilinearIntegrator(qtraj, N)
         end
-        
+
         if !(dynamics_integrators isa AbstractVector)
             dynamics_integrators = AbstractIntegrator[dynamics_integrators]
         else
@@ -369,14 +366,14 @@ function SplinePulseProblem(
 
     # Add global bounds constraints if specified
     all_constraints = copy(constraints)
-    add_global_bounds_constraints!(all_constraints, global_bounds, traj; verbose=piccolo_options.verbose)
-
-    prob = DirectTrajOptProblem(
-        traj,
-        J,
-        integrators;
-        constraints=all_constraints
+    add_global_bounds_constraints!(
+        all_constraints,
+        global_bounds,
+        traj;
+        verbose = piccolo_options.verbose,
     )
+
+    prob = DirectTrajOptProblem(traj, J, integrators; constraints = all_constraints)
 
     return QuantumControlProblem(qtraj, prob)
 end
@@ -392,18 +389,20 @@ Fallback method that provides helpful error for non-spline pulse types.
 """
 function SplinePulseProblem(
     qtraj::AbstractQuantumTrajectory{P},
-    N_or_times::Union{Nothing, Int, AbstractVector{<:Real}}=nothing;
-    kwargs...
-) where P <: AbstractPulse
+    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
+    kwargs...,
+) where {P<:AbstractPulse}
     pulse_type = P
-    error("""
-    SplinePulseProblem is only for spline-based pulses (LinearSplinePulse, CubicSplinePulse).
-    
-    You provided a trajectory with pulse type: $(pulse_type)
-    
-    For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
-        qcp = SmoothPulseProblem(qtraj, N; ...)
-    """)
+    error(
+        """
+  SplinePulseProblem is only for spline-based pulses (LinearSplinePulse, CubicSplinePulse).
+
+  You provided a trajectory with pulse type: $(pulse_type)
+
+  For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
+      qcp = SmoothPulseProblem(qtraj, N; ...)
+  """,
+    )
 end
 
 # ============================================================================= #
@@ -418,30 +417,30 @@ end
     # Simple 2-level system
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    
+
     H_drift = 0.01 * σz
     H_drives = [σx]
     T = 10.0
     N = 51
     n_drives = 1
-    
+
     # Create system and pulse
     sys = QuantumSystem(H_drift, H_drives, [1.0])
-    
-    times = collect(range(0.0, T, length=N))
+
+    times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
     pulse = LinearSplinePulse(amps, times)
-    
+
     # Goal: X gate
     U_goal = ComplexF64[0 1; 1 0]
-    
+
     # Create trajectory and problem
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    qcp = SplinePulseProblem(qtraj, N; Q=100.0, R=1e-2)
-    
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+
     @test qcp isa QuantumControlProblem
     @test get_trajectory(qcp) isa NamedTrajectory
-    
+
     # Check that we only have 1 derivative level (du, not ddu)
     traj = get_trajectory(qcp)
     @test haskey(traj.components, :u) || haskey(traj.components, :θ)
@@ -456,28 +455,28 @@ end
     # Simple 2-level system  
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    
+
     H_drift = 0.01 * σz
     H_drives = [σx]
     T = 10.0
     N = 51
     n_drives = 1
-    
+
     # Create system and pulse
     sys = QuantumSystem(H_drift, H_drives, [1.0])
-    
-    times = collect(range(0.0, T, length=N))
+
+    times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
     derivs = zeros(n_drives, N)  # Hermite spline with derivative DOFs
     pulse = CubicSplinePulse(amps, derivs, times)
-    
+
     # Goal: X gate
     U_goal = ComplexF64[0 1; 1 0]
-    
+
     # Create trajectory and problem
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    qcp = SplinePulseProblem(qtraj, N; Q=100.0, R=1e-2)
-    
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+
     @test qcp isa QuantumControlProblem
     @test get_trajectory(qcp) isa NamedTrajectory
 end
@@ -490,34 +489,34 @@ end
     # Simple 2-level system  
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    
+
     H_drift = 0.01 * σz
     H_drives = [σx]
     T = 10.0
     N = 51
     n_drives = 1
-    
+
     # Create system and pulse
     sys = QuantumSystem(H_drift, H_drives, [1.0])
-    
-    times = collect(range(0.0, T, length=N))
+
+    times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
     derivs = zeros(n_drives, N)
     pulse = CubicSplinePulse(amps, derivs, times)
-    
+
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    
+
     # Test with du_bound specified
     du_bound = 5.0
-    qcp = SplinePulseProblem(qtraj, N; Q=100.0, R=1e-2, du_bound=du_bound)
-    
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, du_bound = du_bound)
+
     traj = get_trajectory(qcp)
-    
+
     # Verify du bounds are set correctly
     @test haskey(traj.bounds, :du)
     du_bounds = traj.bounds[:du]
-    
+
     # Bounds are stored as (lower_vector, upper_vector) tuple
     @test length(du_bounds) == 2  # (lower, upper) tuple
     lower_bounds, upper_bounds = du_bounds
@@ -525,11 +524,11 @@ end
     @test length(upper_bounds) == n_drives
     @test all(lower_bounds .≈ -du_bound)
     @test all(upper_bounds .≈ du_bound)
-    
+
     # Test without du_bound (should default to Inf)
-    qcp_unbounded = SplinePulseProblem(qtraj, N; Q=100.0, R=1e-2)
+    qcp_unbounded = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
     traj_unbounded = get_trajectory(qcp_unbounded)
-    
+
     # Without explicit du_bound, bounds should still be set to Inf (not throw error)
     @test haskey(traj_unbounded.bounds, :du)
 end
@@ -539,20 +538,20 @@ end
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    
+
     H_drift = 0.01 * σz
     H_drives = [σx]
     T = 10.0
     N = 51
-    
+
     sys = QuantumSystem(H_drift, H_drives, [1.0])
-    
-    times = collect(range(0.0, T, length=N))
+
+    times = collect(range(0.0, T, length = N))
     pulse = ZeroOrderPulse(0.1 * randn(1, N), times)
-    
+
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    
+
     # Should error with helpful message
     @test_throws ErrorException SplinePulseProblem(qtraj, N)
 end
@@ -565,32 +564,32 @@ end
     # Simple 2-level system
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    
+
     H_drift = 0.01 * σz
     H_drives = [σx]
     T = 10.0
     N = 51
     n_drives = 1
-    
+
     # Create system and pulse
     sys = QuantumSystem(H_drift, H_drives, [1.0])
-    
-    times = collect(range(0.0, T, length=N))
+
+    times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
     pulse = LinearSplinePulse(amps, times)
-    
+
     # State transfer: |0⟩ → |1⟩
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
-    
+
     # Create trajectory and problem
     qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
-    qcp = SplinePulseProblem(qtraj, N; Q=100.0, R=1e-2)
-    
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+
     @test qcp isa QuantumControlProblem
     @test qcp.qtraj isa KetTrajectory
     @test get_trajectory(qcp) isa NamedTrajectory
-    
+
     # Check trajectory has proper components
     traj = get_trajectory(qcp)
     @test haskey(traj.components, :ψ̃)
@@ -605,38 +604,38 @@ end
     # Simple 2-level system
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    
+
     H_drift = 0.01 * σz
     H_drives = [σx]
     T = 10.0
     N = 51
     n_drives = 1
-    
+
     # Create system and pulse
     sys = QuantumSystem(H_drift, H_drives, [1.0])
-    
-    times = collect(range(0.0, T, length=N))
+
+    times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
     pulse = LinearSplinePulse(amps, times)
-    
+
     # Create ensemble: |0⟩ → |1⟩ and |1⟩ → |0⟩
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
-    
+
     # Create trajectory and problem
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
-    qcp = SplinePulseProblem(qtraj, N; Q=100.0, R=1e-2)
-    
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+
     @test qcp isa QuantumControlProblem
     @test qcp.qtraj isa MultiKetTrajectory
     @test get_trajectory(qcp) isa NamedTrajectory
-    
+
     # Check trajectory has proper components for both ensemble states
     traj = get_trajectory(qcp)
     @test haskey(traj.components, :ψ̃1)
     @test haskey(traj.components, :ψ̃2)
     @test !haskey(traj.components, :ddu)  # No second derivative for splines
-    
+
     # Should have 2 dynamics integrators (one per state)
     dynamics_integrators = filter(i -> i isa BilinearIntegrator, qcp.prob.integrators)
     @test length(dynamics_integrators) == 2
@@ -650,36 +649,36 @@ end
     # Simple 2-level system with parameter variation
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    
+
     H_drift = 0.01 * σz
     H_drives = [σx]
     T = 10.0
     N = 51
     n_drives = 1
-    
+
     # Create nominal and perturbed systems
     sys_nominal = QuantumSystem(H_drift, H_drives, [1.0])
     sys_perturbed = QuantumSystem(1.1 * H_drift, H_drives, [1.0])
-    
-    times = collect(range(0.0, T, length=N))
+
+    times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
     pulse = LinearSplinePulse(amps, times)
-    
+
     # Goal: X gate
     U_goal = ComplexF64[0 1; 1 0]
-    
+
     # Create base trajectory and sampling trajectory
     base_qtraj = UnitaryTrajectory(sys_nominal, pulse, U_goal)
-    
+
     # First create a SplinePulseProblem with base trajectory
-    base_qcp = SplinePulseProblem(base_qtraj, N; Q=100.0, R=1e-2)
-    
+    base_qcp = SplinePulseProblem(base_qtraj, N; Q = 100.0, R = 1e-2)
+
     # Then create SamplingProblem
-    sampling_qcp = SamplingProblem(base_qcp, [sys_nominal, sys_perturbed]; Q=100.0)
-    
+    sampling_qcp = SamplingProblem(base_qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
+
     @test sampling_qcp isa QuantumControlProblem
-    @test sampling_qcp.qtraj isa SamplingTrajectory{<:AbstractPulse, <:UnitaryTrajectory}
-    
+    @test sampling_qcp.qtraj isa SamplingTrajectory{<:AbstractPulse,<:UnitaryTrajectory}
+
     # Check trajectory has sample states
     traj = get_trajectory(sampling_qcp)
     @test haskey(traj.components, :Ũ⃗1)
@@ -691,25 +690,27 @@ end
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
-    
+
     # Test that global_bounds throws an informative error when global doesn't exist
     # (global_data must come from integrator - e.g., SplineIntegrator from Piccolissimo)
-    
+
     T = 2.0
     N = 10
-    
+
     sys = QuantumSystem(0.1 * GATES.Z, [GATES.X], [1.0])
     U_goal = GATES.X
-    
+
     # Create pulse
     times = collect(range(0, T, N))
     pulse = CubicSplinePulse(fill(0.5, 1, N), fill(0.0, 1, N), times)
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    
+
     # Attempting to use global_bounds without globals in trajectory should error
     @test_throws "Global variable :δ not found" SplinePulseProblem(
-        qtraj, N;
-        Q=100.0, R=1e-2,
-        global_bounds=Dict(:δ => 0.5)  # δ doesn't exist in trajectory
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        global_bounds = Dict(:δ => 0.5),  # δ doesn't exist in trajectory
     )
 end

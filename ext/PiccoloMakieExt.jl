@@ -24,7 +24,7 @@ function Piccolo.animate_figure(
     update_frame!::Function;
     mode::Symbol = :inline,
     fps::Int = 24,
-    filename::String = "animation.mp4"
+    filename::String = "animation.mp4",
 )
     if mode == :inline
         display(fig) # open the scene
@@ -45,7 +45,7 @@ function Piccolo.animate_figure(
             end
         end
     elseif mode == :record
-        record(fig, filename, frames; framerate=fps) do i
+        record(fig, filename, frames; framerate = fps) do i
             update_frame!(i)
         end
     else
@@ -71,10 +71,10 @@ Animate the evolution of a variable in a `NamedTrajectory`.
 function Piccolo.animate_name(
     traj::NamedTrajectory,
     name::Symbol;
-    fps::Int=24,
-    mode::Symbol=:inline,
-    filename="name_animation.mp4",
-    kwargs...
+    fps::Int = 24,
+    mode::Symbol = :inline,
+    filename = "name_animation.mp4",
+    kwargs...,
 )
     fig = Figure()
     ax = Axis(fig[1, 1])
@@ -84,24 +84,24 @@ function Piccolo.animate_name(
     xlims = [times[1], times[end]]
     ylims = collect(extrema(traj[name]))
 
-    scatter!(ax, xlims, ylims, markersize=0.0)
-    QuantumObjectPlots.plot_name!(ax, traj, name, indices=1:1, kwargs...)
+    scatter!(ax, xlims, ylims, markersize = 0.0)
+    QuantumObjectPlots.plot_name!(ax, traj, name, indices = 1:1, kwargs...)
 
     # TODO: Unclear how to set observables via indices, so redraw
     # WARNING: Known bug with CairoMakie, which cannot re-render
     function update_frame!(i)
         empty!(ax.scene)
-        scatter!(ax, xlims, ylims, markersize=0.0)
-        QuantumObjectPlots.plot_name!(ax, traj, name, indices=1:i)
+        scatter!(ax, xlims, ylims, markersize = 0.0)
+        QuantumObjectPlots.plot_name!(ax, traj, name, indices = 1:i)
     end
 
     return Piccolo.animate_figure(
         fig,
         1:traj.N,
         update_frame!,
-        mode=mode,
-        fps=fps,
-        filename=filename
+        mode = mode,
+        fps = fps,
+        filename = filename,
     )
 end
 
@@ -113,11 +113,11 @@ end
 
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
-    
-    comps = (ψ̃ = hcat(ket_to_iso(x), ket_to_iso(y)), Δt = [1.0; 1.0],)
+
+    comps = (ψ̃ = hcat(ket_to_iso(x), ket_to_iso(y)), Δt = [1.0; 1.0])
     traj = NamedTrajectory(comps)
 
-    fig = animate_name(traj, :ψ̃, mode=:inline, fps=10)
+    fig = animate_name(traj, :ψ̃, mode = :inline, fps = 10)
     @test fig isa Figure
 end
 

@@ -104,30 +104,27 @@ See also: [`NamedTrajectories.plot`](https://docs.harmoniqs.co/NamedTrajectories
 """
 function plot_unitary_populations(
     traj::NamedTrajectory;
-    unitary_columns::AbstractVector{Int}=1:2,
-    unitary_name::Symbol=:Ũ⃗,
-    control_name::Symbol=:u,
-    kwargs...
+    unitary_columns::AbstractVector{Int} = 1:2,
+    unitary_name::Symbol = :Ũ⃗,
+    control_name::Symbol = :u,
+    kwargs...,
 )
 
-    transformations = [
-        (unitary_name => x -> abs2.(iso_vec_to_operator(x)[:, i]))
-        for i ∈ unitary_columns
-    ]
+    transformations =
+        [(unitary_name => x -> abs2.(iso_vec_to_operator(x)[:, i])) for i ∈ unitary_columns]
 
-    transformation_labels = [
-        L"P" for i ∈ unitary_columns
-    ]
+    transformation_labels = [L"P" for i ∈ unitary_columns]
 
-    transformation_titles = [
-        L"Populations: $\left| U_{:, %$(i)}(t) \right|^2$" for i ∈ unitary_columns
-    ]
-    
-    plot(traj, [control_name];
-        transformations=transformations,
-        transformation_titles=transformation_titles,
-        transformation_labels=transformation_labels,
-        kwargs...
+    transformation_titles =
+        [L"Populations: $\left| U_{:, %$(i)}(t) \right|^2$" for i ∈ unitary_columns]
+
+    plot(
+        traj,
+        [control_name];
+        transformations = transformations,
+        transformation_titles = transformation_titles,
+        transformation_labels = transformation_labels,
+        kwargs...,
     )
 end
 
@@ -143,18 +140,14 @@ end
 
     N = 50
     Δt = 0.1
-    ts = collect(0:Δt:Δt*(N-1))
+    ts = collect(0:Δt:(Δt*(N-1)))
     u = 0.1 * randn(length(H_drives), length(ts))
 
     # Generate unitaries via time evolution
     Us = exp.(-im * [(H_drift + sum(u[:, k] .* H_drives)) * ts[k] for k = 1:N])
 
     traj = NamedTrajectory(
-        (
-            Ũ⃗ = hcat(operator_to_iso_vec.(Us)...),
-            u = u,
-            Δt = ts,
-        );
+        (Ũ⃗ = hcat(operator_to_iso_vec.(Us)...), u = u, Δt = ts);
         controls = :u,
         timestep = :Δt,
     )
@@ -162,7 +155,7 @@ end
     # Test: Default behavior plots first two columns
     fig = plot_unitary_populations(traj)
     save("../../../assets/unitary_populations.png", fig)
-    
+
     @test fig isa Figure
     @test length(fig.content) > 0  # Figure has content
 end
@@ -175,24 +168,20 @@ end
     N = 20
     Δt = 0.1
     U = Matrix{ComplexF64}(I, 2, 2)
-    Us = [U for _ in 1:N]
+    Us = [U for _ = 1:N]
 
     traj = NamedTrajectory(
-        (
-            Ũ⃗ = hcat(operator_to_iso_vec.(Us)...),
-            u = zeros(1, N),
-            Δt = fill(Δt, N),
-        );
+        (Ũ⃗ = hcat(operator_to_iso_vec.(Us)...), u = zeros(1, N), Δt = fill(Δt, N));
         controls = :u,
         timestep = :Δt,
     )
 
     # Test: Plot only first column
-    fig1 = plot_unitary_populations(traj; unitary_columns=[1])
+    fig1 = plot_unitary_populations(traj; unitary_columns = [1])
     @test fig1 isa Figure
 
     # Test: Plot both columns explicitly
-    fig2 = plot_unitary_populations(traj; unitary_columns=[1, 2])
+    fig2 = plot_unitary_populations(traj; unitary_columns = [1, 2])
     @test fig2 isa Figure
 end
 
@@ -204,7 +193,7 @@ end
     N = 15
     Δt = 0.05
     U = PAULIS[:X]  # Simple X gate
-    Us = [U for _ in 1:N]
+    Us = [U for _ = 1:N]
 
     traj = NamedTrajectory(
         (
@@ -221,8 +210,8 @@ end
         traj;
         unitary_name = :U_iso,
         control_name = :control,
-        unitary_columns = [1, 2]
+        unitary_columns = [1, 2],
     )
-    
+
     @test fig isa Figure
 end

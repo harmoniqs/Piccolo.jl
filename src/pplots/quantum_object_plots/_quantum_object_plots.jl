@@ -19,7 +19,7 @@ function get_layout(index::Int, n::Int)
 end
 
 # Stub for plot_name! - to be implemented or delegated to NamedTrajectories
-function plot_name!(ax, traj::NamedTrajectory, name::Symbol; indices=1:traj.N, kwargs...)
+function plot_name!(ax, traj::NamedTrajectory, name::Symbol; indices = 1:traj.N, kwargs...)
     times = get_times(traj)[indices]
     data = traj[name][:, indices]
     for (i, row) in enumerate(eachrow(data))

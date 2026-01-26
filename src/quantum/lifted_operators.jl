@@ -19,8 +19,11 @@ acting on the entire system spanning `subsystem_levels`.
 """
 function lift_operator end
 
-function lift_operator(operator::AbstractMatrix{T}, i::Int, subsystem_levels::AbstractVector{Int}
-) where T <: Number
+function lift_operator(
+    operator::AbstractMatrix{T},
+    i::Int,
+    subsystem_levels::AbstractVector{Int},
+) where {T<:Number}
     @assert size(operator, 1) == subsystem_levels[i] "Operator must match subsystem level."
     Is = [Matrix{T}(I(l)) for l ∈ subsystem_levels]
     Is[i] = operator
@@ -28,37 +31,42 @@ function lift_operator(operator::AbstractMatrix{T}, i::Int, subsystem_levels::Ab
 end
 
 function lift_operator(
-    operator::AbstractMatrix{T}, i::Int, n_qubits::Int;
-    levels::Int=size(operator, 1)
-) where T <: Number
+    operator::AbstractMatrix{T},
+    i::Int,
+    n_qubits::Int;
+    levels::Int = size(operator, 1),
+) where {T<:Number}
     return lift_operator(operator, i, fill(levels, n_qubits))
 end
 
 function lift_operator(
     operators::AbstractVector{<:AbstractMatrix{T}},
     indices::AbstractVector{Int},
-    subsystem_levels::AbstractVector{Int}
-) where T <: Number
+    subsystem_levels::AbstractVector{Int},
+) where {T<:Number}
     @assert length(operators) == length(indices)
-    return prod([lift_operator(op, i, subsystem_levels) for (op, i) ∈ zip(operators, indices)])
+    return prod([
+        lift_operator(op, i, subsystem_levels) for (op, i) ∈ zip(operators, indices)
+    ])
 end
 
 function lift_operator(
     operators::AbstractVector{<:AbstractMatrix{T}},
     indices::AbstractVector{Int},
     n_qubits::Int;
-    levels::Int=size(operators[1], 1)
-) where T <: Number
-    return prod(
-        [lift_operator(op, i, n_qubits, levels=levels) for (op, i) ∈ zip(operators, indices)]
-    )
+    levels::Int = size(operators[1], 1),
+) where {T<:Number}
+    return prod([
+        lift_operator(op, i, n_qubits, levels = levels) for
+        (op, i) ∈ zip(operators, indices)
+    ])
 end
 
 function lift_operator(
     operator::AbstractMatrix{T},
     indices::AbstractVector{Int},
     subsystem_levels::AbstractVector{Int},
-) where T <: Number
+) where {T<:Number}
     N = length(subsystem_levels)
     L = [subsystem_levels[i] for i ∈ indices]
     Lᶜ = [subsystem_levels[i] for i ∈ setdiff(1:N, indices)]
@@ -76,7 +84,7 @@ function lift_operator(
 
     return reshape(
         PermutedDimsArray(reshape(full_operator, array_shape...), array_perm),
-        size(full_operator)
+        size(full_operator),
     )
 end
 
@@ -84,8 +92,8 @@ function lift_operator(
     operator::AbstractMatrix{T},
     indices::AbstractVector{Int},
     n_qubits::Int;
-    levels::Int=2
-) where T <: Number
+    levels::Int = 2,
+) where {T<:Number}
     return lift_operator(operator, indices, fill(levels, n_qubits))
 end
 
@@ -122,12 +130,11 @@ end
     UU = kron(U, U)
     UUU = kron(UU, U)
     I2 = [1 0; 0 1]
-    I3 = [1 0 0; 0 1 0; 0 0 1]
-;
+    I3 = [1 0 0; 0 1 0; 0 0 1];
 
-    @test lift_operator(UU, [1,2], [2,2,2]) ≈ kron(U, U, I2)
-    @test lift_operator(UU, [2,3], [2,2,2]) ≈ kron(I2, U, U)
-    @test lift_operator(UU, [1,3], [2,2,2]) ≈ kron(U, I2, U)
+    @test lift_operator(UU, [1, 2], [2, 2, 2]) ≈ kron(U, U, I2)
+    @test lift_operator(UU, [2, 3], [2, 2, 2]) ≈ kron(I2, U, U)
+    @test lift_operator(UU, [1, 3], [2, 2, 2]) ≈ kron(U, I2, U)
 
     @test lift_operator(UU, [1], [4, 2, 3]) ≈ kron(UU, I2, I3)
     @test lift_operator(UU, [2], [2, 4, 3]) ≈ kron(I2, UU, I3)
@@ -138,8 +145,8 @@ end
 
     # Test qubit interface
     @test lift_operator(U, [1], 3) ≈ kron(U, I2, I2)
-    @test lift_operator(UU, [2,3], 3) ≈ kron(I2, U, U)
-    @test lift_operator(UU, [1,3], 3) ≈ kron(U, I2, U)
+    @test lift_operator(UU, [2, 3], 3) ≈ kron(I2, U, U)
+    @test lift_operator(UU, [1, 3], 3) ≈ kron(U, I2, U)
 end
 
 

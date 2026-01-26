@@ -80,26 +80,26 @@ sys = IonChainSystem(
   Phys. Rev. A 62, 022311 (2000).
 """
 function IonChainSystem(;
-    N_ions::Int=2,
-    ion_levels::Int=2,
-    N_modes::Int=1,
-    mode_levels::Int=10,
-    ωq::Union{Float64, Vector{Float64}}=1.0,
-    ωm::Union{Float64, Vector{Float64}}=0.1,
-    η::Union{Float64, Matrix{Float64}}=0.1,
-    lab_frame::Bool=false,
-    frame_ω::Float64=lab_frame ? 0.0 : (ωq isa Vector ? ωq[1] : ωq),
-    multiply_by_2π::Bool=true,
-    drive_bounds::Vector{<:Union{Tuple{Float64, Float64}, Float64}}=fill(1.0, 2*N_ions),
+    N_ions::Int = 2,
+    ion_levels::Int = 2,
+    N_modes::Int = 1,
+    mode_levels::Int = 10,
+    ωq::Union{Float64,Vector{Float64}} = 1.0,
+    ωm::Union{Float64,Vector{Float64}} = 0.1,
+    η::Union{Float64,Matrix{Float64}} = 0.1,
+    lab_frame::Bool = false,
+    frame_ω::Float64 = lab_frame ? 0.0 : (ωq isa Vector ? ωq[1] : ωq),
+    multiply_by_2π::Bool = true,
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}} = fill(1.0, 2*N_ions),
 )
     # Convert scalar parameters to vectors
     ωq_vec = ωq isa Vector ? ωq : fill(ωq, N_ions)
     ωm_vec = ωm isa Vector ? ωm : fill(ωm, N_modes)
-    
+
     @assert length(ωq_vec) == N_ions "ωq must be scalar or vector of length N_ions"
     @assert length(ωm_vec) == N_modes "ωm must be scalar or vector of length N_modes"
     @assert length(drive_bounds) == 2*N_ions "drive_bounds must have length 2*N_ions"
-    
+
     # Convert η to matrix
     if η isa Float64
         η_mat = fill(η, N_ions, N_modes)
@@ -107,14 +107,14 @@ function IonChainSystem(;
         η_mat = η
         @assert size(η_mat) == (N_ions, N_modes) "η matrix must be N_ions × N_modes"
     end
-    
+
     # Total Hilbert space dimension: ion_levels^N_ions × mode_levels^N_modes
     # Subsystem structure: [ion_1, ion_2, ..., ion_N, mode_1, mode_2, ..., mode_M]
     subsystem_levels = vcat(fill(ion_levels, N_ions), fill(mode_levels, N_modes))
     ion_dim = ion_levels^N_ions
     mode_dim = mode_levels^N_modes
     total_dim = ion_dim * mode_dim
-    
+
     # Pauli operators for ion_levels=2 case
     if ion_levels == 2
         σ_plus = ComplexF64[0 1; 0 0]
@@ -130,25 +130,25 @@ function IonChainSystem(;
         σ_x = σ_plus + σ_minus
         σ_y = -1.0im * (σ_plus - σ_minus)
     end
-    
+
     # Build drift Hamiltonian
     H_drift = zeros(ComplexF64, total_dim, total_dim)
-    
+
     # Ion internal Hamiltonian: Σᵢ ωq,i σᵢ⁺ σᵢ⁻
-    for i in 1:N_ions
+    for i = 1:N_ions
         detuning = lab_frame ? ωq_vec[i] : (ωq_vec[i] - frame_ω)
         H_drift += detuning * lift_operator(σ_plus' * σ_plus, i, subsystem_levels)
     end
-    
+
     # Motional mode Hamiltonian: Σₘ ωₘ aₘ⁺ aₘ
-    for m in 1:N_modes
+    for m = 1:N_modes
         a_m = annihilate(mode_levels)
         H_drift += ωm_vec[m] * lift_operator(a_m' * a_m, N_ions + m, subsystem_levels)
     end
-    
+
     # Lamb-Dicke coupling: Σᵢ,ₘ ηᵢ,ₘ (σᵢ⁺ + σᵢ⁻)(aₘ + aₘ⁺)
-    for i in 1:N_ions
-        for m in 1:N_modes
+    for i = 1:N_ions
+        for m = 1:N_modes
             if abs(η_mat[i, m]) > 1e-12  # Skip negligible couplings
                 σ_i_x = lift_operator(σ_x, i, subsystem_levels)
                 a_m = annihilate(mode_levels)
@@ -157,25 +157,21 @@ function IonChainSystem(;
             end
         end
     end
-    
+
     # Drive operators: Ωx,i σᵢˣ and Ωy,i σᵢʸ for each ion
     H_drives = Matrix{ComplexF64}[]
-    for i in 1:N_ions
+    for i = 1:N_ions
         push!(H_drives, lift_operator(σ_x, i, subsystem_levels))  # X drive on ion i
         push!(H_drives, lift_operator(σ_y, i, subsystem_levels))  # Y drive on ion i
     end
-    
+
     # Apply 2π factor if requested
     if multiply_by_2π
         H_drift *= 2π
         H_drives = [2π * H for H in H_drives]
     end
-    
-    return QuantumSystem(
-        H_drift,
-        H_drives,
-        drive_bounds
-    )
+
+    return QuantumSystem(H_drift, H_drives, drive_bounds)
 end
 
 @doc raw"""
@@ -219,19 +215,19 @@ function MolmerSorensenCoupling(
     N_modes::Int,
     ion_levels::Int,
     mode_levels::Int,
-    η::Union{Float64, Matrix{Float64}},
-    ωm::Union{Float64, Vector{Float64}},
+    η::Union{Float64,Matrix{Float64}},
+    ωm::Union{Float64,Vector{Float64}},
 )
     # Convert to matrix form
     η_mat = η isa Float64 ? fill(η, N_ions, N_modes) : η
     ωm_vec = ωm isa Vector ? ωm : fill(ωm, N_modes)
-    
+
     # Subsystem structure: [ion_1, ion_2, ..., ion_N, mode_1, mode_2, ..., mode_M]
     subsystem_levels = vcat(fill(ion_levels, N_ions), fill(mode_levels, N_modes))
     ion_dim = ion_levels^N_ions
     mode_dim = mode_levels^N_modes
     total_dim = ion_dim * mode_dim
-    
+
     # Pauli-X for two-level systems
     if ion_levels == 2
         σ_x = ComplexF64[0 1; 1 0]
@@ -239,80 +235,86 @@ function MolmerSorensenCoupling(
         σ_x = zeros(ComplexF64, ion_levels, ion_levels)
         σ_x[1, 2] = σ_x[2, 1] = 1.0
     end
-    
+
     # Build MS interaction: Σᵢ<ⱼ σᵢˣ σⱼˣ
     H_MS = zeros(ComplexF64, total_dim, total_dim)
-    for i in 1:N_ions-1
-        for j in i+1:N_ions
+    for i = 1:(N_ions-1)
+        for j = (i+1):N_ions
             σ_x_i = lift_operator(σ_x, i, subsystem_levels)
             σ_x_j = lift_operator(σ_x, j, subsystem_levels)
             H_MS += σ_x_i * σ_x_j
         end
     end
-    
+
     return H_MS
 end
 
 # *************************************************************************** #
 
 @testitem "IonChainSystem: basic construction" begin
-    
+
     # Minimal system: 2 ions, 1 mode
-    sys = IonChainSystem(N_ions=2, N_modes=1, mode_levels=5)
+    sys = IonChainSystem(N_ions = 2, N_modes = 1, mode_levels = 5)
     @test sys isa QuantumSystem
     @test sys.n_drives == 4  # 2 drives (X, Y) per ion
     @test sys.levels == 2^2 * 5  # 2 ions × 5 mode levels
-    
+
     # Single ion with mode
-    sys_single = IonChainSystem(N_ions=1, N_modes=1, mode_levels=3)
+    sys_single = IonChainSystem(N_ions = 1, N_modes = 1, mode_levels = 3)
     @test sys_single.levels == 2 * 3
     @test sys_single.n_drives == 2
 end
 
 @testitem "IonChainSystem: parameter variations" begin
-    
+
     # Vector frequencies
     sys = IonChainSystem(
-        N_ions=3,
-        N_modes=2,
-        ωq=[1.0, 1.01, 1.02],
-        ωm=[0.1, 0.11],
-        η=0.05,
-        mode_levels=3
+        N_ions = 3,
+        N_modes = 2,
+        ωq = [1.0, 1.01, 1.02],
+        ωm = [0.1, 0.11],
+        η = 0.05,
+        mode_levels = 3,
     )
     @test sys isa QuantumSystem
     @test sys.n_drives == 6  # 3 ions × 2 drives each
-    
+
     # Matrix Lamb-Dicke parameters
     η_mat = [0.1 0.05; 0.1 0.05]
-    sys2 = IonChainSystem(N_ions=2, N_modes=2, η=η_mat, mode_levels=3)
+    sys2 = IonChainSystem(N_ions = 2, N_modes = 2, η = η_mat, mode_levels = 3)
     @test sys2 isa QuantumSystem
 end
 
 @testitem "IonChainSystem: lab frame vs rotating frame" begin
-    
-    sys_lab = IonChainSystem(N_ions=2, N_modes=1, lab_frame=true, mode_levels=3)
-    sys_rot = IonChainSystem(N_ions=2, N_modes=1, lab_frame=false, frame_ω=1.0, mode_levels=3)
-    
+
+    sys_lab = IonChainSystem(N_ions = 2, N_modes = 1, lab_frame = true, mode_levels = 3)
+    sys_rot = IonChainSystem(
+        N_ions = 2,
+        N_modes = 1,
+        lab_frame = false,
+        frame_ω = 1.0,
+        mode_levels = 3,
+    )
+
     @test sys_lab isa QuantumSystem
     @test sys_rot isa QuantumSystem
     @test sys_lab.H_drift != sys_rot.H_drift  # Different frames
 end
 
 @testitem "IonChainSystem: multi-level ions" begin
-    
-    sys = IonChainSystem(N_ions=2, ion_levels=3, N_modes=1, mode_levels=3)
+
+    sys = IonChainSystem(N_ions = 2, ion_levels = 3, N_modes = 1, mode_levels = 3)
     @test sys.levels == 3^2 * 3  # 3-level ions
     @test sys isa QuantumSystem
 end
 
 @testitem "MolmerSorensenCoupling: basic" begin
     using LinearAlgebra: ishermitian
-    
+
     H_MS = MolmerSorensenCoupling(2, 1, 2, 5, 0.1, 0.1)
     @test size(H_MS) == (2^2 * 5, 2^2 * 5)
     @test ishermitian(H_MS)
-    
+
     # Three ions
     H_MS3 = MolmerSorensenCoupling(3, 1, 2, 3, 0.1, 0.1)
     @test size(H_MS3) == (2^3 * 3, 2^3 * 3)

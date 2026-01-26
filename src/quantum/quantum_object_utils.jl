@@ -22,7 +22,7 @@ Reduce the string (each character is one key) via operators from a dictionary.
 """
 function operator_from_string(
     operator::String;
-    lookup::NamedTuple{names, <:Tuple{Vararg{AbstractMatrix{<:Number}}}} where names=PAULIS
+    lookup::NamedTuple{names,<:Tuple{Vararg{AbstractMatrix{<:Number}}}} where {names} = PAULIS,
 )::Matrix{ComplexF64}
     # split string into keys and replace with operators
     characters = [lookup[Symbol(c)] for c ∈ operator]
@@ -42,8 +42,17 @@ Construct a quantum state from a string ket representation.
 function ket_from_string(
     ket::String,
     levels::Vector{Int};
-    level_dict=Dict(:g => 0, :e => 1, :f => 2, :h => 3, :i => 4, :j => 5, :k => 6, :l => 7),
-    return_states=false
+    level_dict = Dict(
+        :g => 0,
+        :e => 1,
+        :f => 2,
+        :h => 3,
+        :i => 4,
+        :j => 5,
+        :k => 6,
+        :l => 7,
+    ),
+    return_states = false,
 )::Vector{ComplexF64}
     kets = []
 
@@ -69,13 +78,14 @@ function ket_from_string(
             superposition = split(ψᵢ, '+')
             superposition_states = [level_dict[Symbol(x)] for x ∈ superposition]
             @assert all(state ≤ l - 1 for state ∈ superposition_states) "Level $ψᵢ is not allowed for $l levels"
-            superposition_state = sum([ComplexF64.(I[1:l, state + 1]) for state ∈ superposition_states])
+            superposition_state =
+                sum([ComplexF64.(I[1:l, state+1]) for state ∈ superposition_states])
             normalize!(superposition_state)
             push!(states, superposition_state)
         else
             state = level_dict[Symbol(ψᵢ)]
             @assert state ≤ l - 1 "Level $ψᵢ is not allowed for $l levels"
-            push!(states, ComplexF64.(I[1:l, state + 1]))
+            push!(states, ComplexF64.(I[1:l, state+1]))
         end
     end
 
@@ -141,7 +151,7 @@ end
 
 Get the annihilation operator for a system with `levels`.
 """
-annihilate(levels::Int)::Matrix{ComplexF64} = diagm(1 => map(sqrt, 1:levels - 1))
+annihilate(levels::Int)::Matrix{ComplexF64} = diagm(1 => map(sqrt, 1:(levels-1)))
 
 @doc raw"""
     create(levels::Int)

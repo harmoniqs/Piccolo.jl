@@ -18,7 +18,7 @@ sampling trajectory (e.g., `:du`, `:ddu` which are added by `SmoothPulseProblem`
 """
 function extract_regularization(objective, state_sym::Symbol, new_traj::NamedTrajectory)
     objs = hasproperty(objective, :objectives) ? objective.objectives : [objective]
-    
+
     regularizers = filter(objs) do term
         # Get variable names this term depends on
         term_syms = if hasproperty(term, :syms)
@@ -36,7 +36,7 @@ function extract_regularization(objective, state_sym::Symbol, new_traj::NamedTra
         # 2. All its variables exist in the new trajectory
         state_sym ∉ term_syms && all(s -> s ∈ new_traj.names, term_syms)
     end
-    
+
     return isempty(regularizers) ? NullObjective() : reduce(+, regularizers)
 end
 
@@ -51,29 +51,29 @@ Create the state-dependent objective for a sampling member.
 Dispatches on quantum trajectory type.
 """
 function sampling_state_objective(
-    qtraj::UnitaryTrajectory, 
-    traj::NamedTrajectory, 
-    state_sym::Symbol, 
-    Q::Float64
+    qtraj::UnitaryTrajectory,
+    traj::NamedTrajectory,
+    state_sym::Symbol,
+    Q::Float64,
 )
-    return UnitaryInfidelityObjective(get_goal(qtraj), state_sym, traj; Q=Q)
+    return UnitaryInfidelityObjective(get_goal(qtraj), state_sym, traj; Q = Q)
 end
 
 function sampling_state_objective(
-    qtraj::KetTrajectory, 
-    traj::NamedTrajectory, 
-    state_sym::Symbol, 
-    Q::Float64
+    qtraj::KetTrajectory,
+    traj::NamedTrajectory,
+    state_sym::Symbol,
+    Q::Float64,
 )
     ψ_goal = get_goal(qtraj)
-    return KetInfidelityObjective(ψ_goal, state_sym, traj; Q=Q)
+    return KetInfidelityObjective(ψ_goal, state_sym, traj; Q = Q)
 end
 
 function sampling_state_objective(
-    qtraj::DensityTrajectory, 
-    traj::NamedTrajectory, 
-    state_sym::Symbol, 
-    Q::Float64
+    qtraj::DensityTrajectory,
+    traj::NamedTrajectory,
+    state_sym::Symbol,
+    Q::Float64,
 )
     # DensityTrajectory doesn't have a fidelity objective yet
     # Return NullObjective for now
@@ -108,9 +108,9 @@ fidelity objectives for each system.
 function SamplingProblem(
     qcp::QuantumControlProblem,
     systems::Vector{<:AbstractQuantumSystem};
-    weights::Vector{Float64}=fill(1.0, length(systems)),
-    Q::Float64=100.0,
-    piccolo_options::PiccoloOptions=PiccoloOptions(),
+    weights::Vector{Float64} = fill(1.0, length(systems)),
+    Q::Float64 = 100.0,
+    piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
     if piccolo_options.verbose
         println("    constructing SamplingProblem...")
@@ -123,7 +123,7 @@ function SamplingProblem(
 
     # 1. Create SamplingTrajectory wrapper (new API: no stored trajectory)
     sampling_qtraj = SamplingTrajectory(base_qtraj, systems; weights)
-    
+
     # 2. Build trajectory from sampling trajectory (this creates duplicated states)
     #    Propagate Δt bounds from base problem if they exist
     N = base_traj.N
@@ -132,13 +132,13 @@ function SamplingProblem(
     else
         nothing
     end
-    new_traj = NamedTrajectory(sampling_qtraj, N; Δt_bounds=Δt_bounds)
+    new_traj = NamedTrajectory(sampling_qtraj, N; Δt_bounds = Δt_bounds)
     snames = state_names(sampling_qtraj)
 
     # 3. Build objective: weighted state objectives + shared regularization
     J_state = sum(
-        sampling_state_objective(base_qtraj, new_traj, name, w * Q)
-        for (name, w) in zip(snames, weights)
+        sampling_state_objective(base_qtraj, new_traj, name, w * Q) for
+        (name, w) in zip(snames, weights)
     )
     J_reg = extract_regularization(qcp.prob.objective, state_sym, new_traj)
     J_total = J_state + J_reg
@@ -148,18 +148,20 @@ function SamplingProblem(
     #    because they operate on :du, :ddu which don't exist in the sampling trajectory.
     #    For now, SamplingProblem operates on the raw controls without derivative smoothing.
     #    TODO: Consider adding an option to preserve smoothness constraints.
-    
+
     # Use BilinearIntegrator dispatch on SamplingTrajectory
     dynamics_integrators = BilinearIntegrator(sampling_qtraj, N)
-    
-    all_integrators = dynamics_integrators isa AbstractVector ? dynamics_integrators : [dynamics_integrators]
+
+    all_integrators =
+        dynamics_integrators isa AbstractVector ? dynamics_integrators :
+        [dynamics_integrators]
 
     # 5. Construct problem (TimeConsistencyConstraint auto-applied)
     prob = DirectTrajOptProblem(
         new_traj,
         J_total,
         all_integrators;
-        constraints=AbstractConstraint[]
+        constraints = AbstractConstraint[],
     )
 
     return QuantumControlProblem(sampling_qtraj, prob)
@@ -177,11 +179,10 @@ end
 function _final_fidelity_constraint(
     qtraj::SamplingTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory
+    traj::NamedTrajectory,
 )
     constraints = [
-        _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj)
-        for name in state_names(qtraj)
+        _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj) for name in state_names(qtraj)
     ]
     return constraints
 end
@@ -191,7 +192,7 @@ function _sampling_fidelity_constraint(
     qtraj::UnitaryTrajectory,
     state_sym::Symbol,
     final_fidelity::Float64,
-    traj::NamedTrajectory
+    traj::NamedTrajectory,
 )
     return FinalUnitaryFidelityConstraint(qtraj.goal, state_sym, final_fidelity, traj)
 end
@@ -200,7 +201,7 @@ function _sampling_fidelity_constraint(
     qtraj::KetTrajectory,
     state_sym::Symbol,
     final_fidelity::Float64,
-    traj::NamedTrajectory
+    traj::NamedTrajectory,
 )
     return FinalKetFidelityConstraint(qtraj.goal, state_sym, final_fidelity, traj)
 end
@@ -211,14 +212,14 @@ end
 
     T = 10.0
     N = 50
-    
+
     # Define system
     sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
 
     # Create base problem
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
-    qcp = SmoothPulseProblem(qtraj, N; Q=100.0)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
 
     # Create sampling problem with 2 systems
     systems = [sys, sys] # Identical systems for testing
@@ -245,20 +246,20 @@ end
 
     T = 10.0
     N = 50
-    
+
     # Simple robust optimization
     # System with uncertainty in drift
     sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
 
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
-    qcp = SmoothPulseProblem(qtraj, N; Q=100.0)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
 
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed])
 
     # Solve
-    solve!(sampling_prob; max_iter=10, verbose=false)
+    solve!(sampling_prob; max_iter = 10, verbose = false)
 
     # Check that we have a solution
     @test sampling_prob.prob.objective(sampling_prob.trajectory) < 1e10 # Just check it didn't blow up
@@ -269,20 +270,20 @@ end
 
     T = 1.0
     N = 50
-    
+
     # Robust state transfer over parameter uncertainty
     sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
-    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys_nominal, pulse, ψ_init, ψ_goal)
 
-    qcp = SmoothPulseProblem(qtraj, N; Q=50.0, R=1e-3)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
 
     # Create sampling problem
-    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q=50.0)
+    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 50.0)
 
     @test sampling_prob isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory
@@ -293,7 +294,7 @@ end
     @test haskey(traj.components, :ψ̃2)
 
     # Solve
-    solve!(sampling_prob; max_iter=10, verbose=false, print_level=1)
+    solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
 end
 
 @testitem "SamplingProblem with custom weights" begin
@@ -301,18 +302,18 @@ end
 
     T = 10.0
     N = 50
-    
+
     sys1 = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     sys2 = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
     sys3 = QuantumSystem(0.9 * GATES[:Z], [GATES[:X]], [1.0])
 
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys1, pulse, GATES[:X])
-    qcp = SmoothPulseProblem(qtraj, N; Q=100.0)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
 
     # Non-uniform weights - emphasize nominal system
     weights = [0.6, 0.2, 0.2]
-    sampling_prob = SamplingProblem(qcp, [sys1, sys2, sys3]; weights=weights, Q=100.0)
+    sampling_prob = SamplingProblem(qcp, [sys1, sys2, sys3]; weights = weights, Q = 100.0)
 
     @test sampling_prob.qtraj.weights == weights
     @test length(sampling_prob.qtraj.systems) == 3
@@ -323,7 +324,7 @@ end
     @test haskey(traj.components, :Ũ⃗2)
     @test haskey(traj.components, :Ũ⃗3)
 
-    solve!(sampling_prob; max_iter=5, verbose=false, print_level=1)
+    solve!(sampling_prob; max_iter = 5, verbose = false, print_level = 1)
 end
 
 @testitem "SamplingProblem + MinimumTimeProblem composition" begin
@@ -331,27 +332,27 @@ end
 
     T = 1.0
     N = 50
-    
+
     # Robust minimum-time optimization
     sys_nominal = QuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
     sys_perturbed = QuantumSystem(0.11 * GATES[:Z], [GATES[:X]], [1.0])
 
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
-    qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2, Δt_bounds=(0.01, 0.5))
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
 
     # First create sampling problem
-    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q=100.0)
-    solve!(sampling_prob; max_iter=20, verbose=false, print_level=1)
+    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
+    solve!(sampling_prob; max_iter = 20, verbose = false, print_level = 1)
 
     # Then convert to minimum-time
-    mintime_prob = MinimumTimeProblem(sampling_prob; final_fidelity=0.90, D=50.0)
+    mintime_prob = MinimumTimeProblem(sampling_prob; final_fidelity = 0.90, D = 50.0)
 
     @test mintime_prob isa QuantumControlProblem
     @test mintime_prob.qtraj isa SamplingTrajectory
 
     # Solve minimum-time
-    solve!(mintime_prob; max_iter=20, verbose=false, print_level=1)
+    solve!(mintime_prob; max_iter = 20, verbose = false, print_level = 1)
 end
 
 @testitem "SamplingProblem with DensityTrajectory" tags = [:density, :skip] begin

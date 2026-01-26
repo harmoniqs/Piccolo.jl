@@ -26,7 +26,12 @@ using LinearAlgebra
 using TestItems
 
 # Import from parent PiccoloQuantumObjects modules
-using ..QuantumSystems: QuantumSystem, OpenQuantumSystem, CompositeQuantumSystem, AbstractQuantumSystem, lift_operator
+using ..QuantumSystems:
+    QuantumSystem,
+    OpenQuantumSystem,
+    CompositeQuantumSystem,
+    AbstractQuantumSystem,
+    lift_operator
 using ..QuantumObjectUtils: annihilate, operator_from_string, PAULIS
 using ..Gates: GATES
 

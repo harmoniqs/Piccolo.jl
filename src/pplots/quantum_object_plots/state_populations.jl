@@ -101,19 +101,19 @@ See also: [`plot_unitary_populations`](@ref), [`NamedTrajectories.plot`](https:/
 """
 function plot_state_populations(
     traj::NamedTrajectory;
-    state_name::Symbol=:ψ̃,
-    state_indices::Union{Nothing, AbstractVector{Int}}=nothing,
-    control_name::Symbol=:u,
-    subspace::Union{Nothing, AbstractVector{Int}}=nothing,
-    kwargs...
+    state_name::Symbol = :ψ̃,
+    state_indices::Union{Nothing,AbstractVector{Int}} = nothing,
+    control_name::Symbol = :u,
+    subspace::Union{Nothing,AbstractVector{Int}} = nothing,
+    kwargs...,
 )
     # Find all state components matching the prefix
     state_prefix = string(state_name)
     matching_states = [
-        name for name in traj.names 
-        if startswith(string(name), state_prefix) && string(name) != state_prefix
+        name for name in traj.names if
+        startswith(string(name), state_prefix) && string(name) != state_prefix
     ]
-    
+
     if isempty(matching_states)
         # Fallback: maybe there's just a single state with exact name
         if state_name in traj.names
@@ -122,20 +122,20 @@ function plot_state_populations(
             error("No state components found matching prefix :$state_name")
         end
     end
-    
+
     # Sort states to ensure consistent ordering
     sort!(matching_states)
-    
+
     # Filter by indices if specified
     if !isnothing(state_indices)
         matching_states = matching_states[state_indices]
     end
-    
+
     # Create transformations for each state
-    transformations = Pair{Symbol, Function}[]
+    transformations = Pair{Symbol,Function}[]
     transformation_labels = String[]
     transformation_titles = String[]
-    
+
     for (idx, sname) in enumerate(matching_states)
         # Define population extraction function
         pop_fn = if isnothing(subspace)
@@ -143,21 +143,23 @@ function plot_state_populations(
         else
             x -> abs2.(iso_to_ket(x)[subspace])
         end
-        
+
         push!(transformations, (sname => pop_fn))
         push!(transformation_labels, L"P")
-        
+
         # Create title with state name
         state_str = string(sname)
         push!(transformation_titles, L"Populations: $|%$(state_str)(t)|^2$")
     end
-    
+
     # Plot using NamedTrajectories.plot
-    plot(traj, [control_name];
-        transformations=transformations,
-        transformation_titles=transformation_titles,
-        transformation_labels=transformation_labels,
-        kwargs...
+    plot(
+        traj,
+        [control_name];
+        transformations = transformations,
+        transformation_titles = transformation_titles,
+        transformation_labels = transformation_labels,
+        kwargs...,
     )
 end
 
@@ -171,15 +173,15 @@ end
     # Setup: Two states evolving (sampling problem style)
     N = 30
     Δt = 0.1
-    
+
     ψ1_init = ComplexF64[1, 0]
     ψ2_init = ComplexF64[0, 1]
-    
+
     # Create dummy evolution (just rotate slightly each step)
-    θs = range(0, π/4, length=N)
+    θs = range(0, π/4, length = N)
     ψ1s = [ComplexF64[cos(θ), sin(θ)] for θ in θs]
     ψ2s = [ComplexF64[sin(θ), cos(θ)] for θ in θs]
-    
+
     traj = NamedTrajectory(
         (
             ψ̃1_system_1 = hcat(ket_to_iso.(ψ1s)...),
@@ -190,7 +192,7 @@ end
         controls = :u,
         timestep = :Δt,
     )
-    
+
     # Test: Default behavior plots all states
     fig = plot_state_populations(traj)
     @test fig isa Figure
@@ -205,9 +207,9 @@ end
     # Setup: Three states
     N = 20
     Δt = 0.1
-    
-    ψ_data = [ket_to_iso(ComplexF64[1, 0]) for _ in 1:N]
-    
+
+    ψ_data = [ket_to_iso(ComplexF64[1, 0]) for _ = 1:N]
+
     traj = NamedTrajectory(
         (
             ψ̃1_system_1 = hcat(ψ_data...),
@@ -219,12 +221,12 @@ end
         controls = :u,
         timestep = :Δt,
     )
-    
+
     # Test: Plot only selected states
-    fig1 = plot_state_populations(traj; state_indices=[1])
+    fig1 = plot_state_populations(traj; state_indices = [1])
     @test fig1 isa Figure
-    
-    fig2 = plot_state_populations(traj; state_indices=[1, 3])
+
+    fig2 = plot_state_populations(traj; state_indices = [1, 3])
     @test fig2 isa Figure
 end
 
@@ -236,22 +238,18 @@ end
     # Setup: 3-level system (qubit + leakage)
     N = 15
     Δt = 0.05
-    
+
     ψ_init = ComplexF64[1, 0, 0]  # Start in |0⟩
-    ψs = [ψ_init for _ in 1:N]
-    
+    ψs = [ψ_init for _ = 1:N]
+
     traj = NamedTrajectory(
-        (
-            ψ̃1_system_1 = hcat(ket_to_iso.(ψs)...),
-            u = zeros(1, N),
-            Δt = fill(Δt, N),
-        );
+        (ψ̃1_system_1 = hcat(ket_to_iso.(ψs)...), u = zeros(1, N), Δt = fill(Δt, N));
         controls = :u,
         timestep = :Δt,
     )
-    
+
     # Test: Plot only computational subspace (exclude leakage)
-    fig = plot_state_populations(traj; subspace=1:2)
+    fig = plot_state_populations(traj; subspace = 1:2)
     @test fig isa Figure
 end
 
@@ -264,30 +262,26 @@ end
     # Setup: Verify populations sum to 1
     N = 25
     Δt = 0.1
-    
+
     # Create normalized states
-    θs = range(0, π, length=N)
+    θs = range(0, π, length = N)
     ψs = [normalize(ComplexF64[cos(θ), sin(θ), 0.0]) for θ in θs]
-    
+
     traj = NamedTrajectory(
-        (
-            ψ̃1_system_1 = hcat(ket_to_iso.(ψs)...),
-            u = zeros(1, N),
-            Δt = fill(Δt, N),
-        );
+        (ψ̃1_system_1 = hcat(ket_to_iso.(ψs)...), u = zeros(1, N), Δt = fill(Δt, N));
         controls = :u,
         timestep = :Δt,
     )
-    
+
     # Verify normalization at each knot point
-    for k in 1:N
+    for k = 1:N
         ψ = iso_to_ket(traj[:ψ̃1_system_1][:, k])
         @test norm(ψ) ≈ 1.0 atol=1e-10
-        
+
         pops = abs2.(ψ)
         @test sum(pops) ≈ 1.0 atol=1e-10
     end
-    
+
     # Plot still works
     fig = plot_state_populations(traj)
     @test fig isa Figure
@@ -301,20 +295,16 @@ end
     # Setup: Single state without numeric suffix
     N = 20
     Δt = 0.1
-    
-    ψs = [ComplexF64[1, 0] for _ in 1:N]
-    
+
+    ψs = [ComplexF64[1, 0] for _ = 1:N]
+
     traj = NamedTrajectory(
-        (
-            ψ̃ = hcat(ket_to_iso.(ψs)...),
-            u = zeros(1, N),
-            Δt = fill(Δt, N),
-        );
+        (ψ̃ = hcat(ket_to_iso.(ψs)...), u = zeros(1, N), Δt = fill(Δt, N));
         controls = :u,
         timestep = :Δt,
     )
-    
+
     # Test: Should work with exact name match
-    fig = plot_state_populations(traj; state_name=:ψ̃)
+    fig = plot_state_populations(traj; state_name = :ψ̃)
     @test fig isa Figure
 end

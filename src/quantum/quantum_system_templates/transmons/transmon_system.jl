@@ -32,16 +32,16 @@ where `a` is the annihilation operator.
 - `drives`: Whether to include drives in the Hamiltonian.
 """
 function TransmonSystem(;
-    drive_bounds::Vector{<:Union{Tuple{Float64, Float64}, Float64}}=fill(1.0, 2),
-    ω::Float64=4.0,  # GHz
-    δ::Float64=0.2, # GHz
-    levels::Int=3,
-    lab_frame::Bool=false,
-    frame_ω::Float64=lab_frame ? 0.0 : ω,
-    multiply_by_2π::Bool=true,
-    lab_frame_type::Symbol=:duffing,
-    drives::Bool=true,
-    kwargs...
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}} = fill(1.0, 2),
+    ω::Float64 = 4.0,  # GHz
+    δ::Float64 = 0.2, # GHz
+    levels::Int = 3,
+    lab_frame::Bool = false,
+    frame_ω::Float64 = lab_frame ? 0.0 : ω,
+    multiply_by_2π::Bool = true,
+    lab_frame_type::Symbol = :duffing,
+    drives::Bool = true,
+    kwargs...,
 )
     @assert lab_frame_type ∈ (:duffing, :quartic, :cosine) "lab_frame_type must be one of (:duffing, :quartic, :cosine)"
 
@@ -87,20 +87,16 @@ function TransmonSystem(;
         H_drives .*= 2π
     end
 
-    return QuantumSystem(
-        H_drift,
-        H_drives,
-        drive_bounds
-    )
+    return QuantumSystem(H_drift, H_drives, drive_bounds)
 end
 
 struct QuantumSystemCoupling
-    op
-    g_ij
-    pair
-    subsystem_levels
-    coupling_type
-    params
+    op::Any
+    g_ij::Any
+    pair::Any
+    subsystem_levels::Any
+    coupling_type::Any
+    params::Any
 end
 
 @doc raw"""
@@ -137,10 +133,10 @@ function TransmonDipoleCoupling end
 
 function TransmonDipoleCoupling(
     g_ij::Float64,
-    pair::Tuple{Int, Int},
+    pair::Tuple{Int,Int},
     subsystem_levels::Vector{Int};
-    lab_frame::Bool=false,
-    mulitply_by_2π::Bool=true,
+    lab_frame::Bool = false,
+    mulitply_by_2π::Bool = true,
 )
 
     i, j = pair
@@ -157,10 +153,7 @@ function TransmonDipoleCoupling(
         op *= 2π
     end
 
-    params = Dict{Symbol, Any}(
-        :lab_frame => lab_frame,
-        :mulitply_by_2π => mulitply_by_2π,
-    )
+    params = Dict{Symbol,Any}(:lab_frame => lab_frame, :mulitply_by_2π => mulitply_by_2π)
 
     return QuantumSystemCoupling(
         op,
@@ -168,15 +161,15 @@ function TransmonDipoleCoupling(
         pair,
         subsystem_levels,
         TransmonDipoleCoupling,
-        params
+        params,
     )
 end
 
 function TransmonDipoleCoupling(
     g_ij::Float64,
-    pair::Tuple{Int, Int},
+    pair::Tuple{Int,Int},
     sub_systems::AbstractVector{<:AbstractQuantumSystem};
-    kwargs...
+    kwargs...,
 )
     subsystem_levels = [sys.levels for sys ∈ sub_systems]
     return TransmonDipoleCoupling(g_ij, pair, subsystem_levels; kwargs...)
@@ -202,13 +195,13 @@ function MultiTransmonSystem(
     ωs::AbstractVector{Float64},
     δs::AbstractVector{Float64},
     gs::AbstractMatrix{Float64};
-    drive_bounds::Union{Float64, Vector{<:Union{Tuple{Float64, Float64}, Float64}}}=1.0,
+    drive_bounds::Union{Float64,Vector{<:Union{Tuple{Float64,Float64},Float64}}} = 1.0,
     levels_per_transmon::Int = 3,
     subsystem_levels::AbstractVector{Int} = fill(levels_per_transmon, length(ωs)),
-    lab_frame=false,
+    lab_frame = false,
     subsystems::AbstractVector{Int} = 1:length(ωs),
     subsystem_drive_indices::AbstractVector{Int} = 1:length(ωs),
-    kwargs...
+    kwargs...,
 )
     n_subsystems = length(ωs)
     @assert length(δs) == n_subsystems
@@ -226,12 +219,12 @@ function MultiTransmonSystem(
     for (i, (ω, δ, levels)) ∈ enumerate(zip(ωs, δs, subsystem_levels))
         if i ∈ subsystems
             sysᵢ = TransmonSystem(
-                drive_bounds=drive_bounds_vec,
-                levels=levels,
-                ω=ω,
-                δ=δ,
-                lab_frame=lab_frame,
-                drives=i ∈ subsystem_drive_indices
+                drive_bounds = drive_bounds_vec,
+                levels = levels,
+                ω = ω,
+                δ = δ,
+                lab_frame = lab_frame,
+                drives = i ∈ subsystem_drive_indices,
             )
             push!(systems, sysᵢ)
         end
@@ -239,19 +232,24 @@ function MultiTransmonSystem(
 
     couplings = QuantumSystemCoupling[]
 
-    for local_i = 1:length(systems)-1
-        for local_j = local_i+1:length(systems)
+    for local_i = 1:(length(systems)-1)
+        for local_j = (local_i+1):length(systems)
             global_i = subsystems[local_i]
             global_j = subsystems[local_j]
             push!(
                 couplings,
-                TransmonDipoleCoupling(gs[global_i, global_j], (local_i, local_j), [sys.levels for sys in systems]; lab_frame=lab_frame)
+                TransmonDipoleCoupling(
+                    gs[global_i, global_j],
+                    (local_i, local_j),
+                    [sys.levels for sys in systems];
+                    lab_frame = lab_frame,
+                ),
             )
         end
     end
 
     levels = prod([sys.levels for sys in systems])
-    H_drift = sum(c -> c.op, couplings; init=zeros(ComplexF64, levels, levels))
+    H_drift = sum(c -> c.op, couplings; init = zeros(ComplexF64, levels, levels))
     return CompositeQuantumSystem(H_drift, systems, drive_bounds_vec)
 end
 
@@ -263,42 +261,50 @@ end
     @test sys.levels == 3
     @test sys.n_drives == 2
 
-    sys2 = TransmonSystem(ω=5.0, δ=0.3, levels=4, lab_frame=true, frame_ω=0.0, lab_frame_type=:duffing, drives=false)
+    sys2 = TransmonSystem(
+        ω = 5.0,
+        δ = 0.3,
+        levels = 4,
+        lab_frame = true,
+        frame_ω = 0.0,
+        lab_frame_type = :duffing,
+        drives = false,
+    )
     @test sys2.levels == 4
     @test sys2.n_drives == 0
 end
 
 @testitem "TransmonSystem: lab_frame_type variations" begin
-    sys_duffing = TransmonSystem(lab_frame=true, lab_frame_type=:duffing)
-    sys_quartic = TransmonSystem(lab_frame=true, lab_frame_type=:quartic)
-    sys_cosine = TransmonSystem(lab_frame=true, lab_frame_type=:cosine)
+    sys_duffing = TransmonSystem(lab_frame = true, lab_frame_type = :duffing)
+    sys_quartic = TransmonSystem(lab_frame = true, lab_frame_type = :quartic)
+    sys_cosine = TransmonSystem(lab_frame = true, lab_frame_type = :cosine)
     @test sys_duffing isa QuantumSystem
     @test sys_quartic isa QuantumSystem
     @test sys_cosine isa QuantumSystem
 end
 
 @testitem "TransmonSystem: error on invalid lab_frame_type" begin
-    @test_throws AssertionError TransmonSystem(lab_frame=true, lab_frame_type=:invalid)
+    @test_throws AssertionError TransmonSystem(lab_frame = true, lab_frame_type = :invalid)
 end
 
 @testitem "TransmonDipoleCoupling: both constructors and frames" begin
     levels = [3, 3]
     g = 0.01
-  
-    c1 = TransmonDipoleCoupling(g, (1, 2), levels, lab_frame=false)
-    c2 = TransmonDipoleCoupling(g, (1, 2), levels, lab_frame=true)
+
+    c1 = TransmonDipoleCoupling(g, (1, 2), levels, lab_frame = false)
+    c2 = TransmonDipoleCoupling(g, (1, 2), levels, lab_frame = true)
     @test c1 isa QuantumSystemCoupling
     @test c2 isa QuantumSystemCoupling
 
-    sys1 = TransmonSystem(levels=3)
-    sys2 = TransmonSystem(levels=3)
-    c3 = TransmonDipoleCoupling(g, (1, 2), [sys1, sys2], lab_frame=false)
+    sys1 = TransmonSystem(levels = 3)
+    sys2 = TransmonSystem(levels = 3)
+    c3 = TransmonDipoleCoupling(g, (1, 2), [sys1, sys2], lab_frame = false)
     @test c3 isa QuantumSystemCoupling
 end
 
 @testitem "MultiTransmonSystem: minimal and custom" begin
     using LinearAlgebra: norm
-    
+
     ωs = [4.0, 4.1]
     δs = [0.2, 0.21]
     gs = [0.0 0.01; 0.01 0.0]
@@ -309,15 +315,17 @@ end
     @test !iszero(comp.H(zeros(comp.n_drives), 0.0))
 
     comp2 = MultiTransmonSystem(
-        ωs, δs, gs;
-        levels_per_transmon=4,
-        subsystem_levels=[4,4],
-        subsystems=[1],
-        subsystem_drive_indices=[1]
+        ωs,
+        δs,
+        gs;
+        levels_per_transmon = 4,
+        subsystem_levels = [4, 4],
+        subsystems = [1],
+        subsystem_drive_indices = [1],
     )
     @test comp2 isa CompositeQuantumSystem
     @test length(comp2.subsystems) == 1
-    @test !isapprox(norm(comp2.H(zeros(comp2.n_drives), 0.0)), 0.0; atol=1e-12)
+    @test !isapprox(norm(comp2.H(zeros(comp2.n_drives), 0.0)), 0.0; atol = 1e-12)
 end
 
 @testitem "MultiTransmonSystem: edge cases" begin
@@ -325,11 +333,8 @@ end
     δs = [0.2, 0.21, 0.22]
     gs = [0.0 0.01 0.02; 0.01 0.0 0.03; 0.02 0.03 0.0]
     # Only a subset of subsystems
-    comp = MultiTransmonSystem(
-        ωs, δs, gs;
-        subsystems=[1,3],
-        subsystem_drive_indices=[3]
-    )
+    comp =
+        MultiTransmonSystem(ωs, δs, gs; subsystems = [1, 3], subsystem_drive_indices = [3])
     @test comp isa CompositeQuantumSystem
     @test length(comp.subsystems) == 2
     # Only one drive
@@ -408,29 +413,27 @@ sys = TransmonCavitySystem(
   Phys. Rev. A 76, 042319 (2007)
 """
 function TransmonCavitySystem(;
-    qubit_levels::Int=4,
-    cavity_levels::Int=12,
-    χ::Float64=2π * 32.8e-6,
-    χ′::Float64=2π * 1.5e-9,
-    K_c::Float64=2π * 1e-9 / 2,
-    K_q::Float64=2π * 193e-3 / 2,
-    drive_bounds::Vector{<:Union{Tuple{Float64, Float64}, Float64}}=fill(1.0, 4),
-    multiply_by_2π::Bool=false,
+    qubit_levels::Int = 4,
+    cavity_levels::Int = 12,
+    χ::Float64 = 2π * 32.8e-6,
+    χ′::Float64 = 2π * 1.5e-9,
+    K_c::Float64 = 2π * 1e-9 / 2,
+    K_q::Float64 = 2π * 193e-3 / 2,
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}} = fill(1.0, 4),
+    multiply_by_2π::Bool = false,
 )
     # Cavity detuning in dispersive frame
     Δ̃ = χ / 2
-    
+
     # Build operators: qubit ⊗ cavity
     â = lift_operator(annihilate(qubit_levels), 1, [qubit_levels, cavity_levels])
     b̂ = lift_operator(annihilate(cavity_levels), 2, [qubit_levels, cavity_levels])
-    
+
     # Drift Hamiltonian
-    H_drift = Δ̃ * b̂' * b̂ -
-        χ * â' * â * b̂' * b̂ -
-        χ′ * b̂'^2 * b̂^2 * â' * â -
-        K_q * â'^2 * â^2 -
-        K_c * b̂'^2 * b̂^2
-    
+    H_drift =
+        Δ̃ * b̂' * b̂ - χ * â' * â * b̂' * b̂ - χ′ * b̂'^2 * b̂^2 * â' * â -
+        K_q * â'^2 * â^2 - K_c * b̂'^2 * b̂^2
+
     # Drive operators
     H_drives = [
         â' + â,              # Real transmon drive
@@ -438,28 +441,24 @@ function TransmonCavitySystem(;
         b̂' + b̂,              # Real cavity drive
         1.0im * (b̂' - b̂),    # Imaginary cavity drive
     ]
-    
+
     if multiply_by_2π
         H_drift *= 2π
         H_drives = [2π * H for H in H_drives]
     end
-    
-    return QuantumSystem(
-        H_drift,
-        H_drives,
-        drive_bounds
-    )
+
+    return QuantumSystem(H_drift, H_drives, drive_bounds)
 end
 
 # *************************************************************************** #
 
 @testitem "TransmonCavitySystem: basic construction" begin
-    
+
     sys = TransmonCavitySystem()
     @test sys isa QuantumSystem
     @test sys.levels == 4 * 12  # qubit_levels × cavity_levels
     @test sys.n_drives == 4     # 2 qubit drives + 2 cavity drives
-    
+
     # Check Hamiltonian is Hermitian
     using LinearAlgebra: ishermitian
     @test ishermitian(sys.H_drift)
@@ -469,13 +468,13 @@ end
 end
 
 @testitem "TransmonCavitySystem: custom parameters" begin
-    
+
     sys = TransmonCavitySystem(
-        qubit_levels=3,
-        cavity_levels=10,
-        χ=2π * 50e-6,
-        K_q=2π * 200e-3/2,
-        drive_bounds=[0.5, 0.5, 1.0, 1.0]
+        qubit_levels = 3,
+        cavity_levels = 10,
+        χ = 2π * 50e-6,
+        K_q = 2π * 200e-3/2,
+        drive_bounds = [0.5, 0.5, 1.0, 1.0],
     )
     @test sys.levels == 3 * 10
     @test sys.n_drives == 4
