@@ -130,6 +130,7 @@ end
 @testitem "add_global_bounds_constraints! helper function" begin
     using NamedTrajectories
     using DirectTrajOpt
+    using .ProblemTemplates: add_global_bounds_constraints!
     
     # Create a trajectory with global components for testing
     # global_data is a flat vector, global_components maps names to index ranges
