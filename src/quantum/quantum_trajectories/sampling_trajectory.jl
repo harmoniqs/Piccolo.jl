@@ -260,7 +260,6 @@ end
 # ============================================================================ #
 
 @testitem "SamplingTrajectory with UnitaryTrajectory" begin
-    include("../../test/test_utils.jl")
     using LinearAlgebra
     using NamedTrajectories: NamedTrajectory
     
@@ -314,7 +313,6 @@ end
 end
 
 @testitem "SamplingTrajectory with KetTrajectory" begin
-    include("../../test/test_utils.jl")
     using LinearAlgebra
     using NamedTrajectories: NamedTrajectory
     
@@ -354,7 +352,6 @@ end
 end
 
 @testitem "SamplingTrajectory extract_pulse and rollout" begin
-    include("../../test/test_utils.jl")
     using LinearAlgebra
     using NamedTrajectories: NamedTrajectory
     
@@ -400,7 +397,6 @@ end
     @test test_pulse(0.5)[1] ≈ 0.5
 end
 @testitem "SamplingTrajectory rollout!" begin
-    include("../../test/test_utils.jl")
     using LinearAlgebra
     using NamedTrajectories: NamedTrajectory
     

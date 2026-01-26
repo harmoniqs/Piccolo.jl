@@ -290,6 +290,7 @@ is_reachable(gate::EmbeddedOperator, args...; kwargs...) =
 # ****************************************************************************** #
 
 @testitem "Lie algebra basis" begin
+    using .QuantumSystemUtils: operator_algebra
 
     # Check 1 qubit with complete basis
     gen = operator_from_string.(["X", "Y"])

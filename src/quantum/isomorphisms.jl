@@ -354,44 +354,46 @@ end
 end
 
 @testitem "Test Hamiltonian isomorphisms" begin
+    using .Isomorphisms
 
     H_real = [1.0 2.0; 3.0 4.0]
     H_imag = [0.0 1.0; 1.0 0.0]
     H_complex = H_real + 1.0im * H_imag
-    G_H = G(H_complex)
+    G_H = Isomorphisms.G(H_complex)
 
-    @test H(G_H) ≈ H_complex
+    @test Isomorphisms.H(G_H) ≈ H_complex
 
     @test G_H ≈ [0 1 1 2; 1 0 3 4; -1 -2 0 1; -3 -4 1 0]
 
-    @test iso(H_complex) ≈ [1 2 0 -1; 3 4 -1 0; 0 1 1 2; 1 0 3 4]
+    @test Isomorphisms.iso(H_complex) ≈ [1 2 0 -1; 3 4 -1 0; 0 1 1 2; 1 0 3 4]
 
-    @test iso(-im * H_complex) ≈ G_H
+    @test Isomorphisms.iso(-im * H_complex) ≈ G_H
 
     op = [0 1; 1 0]
-    ad_H = ad_vec(op)
+    ad_H = Isomorphisms.ad_vec(op)
     @test ad_H ≈ [0 1 -1 0; 1 0 0 -1; -1 0 0 1; 0 -1 1 0]
 
     op = [0 -im; im 0]
-    ad_H = ad_vec(op)
+    ad_H = Isomorphisms.ad_vec(op)
     @test ad_H ≈ [0 -im -im 0; im 0 0 -im; im 0 0 -im; 0 im im 0]
 end
 
 @testitem "Test variational G isomorphism" begin
+    using .Isomorphisms
     
     G = [1.0 2.0; 3.0 4.0]
     G_var1 = [0.0 1.0; 1.0 0.0]
     G_var2 = [0.0 0.0; 1.0 1.0]
 
     G_vars = [G_var1]
-    Ĝ = var_G(G, G_vars)
+    Ĝ = Isomorphisms.var_G(G, G_vars)
     @test Ĝ ≈ [1.0 2.0 0.0 0.0; 
                    3.0 4.0 0.0 0.0; 
                    0.0 1.0 1.0 2.0; 
                    1.0 0.0 3.0 4.0]
 
     G_vars = [G_var1, G_var2]
-    Ĝ = var_G(G, G_vars)
+    Ĝ = Isomorphisms.var_G(G, G_vars)
     @test Ĝ ≈  [1.0 2.0 0.0 0.0 0.0 0.0; 
                     3.0 4.0 0.0 0.0 0.0 0.0; 
                     0.0 1.0 1.0 2.0 0.0 0.0; 

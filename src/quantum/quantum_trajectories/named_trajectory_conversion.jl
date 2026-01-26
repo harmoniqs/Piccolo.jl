@@ -836,7 +836,7 @@ end
 end
 
 @testitem "_add_global_data_to_kwargs helper" begin
-    using ..QuantumTrajectories: _add_global_data_to_kwargs
+    using .QuantumTrajectories: _add_global_data_to_kwargs
     
     # Test with nothing (should return unchanged)
     nt_kwargs = (timestep=:Δt, controls=(:u,))
