@@ -135,8 +135,6 @@ end
 
 @testitem "Plot unitary populations with default parameters" begin
     using CairoMakie
-    using NamedTrajectories
-    using Piccolo
     using LinearAlgebra
 
     # Setup: Create a simple 2-qubit system with random controls
@@ -163,7 +161,7 @@ end
 
     # Test: Default behavior plots first two columns
     fig = plot_unitary_populations(traj)
-    save("../../assets/unitary_populations.png", fig)
+    save("../../../assets/unitary_populations.png", fig)
     
     @test fig isa Figure
     @test length(fig.content) > 0  # Figure has content
@@ -171,8 +169,6 @@ end
 
 @testitem "Plot unitary populations with custom columns" begin
     using CairoMakie
-    using NamedTrajectories
-    using Piccolo
     using LinearAlgebra
 
     # Setup: Create identity evolution (trivial case)
@@ -202,8 +198,6 @@ end
 
 @testitem "Plot unitary populations with custom names" begin
     using CairoMakie
-    using NamedTrajectories
-    using Piccolo
     using LinearAlgebra
 
     # Setup: Custom component names

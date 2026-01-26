@@ -1,16 +1,12 @@
 module PiccoloQuantumToolboxExt
 
 using Piccolo
-using Piccolo: iso_to_ket, iso_vec_to_density, density_to_iso_vec, ket_to_iso
 using QuantumToolbox
 using Makie
 using NamedTrajectories
 using LinearAlgebra
 
 using TestItems
-
-export plot_bloch, plot_bloch!, animate_bloch
-export plot_wigner, plot_wigner!, animate_wigner
 
 function iso_to_bloch(ψ̃::AbstractVector{<:Real}, subspace::AbstractVector{Int})
     ψ = iso_to_ket(ψ̃)[subspace]
@@ -105,7 +101,7 @@ function QuantumToolbox.plot_bloch(
 end
 
 
-function plot_bloch!(
+function Piccolo.plot_bloch!(
     fig::Figure,
     traj::NamedTrajectory,
     idx::Int;
@@ -125,7 +121,7 @@ function plot_bloch!(
 end
 
 
-function animate_bloch(
+function Piccolo.animate_bloch(
     traj::NamedTrajectory;
     fps::Int=24,
     mode::Symbol=:inline,
@@ -200,7 +196,7 @@ function QuantumToolbox.plot_wigner(
     return fig
 end
 
-function plot_wigner!(fig::Figure, traj::NamedTrajectory, idx::Int)
+function Piccolo.plot_wigner!(fig::Figure, traj::NamedTrajectory, idx::Int)
     @assert 1 ≤ idx ≤ traj.N "Invalid knot point index."
 
     # Extract attributes from the figure
@@ -223,7 +219,7 @@ function plot_wigner!(fig::Figure, traj::NamedTrajectory, idx::Int)
     return fig
 end
 
-function animate_wigner(
+function Piccolo.animate_wigner(
     traj::NamedTrajectory;
     mode=:inline, 
     fps::Int=24,

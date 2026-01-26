@@ -2,15 +2,8 @@ module PiccoloMakieExt
 
 using Piccolo
 using Makie
-using LaTeXStrings
-using LinearAlgebra
-using Random
 using NamedTrajectories
-
-using Reexport
-
-include("PiccoloMakieExt/quantum_object_plots/_quantum_object_plots.jl")
-@reexport using .QuantumObjectPlots
+using TestItems
 
 # Animation implementations - extend Piccolo stubs
 """
@@ -111,5 +104,22 @@ function Piccolo.animate_name(
         filename=filename
     )
 end
+
+
+@testitem "Test animate_name for NamedTrajectory" begin
+    using QuantumToolbox
+    using NamedTrajectories
+    using CairoMakie
+
+    x = ComplexF64[1.0; 0.0]
+    y = ComplexF64[0.0, 1.0]
+    
+    comps = (ψ̃ = hcat(ket_to_iso(x), ket_to_iso(y)), Δt = [1.0; 1.0],)
+    traj = NamedTrajectory(comps)
+
+    fig = animate_name(traj, :ψ̃, mode=:inline, fps=10)
+    @test fig isa Figure
+end
+
 
 end
