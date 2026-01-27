@@ -21,40 +21,49 @@ using ProgressMeter
 using SpecialFunctions
 using TestItems
 
-include("gates.jl")
+# Primitives
+include("primitives/gates.jl")
 @reexport using .Gates
 
-include("quantum_object_utils.jl")
-@reexport using .QuantumObjectUtils
-
-include("isomorphisms.jl")
+include("primitives/isomorphisms.jl")
 @reexport using .Isomorphisms
 
-include("lifted_operators.jl")
-@reexport using .LiftedOperators
-
-include("quantum_systems/_quantum_systems.jl")
-@reexport using .QuantumSystems
-
-include("embedded_operators.jl")
-@reexport using .EmbeddedOperators
-
-include("quantum_system_utils.jl")
-@reexport using .QuantumSystemUtils
-
-include("direct_sums.jl")
-@reexport using .DirectSums
-
-include("pulses.jl")
+include("primitives/pulses.jl")
 @reexport using .Pulses
 
-include("rollouts.jl")
+# Object utils (depends on gates)
+include("object_utils.jl")
+@reexport using .QuantumObjectUtils
+
+# Operators - lifted (no dependencies)
+include("operators/lifted_operators.jl")
+@reexport using .LiftedOperators
+
+# Systems
+include("systems/_quantum_systems.jl")
+@reexport using .QuantumSystems
+
+# Operators - embedded and direct_sums (depend on systems)
+include("operators/embedded_operators.jl")
+@reexport using .EmbeddedOperators
+
+include("operators/direct_sums.jl")
+@reexport using .DirectSums
+
+# System utils (depends on embedded_operators, systems, etc.)
+include("system_utils.jl")
+@reexport using .QuantumSystemUtils
+
+# Dynamics
+include("dynamics.jl")
 @reexport using .Rollouts
 
-include("quantum_trajectories/_quantum_trajectories.jl")
+# Trajectories
+include("trajectories/_quantum_trajectories.jl")
 @reexport using .QuantumTrajectories
 
-include("quantum_system_templates/_quantum_system_templates.jl")
+# Templates
+include("templates/_quantum_system_templates.jl")
 @reexport using .QuantumSystemTemplates
 
 end
