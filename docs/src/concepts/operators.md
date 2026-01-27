@@ -1,4 +1,4 @@
-# Operators
+# [Operators](@id operators-concept)
 
 Piccolo.jl provides specialized operator types for working with composite and multilevel quantum systems.
 
@@ -229,6 +229,6 @@ H_ZZ = Z1 * Z2  # Equivalent
 
 ## See Also
 
-- [Leakage Suppression](@ref) - Using EmbeddedOperator for leakage control
-- [Quantum Systems](@ref) - Building Hamiltonians with operators
-- [Isomorphisms](@ref) - Converting operators to optimization-friendly forms
+- [Leakage Suppression](@ref leakage-suppression) - Using EmbeddedOperator for leakage control
+- [Quantum Systems](@ref quantum-systems) - Building Hamiltonians with operators
+- [Isomorphisms](@ref isomorphisms-concept) - Converting operators to optimization-friendly forms

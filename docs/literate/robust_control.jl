@@ -1,4 +1,4 @@
-# # Robust Control
+# # [Robust Control](@id robust-control-tutorial)
 #
 # This tutorial shows how to design control pulses that are robust to
 # parameter uncertainty using `SamplingProblem`.
@@ -159,7 +159,6 @@ println("\n=== Duration Comparison ===")
 println("Initial:      ", round(duration_initial, digits=2))
 println("After robust: ", round(duration_robust, digits=2))
 println("After mintime:", round(duration_fast, digits=2))
-println("Fidelity:     ", round(fidelity(qcp_fast_robust), digits=4))
 
 # ## Weighted Sampling
 #
@@ -195,6 +194,6 @@ println("  Min fidelity: ", round(minimum(fidelities_weighted), digits=4))
 
 # ## Next Steps
 #
-# - [Problem Templates](@ref): Full `SamplingProblem` documentation
+# - [Problem Templates](@ref problem-templates-overview): Full `SamplingProblem` documentation
 # - [MinimumTimeProblem](@ref minimum-time): Time optimization details
 # - [Composing Templates](@ref composition): Advanced composition patterns

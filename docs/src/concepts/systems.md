@@ -1,4 +1,4 @@
-# Quantum Systems
+# [Quantum Systems](@id quantum-systems)
 
 Quantum systems in Piccolo.jl represent the physical hardware you're controlling. They encapsulate the Hamiltonian structure and control bounds.
 
@@ -217,7 +217,7 @@ sys = RydbergChainSystem(
 )
 ```
 
-See [System Templates](@ref) in the How-To Guides for detailed usage.
+See [System Templates](@ref system-templates) in the How-To Guides for detailed usage.
 
 ## Best Practices
 
@@ -251,6 +251,6 @@ sys = TransmonSystem(levels=4, δ=0.2, drive_bounds=0.2)
 
 ## See Also
 
-- [Trajectories](@ref) - Combining systems with pulses and goals
-- [Problem Templates](@ref) - Setting up optimization problems
-- [System Templates](@ref) - Pre-built physical system models
+- [Trajectories](@ref trajectories-concept) - Combining systems with pulses and goals
+- [Problem Templates](@ref problem-templates-overview) - Setting up optimization problems
+- [System Templates](@ref system-templates) - Pre-built physical system models

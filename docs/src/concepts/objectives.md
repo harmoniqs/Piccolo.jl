@@ -1,4 +1,4 @@
-# Objectives
+# [Objectives](@id objectives-concept)
 
 Objectives define what the optimization minimizes. Piccolo.jl provides objectives for fidelity, regularization, and leakage suppression.
 

@@ -1,4 +1,4 @@
-# Trajectories
+# [Trajectories](@id trajectories-concept)
 
 Trajectories in Piccolo.jl represent a complete quantum control scenario: a system, a control pulse, and a goal. They are the central object passed to problem templates.
 

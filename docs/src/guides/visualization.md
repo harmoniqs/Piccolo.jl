@@ -263,5 +263,5 @@ band!(ax, times, -bound * ones(length(times)), bound * ones(length(times)),
 
 ## See Also
 
-- [Problem Templates](@ref) - Generating solutions to plot
-- [Trajectories](@ref) - Understanding trajectory structure
+- [Problem Templates](@ref problem-templates-overview) - Generating solutions to plot
+- [Trajectories](@ref trajectories-concept) - Understanding trajectory structure

@@ -1,4 +1,4 @@
-# Constraints
+# [Constraints](@id constraints-concept)
 
 Constraints define hard requirements that optimized solutions must satisfy. Unlike objectives (which are minimized), constraints are enforced exactly.
 

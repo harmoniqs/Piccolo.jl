@@ -230,6 +230,6 @@ U_goal = EmbeddedOperator(:X, sys)  # X gate on |0⟩, |1⟩ subspace
 
 ## See Also
 
-- [Quantum Systems](@ref) - General system documentation
-- [Leakage Suppression](@ref) - Handling higher levels
-- [Operators](@ref) - EmbeddedOperator details
+- [Quantum Systems](@ref quantum-systems) - General system documentation
+- [Leakage Suppression](@ref leakage-suppression) - Handling higher levels
+- [Operators](@ref operators-concept) - EmbeddedOperator details

@@ -1,4 +1,4 @@
-# Isomorphisms
+# [Isomorphisms](@id isomorphisms-concept)
 
 Piccolo.jl uses real isomorphisms to convert complex quantum states and operators into real vectors suitable for numerical optimization.
 
@@ -216,5 +216,5 @@ For a system with `d` levels:
 
 ## See Also
 
-- [Trajectories](@ref) - How isomorphisms are used in trajectories
-- [Operators](@ref) - Working with quantum operators
+- [Trajectories](@ref trajectories-concept) - How isomorphisms are used in trajectories
+- [Operators](@ref operators-concept) - Working with quantum operators

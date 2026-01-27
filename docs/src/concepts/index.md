@@ -1,4 +1,4 @@
-# Concepts Overview
+# [Concepts Overview](@id concepts-overview)
 
 Piccolo.jl is organized into three main modules that work together to enable quantum optimal control:
 
@@ -51,7 +51,7 @@ optimized_pulse = get_pulse(qcp.qtraj)
 
 ## Core Concepts
 
-### [Quantum Systems](@ref)
+### [Quantum Systems](@ref quantum-systems)
 
 Quantum systems represent the physical hardware you're controlling. They encapsulate:
 - **Drift Hamiltonian** `H₀`: Always-on system dynamics
@@ -63,7 +63,7 @@ Quantum systems represent the physical hardware you're controlling. They encapsu
 sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 ```
 
-### [Trajectories](@ref)
+### [Trajectories](@ref trajectories-concept)
 
 Trajectories combine a system, pulse, and goal to represent a complete optimization task:
 
@@ -75,7 +75,7 @@ Trajectories combine a system, pulse, and goal to represent a complete optimizat
 | `MultiKetTrajectory` | Multiple state transfers |
 | `SamplingTrajectory` | Robust optimization |
 
-### [Pulses](@ref)
+### [Pulses](@ref pulses-concept)
 
 Pulses parameterize how controls vary in time:
 
@@ -86,14 +86,14 @@ Pulses parameterize how controls vary in time:
 | `CubicSplinePulse` | Smooth cubic Hermite splines |
 | `GaussianPulse` | Parametric Gaussian envelope |
 
-### [Objectives](@ref)
+### [Objectives](@ref objectives-concept)
 
 Objectives define what the optimization minimizes:
 - **Infidelity objectives**: `1 - F` where `F` is fidelity
 - **Regularization**: Penalize large or rapidly changing controls
 - **Leakage objectives**: Penalize population outside computational subspace
 
-### [Constraints](@ref)
+### [Constraints](@ref constraints-concept)
 
 Constraints define what solutions must satisfy:
 - **Bound constraints**: Limits on control values
@@ -114,16 +114,16 @@ These are available when you `using Piccolo` without additional imports.
 
 ## Next Steps
 
-- **New to Piccolo?** Start with the [Getting Started](@ref) guide
-- **Ready to optimize?** See [Problem Templates](@ref) for the main API
+- **New to Piccolo?** Start with the [Getting Started](@ref getting-started-concepts) guide
+- **Ready to optimize?** See [Problem Templates](@ref problem-templates-overview) for the main API
 - **Need details?** Explore the individual concept pages below
 
 ## Concept Pages
 
-- [Quantum Systems](@ref) - Hamiltonian representations
-- [Trajectories](@ref) - Time evolution containers
-- [Pulses](@ref) - Control parameterizations
-- [Objectives](@ref) - Optimization objectives
-- [Constraints](@ref) - Problem constraints
-- [Operators](@ref) - Embedded and lifted operators
-- [Isomorphisms](@ref) - Real vector representations
+- [Quantum Systems](@ref quantum-systems) - Hamiltonian representations
+- [Trajectories](@ref trajectories-concept) - Time evolution containers
+- [Pulses](@ref pulses-concept) - Control parameterizations
+- [Objectives](@ref objectives-concept) - Optimization objectives
+- [Constraints](@ref constraints-concept) - Problem constraints
+- [Operators](@ref operators-concept) - Embedded and lifted operators
+- [Isomorphisms](@ref isomorphisms-concept) - Real vector representations

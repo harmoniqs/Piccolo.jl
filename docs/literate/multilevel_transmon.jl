@@ -1,4 +1,4 @@
-# # Multilevel Transmon
+# # [Multilevel Transmon](@id multilevel-transmon-tutorial)
 
 # In this example we will look at a multilevel transmon qubit with a Hamiltonian given by
 #
@@ -180,6 +180,6 @@ plot_unitary_populations(get_trajectory(qcp); fig_size=(900, 700))
 # 5. Adding leakage suppression via `PiccoloOptions`
 
 # For more details on:
-# - Problem templates: See [SmoothPulseProblem](@ref)
-# - Leakage suppression: See [Leakage Suppression Guide](@ref)
-# - System templates: See [System Templates](@ref)
+# - Problem templates: See [SmoothPulseProblem](@ref smooth-pulse)
+# - Leakage suppression: See [Leakage Suppression](@ref leakage-suppression)
+# - System templates: See [System Templates](@ref system-templates)

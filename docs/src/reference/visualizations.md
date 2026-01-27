@@ -22,17 +22,48 @@ fig = plot(trajectory, [:u, :du, :ddu])
 
 ## Quantum-Specific Plots
 
-```@docs
-Piccolo.plot_unitary_populations
-Piccolo.plot_state_populations
+### plot_unitary_populations
+
+Plot the population evolution of a unitary trajectory.
+
+```julia
+fig = plot_unitary_populations(trajectory)
+fig = plot_unitary_populations(trajectory; kwargs...)
+```
+
+### plot_state_populations
+
+Plot the population evolution of a state (ket) trajectory.
+
+```julia
+fig = plot_state_populations(trajectory)
+fig = plot_state_populations(trajectory; kwargs...)
 ```
 
 ## Animation
 
-```@docs
-Piccolo.animate_figure
-Piccolo.animate_bloch
-Piccolo.animate_wigner
+### animate_figure
+
+Create an animation from a sequence of figures.
+
+```julia
+animate_figure(fig, trajectory; filename="animation.gif")
+```
+
+### animate_bloch
+
+Animate a qubit state trajectory on the Bloch sphere.
+
+```julia
+animate_bloch(trajectory; filename="bloch.gif")
+```
+
+### animate_wigner
+
+Animate Wigner function evolution for a bosonic trajectory.
+
+```julia
+animate_wigner(trajectory; filename="wigner.gif")
 ```
 
 ## Plot Customization

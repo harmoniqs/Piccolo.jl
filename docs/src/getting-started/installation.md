@@ -1,4 +1,4 @@
-# Installation
+# [Installation](@id installation)
 
 ## Requirements
 
@@ -109,4 +109,4 @@ Pkg.add("Piccolo")
 
 ## Next Steps
 
-Once installed, continue to the [Quickstart](@ref) guide to run your first optimization.
+Once installed, continue to the [Quickstart](@ref quickstart) guide to run your first optimization.

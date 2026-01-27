@@ -1,4 +1,4 @@
-# How-To Guides
+# [How-To Guides](@id guides-overview)
 
 This section contains task-oriented guides for specific problems in quantum optimal control.
 
@@ -6,11 +6,11 @@ This section contains task-oriented guides for specific problems in quantum opti
 
 | Guide | Description |
 |-------|-------------|
-| [System Templates](@ref) | Using pre-built systems for transmons, ions, and atoms |
-| [Leakage Suppression](@ref) | Controlling population leakage in multilevel systems |
-| [Global Variables](@ref) | Optimizing system parameters alongside controls |
-| [Visualization](@ref) | Plotting trajectories and analyzing results |
-| [Custom Objectives](@ref) | Creating custom optimization objectives |
+| [System Templates](@ref system-templates) | Using pre-built systems for transmons, ions, and atoms |
+| [Leakage Suppression](@ref leakage-suppression) | Controlling population leakage in multilevel systems |
+| [Global Variables](@ref global-variables) | Optimizing system parameters alongside controls |
+| [Visualization](@ref visualization) | Plotting trajectories and analyzing results |
+| [Custom Objectives](@ref custom-objectives) | Creating custom optimization objectives |
 
 ## Guide Format
 
@@ -47,6 +47,6 @@ Each guide follows a consistent format:
 
 ## See Also
 
-- [Problem Templates](@ref) - Main optimization API
-- [Concepts](@ref) - Detailed type documentation
-- [Tutorials](@ref) - Step-by-step learning examples
+- [Problem Templates](@ref problem-templates-overview) - Main optimization API
+- [Concepts](@ref concepts-overview) - Detailed type documentation
+- [Tutorials](@ref tutorials-overview) - Step-by-step learning examples

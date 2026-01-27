@@ -1,4 +1,4 @@
-# Tutorials
+# [Tutorials](@id tutorials-overview)
 
 Step-by-step tutorials for learning Piccolo.jl. Each tutorial builds on previous ones, introducing new concepts progressively.
 
@@ -8,25 +8,25 @@ Step-by-step tutorials for learning Piccolo.jl. Each tutorial builds on previous
 
 If you're new to quantum optimal control or Piccolo.jl:
 
-1. **[Your First Gate](@ref)** - Complete walkthrough of X gate synthesis
-2. **[State Transfer](@ref)** - Learn about KetTrajectory for state preparation
-3. **[Multilevel Transmon](@ref)** - Work with realistic multilevel systems
+1. **[Your First Gate](@ref first-gate-tutorial)** - Complete walkthrough of X gate synthesis
+2. **[State Transfer](@ref state-transfer-tutorial)** - Learn about KetTrajectory for state preparation
+3. **[Multilevel Transmon](@ref multilevel-transmon-tutorial)** - Work with realistic multilevel systems
 
 ### For Experienced Users
 
 If you're familiar with quantum control concepts:
 
-1. **[Multilevel Transmon](@ref)** - EmbeddedOperator and leakage suppression
-2. **[Robust Control](@ref)** - SamplingProblem for parameter robustness
+1. **[Multilevel Transmon](@ref multilevel-transmon-tutorial)** - EmbeddedOperator and leakage suppression
+2. **[Robust Control](@ref robust-control-tutorial)** - SamplingProblem for parameter robustness
 
 ## Tutorial Overview
 
 | Tutorial | Duration | Topics |
 |----------|----------|--------|
-| [Your First Gate](@ref) | 15 min | Systems, pulses, trajectories, solving, analysis |
-| [State Transfer](@ref) | 15 min | KetTrajectory, state preparation, coherent gates |
-| [Multilevel Transmon](@ref) | 20 min | TransmonSystem, EmbeddedOperator, leakage |
-| [Robust Control](@ref) | 20 min | SamplingProblem, parameter uncertainty |
+| [Your First Gate](@ref first-gate-tutorial) | 15 min | Systems, pulses, trajectories, solving, analysis |
+| [State Transfer](@ref state-transfer-tutorial) | 15 min | KetTrajectory, state preparation, coherent gates |
+| [Multilevel Transmon](@ref multilevel-transmon-tutorial) | 20 min | TransmonSystem, EmbeddedOperator, leakage |
+| [Robust Control](@ref robust-control-tutorial) | 20 min | SamplingProblem, parameter uncertainty |
 
 ## Prerequisites
 
@@ -87,6 +87,6 @@ Each tutorial is a complete, runnable Julia script. You can:
 
 After completing the tutorials:
 
-- Explore [Problem Templates](@ref) for the full API
-- Read [Concepts](@ref) for detailed documentation
-- Check [How-To Guides](@ref) for specific tasks
+- Explore [Problem Templates](@ref problem-templates-overview) for the full API
+- Read [Concepts](@ref concepts-overview) for detailed documentation
+- Check [How-To Guides](@ref guides-overview) for specific tasks

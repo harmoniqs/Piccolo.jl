@@ -1,4 +1,4 @@
-# Pulses
+# [Pulses](@id pulses-concept)
 
 Pulses in Piccolo.jl parameterize how control signals vary over time. The choice of pulse type affects both the optimization problem structure and the resulting control smoothness.
 
@@ -326,4 +326,4 @@ solve!(qcp_refined; max_iter=50)
 
 - [SmoothPulseProblem](@ref smooth-pulse) - Using `ZeroOrderPulse`
 - [SplinePulseProblem](@ref spline-pulse) - Using spline pulses
-- [Trajectories](@ref) - Combining pulses with systems
+- [Trajectories](@ref trajectories-concept) - Combining pulses with systems

@@ -1,6 +1,6 @@
-# Core Concepts
+# [Core Concepts](@id getting-started-concepts)
 
-This page introduces the fundamental concepts in Piccolo.jl. For detailed documentation, see the [Concepts](@ref) section.
+This page introduces the fundamental concepts in Piccolo.jl. For detailed documentation, see the [Concepts](@ref concepts-overview) section.
 
 ## The Quantum Optimal Control Problem
 
@@ -176,6 +176,6 @@ solve!(qcp_robust)
 
 ## Next Steps
 
-- **[Quickstart](@ref)**: Run your first optimization
-- **[Problem Templates](@ref)**: Learn the main API
-- **[Tutorials](@ref)**: Step-by-step examples
+- **[Quickstart](@ref quickstart)**: Run your first optimization
+- **[Problem Templates](@ref problem-templates-overview)**: Learn the main API
+- **[Tutorials](@ref tutorials-overview)**: Step-by-step examples

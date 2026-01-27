@@ -1,4 +1,4 @@
-# # State Transfer
+# # [State Transfer](@id state-transfer-tutorial)
 #
 # This tutorial covers state-to-state transfer using `KetTrajectory`.
 # We'll prepare quantum states and implement gates via state mappings.
@@ -176,6 +176,6 @@ println("Target state: ", round.(ψ_plus, digits=3))
 
 # ## Next Steps
 #
-# - [Multilevel Transmon](@ref): Work with realistic superconducting qubits
-# - [Robust Control](@ref): Make pulses robust to parameter uncertainty
-# - [Problem Templates](@ref): Full API documentation
+# - [Multilevel Transmon](@ref multilevel-transmon-tutorial): Work with realistic superconducting qubits
+# - [Robust Control](@ref robust-control-tutorial): Make pulses robust to parameter uncertainty
+# - [Problem Templates](@ref problem-templates-overview): Full API documentation

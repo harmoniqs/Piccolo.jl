@@ -1,4 +1,4 @@
-# # Quickstart Guide
+# # [Quickstart Guide](@id quickstart)
 #
 # This guide shows you how to set up and solve a quantum optimal control problem
 # in Piccolo.jl. We'll synthesize a single-qubit X gate.
@@ -138,6 +138,6 @@ fig_mintime = plot_unitary_populations(get_trajectory(qcp_mintime))
 
 # ## Next Steps
 #
-# - Learn about different [Problem Templates](@ref) for various optimization scenarios
-# - Explore [Tutorials](@ref) for more complex examples
-# - See [Concepts](@ref) for detailed documentation of types and functions
+# - Learn about different [Problem Templates](@ref problem-templates-overview) for various optimization scenarios
+# - Explore [Tutorials](@ref tutorials-overview) for more complex examples
+# - See [Concepts](@ref concepts-overview) for detailed documentation of types and functions

@@ -262,7 +262,7 @@ U_final = iso_vec_to_operator(final_state)
 
 ## See Also
 
-- [Operators](@ref) - EmbeddedOperator details
-- [System Templates](@ref) - Creating multilevel systems
-- [Objectives](@ref) - LeakageObjective documentation
-- [Constraints](@ref) - LeakageConstraint documentation
+- [Operators](@ref operators-concept) - EmbeddedOperator details
+- [System Templates](@ref system-templates) - Creating multilevel systems
+- [Objectives](@ref objectives-concept) - LeakageObjective documentation
+- [Constraints](@ref constraints-concept) - LeakageConstraint documentation

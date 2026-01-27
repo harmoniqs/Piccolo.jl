@@ -1,4 +1,4 @@
-# # Your First Gate
+# # [Your First Gate](@id first-gate-tutorial)
 #
 # This tutorial walks through synthesizing your first quantum gate with Piccolo.jl.
 # We'll implement an X gate (NOT gate) on a single qubit.
@@ -161,5 +161,5 @@ fig
 # 3. **Smoother pulses**: Increase `R` or decrease `ddu_bound`
 # 4. **Time-optimal**: Add `Δt_bounds` and use `MinimumTimeProblem`
 #
-# Continue to the [State Transfer](@ref) tutorial to learn about
+# Continue to the [State Transfer](@ref state-transfer-tutorial) tutorial to learn about
 # preparing specific quantum states.
