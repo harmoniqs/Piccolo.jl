@@ -109,16 +109,29 @@ println("  Max fidelity: ", round(maximum(fidelities_robust), digits=4))
 
 fig = Figure(size=(800, 400))
 
-ax = Axis(fig[1, 1],
+ax = Axis(
+    fig[1, 1],
     xlabel="Frequency (ω/ω_nominal)",
     ylabel="Fidelity",
-    title="Robustness Comparison"
+    title="Robustness Comparison",
 )
 
-lines!(ax, ω_range ./ ω_nominal, fidelities_nom,
-    label="Nominal-only", linewidth=2, color=:blue)
-lines!(ax, ω_range ./ ω_nominal, fidelities_robust,
-    label="Robust", linewidth=2, color=:red)
+lines!(
+    ax,
+    ω_range ./ ω_nominal,
+    fidelities_nom,
+    label="Nominal-only",
+    linewidth=2,
+    color=:blue,
+)
+lines!(
+    ax,
+    ω_range ./ ω_nominal,
+    fidelities_robust,
+    label="Robust",
+    linewidth=2,
+    color=:red,
+)
 
 hlines!(ax, [0.99], linestyle=:dash, color=:gray, label="99% threshold")
 
@@ -136,9 +149,11 @@ pulse_free = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_free = UnitaryTrajectory(sys_nominal, pulse_free, U_goal)
 
 qcp_free = SmoothPulseProblem(
-    qtraj_free, N;
-    Q=100.0, R=1e-2,
-    Δt_bounds=(0.05, 0.3)  # Enable variable timesteps
+    qtraj_free,
+    N;
+    Q=100.0,
+    R=1e-2,
+    Δt_bounds=(0.05, 0.3),  # Enable variable timesteps
 )
 solve!(qcp_free; max_iter=15, verbose=false, print_level=1)
 
