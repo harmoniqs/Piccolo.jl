@@ -61,7 +61,7 @@ T = 10.0   # Total time (in units where ω = 1)
 N = 100    # Number of timesteps
 
 ## Time vector
-times = collect(range(0, T, length=N))
+times = collect(range(0, T, length = N))
 
 ## Random initial controls (small amplitude)
 ## Shape: (n_drives, N) = (2, 100)
@@ -97,24 +97,25 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 # - Smoothness via derivative bounds
 
 qcp = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     Q = 100.0,       # Fidelity weight (higher = prioritize fidelity)
     R = 1e-2,        # Regularization weight (higher = smoother controls)
-    ddu_bound = 1.0  # Limit on control acceleration
+    ddu_bound = 1.0,  # Limit on control acceleration
 )
 
 # ## Step 5: Solve!
 #
 # The `solve!` function runs the optimizer:
 
-solve!(qcp; max_iter=20, verbose=false, print_level=1)
+solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
 
 # ## Step 6: Analyze the Results
 #
 # First, check the fidelity:
 
 println("\n=== Results ===")
-println("Final fidelity: ", round(fidelity(qcp), digits=6))
+println("Final fidelity: ", round(fidelity(qcp), digits = 6))
 
 # Get the optimized trajectory:
 
@@ -123,22 +124,27 @@ traj = get_trajectory(qcp)
 ## Check the final unitary
 U_final = iso_vec_to_operator(traj[:Ũ⃗][:, end])
 println("\nFinal unitary (should be close to X gate):")
-display(round.(U_final, digits=3))
+display(round.(U_final, digits = 3))
 
 # ## Step 7: Visualize
 #
 # Plot the optimized control pulses:
 
-fig = Figure(size=(800, 400))
+fig = Figure(size = (800, 400))
 
 ## Time axis
-plot_times = cumsum([0; get_timesteps(traj)])[1:end-1]
+plot_times = cumsum([0; get_timesteps(traj)])[1:(end-1)]
 
 ## Control pulses
-ax1 = Axis(fig[1, 1], xlabel="Time", ylabel="Control Amplitude", title="Optimized Controls")
-lines!(ax1, plot_times, traj[:u][1, :], label="u_x (σ_x drive)", linewidth=2)
-lines!(ax1, plot_times, traj[:u][2, :], label="u_y (σ_y drive)", linewidth=2)
-axislegend(ax1, position=:rt)
+ax1 = Axis(
+    fig[1, 1],
+    xlabel = "Time",
+    ylabel = "Control Amplitude",
+    title = "Optimized Controls",
+)
+lines!(ax1, plot_times, traj[:u][1, :], label = "u_x (σ_x drive)", linewidth = 2)
+lines!(ax1, plot_times, traj[:u][2, :], label = "u_y (σ_y drive)", linewidth = 2)
+axislegend(ax1, position = :rt)
 
 fig
 

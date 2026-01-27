@@ -32,7 +32,7 @@ sys_nominal = QuantumSystem(H_drift, H_drives, drive_bounds)
 
 ## Time parameters
 T, N = 10.0, 100
-times = collect(range(0, T, length=N))
+times = collect(range(0, T, length = N))
 
 ## Target gate
 U_goal = GATES[:X]
@@ -42,11 +42,11 @@ U_goal = GATES[:X]
 pulse_nom = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_nom = UnitaryTrajectory(sys_nominal, pulse_nom, U_goal)
 
-qcp_nom = SmoothPulseProblem(qtraj_nom, N; Q=100.0, R=1e-2)
-solve!(qcp_nom; max_iter=20, verbose=false, print_level=1)
+qcp_nom = SmoothPulseProblem(qtraj_nom, N; Q = 100.0, R = 1e-2)
+solve!(qcp_nom; max_iter = 20, verbose = false, print_level = 1)
 
 println("Nominal-only optimization:")
-println("  Fidelity at nominal: ", round(fidelity(qcp_nom), digits=6))
+println("  Fidelity at nominal: ", round(fidelity(qcp_nom), digits = 6))
 
 # ## Step 2: Test Robustness
 #
@@ -66,12 +66,12 @@ function evaluate_fidelity(qcp, ω_test)
 end
 
 ## Test across frequency range
-ω_range = range(0.9 * ω_nominal, 1.1 * ω_nominal, length=21)
+ω_range = range(0.9 * ω_nominal, 1.1 * ω_nominal, length = 21)
 fidelities_nom = [evaluate_fidelity(qcp_nom, ω) for ω in ω_range]
 
 println("\nNominal pulse performance across ±10% frequency variation:")
-println("  Min fidelity: ", round(minimum(fidelities_nom), digits=4))
-println("  Max fidelity: ", round(maximum(fidelities_nom), digits=4))
+println("  Min fidelity: ", round(minimum(fidelities_nom), digits = 4))
+println("  Max fidelity: ", round(maximum(fidelities_nom), digits = 4))
 
 # ## Step 3: Robust Optimization with SamplingProblem
 #
@@ -84,8 +84,8 @@ systems = [QuantumSystem(ω * PAULIS[:Z], H_drives, drive_bounds) for ω in ω_s
 println("\nOptimizing for $(length(systems)) frequency samples...")
 
 ## Start from the nominal solution
-qcp_robust = SamplingProblem(qcp_nom, systems; Q=100.0)
-solve!(qcp_robust; max_iter=20, verbose=false, print_level=1)
+qcp_robust = SamplingProblem(qcp_nom, systems; Q = 100.0)
+solve!(qcp_robust; max_iter = 20, verbose = false, print_level = 1)
 
 println("Robust optimization complete!")
 
@@ -102,27 +102,40 @@ for ω in ω_range
 end
 
 println("\nRobust pulse performance across ±10% frequency variation:")
-println("  Min fidelity: ", round(minimum(fidelities_robust), digits=4))
-println("  Max fidelity: ", round(maximum(fidelities_robust), digits=4))
+println("  Min fidelity: ", round(minimum(fidelities_robust), digits = 4))
+println("  Max fidelity: ", round(maximum(fidelities_robust), digits = 4))
 
 # ## Step 5: Visualize Comparison
 
-fig = Figure(size=(800, 400))
+fig = Figure(size = (800, 400))
 
-ax = Axis(fig[1, 1],
-    xlabel="Frequency (ω/ω_nominal)",
-    ylabel="Fidelity",
-    title="Robustness Comparison"
+ax = Axis(
+    fig[1, 1],
+    xlabel = "Frequency (ω/ω_nominal)",
+    ylabel = "Fidelity",
+    title = "Robustness Comparison",
 )
 
-lines!(ax, ω_range ./ ω_nominal, fidelities_nom,
-    label="Nominal-only", linewidth=2, color=:blue)
-lines!(ax, ω_range ./ ω_nominal, fidelities_robust,
-    label="Robust", linewidth=2, color=:red)
+lines!(
+    ax,
+    ω_range ./ ω_nominal,
+    fidelities_nom,
+    label = "Nominal-only",
+    linewidth = 2,
+    color = :blue,
+)
+lines!(
+    ax,
+    ω_range ./ ω_nominal,
+    fidelities_robust,
+    label = "Robust",
+    linewidth = 2,
+    color = :red,
+)
 
-hlines!(ax, [0.99], linestyle=:dash, color=:gray, label="99% threshold")
+hlines!(ax, [0.99], linestyle = :dash, color = :gray, label = "99% threshold")
 
-axislegend(ax, position=:lb)
+axislegend(ax, position = :lb)
 
 fig
 
@@ -136,19 +149,21 @@ pulse_free = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_free = UnitaryTrajectory(sys_nominal, pulse_free, U_goal)
 
 qcp_free = SmoothPulseProblem(
-    qtraj_free, N;
-    Q=100.0, R=1e-2,
-    Δt_bounds=(0.05, 0.3)  # Enable variable timesteps
+    qtraj_free,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    Δt_bounds = (0.05, 0.3),  # Enable variable timesteps
 )
-solve!(qcp_free; max_iter=15, verbose=false, print_level=1)
+solve!(qcp_free; max_iter = 15, verbose = false, print_level = 1)
 
 ## Add robustness
-qcp_robust_free = SamplingProblem(qcp_free, systems; Q=100.0)
-solve!(qcp_robust_free; max_iter=15, verbose=false, print_level=1)
+qcp_robust_free = SamplingProblem(qcp_free, systems; Q = 100.0)
+solve!(qcp_robust_free; max_iter = 15, verbose = false, print_level = 1)
 
 ## Minimize time while maintaining fidelity
-qcp_fast_robust = MinimumTimeProblem(qcp_robust_free; final_fidelity=0.95, D=100.0)
-solve!(qcp_fast_robust; max_iter=15, verbose=false, print_level=1)
+qcp_fast_robust = MinimumTimeProblem(qcp_robust_free; final_fidelity = 0.95, D = 100.0)
+solve!(qcp_fast_robust; max_iter = 15, verbose = false, print_level = 1)
 
 ## Compare durations
 duration_initial = sum(get_timesteps(get_trajectory(qcp_free)))
@@ -156,10 +171,10 @@ duration_robust = sum(get_timesteps(get_trajectory(qcp_robust_free)))
 duration_fast = sum(get_timesteps(get_trajectory(qcp_fast_robust)))
 
 println("\n=== Duration Comparison ===")
-println("Initial:      ", round(duration_initial, digits=2))
-println("After robust: ", round(duration_robust, digits=2))
-println("After mintime:", round(duration_fast, digits=2))
-println("Fidelity:     ", round(fidelity(qcp_fast_robust), digits=4))
+println("Initial:      ", round(duration_initial, digits = 2))
+println("After robust: ", round(duration_robust, digits = 2))
+println("After mintime:", round(duration_fast, digits = 2))
+println("Fidelity:     ", round(fidelity(qcp_fast_robust), digits = 4))
 
 # ## Weighted Sampling
 #
@@ -168,8 +183,8 @@ println("Fidelity:     ", round(fidelity(qcp_fast_robust), digits=4))
 ## More weight on nominal, less on extremes
 weights = [0.5, 1.0, 2.0, 1.0, 0.5]  # Emphasize nominal
 
-qcp_weighted = SamplingProblem(qcp_nom, systems; weights=weights, Q=100.0)
-solve!(qcp_weighted; max_iter=15, verbose=false, print_level=1)
+qcp_weighted = SamplingProblem(qcp_nom, systems; weights = weights, Q = 100.0)
+solve!(qcp_weighted; max_iter = 15, verbose = false, print_level = 1)
 
 ## Evaluate
 fidelities_weighted = Float64[]
@@ -182,8 +197,8 @@ for ω in ω_range
 end
 
 println("\nWeighted robust pulse:")
-println("  Fidelity at nominal: ", round(fidelities_weighted[11], digits=4))
-println("  Min fidelity: ", round(minimum(fidelities_weighted), digits=4))
+println("  Fidelity at nominal: ", round(fidelities_weighted[11], digits = 4))
+println("  Min fidelity: ", round(minimum(fidelities_weighted), digits = 4))
 
 # ## Best Practices
 #

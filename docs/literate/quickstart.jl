@@ -40,7 +40,7 @@ T = 10.0   # Total gate duration
 N = 100    # Number of timesteps
 
 ## Create time vector
-times = collect(range(0, T, length=N))
+times = collect(range(0, T, length = N))
 
 ## Random initial controls (scaled by drive bounds)
 initial_controls = 0.1 * randn(2, N)
@@ -66,15 +66,16 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 # - Derivative bounds for control smoothness
 
 qcp = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     Q = 100.0,       # Fidelity weight
     R = 1e-2,        # Regularization weight
-    ddu_bound = 1.0  # Control acceleration bound
+    ddu_bound = 1.0,  # Control acceleration bound
 )
 
 # ## Step 5: Solve!
 
-solve!(qcp; max_iter=20, verbose=false, print_level=1)
+solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
 
 # ## Step 6: Analyze Results
 #
@@ -91,7 +92,7 @@ println("Control dimensions: ", size(traj[:u]))
 
 U_final = iso_vec_to_operator(traj[:Ũ⃗][:, end])
 println("\nFinal unitary:")
-display(round.(U_final, digits=3))
+display(round.(U_final, digits = 3))
 
 # ## Visualization
 #
@@ -110,27 +111,28 @@ fig = plot_unitary_populations(traj)
 
 ## Create problem with free-time optimization
 qcp_free = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     Q = 100.0,
     R = 1e-2,
     ddu_bound = 1.0,
-    Δt_bounds = (0.01, 0.5)  # Enable variable timesteps
+    Δt_bounds = (0.01, 0.5),  # Enable variable timesteps
 )
-solve!(qcp_free; max_iter=20, verbose=false, print_level=1)
+solve!(qcp_free; max_iter = 20, verbose = false, print_level = 1)
 
 ## Convert to minimum time problem
-qcp_mintime = MinimumTimeProblem(qcp_free; final_fidelity=0.99)
-solve!(qcp_mintime; max_iter=20, verbose=false, print_level=1)
+qcp_mintime = MinimumTimeProblem(qcp_free; final_fidelity = 0.99)
+solve!(qcp_mintime; max_iter = 20, verbose = false, print_level = 1)
 
 # Compare durations:
 
 initial_duration = sum(get_timesteps(get_trajectory(qcp_free)))
 minimum_duration = sum(get_timesteps(get_trajectory(qcp_mintime)))
 
-println("\nInitial duration:  ", round(initial_duration, digits=3))
-println("Minimum duration:  ", round(minimum_duration, digits=3))
-println("Time saved:        ", round(initial_duration - minimum_duration, digits=3))
-println("Final fidelity:    ", round(fidelity(qcp_mintime), digits=4))
+println("\nInitial duration:  ", round(initial_duration, digits = 3))
+println("Minimum duration:  ", round(minimum_duration, digits = 3))
+println("Time saved:        ", round(initial_duration - minimum_duration, digits = 3))
+println("Final fidelity:    ", round(fidelity(qcp_mintime), digits = 4))
 
 # Plot the time-optimal solution:
 

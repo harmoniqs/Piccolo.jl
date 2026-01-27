@@ -35,7 +35,7 @@ using CairoMakie
 T₀ = 10     # total time in ns
 N = 50      # number of time steps
 Δt = T₀ / N # time step
-times = collect(range(0, T₀, length=N))
+times = collect(range(0, T₀, length = N))
 
 ## define the system parameters
 levels = 5
@@ -70,7 +70,7 @@ pulse = ZeroOrderPulse(initial_controls, times)
 qtraj = UnitaryTrajectory(sys, pulse, op)
 
 ## create the optimization problem
-qcp = SmoothPulseProblem(qtraj, N; ddu_bound=ddu_bound, Q=100.0, R=1e-2)
+qcp = SmoothPulseProblem(qtraj, N; ddu_bound = ddu_bound, Q = 100.0, R = 1e-2)
 
 #=
 To solve this problem, we would run:
