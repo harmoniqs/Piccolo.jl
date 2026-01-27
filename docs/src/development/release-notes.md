@@ -2,6 +2,12 @@
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.0] - Upcoming
+
+### Changed
+
+- Complete documentation overhaul with concept-driven organization
+- Migrated from PiccoloDocsTemplate to standard Documenter.jl
 
 ## [v0.3.1] - 2024-10-17
 
@@ -13,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- `PiccoloOptions` to handle custome problem settings.
+- `PiccoloOptions` to handle custom problem settings
 
 ### Changed
 
@@ -36,8 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Removed
 
-- Stale examples 
+- Stale examples
 
 ### Fixed
 
-- Robustness improvements objective test fixes 
+- Robustness improvements objective test fixes
