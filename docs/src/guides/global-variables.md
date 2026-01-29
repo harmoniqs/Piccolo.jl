@@ -33,7 +33,8 @@ Global variable optimization requires:
 using Piccolo
 
 # Hamiltonian with global parameter δ (detuning)
-function H(u, t; δ=0.1)
+function H(u, t)
+    δ = u[end]
     return δ * PAULIS[:Z] + u[1] * PAULIS[:X] + u[2] * PAULIS[:Y]
 end
 

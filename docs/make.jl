@@ -1,6 +1,14 @@
 using Piccolo
 using PiccoloDocsTemplate
 
+draft_mode_pages = [ 
+    "first_gate.jl",
+    "multilevel_transmon.jl",
+    "quickstart.jl",
+    "robust_control.jl",
+    "state_transfer.jl" 
+]
+
 pages = [
     "Home" => "index.md",
     "Getting Started" => [
@@ -61,5 +69,6 @@ generate_docs(
     make_index = true,
     make_literate = true,
     make_assets = true,
+    literate_draft_pages = draft_mode_pages,
     format_kwargs = (canonical = "https://docs.harmoniqs.co/Piccolo.jl",),
 )
