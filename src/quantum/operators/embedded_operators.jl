@@ -234,6 +234,16 @@ function Base.kron(op1::EmbeddedOperator, op2::EmbeddedOperator)
     return EmbeddedOperator(kron(unembed(op1), unembed(op2)), indices, levels)
 end
 
+# Import operator_to_iso_vec from Isomorphisms to extend it
+import ..Isomorphisms: operator_to_iso_vec
+
+@doc raw"""
+    operator_to_iso_vec(op::EmbeddedOperator)
+
+Convert an `EmbeddedOperator` into a real vector by converting its embedded operator matrix.
+"""
+operator_to_iso_vec(op::EmbeddedOperator) = operator_to_iso_vec(op.operator)
+
 # ----------------------------------------------------------------------------- #
 #                            Subspace Indices                                   #
 # ----------------------------------------------------------------------------- #
@@ -643,6 +653,29 @@ end
     embedded_op = EmbeddedOperator(subspace_op, [2, 3], fill(1:2, length(PAULIS)), system)
     # 4 PAULIS
     @test embedded_op.operator == kron(I(2), subspace_op, I(2))
+end
+
+@testitem "operator_to_iso_vec with EmbeddedOperator" begin
+    # Create a simple 2x2 operator (X gate)
+    X = Complex[0.0 1.0; 1.0 0.0]
+
+    # Embed it in a 3-level system
+    X_embedded = EmbeddedOperator(X, 1:2, 3)
+
+    # Test that operator_to_iso_vec works with EmbeddedOperator
+    iso_vec_embedded = operator_to_iso_vec(X_embedded)
+    iso_vec_matrix = operator_to_iso_vec(X_embedded.operator)
+
+    # They should be equal
+    @test iso_vec_embedded == iso_vec_matrix
+    @test length(iso_vec_embedded) == 3^2 * 2  # 3x3 matrix -> 18 elements
+
+    # Test with a more complex operator
+    U = [1.0 0.0; 0.0 -1.0] + im * [0.0 0.5; -0.5 0.0]
+    U_embedded = EmbeddedOperator(U, 1:2, 4)
+    iso_vec_embedded = operator_to_iso_vec(U_embedded)
+    iso_vec_matrix = operator_to_iso_vec(U_embedded.operator)
+    @test iso_vec_embedded == iso_vec_matrix
 end
 
 
