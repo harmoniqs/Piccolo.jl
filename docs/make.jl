@@ -1,12 +1,15 @@
 using Piccolo
 using PiccoloDocsTemplate
 
-draft_mode_pages = [ 
+draft_mode_pages = [
     "first_gate.jl",
     "multilevel_transmon.jl",
     "quickstart.jl",
     "robust_control.jl",
-    "state_transfer.jl" 
+    "state_transfer.jl",
+    "quantum_api.jl",
+    "visualizations_api.jl",
+#    "control_api.jl"
 ]
 
 pages = [
@@ -51,9 +54,9 @@ pages = [
     ],
     "API Reference" => [
         "Overview" => "reference/index.md",
-        "Quantum Module" => "reference/quantum.md",
-        "Control Module" => "reference/control.md",
-        "Visualizations" => "reference/visualizations.md",
+        "Quantum Module" => "generated/quantum_api.md",
+        "Control Module" => "generated/control_api.md",
+        "Visualizations" => "generated/visualizations_api.md",
     ],
     "Development" => [
         "Contributing" => "development/contributing.md",
