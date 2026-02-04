@@ -147,7 +147,8 @@ function operator_algebra(
                 continue
             end
 
-            comm = is_hermitian(comm) ? comm : im * comm
+            # comm = is_hermitian(comm) ? comm : im * comm
+            comm = is_hermitian(comm) ? im * comm : comm
             comm = clean(comm, normalize = normalize, remove_trace = remove_trace)
 
             v = vec(comm)
