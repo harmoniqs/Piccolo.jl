@@ -123,7 +123,7 @@ X_embedded = EmbeddedOperator(GATES[:X], sys2)
 
 ## Create base problem
 pulse_short = ZeroOrderPulse(0.1 * randn(2, 30), collect(range(0, 5.0, length = 30)))
-qtraj_robust = UnitaryTrajectory(sys2, pulse_short, X_embedded)
+qtraj_robust = UnitaryTrajectory(sys2, pulse_short, X_embedded.operator)
 qcp_single = SmoothPulseProblem(qtraj_robust, 30; Q = 100.0)
 
 ## Wrap in sampling problem for robust optimization

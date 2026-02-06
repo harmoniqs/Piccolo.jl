@@ -7,9 +7,9 @@ draft_mode_pages = [
     "quickstart.jl",
     "robust_control.jl",
     "state_transfer.jl",
-    "quantum_api.jl",
-    "visualizations_api.jl",
-#    "control_api.jl"
+    # "quantum.jl",
+    "visualizations.jl",
+    "control.jl"
 ]
 
 pages = [
@@ -54,9 +54,9 @@ pages = [
     ],
     "API Reference" => [
         "Overview" => "reference/index.md",
-        "Quantum Module" => "generated/quantum_api.md",
-        "Control Module" => "generated/control_api.md",
-        "Visualizations" => "generated/visualizations_api.md",
+        "Quantum Module" => "generated/reference/quantum.md",
+        "Control Module" => "generated/reference/control.md",
+        "Visualizations" => "generated/reference/visualizations.md",
     ],
     "Development" => [
         "Contributing" => "development/contributing.md",
