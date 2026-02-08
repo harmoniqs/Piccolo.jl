@@ -7,9 +7,14 @@ draft_mode_pages = [
     "quickstart.jl",
     "robust_control.jl",
     "state_transfer.jl",
-    # "quantum.jl",
+    "quantum.jl",
     "visualizations.jl",
-    "control.jl"
+    "control.jl",
+    "custom_objectives.jl",
+    "global_variables.jl",
+    "leakage_suppression.jl",
+    "system_templates.jl",
+    "visualization.jl",
 ]
 
 pages = [
@@ -46,11 +51,11 @@ pages = [
     ],
     "How-To Guides" => [
         "Overview" => "guides/index.md",
-        "System Templates" => "guides/system-templates.md",
-        "Leakage Suppression" => "guides/leakage-suppression.md",
-        "Global Variables" => "guides/global-variables.md",
-        "Visualization" => "guides/visualization.md",
-        "Custom Objectives" => "guides/custom-objectives.md",
+        "System Templates" => "generated/guides/system_templates.md",
+        "Leakage Suppression" => "generated/guides/leakage_suppression.md",
+        "Global Variables" => "generated/guides/global_variables.md",
+        "Visualization" => "generated/guides/visualization.md",
+        "Custom Objectives" => "generated/guides/custom_objectives.md",
     ],
     "API Reference" => [
         "Overview" => "reference/index.md",
