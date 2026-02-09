@@ -103,11 +103,19 @@ H_d
 #
 # ### Pauli Matrices
 
-println(PAULIS[:I])  # Identity
-println(PAULIS[:X])  # Pauli-X (NOT)
-println(PAULIS[:Y])  # Pauli-Y
-println(PAULIS[:Z])  # Pauli-Z
-nothing # hide
+PAULIS[:I]  ## Identity
+
+#-
+
+PAULIS[:X]  ## Pauli-X (NOT)
+
+#-
+
+PAULIS[:Y]  ## Pauli-Y
+
+#-
+
+PAULIS[:Z]  ## Pauli-Z
 
 # ### Common Gates
 (:I, :X, :Y, :Z, :H, :T, :S, :CX, :CZ)
@@ -119,7 +127,7 @@ a = annihilate(levels)
 a_dag = create(levels)
 n_op = a_dag * a  # Number operator
 
-# # and now a number operator (5 levels):
+# Number operator (5 levels):
 n_op
 
 # ## System Templates
@@ -177,6 +185,7 @@ sys_3level.levels
 ## Better for high-fidelity: 4+ levels
 sys_4level = TransmonSystem(levels = 4, δ = 0.2)
 sys_4level.levels
+
 # ## See Also
 #
 # - [Trajectories](@ref trajectories-concept) - Combining systems with pulses and goals

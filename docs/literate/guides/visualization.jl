@@ -27,7 +27,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
 solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
 
-println("Fidelity: ", round(fidelity(qcp), digits = 6))
+fidelity(qcp)
 
 # ## Basic Trajectory Plotting
 #

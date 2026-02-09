@@ -161,6 +161,7 @@ u_1
 ## All timesteps
 Δts = get_timesteps(traj)
 length(Δts)
+
 # ### Internal Representation
 #
 # Piccolo.jl uses real isomorphisms internally for optimization. Complex states

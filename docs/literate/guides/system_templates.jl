@@ -32,8 +32,7 @@ sys = TransmonSystem(
     drive_bounds = [0.2, 0.2]  # Max amplitude for X, Y drives
 )
 
-println("Levels: ", sys.levels)
-println("Drives: ", sys.n_drives)
+sys.levels, sys.n_drives
 
 # ### Parameters
 #
@@ -67,7 +66,7 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
 solve!(qcp; max_iter = 100, verbose = false, print_level = 1)
 
-println("Fidelity: ", round(fidelity(qcp), digits = 6))
+fidelity(qcp)
 
 # ## MultiTransmonSystem
 #
@@ -196,7 +195,7 @@ function MyCustomSystem(; ω, δ, drive_bounds)
 end
 
 my_sys = MyCustomSystem(ω = 4.0, δ = 0.2, drive_bounds = [0.2, 0.2])
-println("Custom system levels: ", my_sys.levels)
+my_sys.levels
 
 # ## Best Practices
 

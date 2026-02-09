@@ -37,8 +37,11 @@ sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
 ## Define X gate in computational subspace
 U_goal = EmbeddedOperator(:X, sys)
 
-println("Full operator size: ", size(U_goal.operator))
-println("Computational subspace: ", U_goal.subspace)
+size(U_goal.operator)
+
+#-
+
+U_goal.subspace
 
 # ### Construction Options
 
@@ -53,11 +56,13 @@ U_T = EmbeddedOperator(custom_gate, sys)
 # ### Accessing Subspace Information
 
 ## Computational subspace indices
-println("Subspace indices: ", U_goal.subspace)
+U_goal.subspace
+
+#-
 
 ## Leakage indices in isomorphic vector space
 leak_indices = get_iso_vec_leakage_indices(U_goal)
-println("Leakage indices (iso vec): ", leak_indices)
+leak_indices
 
 # ## Leakage via PiccoloOptions
 #
@@ -117,7 +122,7 @@ opts = PiccoloOptions(
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
 solve!(qcp; max_iter = 150, verbose = false, print_level = 1)
 
-println("Fidelity: ", round(fidelity(qcp), digits = 6))
+fidelity(qcp)
 
 # ## Manual Leakage Objectives and Constraints
 #
@@ -154,8 +159,11 @@ opts = PiccoloOptions(
 qcp_leakage = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
 solve!(qcp_leakage; max_iter = 150, verbose = false, print_level = 1)
 
-println("Without leakage suppression: ", round(fidelity(qcp_initial), digits = 6))
-println("With leakage suppression:    ", round(fidelity(qcp_leakage), digits = 6))
+fidelity(qcp_initial)
+
+#-
+
+fidelity(qcp_leakage)
 
 # ### 2. Increase Gate Time
 #

@@ -90,7 +90,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 solve!(qcp; max_iter = 100)
 
-println("Fidelity: ", fidelity(qcp))
+fidelity(qcp)
 
 # ### With Derivative Bounds
 #

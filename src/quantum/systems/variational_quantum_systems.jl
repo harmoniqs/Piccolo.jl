@@ -20,7 +20,7 @@ The variational operators represent directions of uncertainty or perturbation in
 - `n_drives::Int`: The number of control drives in the system
 - `levels::Int`: The number of levels (dimension) in the system
 
-See also [`QuantumSystem`](@ref Piccolo.QuantumSystem), [`OpenQuantumSystem`](@ref).
+See also [`QuantumSystem`](@ref Piccolo.Quantum.QuantumSystems.QuantumSystem), [`OpenQuantumSystem`](@ref).
 """
 struct VariationalQuantumSystem{
     F1<:Function,

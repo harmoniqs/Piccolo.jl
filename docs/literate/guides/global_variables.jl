@@ -43,7 +43,7 @@ end
 ## Create system with named global parameter and initial value
 sys = QuantumSystem(H, [1.0, 1.0]; time_dependent = true, global_params = (δ = 0.1,))
 
-println("System global params: ", sys.global_params)
+sys.global_params
 
 # ## Setting Up a Problem with Globals
 #
@@ -73,7 +73,7 @@ solve!(qcp; max_iter = 100)
 ## Access optimized global value
 traj = get_trajectory(qcp)
 optimized_δ = traj[:δ][1]  # Global variables are constant over time
-println("Optimized detuning: ", optimized_δ)
+optimized_δ
 
 # ## Global Bounds Format
 #

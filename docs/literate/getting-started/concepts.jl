@@ -89,7 +89,7 @@ qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 # Let's run through the solve step now:
 
 solve!(qcp; max_iter = 100)
-println("Fidelity: ", fidelity(qcp))
+fidelity(qcp)
 
 # ## Key Parameters
 #
@@ -128,7 +128,7 @@ qcp_gate = SmoothPulseProblem(
     N
 )
 solve!(qcp_gate; max_iter = 100)
-println("Gate synthesis fidelity: ", fidelity(qcp_gate))
+fidelity(qcp_gate)
 
 # ### State Preparation
 #
@@ -141,7 +141,7 @@ qcp_state = SmoothPulseProblem(
     N
 )
 solve!(qcp_state; max_iter = 100)
-println("State preparation fidelity: ", fidelity(qcp_state))
+fidelity(qcp_state)
 
 # ### Time-Optimal Control
 #
@@ -152,7 +152,7 @@ solve!(qcp_base; max_iter = 100)
 
 qcp_fast = MinimumTimeProblem(qcp_base; final_fidelity = 0.99)
 solve!(qcp_fast; max_iter = 100)
-println("Time-optimal fidelity: ", fidelity(qcp_fast))
+fidelity(qcp_fast)
 
 # ### Robust Control
 #
@@ -171,7 +171,7 @@ solve!(qcp_nom; max_iter = 100)
 perturbed_systems = [sys_low, sys_nominal, sys_high]
 qcp_robust = SamplingProblem(qcp_nom, perturbed_systems)
 solve!(qcp_robust; max_iter = 100)
-println("Robust fidelities: ", fidelity(qcp_robust))
+fidelity(qcp_robust)
 
 # ## Next Steps
 #

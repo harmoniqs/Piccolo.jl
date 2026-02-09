@@ -56,6 +56,7 @@ length(Ũ)
 ## Convert back
 U_recovered = iso_vec_to_operator(Ũ)
 U ≈ U_recovered
+
 # ### Mathematical Form
 #
 # The unitary `U` is first vectorized (column-major) then split into real and
@@ -100,6 +101,7 @@ length(Ũ_final)
 ## Convert to complex unitary
 U_final = iso_vec_to_operator(Ũ_final)
 size(U_final)
+
 # ### Computing Fidelity Manually
 
 d = size(U_goal, 1)
@@ -149,8 +151,11 @@ F
 
 ## Verify dimensions for a 2-level system
 d = 2
-println("Ket: $d complex → $(2d) real (actual: $(length(ket_to_iso(zeros(ComplexF64, d)))))")
-println("Unitary: $(d)×$(d) complex → $(2d^2) real (actual: $(length(operator_to_iso_vec(zeros(ComplexF64, d, d)))))")
+length(ket_to_iso(zeros(ComplexF64, d)))           ## 2d real elements
+
+#-
+
+length(operator_to_iso_vec(zeros(ComplexF64, d, d))) ## 2d² real elements
 
 # ## See Also
 #

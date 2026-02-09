@@ -48,8 +48,7 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 
 # Let's check what we created:
 
-println("System has $(sys.levels) energy levels")
-println("System has $(sys.n_drives) control drives")
+sys.levels, sys.n_drives
 
 # ## Step 2: Create an Initial Pulse
 #
@@ -72,9 +71,15 @@ pulse = ZeroOrderPulse(initial_controls, times)
 
 # Check the pulse:
 
-println("Pulse duration: ", duration(pulse))
-println("Number of drives: ", n_drives(pulse))
-println("Control at t=5: ", pulse(5.0))
+duration(pulse)
+
+#-
+
+n_drives(pulse)
+
+#-
+
+pulse(5.0)
 
 # ## Step 3: Define the Goal
 #
@@ -83,8 +88,7 @@ println("Control at t=5: ", pulse(5.0))
 ## Our target: the X gate
 U_goal = GATES[:X]
 
-println("Target gate:")
-display(U_goal)
+U_goal
 
 ## Create the trajectory
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
@@ -114,8 +118,7 @@ solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
 #
 # First, check the fidelity:
 
-println("\n=== Results ===")
-println("Final fidelity: ", round(fidelity(qcp), digits = 6))
+fidelity(qcp)
 
 # Get the optimized trajectory:
 
@@ -123,8 +126,7 @@ traj = get_trajectory(qcp)
 
 ## Check the final unitary
 U_final = iso_vec_to_operator(traj[:Ũ⃗][:, end])
-println("\nFinal unitary (should be close to X gate):")
-display(round.(U_final, digits = 3))
+round.(U_final, digits = 3)
 
 # ## Step 7: Visualize
 #

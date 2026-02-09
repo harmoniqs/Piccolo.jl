@@ -32,8 +32,7 @@ H_drift = PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
 sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
-println("Piccolo.jl installed successfully!")
-println("System has $(sys.levels) levels and $(sys.n_drives) drives")
+sys
 
 # ## Optional: Visualization Support
 #

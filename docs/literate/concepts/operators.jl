@@ -81,7 +81,7 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 opts = PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 1e-3)
 qcp = SmoothPulseProblem(qtraj, N; piccolo_options = opts)
 solve!(qcp; max_iter = 100)
-println("Embedded gate fidelity: ", fidelity(qcp))
+fidelity(qcp)
 
 # ## lift_operator
 #
@@ -114,7 +114,7 @@ dims = [2, 2]  # Two qubits
 Z1 = lift_operator(PAULIS[:Z], 1, dims)
 Z2 = lift_operator(PAULIS[:Z], 2, dims)
 X1 = lift_operator(PAULIS[:X], 1, dims)
-X2 = lift_operator(PAULIS[:X], 2, dims) # nothing
+X2 = lift_operator(PAULIS[:X], 2, dims)
 
 ## Build Hamiltonian: H = ω1*Z1 + ω2*Z2 + J*Z1*Z2
 ω1, ω2, J = 1.0, 1.1, 0.05

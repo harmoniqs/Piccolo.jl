@@ -45,8 +45,7 @@ qtraj_nom = UnitaryTrajectory(sys_nominal, pulse_nom, U_goal)
 qcp_nom = SmoothPulseProblem(qtraj_nom, N; Q = 100.0, R = 1e-2)
 solve!(qcp_nom; max_iter = 20, verbose = false, print_level = 1)
 
-println("Nominal-only optimization:")
-println("  Fidelity at nominal: ", round(fidelity(qcp_nom), digits = 6))
+fidelity(qcp_nom)
 
 # ## Step 2: Test Robustness
 #
@@ -69,9 +68,7 @@ end
 ω_range = range(0.9 * ω_nominal, 1.1 * ω_nominal, length = 21)
 fidelities_nom = [evaluate_fidelity(qcp_nom, ω) for ω in ω_range]
 
-println("\nNominal pulse performance across ±10% frequency variation:")
-println("  Min fidelity: ", round(minimum(fidelities_nom), digits = 4))
-println("  Max fidelity: ", round(maximum(fidelities_nom), digits = 4))
+extrema(fidelities_nom)
 
 # ## Step 3: Robust Optimization with SamplingProblem
 #
@@ -81,13 +78,13 @@ println("  Max fidelity: ", round(maximum(fidelities_nom), digits = 4))
 ω_samples = [0.9, 0.95, 1.0, 1.05, 1.1] .* ω_nominal
 systems = [QuantumSystem(ω * PAULIS[:Z], H_drives, drive_bounds) for ω in ω_samples]
 
-println("\nOptimizing for $(length(systems)) frequency samples...")
+## Optimize for all frequency samples
 
 ## Start from the nominal solution
 qcp_robust = SamplingProblem(qcp_nom, systems; Q = 100.0)
 solve!(qcp_robust; max_iter = 20, verbose = false, print_level = 1)
 
-println("Robust optimization complete!")
+fidelity(qcp_robust)
 
 # ## Step 4: Compare Performance
 
@@ -101,9 +98,7 @@ for ω in ω_range
     push!(fidelities_robust, fidelity(qtraj_test))
 end
 
-println("\nRobust pulse performance across ±10% frequency variation:")
-println("  Min fidelity: ", round(minimum(fidelities_robust), digits = 4))
-println("  Max fidelity: ", round(maximum(fidelities_robust), digits = 4))
+extrema(fidelities_robust)
 
 # ## Step 5: Visualize Comparison
 
@@ -170,10 +165,7 @@ duration_initial = sum(get_timesteps(get_trajectory(qcp_free)))
 duration_robust = sum(get_timesteps(get_trajectory(qcp_robust_free)))
 duration_fast = sum(get_timesteps(get_trajectory(qcp_fast_robust)))
 
-println("\n=== Duration Comparison ===")
-println("Initial:      ", round(duration_initial, digits = 2))
-println("After robust: ", round(duration_robust, digits = 2))
-println("After mintime:", round(duration_fast, digits = 2))
+duration_initial, duration_robust, duration_fast
 
 # ## Weighted Sampling
 #
@@ -195,9 +187,7 @@ for ω in ω_range
     push!(fidelities_weighted, fidelity(qtraj_test))
 end
 
-println("\nWeighted robust pulse:")
-println("  Fidelity at nominal: ", round(fidelities_weighted[11], digits = 4))
-println("  Min fidelity: ", round(minimum(fidelities_weighted), digits = 4))
+extrema(fidelities_weighted)
 
 # ## Best Practices
 #

@@ -39,7 +39,7 @@ pulse_zop = ZeroOrderPulse(controls, times)
 
 ## Evaluate at time t
 u = pulse_zop(T / 2)
-println("Control values at t=$(T/2): ", u)
+u
 
 ## Duration
 duration(pulse_zop)
@@ -79,7 +79,7 @@ pulse_linear = LinearSplinePulse(controls, times)
 # - Derivative = slope between knots
 
 u_linear = pulse_linear(T / 2)
-println("Linear spline at t=$(T/2): ", u_linear)
+u_linear
 
 # ### Visualization
 #
@@ -108,7 +108,7 @@ pulse_cubic = CubicSplinePulse(controls, tangents, times)
 # - Smooth C¹ continuous curves
 
 u_cubic = pulse_cubic(T / 2)
-println("Cubic spline at t=$(T/2): ", u_cubic)
+u_cubic
 
 # ## GaussianPulse
 #
@@ -129,7 +129,7 @@ pulse_gauss = GaussianPulse(amplitudes, sigmas, centers, T)
 # ```
 
 u_gauss = pulse_gauss(5.0)
-println("Gaussian at center: ", u_gauss)
+u_gauss
 
 # ## CompositePulse
 #
@@ -142,7 +142,7 @@ pulse2 = GaussianPulse([0.3], [0.5], [8.0], T)
 
 ## Interleave the pulses (each pulse contributes different drives)
 composite = CompositePulse([pulse1, pulse2])
-println("Composite pulse drives: ", n_drives(composite))
+n_drives(composite)
 
 # ## Choosing a Pulse Type
 #

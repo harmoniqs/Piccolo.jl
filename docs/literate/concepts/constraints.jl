@@ -44,7 +44,7 @@ qcp = SmoothPulseProblem(
     ddu_bound = 0.1,   # Max control acceleration
 )
 solve!(qcp; max_iter = 50)
-println("Fidelity with derivative bounds: ", fidelity(qcp))
+fidelity(qcp)
 
 # ### Timestep Bounds
 #

@@ -18,7 +18,7 @@ A struct for storing open quantum dynamics.
 - `dissipation_operators::Vector{SparseMatrixCSC{ComplexF64, Int}}`: The dissipation operators
 - `time_dependent::Bool`: Whether the Hamiltonian has explicit time dependence
 
-See also [`QuantumSystem`](@ref Piccolo.QuantumSystem).
+See also [`QuantumSystem`](@ref Piccolo.Quantum.QuantumSystems.QuantumSystem).
 """
 struct OpenQuantumSystem{F1<:Function,F2<:Function} <: AbstractQuantumSystem
     H::F1

@@ -51,7 +51,7 @@ qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
 
-println("State transfer fidelity: ", round(fidelity(qcp), digits = 6))
+fidelity(qcp)
 
 # ### Visualize State Evolution
 
@@ -111,7 +111,7 @@ qtraj_multi = MultiKetTrajectory(sys, pulse_multi, initial_states, goal_states)
 qcp_multi = SmoothPulseProblem(qtraj_multi, N; Q = 100.0, R = 1e-2)
 solve!(qcp_multi; max_iter = 20, verbose = false, print_level = 1)
 
-println("Multi-state gate fidelity: ", round(fidelity(qcp_multi), digits = 6))
+fidelity(qcp_multi)
 
 # ### Visualize Both State Evolutions
 
@@ -165,14 +165,13 @@ qtraj_super = KetTrajectory(sys, pulse_super, ψ0, ψ_plus)
 qcp_super = SmoothPulseProblem(qtraj_super, N; Q = 100.0, R = 1e-2)
 solve!(qcp_super; max_iter = 20, verbose = false, print_level = 1)
 
-println("\n|+⟩ state preparation fidelity: ", round(fidelity(qcp_super), digits = 6))
+fidelity(qcp_super)
 
 # Verify the final state:
 
 traj_super = get_trajectory(qcp_super)
 ψ_final = iso_to_ket(traj_super[:ψ̃][:, end])
-println("Final state: ", round.(ψ_final, digits = 3))
-println("Target state: ", round.(ψ_plus, digits = 3))
+round.(ψ_final, digits = 3)
 
 # ## Next Steps
 #

@@ -198,15 +198,15 @@ qcp_high_Q = SmoothPulseProblem(
     Q = 1000.0, R = 1e-2
 )
 solve!(qcp_high_Q; max_iter = 100)
-println("High Q (1000): Fidelity = ", fidelity(qcp_high_Q))
+fidelity(qcp_high_Q)
 
-## High regularization
+# High regularization
 qcp_high_R = SmoothPulseProblem(
     UnitaryTrajectory(sys, pulse, U_goal), N;
     Q = 100.0, R = 0.1
 )
 solve!(qcp_high_R; max_iter = 100)
-println("High R (0.1):  Fidelity = ", fidelity(qcp_high_R))
+fidelity(qcp_high_R)
 
 # ### Typical Starting Values
 #

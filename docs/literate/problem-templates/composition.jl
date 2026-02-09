@@ -50,9 +50,11 @@ qcp_base = SmoothPulseProblem(
 )
 solve!(qcp_base; max_iter = 100)
 
-println("Step 2 - Base:")
-println("  Fidelity: ", fidelity(qcp_base))
-println("  Duration: ", sum(get_timesteps(get_trajectory(qcp_base))))
+fidelity(qcp_base)
+
+#-
+
+sum(get_timesteps(get_trajectory(qcp_base)))
 
 # ### Step 3: Add Robustness
 
@@ -67,8 +69,7 @@ qcp_robust = SamplingProblem(
 )
 solve!(qcp_robust; max_iter = 100)
 
-println("\nStep 3 - Robust:")
-println("  Fidelity (nominal): ", fidelity(qcp_robust))
+fidelity(qcp_robust)
 
 # ### Step 4: Minimize Time
 
@@ -79,9 +80,11 @@ qcp_mintime = MinimumTimeProblem(
 )
 solve!(qcp_mintime; max_iter = 100)
 
-println("\nStep 4 - Time-Optimal:")
-println("  Fidelity: ", fidelity(qcp_mintime))
-println("  Duration: ", sum(get_timesteps(get_trajectory(qcp_mintime))))
+fidelity(qcp_mintime)
+
+#-
+
+sum(get_timesteps(get_trajectory(qcp_mintime)))
 
 # ## Common Composition Patterns
 #

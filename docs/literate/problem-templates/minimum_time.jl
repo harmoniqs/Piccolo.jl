@@ -87,15 +87,22 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0, Δt_bounds = (0.05, 0.5))
 solve!(qcp_base; max_iter = 100)
 
-println("Initial duration: ", sum(get_timesteps(get_trajectory(qcp_base))))
-println("Initial fidelity: ", fidelity(qcp_base))
+sum(get_timesteps(get_trajectory(qcp_base)))
 
-## Step 2: Minimize time
+#-
+
+fidelity(qcp_base)
+
+# ### Step 2: Minimize Time
+
 qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
 solve!(qcp_mintime; max_iter = 100)
 
-println("Final duration: ", sum(get_timesteps(get_trajectory(qcp_mintime))))
-println("Final fidelity: ", fidelity(qcp_mintime))
+sum(get_timesteps(get_trajectory(qcp_mintime)))
+
+#-
+
+fidelity(qcp_mintime)
 
 # ### Exploring Fidelity-Time Trade-off
 

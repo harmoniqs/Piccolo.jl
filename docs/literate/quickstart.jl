@@ -82,17 +82,13 @@ solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
 # After solving, we can check the fidelity and examine the optimized controls.
 
 ## Check final fidelity
-println("Final fidelity: ", fidelity(qcp))
+fidelity(qcp)
 
-## Access the trajectory
+# Access the trajectory and check the final unitary:
+
 traj = get_trajectory(qcp)
-println("Control dimensions: ", size(traj[:u]))
-
-# We can convert the isomorphic unitary back to matrix form:
-
 U_final = iso_vec_to_operator(traj[:Ũ⃗][:, end])
-println("\nFinal unitary:")
-display(round.(U_final, digits = 3))
+round.(U_final, digits = 3)
 
 # ## Visualization
 #
@@ -129,10 +125,15 @@ solve!(qcp_mintime; max_iter = 20, verbose = false, print_level = 1)
 initial_duration = sum(get_timesteps(get_trajectory(qcp_free)))
 minimum_duration = sum(get_timesteps(get_trajectory(qcp_mintime)))
 
-println("\nInitial duration:  ", round(initial_duration, digits = 3))
-println("Minimum duration:  ", round(minimum_duration, digits = 3))
-println("Time saved:        ", round(initial_duration - minimum_duration, digits = 3))
-println("Final fidelity:    ", round(fidelity(qcp_mintime), digits = 4))
+initial_duration
+
+#-
+
+minimum_duration
+
+#-
+
+fidelity(qcp_mintime)
 
 # Plot the time-optimal solution:
 
