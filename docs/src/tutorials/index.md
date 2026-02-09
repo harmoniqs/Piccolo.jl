@@ -32,7 +32,7 @@ If you're familiar with quantum control concepts:
 
 Before starting the tutorials, ensure you have:
 
-1. **Julia 1.9+** installed
+1. **Julia 1.10+** installed
 2. **Piccolo.jl** installed: `using Pkg; Pkg.add("Piccolo")`
 3. **CairoMakie** for plotting: `using Pkg; Pkg.add("CairoMakie")`
 
