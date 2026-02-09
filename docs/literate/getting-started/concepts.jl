@@ -59,28 +59,28 @@ qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 # ┌─────────────────┐
 # │ Define System   │  sys = QuantumSystem(...)
 # └────────┬────────┘
-# │
-# ▼
+#          │
+#          ▼
 # ┌─────────────────┐
 # │ Create Pulse    │  pulse = ZeroOrderPulse(...)
 # └────────┬────────┘
-# │
-# ▼
+#          │
+#          ▼
 # ┌─────────────────┐
 # │ Set Goal        │  qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 # └────────┬────────┘
-# │
-# ▼
+#          │
+#          ▼
 # ┌─────────────────┐
 # │ Create Problem  │  qcp = SmoothPulseProblem(qtraj, N)
 # └────────┬────────┘
-# │
-# ▼
+#          │
+#          ▼
 # ┌─────────────────┐
 # │ Solve!          │  solve!(qcp; max_iter=100)
 # └────────┬────────┘
-# │
-# ▼
+#          │
+#          ▼
 # ┌─────────────────┐
 # │ Analyze Results │  fidelity(qcp), plot(...)
 # └─────────────────┘

@@ -22,6 +22,13 @@ draft_mode_pages = [
     "composition.jl",
     "concepts.jl",
     "installation.jl",
+    "systems.jl",
+    "trajectories.jl",
+    "pulses.jl",
+    "objectives.jl",
+    "constraints.jl",
+    "operators.jl",
+    "isomorphisms.jl",
 ]
 
 pages = [
@@ -48,13 +55,13 @@ pages = [
     ],
     "Concepts" => [
         "Overview" => "concepts/index.md",
-        "Quantum Systems" => "concepts/systems.md",
-        "Trajectories" => "concepts/trajectories.md",
-        "Pulses" => "concepts/pulses.md",
-        "Objectives" => "concepts/objectives.md",
-        "Constraints" => "concepts/constraints.md",
-        "Operators" => "concepts/operators.md",
-        "Isomorphisms" => "concepts/isomorphisms.md",
+        "Quantum Systems" => "generated/concepts/systems.md",
+        "Trajectories" => "generated/concepts/trajectories.md",
+        "Pulses" => "generated/concepts/pulses.md",
+        "Objectives" => "generated/concepts/objectives.md",
+        "Constraints" => "generated/concepts/constraints.md",
+        "Operators" => "generated/concepts/operators.md",
+        "Isomorphisms" => "generated/concepts/isomorphisms.md",
     ],
     "How-To Guides" => [
         "Overview" => "guides/index.md",
