@@ -637,6 +637,29 @@ function Rollouts.fidelity(traj::DensityTrajectory)
     return real(tr(ρ_final * traj.goal))
 end
 
+"""
+    fidelity(traj::SamplingTrajectory; kwargs...)
+
+Compute the fidelity for each system in the sampling trajectory.
+
+Returns a vector of fidelities, one per system, by rolling out the current pulse
+with each system and computing the fidelity against the goal.
+"""
+function Rollouts.fidelity(traj::SamplingTrajectory; kwargs...)
+    base = traj.base_trajectory
+    return [
+        Rollouts.fidelity(_swap_system(base, sys); kwargs...)
+        for sys in traj.systems
+    ]
+end
+
+# Helpers to create a trajectory with a different system (for per-system fidelity evaluation)
+_swap_system(qtraj::UnitaryTrajectory, sys::AbstractQuantumSystem) =
+    UnitaryTrajectory(sys, qtraj.pulse, get_goal(qtraj))
+
+_swap_system(qtraj::KetTrajectory, sys::AbstractQuantumSystem) =
+    KetTrajectory(sys, qtraj.pulse, qtraj.initial, qtraj.goal)
+
 # ============================================================================ #
 # Tests
 # ============================================================================ #

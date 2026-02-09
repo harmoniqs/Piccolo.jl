@@ -11,18 +11,25 @@ draft_mode_pages = [
     "visualizations.jl",
     "control.jl",
     "custom_objectives.jl",
-    "global_variables.jl",
+    "global_variables.jl",  ## this errors due to global variable support not being well documented yet and this version of the docs havings lots of issues
     "leakage_suppression.jl",
     "system_templates.jl",
     "visualization.jl",
+    "smooth_pulse.jl",
+    "spline_pulse.jl",
+    "minimum_time.jl",
+    "sampling.jl",
+    "composition.jl",
+    "concepts.jl",
+    "installation.jl",
 ]
 
 pages = [
     "Home" => "index.md",
     "Getting Started" => [
-        "Installation" => "getting-started/installation.md",
+        "Installation" => "generated/getting-started/installation.md",
         "Quickstart" => "generated/quickstart.md",
-        "Core Concepts" => "getting-started/concepts.md",
+        "Core Concepts" => "generated/getting-started/concepts.md",
     ],
     "Tutorials" => [
         "Overview" => "tutorials/index.md",
@@ -33,11 +40,11 @@ pages = [
     ],
     "Problem Templates" => [
         "Overview" => "problem-templates/index.md",
-        "SmoothPulseProblem" => "problem-templates/smooth-pulse.md",
-        "SplinePulseProblem" => "problem-templates/spline-pulse.md",
-        "MinimumTimeProblem" => "problem-templates/minimum-time.md",
-        "SamplingProblem" => "problem-templates/sampling.md",
-        "Composing Templates" => "problem-templates/composition.md",
+        "SmoothPulseProblem" => "generated/problem-templates/smooth_pulse.md",
+        "SplinePulseProblem" => "generated/problem-templates/spline_pulse.md",
+        "MinimumTimeProblem" => "generated/problem-templates/minimum_time.md",
+        "SamplingProblem" => "generated/problem-templates/sampling.md",
+        "Composing Templates" => "generated/problem-templates/composition.md",
     ],
     "Concepts" => [
         "Overview" => "concepts/index.md",
