@@ -188,6 +188,6 @@ fig
 
 # ## See Also
 #
-# - [Visualizations API](@ref viz-api) - Complete API reference
+# - [Visualizations API](@ref lib-visualizations) - Complete API reference
 # - [Problem Templates](@ref problem-templates-overview) - Generating solutions to plot
 # - [Trajectories](@ref trajectories-concept) - Understanding trajectory structure

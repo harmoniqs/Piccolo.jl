@@ -160,5 +160,5 @@ optimized_δ = traj[:δ][1]
 # ## See Also
 #
 # - [SamplingProblem](@ref sampling) - For parameter robustness
-# - [Quantum Systems](@ref) - System construction
+# - [Quantum Systems](@ref quantum-systems) - System construction
 # - [Problem Templates](@ref problem-templates-overview) - Main optimization API

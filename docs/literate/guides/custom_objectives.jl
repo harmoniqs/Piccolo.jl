@@ -200,5 +200,5 @@ leakage_obj = KnotPointObjective(
 # ## See Also
 #
 # - [Objectives](@ref objectives-concept) - Built-in objectives
-# - [Constraints](@ref) - Hard constraints (vs soft objective penalties)
+# - [Constraints](@ref constraints-concept) - Hard constraints (vs soft objective penalties)
 # - [Problem Templates](@ref problem-templates-overview) - Using objectives in problems

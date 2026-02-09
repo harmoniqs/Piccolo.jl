@@ -22,7 +22,7 @@ full tensor product space, and subsystem drives are appended to any coupling dri
 - `subsystem_levels::Vector{Int}`: Dimensions of each subsystem
 - `subsystems::Vector{QuantumSystem}`: The individual quantum subsystems
 
-See also [`LiftedOperators`](@ref), [`lift_operator`](@ref).
+See also [Lifted Operators](@ref lib-lifted-operators), [`lift_operator`](@ref).
 
 # Example
 ```julia

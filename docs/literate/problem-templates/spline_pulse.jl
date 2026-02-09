@@ -162,4 +162,4 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic)
 #
 # - [SmoothPulseProblem](@ref smooth-pulse) - For piecewise constant controls
 # - [MinimumTimeProblem](@ref minimum-time) - Time-optimal control
-# - [Pulses](@ref) - Detailed pulse type documentation
+# - [Pulses](@ref pulses-concept) - Detailed pulse type documentation

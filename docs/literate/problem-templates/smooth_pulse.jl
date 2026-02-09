@@ -200,4 +200,4 @@ solve!(qcp; max_iter=100)
 # - [SplinePulseProblem](@ref spline-pulse) - For inherently smooth spline-based controls
 # - [MinimumTimeProblem](@ref minimum-time) - Time-optimal control
 # - [SamplingProblem](@ref sampling) - Robust optimization
-# - [Pulses](@ref) - Pulse type documentation
+# - [Pulses](@ref pulses-concept) - Pulse type documentation
