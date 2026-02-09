@@ -8,9 +8,11 @@ Piccolo.jl is organized into three main modules:
 
 | Module | Contents |
 |--------|----------|
-| [Quantum](@ref quantum-api) | Systems, trajectories, pulses, operators, isomorphisms |
-| [Control](@ref control-api) | Problems, objectives, constraints, integrators, templates |
-| [Visualizations](@ref viz-api) | Plotting and animation utilities |
+| Quantum | Systems, trajectories, pulses, operators, isomorphisms |
+| Control | Problems, objectives, constraints, integrators, templates |
+| Visualizations | Plotting and animation utilities |
+
+See the [Library Reference](@ref) page for full docstrings of all exported types and functions.
 
 ## Reexported Packages
 
@@ -67,9 +69,3 @@ solve!(qcp; max_iter=100)
 fid = fidelity(qcp)
 traj = get_trajectory(qcp)
 ```
-
-## Detailed Reference
-
-- [Quantum Module](@ref quantum-api) - Systems, trajectories, pulses, operators
-- [Control Module](@ref control-api) - Problems, objectives, constraints, templates
-- [Visualizations](@ref viz-api) - Plotting functions

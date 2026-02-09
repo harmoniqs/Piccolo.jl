@@ -73,9 +73,7 @@ pages = [
     ],
     "API Reference" => [
         "Overview" => "reference/index.md",
-        "Quantum Module" => "generated/reference/quantum.md",
-        "Control Module" => "generated/reference/control.md",
-        "Visualizations" => "generated/reference/visualizations.md",
+        "Library" => "lib.md",
     ],
     "Development" => [
         "Contributing" => "development/contributing.md",
@@ -92,5 +90,8 @@ generate_docs(
     make_literate = true,
     make_assets = true,
     literate_draft_pages = draft_mode_pages,
-    format_kwargs = (canonical = "https://docs.harmoniqs.co/Piccolo.jl",),
+    format_kwargs = (
+        canonical = "https://docs.harmoniqs.co/Piccolo.jl",
+        size_threshold = 400 * 2^10,  # 400 KiB for lib.md
+    ),
 )
