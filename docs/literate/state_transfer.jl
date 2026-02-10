@@ -109,7 +109,13 @@ qtraj_multi = MultiKetTrajectory(sys, pulse_multi, initial_states, goal_states)
 # between states are preserved correctly.
 
 qcp_multi = SmoothPulseProblem(qtraj_multi, N; Q = 100.0, R = 1e-2)
-cached_solve!(qcp_multi, "state_transfer_multi"; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_multi,
+    "state_transfer_multi";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 
 fidelity(qcp_multi)
 
@@ -163,7 +169,13 @@ pulse_super = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_super = KetTrajectory(sys, pulse_super, ψ0, ψ_plus)
 
 qcp_super = SmoothPulseProblem(qtraj_super, N; Q = 100.0, R = 1e-2)
-cached_solve!(qcp_super, "state_transfer_superposition"; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_super,
+    "state_transfer_superposition";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 
 fidelity(qcp_super)
 

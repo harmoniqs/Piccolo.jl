@@ -39,7 +39,8 @@ U_goal = GATES[:X]
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 qcp = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     du_bound = 0.5,    # Max control jump per timestep
     ddu_bound = 0.1,   # Max control acceleration
 )
@@ -92,10 +93,7 @@ fidelity(qcp_mintime)
 #
 # The easiest approach to handle leakage:
 
-opts = PiccoloOptions(
-    leakage_constraint = true,
-    leakage_constraint_value = 1e-3,
-)
+opts = PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 1e-3)
 
 ## Example with a transmon system
 sys_transmon = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
@@ -187,10 +185,7 @@ fidelity(qcp_leak)
 # ### 1. Start Without Constraints
 
 ## First, find a good solution with just objectives
-qcp_simple = SmoothPulseProblem(
-    UnitaryTrajectory(sys, pulse, U_goal), N;
-    Q = 100.0,
-)
+qcp_simple = SmoothPulseProblem(UnitaryTrajectory(sys, pulse, U_goal), N; Q = 100.0)
 cached_solve!(qcp_simple, "constraints_simple"; max_iter = 100)
 fidelity(qcp_simple)
 

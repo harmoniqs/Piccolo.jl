@@ -647,10 +647,7 @@ with each system and computing the fidelity against the goal.
 """
 function Rollouts.fidelity(traj::SamplingTrajectory; kwargs...)
     base = traj.base_trajectory
-    return [
-        Rollouts.fidelity(_swap_system(base, sys); kwargs...)
-        for sys in traj.systems
-    ]
+    return [Rollouts.fidelity(_swap_system(base, sys); kwargs...) for sys in traj.systems]
 end
 
 # Helpers to create a trajectory with a different system (for per-system fidelity evaluation)

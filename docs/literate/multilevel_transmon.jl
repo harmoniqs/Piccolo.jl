@@ -95,7 +95,8 @@ println("Fidelity: ", fid)
 
 ## create a leakage suppression problem
 qcp_leakage = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     ddu_bound = ddu_bound,
     Q = 100.0,
     R = 1e-2,

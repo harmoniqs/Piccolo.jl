@@ -120,7 +120,13 @@ opts = PiccoloOptions(
 
 ## 5. Solve
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
-cached_solve!(qcp, "leakage_suppression_2"; max_iter = 150, verbose = false, print_level = 1)
+cached_solve!(
+    qcp,
+    "leakage_suppression_2";
+    max_iter = 150,
+    verbose = false,
+    print_level = 1,
+)
 
 fidelity(qcp)
 
@@ -148,7 +154,13 @@ leak_constraint = LeakageConstraint(1e-3, leak_indices, :Ũ⃗, traj)
 ## Step 1: Optimize without leakage constraints
 qtraj2 = UnitaryTrajectory(sys, pulse, U_goal)
 qcp_initial = SmoothPulseProblem(qtraj2, N; Q = 100.0)
-cached_solve!(qcp_initial, "leakage_initial_2"; max_iter = 100, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_initial,
+    "leakage_initial_2";
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
 
 ## Step 2: Add leakage suppression
 opts = PiccoloOptions(
@@ -158,7 +170,13 @@ opts = PiccoloOptions(
     verbose = false,
 )
 qcp_leakage = SmoothPulseProblem(qtraj2, N; Q = 100.0, piccolo_options = opts)
-cached_solve!(qcp_leakage, "leakage_with_suppression_2"; max_iter = 150, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_leakage,
+    "leakage_with_suppression_2";
+    max_iter = 150,
+    verbose = false,
+    print_level = 1,
+)
 
 fidelity(qcp_initial)
 

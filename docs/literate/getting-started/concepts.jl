@@ -123,10 +123,7 @@ fidelity(qcp)
 #
 # Most common use case — synthesize a quantum gate:
 
-qcp_gate = SmoothPulseProblem(
-    UnitaryTrajectory(sys, pulse, GATES[:X]),
-    N
-)
+qcp_gate = SmoothPulseProblem(UnitaryTrajectory(sys, pulse, GATES[:X]), N)
 cached_solve!(qcp_gate, "concepts_gate"; max_iter = 100)
 fidelity(qcp_gate)
 
@@ -136,10 +133,7 @@ fidelity(qcp_gate)
 
 ψ_init = ComplexF64[1.0, 0.0]  # |0⟩
 ψ_goal = ComplexF64[0.0, 1.0]  # |1⟩
-qcp_state = SmoothPulseProblem(
-    KetTrajectory(sys, pulse, ψ_init, ψ_goal),
-    N
-)
+qcp_state = SmoothPulseProblem(KetTrajectory(sys, pulse, ψ_init, ψ_goal), N)
 cached_solve!(qcp_state, "concepts_state"; max_iter = 100)
 fidelity(qcp_state)
 

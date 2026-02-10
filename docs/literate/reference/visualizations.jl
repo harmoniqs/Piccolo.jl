@@ -98,10 +98,10 @@ ax = Axis(
     fig5[1, 1],
     xlabel = "Time",
     ylabel = "Control Amplitude",
-    title = "Custom Control Plot"
+    title = "Custom Control Plot",
 )
 
-for i in 1:size(controls, 1)
+for i = 1:size(controls, 1)
     lines!(ax, plot_times, controls[i, :], label = "Drive $i", linewidth = 2)
 end
 axislegend(ax, position = :rt)
@@ -121,7 +121,8 @@ lines!(ax1, plot_times, traj[:u][2, :], label = "u_y", linewidth = 2)
 axislegend(ax1, position = :rt)
 
 ## Control derivatives
-ax2 = Axis(fig6[1, 2], xlabel = "Time", ylabel = "Derivative", title = "Control Derivatives")
+ax2 =
+    Axis(fig6[1, 2], xlabel = "Time", ylabel = "Derivative", title = "Control Derivatives")
 lines!(ax2, plot_times, traj[:du][1, :], label = "du_x", linewidth = 2)
 lines!(ax2, plot_times, traj[:du][2, :], label = "du_y", linewidth = 2)
 axislegend(ax2, position = :rt)
@@ -135,8 +136,22 @@ fig6
 fig7 = Figure(size = (600, 600))
 ax = Axis(fig7[1, 1], xlabel = "u_x", ylabel = "u_y", title = "Control Phase Space")
 lines!(ax, traj[:u][1, :], traj[:u][2, :], linewidth = 2)
-scatter!(ax, [traj[:u][1, 1]], [traj[:u][2, 1]], color = :green, markersize = 15, label = "Start")
-scatter!(ax, [traj[:u][1, end]], [traj[:u][2, end]], color = :red, markersize = 15, label = "End")
+scatter!(
+    ax,
+    [traj[:u][1, 1]],
+    [traj[:u][2, 1]],
+    color = :green,
+    markersize = 15,
+    label = "Start",
+)
+scatter!(
+    ax,
+    [traj[:u][1, end]],
+    [traj[:u][2, end]],
+    color = :red,
+    markersize = 15,
+    label = "End",
+)
 axislegend(ax, position = :rt)
 fig7
 
@@ -177,10 +192,24 @@ fig_custom = Figure(size = (1200, 800))
 fig8 = Figure(size = (800, 400))
 ax = Axis(fig8[1, 1], xlabel = "Time", ylabel = "Amplitude", title = "Styled Plot")
 
-lines!(ax, plot_times, traj[:u][1, :],
-       color = :blue, linewidth = 3, linestyle = :solid, label = "u_x")
-lines!(ax, plot_times, traj[:u][2, :],
-       color = :red, linewidth = 3, linestyle = :dash, label = "u_y")
+lines!(
+    ax,
+    plot_times,
+    traj[:u][1, :],
+    color = :blue,
+    linewidth = 3,
+    linestyle = :solid,
+    label = "u_x",
+)
+lines!(
+    ax,
+    plot_times,
+    traj[:u][2, :],
+    color = :red,
+    linewidth = 3,
+    linestyle = :dash,
+    label = "u_y",
+)
 
 axislegend(ax, position = :rt, backgroundcolor = (:white, 0.8))
 fig8

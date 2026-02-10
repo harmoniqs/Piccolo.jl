@@ -114,11 +114,23 @@ qcp_free = SmoothPulseProblem(
     ddu_bound = 1.0,
     Δt_bounds = (0.01, 0.5),  # Enable variable timesteps
 )
-cached_solve!(qcp_free, "quickstart_free_time"; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_free,
+    "quickstart_free_time";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 
 ## Convert to minimum time problem
 qcp_mintime = MinimumTimeProblem(qcp_free; final_fidelity = 0.99)
-cached_solve!(qcp_mintime, "quickstart_mintime"; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_mintime,
+    "quickstart_mintime";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 
 # Compare durations:
 

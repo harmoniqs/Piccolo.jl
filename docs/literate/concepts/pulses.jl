@@ -186,7 +186,7 @@ ctrl = hcat([pulse_zop(t) for t in times]...)
 
 ## Estimate tangents (finite differences)
 tgts = similar(ctrl)
-for k in 1:N-1
+for k = 1:(N-1)
     tgts[:, k] = (ctrl[:, k+1] - ctrl[:, k]) / (times[k+1] - times[k])
 end
 tgts[:, N] = tgts[:, N-1]

@@ -43,7 +43,8 @@ qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
 # ### Step 2: Base Problem (with free time enabled)
 
 qcp_base = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     Q = 100.0,
     R = 1e-2,
     Δt_bounds = (0.05, 0.5),  ## Required for MinimumTimeProblem
@@ -62,22 +63,14 @@ sum(get_timesteps(get_trajectory(qcp_base)))
 sys_high = QuantumSystem(1.05 * H_drift, H_drives, [1.0, 1.0])
 sys_low = QuantumSystem(0.95 * H_drift, H_drives, [1.0, 1.0])
 
-qcp_robust = SamplingProblem(
-    qcp_base,
-    [sys_nominal, sys_high, sys_low];
-    Q = 100.0,
-)
+qcp_robust = SamplingProblem(qcp_base, [sys_nominal, sys_high, sys_low]; Q = 100.0)
 cached_solve!(qcp_robust, "composition_robust"; max_iter = 100)
 
 fidelity(qcp_robust)
 
 # ### Step 4: Minimize Time
 
-qcp_mintime = MinimumTimeProblem(
-    qcp_robust;
-    final_fidelity = 0.95,
-    D = 100.0,
-)
+qcp_mintime = MinimumTimeProblem(qcp_robust; final_fidelity = 0.95, D = 100.0)
 cached_solve!(qcp_mintime, "composition_mintime"; max_iter = 100)
 
 fidelity(qcp_mintime)

@@ -76,7 +76,7 @@ plot_times = cumsum([0; get_timesteps(traj)])[1:(end-1)]
 fig = Figure(size = (800, 400))
 ax = Axis(fig[1, 1], xlabel = "Time", ylabel = "Control Amplitude")
 
-for i in 1:size(traj[:u], 1)
+for i = 1:size(traj[:u], 1)
     lines!(ax, plot_times, traj[:u][i, :], label = "Drive $i", linewidth = 2)
 end
 
@@ -106,8 +106,22 @@ fig
 fig = Figure(size = (500, 500))
 ax = Axis(fig[1, 1], xlabel = "u_x", ylabel = "u_y", title = "Control Phase Space")
 lines!(ax, traj[:u][1, :], traj[:u][2, :], linewidth = 2)
-scatter!(ax, [traj[:u][1, 1]], [traj[:u][2, 1]], color = :green, markersize = 15, label = "Start")
-scatter!(ax, [traj[:u][1, end]], [traj[:u][2, end]], color = :red, markersize = 15, label = "End")
+scatter!(
+    ax,
+    [traj[:u][1, 1]],
+    [traj[:u][2, 1]],
+    color = :green,
+    markersize = 15,
+    label = "Start",
+)
+scatter!(
+    ax,
+    [traj[:u][1, end]],
+    [traj[:u][2, end]],
+    color = :red,
+    markersize = 15,
+    label = "End",
+)
 axislegend(ax, position = :rt)
 fig
 
@@ -119,7 +133,7 @@ using LinearAlgebra
 
 U_goal = GATES[:X]
 fidelities = Float64[]
-for k in 1:size(traj[:Ũ⃗], 2)
+for k = 1:size(traj[:Ũ⃗], 2)
     U_k = iso_vec_to_operator(traj[:Ũ⃗][:, k])
     F_k = abs(tr(U_goal' * U_k))^2 / sys.levels^2
     push!(fidelities, F_k)
@@ -143,7 +157,13 @@ for (R, label) in [(1e-3, "R=1e-3"), (1e-2, "R=1e-2"), (1e-1, "R=1e-1")]
     pulse_r = ZeroOrderPulse(0.1 * randn(2, N), times)
     qtraj_r = UnitaryTrajectory(sys, pulse_r, GATES[:X])
     qcp_r = SmoothPulseProblem(qtraj_r, N; Q = 100.0, R = R, ddu_bound = 1.0)
-    cached_solve!(qcp_r, "visualization_R_$(R)"; max_iter = 50, verbose = false, print_level = 1)
+    cached_solve!(
+        qcp_r,
+        "visualization_R_$(R)";
+        max_iter = 50,
+        verbose = false,
+        print_level = 1,
+    )
     traj_r = get_trajectory(qcp_r)
     t_r = cumsum([0; get_timesteps(traj_r)])[1:(end-1)]
     lines!(ax, t_r, traj_r[:u][1, :], label = label, linewidth = 2)
@@ -180,8 +200,14 @@ colors = Makie.wong_colors()
 bound = 1.0
 fig = Figure(size = (800, 300))
 ax = Axis(fig[1, 1], xlabel = "Time", ylabel = "Amplitude")
-band!(ax, plot_times, -bound * ones(length(plot_times)), bound * ones(length(plot_times)),
-    color = (:gray, 0.2), label = "Bounds")
+band!(
+    ax,
+    plot_times,
+    -bound * ones(length(plot_times)),
+    bound * ones(length(plot_times)),
+    color = (:gray, 0.2),
+    label = "Bounds",
+)
 lines!(ax, plot_times, traj[:u][1, :], label = "u_x", linewidth = 2)
 axislegend(ax, position = :rt)
 fig

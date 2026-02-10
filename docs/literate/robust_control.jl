@@ -82,7 +82,13 @@ systems = [QuantumSystem(ω * PAULIS[:Z], H_drives, drive_bounds) for ω in ω_s
 
 ## Start from the nominal solution
 qcp_robust = SamplingProblem(qcp_nom, systems; Q = 100.0)
-cached_solve!(qcp_robust, "robust_sampling"; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_robust,
+    "robust_sampling";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 
 fidelity(qcp_robust)
 
@@ -154,11 +160,23 @@ cached_solve!(qcp_free, "robust_free_time"; max_iter = 15, verbose = false, prin
 
 ## Add robustness
 qcp_robust_free = SamplingProblem(qcp_free, systems; Q = 100.0)
-cached_solve!(qcp_robust_free, "robust_free_sampling"; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_robust_free,
+    "robust_free_sampling";
+    max_iter = 15,
+    verbose = false,
+    print_level = 1,
+)
 
 ## Minimize time while maintaining fidelity
 qcp_fast_robust = MinimumTimeProblem(qcp_robust_free; final_fidelity = 0.95, D = 100.0)
-cached_solve!(qcp_fast_robust, "robust_fast_mintime"; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_fast_robust,
+    "robust_fast_mintime";
+    max_iter = 15,
+    verbose = false,
+    print_level = 1,
+)
 
 ## Compare durations
 duration_initial = sum(get_timesteps(get_trajectory(qcp_free)))
@@ -175,7 +193,13 @@ duration_initial, duration_robust, duration_fast
 weights = [0.5, 1.0, 2.0, 1.0, 0.5]  # Emphasize nominal
 
 qcp_weighted = SamplingProblem(qcp_nom, systems; weights = weights, Q = 100.0)
-cached_solve!(qcp_weighted, "robust_weighted"; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_weighted,
+    "robust_weighted";
+    max_iter = 15,
+    verbose = false,
+    print_level = 1,
+)
 
 ## Evaluate
 fidelities_weighted = Float64[]

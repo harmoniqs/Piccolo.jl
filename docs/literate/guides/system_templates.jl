@@ -29,7 +29,7 @@ Random.seed!(42)
 sys = TransmonSystem(
     levels = 3,
     δ = 0.2,                   # Anharmonicity (GHz)
-    drive_bounds = [0.2, 0.2]  # Max amplitude for X, Y drives
+    drive_bounds = [0.2, 0.2],  # Max amplitude for X, Y drives
 )
 
 sys.levels, sys.n_drives
@@ -64,7 +64,13 @@ pulse = ZeroOrderPulse(0.05 * randn(2, N), times)
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
-cached_solve!(qcp, "system_templates_transmon"; max_iter = 100, verbose = false, print_level = 1)
+cached_solve!(
+    qcp,
+    "system_templates_transmon";
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
 
 fidelity(qcp)
 

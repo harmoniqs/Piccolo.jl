@@ -136,21 +136,17 @@ n_op
 #
 # ### Transmon Qubits
 
-sys_transmon = TransmonSystem(
-    levels = 3,
-    δ = 0.2,
-    drive_bounds = [0.2, 0.2],
-)
+sys_transmon = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
 sys_transmon.levels, sys_transmon.n_drives
 
 # ### Other Templates
 #
 # ```julia
 # # Trapped ions
-sys = IonChainSystem(n_ions=2, ω_motional=1.0, η=0.1)
+sys = IonChainSystem(n_ions = 2, ω_motional = 1.0, η = 0.1)
 #
 # # Rydberg atoms
-sys = RydbergChainSystem(n_atoms=3, Ω_max=1.0)
+sys = RydbergChainSystem(n_atoms = 3, Ω_max = 1.0)
 # ```
 #
 # See [System Templates](@ref system-templates) in the How-To Guides for detailed usage.

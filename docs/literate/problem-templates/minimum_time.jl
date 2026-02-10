@@ -110,17 +110,26 @@ fidelity(qcp_mintime)
 results = []
 for target_fidelity in [0.999, 0.99, 0.95, 0.90]
     qcp_mt = MinimumTimeProblem(qcp_base; final_fidelity = target_fidelity)
-    cached_solve!(qcp_mt, "mintime_tradeoff_$(target_fidelity)";
-        max_iter = 100, verbose = false, print_level = 1,
+    cached_solve!(
+        qcp_mt,
+        "mintime_tradeoff_$(target_fidelity)";
+        max_iter = 100,
+        verbose = false,
+        print_level = 1,
     )
     dur = sum(get_timesteps(get_trajectory(qcp_mt)))
-    push!(results, (target=target_fidelity, duration=dur, achieved=fidelity(qcp_mt)))
+    push!(results, (target = target_fidelity, duration = dur, achieved = fidelity(qcp_mt)))
 end
 
 println("Fidelity-Time Trade-off")
 println("─" ^ 50)
 for r in results
-    @printf("  Target: %.3f  │  Duration: %.3f  │  Achieved: %.4f\n", r.target, r.duration, r.achieved)
+    @printf(
+        "  Target: %.3f  │  Duration: %.3f  │  Achieved: %.4f\n",
+        r.target,
+        r.duration,
+        r.achieved
+    )
 end
 #
 # ### With Robust Optimization

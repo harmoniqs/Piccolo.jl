@@ -91,11 +91,8 @@ sys_high = QuantumSystem(1.05 * H_drift, H_drives, [1.0, 1.0])
 sys_low = QuantumSystem(0.95 * H_drift, H_drives, [1.0, 1.0])
 
 ## Robust optimization
-qcp_robust = SamplingProblem(
-    qcp_base,
-    [sys_nominal, sys_high, sys_low];
-    weights = [1.0, 1.0, 1.0],
-)
+qcp_robust =
+    SamplingProblem(qcp_base, [sys_nominal, sys_high, sys_low]; weights = [1.0, 1.0, 1.0])
 cached_solve!(qcp_robust, "sampling_robust"; max_iter = 100)
 
 # ### Weighted Sampling

@@ -71,10 +71,7 @@ pages = [
         "Visualization" => "generated/guides/visualization.md",
         "Custom Objectives" => "generated/guides/custom_objectives.md",
     ],
-    "API Reference" => [
-        "Overview" => "reference/index.md",
-        "Library" => "lib.md",
-    ],
+    "API Reference" => ["Overview" => "reference/index.md", "Library" => "lib.md"],
     "Development" => [
         "Contributing" => "development/contributing.md",
         "Release Notes" => "development/release-notes.md",

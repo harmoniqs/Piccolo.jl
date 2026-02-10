@@ -12,7 +12,7 @@ export cached_solve!
 Get the short git hash of the current HEAD commit.
 Falls back to "unknown" if git is unavailable.
 """
-function get_cache_hash(n::Int=7)
+function get_cache_hash(n::Int = 7)
     try
         return String(strip(read(`git rev-parse --short=$n HEAD`, String)))
     catch
@@ -50,7 +50,7 @@ function save_cache(
 )
     mkpath(data_dir)
     path = joinpath(data_dir, "$(name)_$(hash).jld2")
-    jldsave(path; traj=traj, output=output, hash=hash)
+    jldsave(path; traj = traj, output = output, hash = hash)
     return path
 end
 
@@ -63,9 +63,9 @@ Returns a `NamedTuple` with fields `traj`, `output`, and `hash`.
 function load_cache(path::String)
     data = load(path)
     return (
-        traj=data["traj"]::NamedTrajectory,
-        output=get(data, "output", "")::String,
-        hash=get(data, "hash", "unknown")::String,
+        traj = data["traj"]::NamedTrajectory,
+        output = get(data, "output", "")::String,
+        hash = get(data, "hash", "unknown")::String,
     )
 end
 
@@ -79,7 +79,7 @@ function clean_old_caches!(name::String, data_dir::String, current_hash::String)
     current_file = "$(name)_$(current_hash).jld2"
     for f in readdir(data_dir)
         if startswith(f, "$(name)_") && endswith(f, ".jld2") && f != current_file
-            rm(joinpath(data_dir, f); force=true)
+            rm(joinpath(data_dir, f); force = true)
         end
     end
 end
@@ -92,7 +92,7 @@ iteration lines with a `⋮` marker in between. Non-iteration lines (preamble,
 summary, etc.) are preserved. Returns the original string if there are fewer
 than `head + tail` iterations.
 """
-function truncate_solver_output(output::String; head::Int=5, tail::Int=5)
+function truncate_solver_output(output::String; head::Int = 5, tail::Int = 5)
     lines = split(output, '\n')
 
     # Iteration data lines match: leading whitespace, number, then scientific notation
@@ -107,15 +107,15 @@ function truncate_solver_output(output::String; head::Int=5, tail::Int=5)
     last_head = iter_indices[head]
 
     # First tail iteration line
-    first_tail = iter_indices[n_iters - tail + 1]
+    first_tail = iter_indices[n_iters-tail+1]
 
     # Check for an iteration header line just before the tail section
-    has_header = first_tail > 1 && occursin(r"^iter\s+objective", lines[first_tail - 1])
+    has_header = first_tail > 1 && occursin(r"^iter\s+objective", lines[first_tail-1])
 
     result = lines[1:last_head]
     push!(result, "⋮")
     if has_header
-        push!(result, lines[first_tail - 1])
+        push!(result, lines[first_tail-1])
     end
     append!(result, lines[first_tail:end])
 
@@ -132,19 +132,18 @@ function capture_output(f::Function)
     output_file = tempname()
     local result
     open(output_file, "w") do io
-        redirect_stdio(; stdout=io) do
+        redirect_stdio(; stdout = io) do
             result = f()
         end
     end
     output = read(output_file, String)
-    rm(output_file; force=true)
+    rm(output_file; force = true)
     return output
 end
 
-_maybe_snip(output::String, snip::Bool) =
-    snip ? truncate_solver_output(output) : output
+_maybe_snip(output::String, snip::Bool) = snip ? truncate_solver_output(output) : output
 _maybe_snip(output::String, snip::Tuple{Int,Int}) =
-    truncate_solver_output(output; head=snip[1], tail=snip[2])
+    truncate_solver_output(output; head = snip[1], tail = snip[2])
 
 """
     cached_solve!(qcp, name; data_dir, force, verbose, kwargs...)
@@ -181,11 +180,12 @@ function cached_solve!(
     qcp::QuantumControlProblem,
     name::String;
     data_dir::String = joinpath(
-        dirname(something(Base.active_project(), @__DIR__)), "data"
+        dirname(something(Base.active_project(), @__DIR__)),
+        "data",
     ),
     force::Bool = get(ENV, "PICCOLO_REGENERATE_CACHE", "false") == "true",
     verbose::Bool = true,
-    snip::Union{Bool, Tuple{Int,Int}} = true,
+    snip::Union{Bool,Tuple{Int,Int}} = true,
     kwargs...,
 )
     mkpath(data_dir)
