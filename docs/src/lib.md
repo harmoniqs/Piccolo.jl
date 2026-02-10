@@ -1,3 +1,7 @@
+```@meta
+CollapsedDocStrings = true
+```
+
 # Library Reference
 
 Full docstring reference for all public types and functions in Piccolo.jl.

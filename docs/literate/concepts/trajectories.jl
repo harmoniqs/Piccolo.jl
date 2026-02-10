@@ -47,7 +47,7 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 # ### Solve and Analyze
 
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
-solve!(qcp; max_iter = 50)
+cached_solve!(qcp, "trajectories_unitary"; max_iter = 50)
 fidelity(qcp)
 
 # ### Extracting the Pulse
@@ -75,7 +75,7 @@ qtraj_ket = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 # - Single state transfer
 
 qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0)
-solve!(qcp_ket; max_iter = 50)
+cached_solve!(qcp_ket, "trajectories_ket"; max_iter = 50)
 fidelity(qcp_ket)
 
 # ## MultiKetTrajectory
@@ -103,7 +103,7 @@ qtraj_multi = MultiKetTrajectory(sys, pulse, initial_states, goal_states)
 # `UnitaryTrajectory` which tracks the full unitary).
 
 qcp_multi = SmoothPulseProblem(qtraj_multi, N; Q = 100.0)
-solve!(qcp_multi; max_iter = 50)
+cached_solve!(qcp_multi, "trajectories_multi"; max_iter = 50)
 fidelity(qcp_multi)
 
 # ## DensityTrajectory

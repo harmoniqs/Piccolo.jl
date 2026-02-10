@@ -107,7 +107,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve using native knot times
 qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0)
-solve!(qcp; max_iter = 100)
+cached_solve!(qcp, "spline_pulse_basic"; max_iter = 100)
 
 # ### Warm-Starting from Previous Solution
 #
@@ -129,7 +129,7 @@ solve!(qcp; max_iter = 100)
 # The original pulse above has 50 knots. We can resample to 100 for finer control:
 
 qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
-solve!(qcp_resampled; max_iter = 100)
+cached_solve!(qcp_resampled, "spline_pulse_resampled"; max_iter = 100)
 
 # ### Linear vs Cubic Splines
 #

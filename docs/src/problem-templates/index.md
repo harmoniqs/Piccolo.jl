@@ -17,23 +17,46 @@ Piccolo.jl provides four main problem templates:
 
 Use this decision flowchart to select the right template for your task:
 
-```mermaid
-flowchart TD
-    A[Start: What pulse type?] --> B{Pulse Type}
-    B -->|ZeroOrderPulse| C[SmoothPulseProblem]
-    B -->|LinearSplinePulse| D[SplinePulseProblem]
-    B -->|CubicSplinePulse| D
-
-    C --> E{Need robustness?}
-    D --> E
-
-    E -->|Yes| F[Wrap with SamplingProblem]
-    E -->|No| G{Minimize time?}
-    F --> G
-
-    G -->|Yes| H[Wrap with MinimumTimeProblem]
-    G -->|No| I[Done!]
-    H --> I
+```
+        ┌──────────────────────┐
+        │  What pulse type?    │
+        └──────────┬───────────┘
+           ┌───────┴───────┐
+           ▼               ▼
+    ZeroOrderPulse    SplinePulse
+           │               │
+           ▼               ▼
+  ┌─────────────────┐ ┌─────────────────┐
+  │ SmoothPulse     │ │ SplinePulse     │
+  │ Problem         │ │ Problem         │
+  └────────┬────────┘ └────────┬────────┘
+           └─────────┬─────────┘
+                     ▼
+           ┌──────────────────┐
+           │ Need robustness? │
+           └───┬──────────┬───┘
+            Yes│          │No
+               ▼          │
+       ┌──────────────┐   │
+       │ Sampling     │   │
+       │ Problem      │   │
+       └──────┬───────┘   │
+              └─────┬─────┘
+                    ▼
+           ┌────────────────┐
+           │ Minimize time? │
+           └───┬────────┬───┘
+            Yes│        │No
+               ▼        │
+       ┌──────────────┐ │
+       │ MinimumTime  │ │
+       │ Problem      │ │
+       └──────┬───────┘ │
+              └────┬────┘
+                   ▼
+              ┌────────┐
+              │ Done!  │
+              └────────┘
 ```
 
 ### Quick Decision Guide

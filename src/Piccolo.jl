@@ -19,4 +19,8 @@ include("control/_control.jl")
 include("visualizations/_visualizations.jl")
 @reexport using .Visualizations
 
+# Documentation caching utilities
+include("docs_cache.jl")
+@reexport using .DocsCache
+
 end

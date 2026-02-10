@@ -72,52 +72,17 @@ qtraj = UnitaryTrajectory(sys, pulse, op)
 ## create the optimization problem
 qcp = SmoothPulseProblem(qtraj, N; ddu_bound = ddu_bound, Q = 100.0, R = 1e-2)
 
-#=
-To solve this problem, we would run:
+# ## Solving the problem
 
-```julia
-solve!(qcp; max_iter=50)
-```
+## We solve the problem using `cached_solve!`, which transparently caches the
+## optimized trajectory and solver output for docs purposes. In practice, you can use `solve!` directly.
 
-The output would look something like:
+cached_solve!(qcp, "multilevel_transmon"; max_iter = 50)
 
-```
-    initializing optimizer...
-    applying constraint: timesteps all equal constraint
-    applying constraint: initial value of Ũ⃗
-    applying constraint: initial value of u
-    applying constraint: final value of u
-    applying constraint: bounds on u
-    applying constraint: bounds on du
-    applying constraint: bounds on ddu
-    applying constraint: bounds on Δt
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.1.
+# After optimization, we can check the fidelity in the subspace:
 
-Number of nonzeros in equality constraint Jacobian...:   130578
-Number of nonzeros in inequality constraint Jacobian.:        0
-Number of nonzeros in Lagrangian Hessian.............:    11223
-
-Total number of variables............................:     2796
-
-Number of Iterations....: 50
-
-EXIT: Maximum Number of Iterations Exceeded.
-```
-=#
-
-# For this documentation, we skip the actual solve and show pre-computed results below.
-# In practice, you would run `solve!(qcp; max_iter=50)` to optimize the pulse.
-
-# After optimization, you can check the fidelity in the subspace:
-
-#=
-```julia
 fid = fidelity(qcp)
 println("Fidelity: ", fid)
-```
-
-With sufficient iterations, you should see fidelity > 0.99.
-=#
 
 # ## Leakage suppression
 
@@ -128,47 +93,41 @@ With sufficient iterations, you should see fidelity > 0.99.
 # To implement leakage suppression, pass `leakage_constraint=true` and configure the leakage
 # parameters:
 
-#=
-```julia
 ## create a leakage suppression problem
 qcp_leakage = SmoothPulseProblem(
-    qtraj, N;
-    ddu_bound=ddu_bound,
-    Q=100.0,
-    R=1e-2,
-    piccolo_options=PiccoloOptions(
-        leakage_constraint=true,
-        leakage_constraint_value=1e-2,
-        leakage_cost=1e-2,
+    qtraj,
+    N;
+    ddu_bound = ddu_bound,
+    Q = 100.0,
+    R = 1e-2,
+    piccolo_options = PiccoloOptions(
+        leakage_constraint = true,
+        leakage_constraint_value = 1e-2,
+        leakage_cost = 1e-2,
     ),
 )
 
 ## solve the problem
-solve!(qcp_leakage; max_iter=50)
-```
-=#
+cached_solve!(qcp_leakage, "multilevel_transmon_leakage"; max_iter = 50)
 
 # The leakage suppression adds:
 # - An L1-norm cost on populating leakage levels (drives populations toward zero)
 # - A constraint that keeps leakage below the specified threshold
 
-# After optimization with leakage suppression, you should see substantially reduced
-# population in the higher energy levels during the gate evolution.
+fid_leakage = fidelity(qcp_leakage)
+println("Fidelity with leakage suppression: ", fid_leakage)
 
 # ## Visualizing Results
 
-# Piccolo provides plotting utilities to visualize the unitary evolution:
+# Piccolo provides plotting utilities to visualize the unitary evolution.
+# First, without leakage suppression:
 
-#=
-```julia
-## plot the state populations over time
-plot_unitary_populations(get_trajectory(qcp); fig_size=(900, 700))
-```
-=#
+plot_unitary_populations(get_trajectory(qcp); fig_size = (900, 700))
 
-# This shows how the population flows between energy levels during the gate.
-# With leakage suppression, you should see the population staying mostly
-# within the computational subspace (first two levels).
+# And with leakage suppression — you should see the population staying mostly
+# within the computational subspace (first two levels):
+
+plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))
 
 # ## Summary
 

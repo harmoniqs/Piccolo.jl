@@ -88,7 +88,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
-solve!(qcp; max_iter = 100)
+cached_solve!(qcp, "smooth_pulse_basic"; max_iter = 100)
 
 fidelity(qcp)
 
@@ -97,10 +97,11 @@ fidelity(qcp)
 # Constrain how fast controls can change:
 
 qcp = SmoothPulseProblem(
-    qtraj, N;
-    Q=100.0,
-    du_bound=0.5,    ## Limit control jumps
-    ddu_bound=0.1    ## Limit control acceleration
+    qtraj,
+    N;
+    Q = 100.0,
+    du_bound = 0.5,    ## Limit control jumps
+    ddu_bound = 0.1,    ## Limit control acceleration
 )
 
 # ### Enabling Free Time for MinimumTimeProblem
@@ -108,32 +109,34 @@ qcp = SmoothPulseProblem(
 # To later use `MinimumTimeProblem`, give bounds on variable timesteps:
 #
 qcp = SmoothPulseProblem(
-    qtraj, N;
-    Q=100.0,
-    Δt_bounds=(0.01, 0.5)  ## Timesteps can vary from 0.01 to 0.5
+    qtraj,
+    N;
+    Q = 100.0,
+    Δt_bounds = (0.01, 0.5),  ## Timesteps can vary from 0.01 to 0.5
 )
-solve!(qcp; max_iter=100)
+cached_solve!(qcp, "smooth_pulse_free_time"; max_iter = 100)
 
 ## Now can minimize time
-qcp_mintime = MinimumTimeProblem(qcp; final_fidelity=0.99)
-solve!(qcp_mintime; max_iter=100)
+qcp_mintime = MinimumTimeProblem(qcp; final_fidelity = 0.99)
+cached_solve!(qcp_mintime, "smooth_pulse_mintime"; max_iter = 100)
 
 # ### Per-Drive Regularization
 #
 # Apply different regularization to different control channels:
 
 qcp = SmoothPulseProblem(
-    qtraj, N;
-    Q=100.0,
-    R_u=[1e-3, 1e-2],     ## Less regularization on drive 1
-    R_du=[1e-2, 1e-1],    ## Different smoothness weights
-    R_ddu=[1e-2, 1e-1]
+    qtraj,
+    N;
+    Q = 100.0,
+    R_u = [1e-3, 1e-2],     ## Less regularization on drive 1
+    R_du = [1e-2, 1e-1],    ## Different smoothness weights
+    R_ddu = [1e-2, 1e-1],
 )
 
 # ### With Leakage Suppression
 #
 # For multilevel systems, use `PiccoloOptions` to enable leakage handling, in this example a 3-level transmon system:
-sys = TransmonSystem(levels=3, δ=0.2, drive_bounds=[0.2, 0.2])
+sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
 
 ## Embedded X gate (only affects computational subspace)
 U_goal = EmbeddedOperator(:X, sys)
@@ -142,13 +145,10 @@ pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 ## Enable leakage suppression
-opts = PiccoloOptions(
-    leakage_constraint=true,
-    leakage_constraint_value=1e-3
-)
+opts = PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 1e-3)
 
-qcp = SmoothPulseProblem(qtraj, N; Q=100.0, piccolo_options=opts)
-solve!(qcp; max_iter=100)
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
+cached_solve!(qcp, "smooth_pulse_leakage"; max_iter = 100)
 
 # ### State Transfer
 #
@@ -162,8 +162,8 @@ sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 
-qcp = SmoothPulseProblem(qtraj, N; Q=100.0)
-solve!(qcp; max_iter=100)
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+cached_solve!(qcp, "smooth_pulse_state_transfer"; max_iter = 100)
 
 # ### Multiple State Transfers
 #
@@ -174,8 +174,8 @@ solve!(qcp; max_iter=100)
 ## X gate: |0⟩ → |1⟩ and |1⟩ → |0⟩
 qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
-qcp = SmoothPulseProblem(qtraj, N; Q=100.0)
-solve!(qcp; max_iter=100)
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+cached_solve!(qcp, "smooth_pulse_multi_ket"; max_iter = 100)
 
 # ## How It Works
 #

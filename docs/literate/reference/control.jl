@@ -48,7 +48,7 @@ qcp = SmoothPulseProblem(
     N;
     Q = 100.0,        # Fidelity weight
     R = 1e-2,         # Regularization weight
-    ddu_bound = 1.0   # Control acceleration bound
+    ddu_bound = 1.0,   # Control acceleration bound
 )
 
 println("Problem type: ", typeof(qcp))
@@ -70,7 +70,7 @@ goal |> sparse
 #
 # Use the `solve!` function to optimize:
 
-solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(qcp, "control_ref_basic"; max_iter = 20, verbose = false, print_level = 1)
 
 # After optimization:
 
@@ -83,7 +83,12 @@ traj = get_trajectory(qcp)
 plot_times = cumsum([0; get_timesteps(traj)])[1:(end-1)]
 
 fig = Figure(size = (800, 400))
-ax = Axis(fig[1, 1], xlabel = "Time", ylabel = "Control Amplitude", title = "Optimized Controls")
+ax = Axis(
+    fig[1, 1],
+    xlabel = "Time",
+    ylabel = "Control Amplitude",
+    title = "Optimized Controls",
+)
 lines!(ax, plot_times, traj[:u][1, :], label = "u_x", linewidth = 2)
 lines!(ax, plot_times, traj[:u][2, :], label = "u_y", linewidth = 2)
 axislegend(ax, position = :rt)
@@ -104,7 +109,7 @@ qcp_base = SmoothPulseProblem(qtraj2, 30; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
 qcp_mintime = MinimumTimeProblem(
     qcp_base;
     final_fidelity = 0.99,  # Target fidelity
-    D = 100.0                # Time penalty weight
+    D = 100.0,                # Time penalty weight
 )
 
 # ## SamplingProblem
@@ -141,7 +146,7 @@ opts = PiccoloOptions(
     leakage_constraint = true,
     leakage_constraint_value = 1e-2,
     leakage_cost = 1e-2,
-    verbose = true
+    verbose = true,
 )
 
 # The options configured:
@@ -188,7 +193,7 @@ qcp_ket = SmoothPulseProblem(
     N;
     Q = 100.0,        # Fidelity weight
     R = 1e-2,         # Regularization weight
-    ddu_bound = 1.0   # Control acceleration bound
+    ddu_bound = 1.0,   # Control acceleration bound
 )
 
 ket_traj = get_trajectory(qcp_ket)

@@ -52,12 +52,13 @@ qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
 traj = get_trajectory(qcp)
 
 ## Define a custom loss: trace distance penalty on the isomorphic unitary vector
-trace_distance_loss(Ũ⃗) = let
-    U = iso_vec_to_operator(Ũ⃗)
-    n = size(U, 1)
-    diff = U - U_goal
-    real(tr(diff' * diff)) / n
-end
+trace_distance_loss(Ũ⃗) =
+    let
+        U = iso_vec_to_operator(Ũ⃗)
+        n = size(U, 1)
+        diff = U - U_goal
+        real(tr(diff' * diff)) / n
+    end
 
 ## Wrap it in a TerminalObjective (evaluated on :Ũ⃗ at the final timestep)
 custom_terminal_obj = TerminalObjective(trace_distance_loss, :Ũ⃗, traj; Q = 50.0)
@@ -71,11 +72,8 @@ custom_terminal_obj = TerminalObjective(trace_distance_loss, :Ũ⃗, traj; Q = 5
 control_energy_loss(u) = dot(u, u)
 
 ## Applied at all timesteps on the :u component
-custom_knotpoint_obj = KnotPointObjective(
-    control_energy_loss, :u, traj;
-    Qs = fill(0.1, N),
-    times = 1:N
-)
+custom_knotpoint_obj =
+    KnotPointObjective(control_energy_loss, :u, traj; Qs = fill(0.1, N), times = 1:N)
 
 # ## Adding Custom Objectives to a Problem
 #
@@ -105,13 +103,25 @@ qcp.prob.objective += custom_knotpoint_obj
 #
 # Solve with the extra control energy penalty:
 
-solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(
+    qcp,
+    "custom_objectives_with_penalty";
+    max_iter = 50,
+    verbose = false,
+    print_level = 1,
+)
 fidelity(qcp)
 
 # Compare against the standard problem:
 
 qcp_standard = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp_standard; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_standard,
+    "custom_objectives_standard";
+    max_iter = 50,
+    verbose = false,
+    print_level = 1,
+)
 fidelity(qcp_standard)
 
 # ## Example: Leakage-Style Penalty
@@ -123,11 +133,7 @@ leakage_indices = [3, 4]  # Indices of leakage states in the isomorphic vector
 
 leakage_loss(x) = sum(abs2, x[leakage_indices]) / length(leakage_indices)
 
-leakage_obj = KnotPointObjective(
-    leakage_loss, :Ũ⃗, traj;
-    Qs = fill(1.0, N),
-    times = 1:N
-)
+leakage_obj = KnotPointObjective(leakage_loss, :Ũ⃗, traj; Qs = fill(1.0, N), times = 1:N)
 
 # ## Tips for Custom Objectives
 

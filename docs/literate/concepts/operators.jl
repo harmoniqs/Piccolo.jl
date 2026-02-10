@@ -20,6 +20,7 @@
 # ### Construction
 
 using Piccolo
+using SparseArrays
 
 ## From a gate symbol
 sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
@@ -80,7 +81,7 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 ## Solve with leakage handling
 opts = PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 1e-3)
 qcp = SmoothPulseProblem(qtraj, N; piccolo_options = opts)
-solve!(qcp; max_iter = 100)
+cached_solve!(qcp, "operators_embedded"; max_iter = 100)
 fidelity(qcp)
 
 # ## lift_operator
@@ -92,11 +93,13 @@ fidelity(qcp)
 
 ## Operator on qubit 1 of a 2-qubit system
 X_on_q1 = lift_operator(PAULIS[:X], 1, [2, 2])  # X ⊗ I
-X_on_q1
+X_on_q1 |> sparse
+
+#-
 
 ## Operator on qubit 2
 Z_on_q2 = lift_operator(PAULIS[:Z], 2, [2, 2])  # I ⊗ Z
-Z_on_q2
+Z_on_q2 |> sparse
 
 # ### Arguments
 #
@@ -119,7 +122,7 @@ X2 = lift_operator(PAULIS[:X], 2, dims)
 ## Build Hamiltonian: H = ω1*Z1 + ω2*Z2 + J*Z1*Z2
 ω1, ω2, J = 1.0, 1.1, 0.05
 H_drift_2q = ω1 * Z1 + ω2 * Z2 + J * Z1 * Z2
-H_drift_2q
+H_drift_2q |> sparse
 
 # ## direct_sum
 #
@@ -144,23 +147,23 @@ C
 #
 # ### Mixed Subsystems
 #
-# ```julia
-# # Qubit coupled to resonator (cavity)
-# # Qubit: 2 levels, Cavity: 10 levels
-# dims = [2, 10]
-#
-# # Qubit operators
-# σ_x = lift_operator(PAULIS[:X], 1, dims)
-# σ_z = lift_operator(PAULIS[:Z], 1, dims)
-#
-# # Cavity operators
-# a = lift_operator(annihilate(10), 2, dims)
-# a_dag = lift_operator(create(10), 2, dims)
-#
-# # Jaynes-Cummings coupling
-# g = 0.1
-# H_coupling = g * (σ_x * (a + a_dag))
-# ```
+# Qubit coupled to a resonator (cavity):
+
+## Qubit: 2 levels, Cavity: 10 levels
+dims_qc = [2, 10]
+
+## Qubit operators
+σ_x = lift_operator(PAULIS[:X], 1, dims_qc)
+σ_z = lift_operator(PAULIS[:Z], 1, dims_qc)
+
+## Cavity operators
+a_cav = lift_operator(annihilate(10), 2, dims_qc)
+a_dag_cav = lift_operator(create(10), 2, dims_qc)
+
+## Jaynes-Cummings coupling
+g_jc = 0.1
+H_coupling = g_jc * (σ_x * (a_cav + a_dag_cav))
+H_coupling |> sparse
 #
 # ## Utility Functions
 #
@@ -171,10 +174,18 @@ levels = 5
 a = annihilate(levels)
 a_dag = create(levels)
 n_op = a_dag * a  # Number operator
-n_op
+n_op |> sparse
+#-
 
 ## Pauli matrices
 I2, X, Y, Z = PAULIS[:I], PAULIS[:X], PAULIS[:Y], PAULIS[:Z]
+I2 |> sparse
+#-
+X |> sparse
+#-
+Y |> sparse
+#-
+Z |> sparse
 
 # ### Tensor Products
 

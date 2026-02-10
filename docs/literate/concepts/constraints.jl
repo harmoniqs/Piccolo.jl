@@ -39,11 +39,12 @@ U_goal = GATES[:X]
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 qcp = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     du_bound = 0.5,    # Max control jump per timestep
     ddu_bound = 0.1,   # Max control acceleration
 )
-solve!(qcp; max_iter = 50)
+cached_solve!(qcp, "constraints_bounds"; max_iter = 50)
 fidelity(qcp)
 
 # ### Timestep Bounds
@@ -78,12 +79,12 @@ fidelity(qcp)
 
 ## First solve a base problem with variable timesteps
 qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds = (0.01, 0.5))
-solve!(qcp_base; max_iter = 100)
+cached_solve!(qcp_base, "constraints_base_freetime"; max_iter = 100)
 fidelity(qcp_base)
 
 ## Automatically adds FinalUnitaryFidelityConstraint
 qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99)
-solve!(qcp_mintime; max_iter = 100)
+cached_solve!(qcp_mintime, "constraints_mintime"; max_iter = 100)
 fidelity(qcp_mintime)
 
 # ## Leakage Constraints
@@ -92,10 +93,7 @@ fidelity(qcp_mintime)
 #
 # The easiest approach to handle leakage:
 
-opts = PiccoloOptions(
-    leakage_constraint = true,
-    leakage_constraint_value = 1e-3,
-)
+opts = PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 1e-3)
 
 ## Example with a transmon system
 sys_transmon = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
@@ -104,7 +102,7 @@ U_X = EmbeddedOperator(:X, sys_transmon)
 qtraj_t = UnitaryTrajectory(sys_transmon, pulse_t, U_X)
 
 qcp_leak = SmoothPulseProblem(qtraj_t, N; piccolo_options = opts)
-solve!(qcp_leak; max_iter = 100)
+cached_solve!(qcp_leak, "constraints_leakage"; max_iter = 100)
 fidelity(qcp_leak)
 
 # ## PiccoloOptions
@@ -187,11 +185,8 @@ fidelity(qcp_leak)
 # ### 1. Start Without Constraints
 
 ## First, find a good solution with just objectives
-qcp_simple = SmoothPulseProblem(
-    UnitaryTrajectory(sys, pulse, U_goal), N;
-    Q = 100.0,
-)
-solve!(qcp_simple; max_iter = 100)
+qcp_simple = SmoothPulseProblem(UnitaryTrajectory(sys, pulse, U_goal), N; Q = 100.0)
+cached_solve!(qcp_simple, "constraints_simple"; max_iter = 100)
 fidelity(qcp_simple)
 
 # ### 2. Add Constraints Gradually

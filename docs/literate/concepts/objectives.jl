@@ -155,13 +155,14 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 ## - UnitaryInfidelityObjective (for UnitaryTrajectory)
 ## - QuadraticRegularizer for :u, :du, :ddu
 qcp = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     Q = 100.0,      # Fidelity weight
     R_u = 1e-3,     # Control regularization
     R_du = 1e-2,    # First derivative regularization
     R_ddu = 1e-2,   # Second derivative regularization
 )
-solve!(qcp; max_iter = 50)
+cached_solve!(qcp, "objectives_example"; max_iter = 50)
 fidelity(qcp)
 
 # ### Trajectory-Dependent Objectives
@@ -193,19 +194,15 @@ fidelity(qcp)
 # Let's compare different weight settings:
 
 ## High fidelity weight
-qcp_high_Q = SmoothPulseProblem(
-    UnitaryTrajectory(sys, pulse, U_goal), N;
-    Q = 1000.0, R = 1e-2
-)
-solve!(qcp_high_Q; max_iter = 100)
+qcp_high_Q =
+    SmoothPulseProblem(UnitaryTrajectory(sys, pulse, U_goal), N; Q = 1000.0, R = 1e-2)
+cached_solve!(qcp_high_Q, "objectives_high_Q"; max_iter = 100)
 fidelity(qcp_high_Q)
 
 # High regularization
-qcp_high_R = SmoothPulseProblem(
-    UnitaryTrajectory(sys, pulse, U_goal), N;
-    Q = 100.0, R = 0.1
-)
-solve!(qcp_high_R; max_iter = 100)
+qcp_high_R =
+    SmoothPulseProblem(UnitaryTrajectory(sys, pulse, U_goal), N; Q = 100.0, R = 0.1)
+cached_solve!(qcp_high_R, "objectives_high_R"; max_iter = 100)
 fidelity(qcp_high_R)
 
 # ### Typical Starting Values

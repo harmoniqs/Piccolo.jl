@@ -53,7 +53,7 @@ H_c[1]
 transmon_sys = TransmonSystem(
     levels = 3,           # Include first 3 levels
     δ = -0.2,             # Anharmonicity (relative to ω)
-    drive_bounds = [0.2, 0.2]  # Control amplitudes
+    drive_bounds = [0.2, 0.2],  # Control amplitudes
 )
 
 # This creates a 3-level transmon system:
@@ -85,7 +85,7 @@ println("Control at t=5: ", pulse(5.0))
 gaussian_pulse = GaussianPulse(
     [0.5, 0.3],  # Amplitudes for each drive
     2.0,         # Sigma (width)
-    10.0         # Duration
+    10.0,         # Duration
 )
 
 duration(gaussian_pulse)
@@ -198,7 +198,7 @@ embedded_X = EmbeddedOperator(:X, transmon_3level)
 
 ## Get the full-space operator by embedding the X gate into the 3-level system
 X_2level = GATES[:X]
-X_embedded_full = embed(X_2level, embedded_X) 
+X_embedded_full = embed(X_2level, embedded_X)
 X_embedded_full |> sparse
 
 # # Isomorphisms
@@ -214,7 +214,7 @@ X_embedded_full |> sparse
 (ψ, ψ̃)
 
 # Convert back to complex ket:
-iso_to_ket(ψ̃) 
+iso_to_ket(ψ̃)
 
 # ## Operators/Unitaries
 

@@ -62,10 +62,11 @@ integrator = HermitianExponentialIntegrator(qtraj, N; global_names = [:δ])
 
 ## Set up problem with global bounds
 qcp = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     integrator = integrator,
     global_names = [:δ],
-    global_bounds = Dict(:δ => (0.05, 0.2))  # δ ∈ [0.05, 0.2]
+    global_bounds = Dict(:δ => (0.05, 0.2)),  # δ ∈ [0.05, 0.2]
 )
 
 solve!(qcp; max_iter = 100)
@@ -88,7 +89,7 @@ global_bounds = Dict(:δ => (0.05, 0.2))
 ## Multiple globals
 global_bounds = Dict(
     :δ => (0.05, 0.2),
-    :J => 0.01  # J ∈ [J₀ - 0.01, J₀ + 0.01]
+    :J => 0.01,  # J ∈ [J₀ - 0.01, J₀ + 0.01]
 )
 
 # ## Multiple Global Variables
@@ -103,15 +104,19 @@ function H_multi(u, t)
 end
 
 sys_multi = QuantumSystem(
-    H_multi, [1.0]; time_dependent = true, global_params = (ω = 1.0, J = 0.05)
+    H_multi,
+    [1.0];
+    time_dependent = true,
+    global_params = (ω = 1.0, J = 0.05),
 )
 
 ## Optimize ω and J
 qcp = SmoothPulseProblem(
-    qtraj, N;
+    qtraj,
+    N;
     integrator = integrator,
     global_names = [:ω, :J],
-    global_bounds = Dict(:ω => (0.9, 1.1), :J => 0.02)
+    global_bounds = Dict(:ω => (0.9, 1.1), :J => 0.02),
 )
 
 # ## Best Practices

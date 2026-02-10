@@ -28,7 +28,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp, "viz_ref_unitary"; max_iter = 50, verbose = false, print_level = 1)
 
 # Optimization complete:
 
@@ -78,7 +78,7 @@ fig3
 pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
 qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp_ket; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp_ket, "viz_ref_ket"; max_iter = 50, verbose = false, print_level = 1)
 
 traj_ket = get_trajectory(qcp_ket)
 fig4 = plot_state_populations(traj_ket)
@@ -98,10 +98,10 @@ ax = Axis(
     fig5[1, 1],
     xlabel = "Time",
     ylabel = "Control Amplitude",
-    title = "Custom Control Plot"
+    title = "Custom Control Plot",
 )
 
-for i in 1:size(controls, 1)
+for i = 1:size(controls, 1)
     lines!(ax, plot_times, controls[i, :], label = "Drive $i", linewidth = 2)
 end
 axislegend(ax, position = :rt)
@@ -121,7 +121,8 @@ lines!(ax1, plot_times, traj[:u][2, :], label = "u_y", linewidth = 2)
 axislegend(ax1, position = :rt)
 
 ## Control derivatives
-ax2 = Axis(fig6[1, 2], xlabel = "Time", ylabel = "Derivative", title = "Control Derivatives")
+ax2 =
+    Axis(fig6[1, 2], xlabel = "Time", ylabel = "Derivative", title = "Control Derivatives")
 lines!(ax2, plot_times, traj[:du][1, :], label = "du_x", linewidth = 2)
 lines!(ax2, plot_times, traj[:du][2, :], label = "du_y", linewidth = 2)
 axislegend(ax2, position = :rt)
@@ -135,8 +136,22 @@ fig6
 fig7 = Figure(size = (600, 600))
 ax = Axis(fig7[1, 1], xlabel = "u_x", ylabel = "u_y", title = "Control Phase Space")
 lines!(ax, traj[:u][1, :], traj[:u][2, :], linewidth = 2)
-scatter!(ax, [traj[:u][1, 1]], [traj[:u][2, 1]], color = :green, markersize = 15, label = "Start")
-scatter!(ax, [traj[:u][1, end]], [traj[:u][2, end]], color = :red, markersize = 15, label = "End")
+scatter!(
+    ax,
+    [traj[:u][1, 1]],
+    [traj[:u][2, 1]],
+    color = :green,
+    markersize = 15,
+    label = "Start",
+)
+scatter!(
+    ax,
+    [traj[:u][1, end]],
+    [traj[:u][2, end]],
+    color = :red,
+    markersize = 15,
+    label = "End",
+)
 axislegend(ax, position = :rt)
 fig7
 
@@ -177,10 +192,24 @@ fig_custom = Figure(size = (1200, 800))
 fig8 = Figure(size = (800, 400))
 ax = Axis(fig8[1, 1], xlabel = "Time", ylabel = "Amplitude", title = "Styled Plot")
 
-lines!(ax, plot_times, traj[:u][1, :],
-       color = :blue, linewidth = 3, linestyle = :solid, label = "u_x")
-lines!(ax, plot_times, traj[:u][2, :],
-       color = :red, linewidth = 3, linestyle = :dash, label = "u_y")
+lines!(
+    ax,
+    plot_times,
+    traj[:u][1, :],
+    color = :blue,
+    linewidth = 3,
+    linestyle = :solid,
+    label = "u_x",
+)
+lines!(
+    ax,
+    plot_times,
+    traj[:u][2, :],
+    color = :red,
+    linewidth = 3,
+    linestyle = :dash,
+    label = "u_y",
+)
 
 axislegend(ax, position = :rt, backgroundcolor = (:white, 0.8))
 fig8
@@ -215,7 +244,7 @@ println("Control array size: ", size(control_values)) # nothing
 pulse2 = ZeroOrderPulse(0.15 * randn(2, N), times)
 qtraj2 = UnitaryTrajectory(sys, pulse2, GATES[:X])
 qcp2 = SmoothPulseProblem(qtraj2, N; Q = 100.0, R = 2e-2, ddu_bound = 1.0)
-solve!(qcp2; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp2, "viz_ref_comparison"; max_iter = 50, verbose = false, print_level = 1)
 traj2 = get_trajectory(qcp2)
 
 fig9 = Figure(size = (800, 400))
