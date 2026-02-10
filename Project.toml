@@ -1,7 +1,7 @@
 name = "Piccolo"
 uuid = "c4671d76-df94-11ed-2057-43d4fd632fad"
 version = "1.0.0"
-authors = ["Aaron Trowbridge <aaron.j.trowbridge@gmail.com> and contributors"]
+authors = ["Aaron Trowbridge <aaron@harmoniqs.co> and contributors"]
 
 [deps]
 DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
