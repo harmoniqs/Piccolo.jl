@@ -47,15 +47,15 @@ function UnitaryTrajectory(
     system::QuantumSystem,
     pulse::AbstractPulse,
     goal::G;
-    initial::AbstractMatrix{<:Number} = Matrix{ComplexF64}(I, system.levels, system.levels),
-    algorithm = MagnusGL4(),
+    initial::AbstractMatrix{<:Number}=Matrix{ComplexF64}(I, system.levels, system.levels),
+    algorithm=MagnusGL4(),
 ) where {G}
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
     U0 = Matrix{ComplexF64}(initial)
-    times = collect(range(0.0, duration(pulse), length = 101))
-    prob = UnitaryOperatorODEProblem(system, pulse, times; U0 = U0)
-    sol = solve(prob, algorithm; saveat = times)
+    times = collect(range(0.0, duration(pulse), length=1001))
+    prob = UnitaryOperatorODEProblem(system, pulse, times; U0=U0)
+    sol = solve(prob, algorithm; saveat=times)
 
     return UnitaryTrajectory{typeof(pulse),typeof(sol),G}(system, pulse, U0, goal, sol)
 end
@@ -78,8 +78,8 @@ function UnitaryTrajectory(
     system::QuantumSystem,
     goal::G,
     T::Real;
-    drive_name::Symbol = :u,
-    algorithm = MagnusGL4(),
+    drive_name::Symbol=:u,
+    algorithm=MagnusGL4(),
 ) where {G}
     times = [0.0, T]
     controls = zeros(system.n_drives, 2)
@@ -183,6 +183,6 @@ end
     @test qtraj.goal isa EmbeddedOperator
 
     # Fidelity with subspace
-    fid = fidelity(qtraj; subspace = [1, 2])
+    fid = fidelity(qtraj; subspace=[1, 2])
     @test fid isa Real
 end
