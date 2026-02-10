@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>SamplingProblem · Piccolo.jl</title><meta name="title" content="SamplingProblem · Piccolo.jl"/><meta property="og:title" content="SamplingProblem · Piccolo.jl"/><meta property="twitter:title" content="SamplingProblem · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/sampling/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/sampling/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/sampling/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li><li><a class="tocitem" href="../../getting-started/concepts/">Core Concepts</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../spline_pulse/">SplinePulseProblem</a></li><li><a class="tocitem" href="../minimum_time/">MinimumTimeProblem</a></li><li class="is-active"><a class="tocitem" href>SamplingProblem</a><ul class="internal"><li><a class="tocitem" href="#When-to-Use"><span>When to Use</span></a></li><li><a class="tocitem" href="#Key-Design:-Composition-Pattern"><span>Key Design: Composition Pattern</span></a></li><li><a class="tocitem" href="#Constructor"><span>Constructor</span></a></li><li><a class="tocitem" href="#Parameter-Reference"><span>Parameter Reference</span></a></li><li><a class="tocitem" href="#Optimization-Objective"><span>Optimization Objective</span></a></li><li><a class="tocitem" href="#Examples"><span>Examples</span></a></li><li><a class="tocitem" href="#Trajectory-Structure"><span>Trajectory Structure</span></a></li><li><a class="tocitem" href="#Difference-from-MultiKetTrajectory"><span>Difference from MultiKetTrajectory</span></a></li><li><a class="tocitem" href="#Evaluating-Robustness"><span>Evaluating Robustness</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li><a class="tocitem" href="../../concepts/systems/">Quantum Systems</a></li><li><a class="tocitem" href="../../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li><a class="tocitem" href="../../guides/system_templates/">System Templates</a></li><li><a class="tocitem" href="../../guides/leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../../guides/global_variables/">Global Variables</a></li><li><a class="tocitem" href="../../guides/visualization/">Visualization</a></li><li><a class="tocitem" href="../../guides/custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Problem Templates</a></li><li class="is-active"><a href>SamplingProblem</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>SamplingProblem</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/problem-templates/sampling.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="sampling"><a class="docs-heading-anchor" href="#sampling">SamplingProblem</a><a id="sampling-1"></a><a class="docs-heading-anchor-permalink" href="#sampling" title="Permalink"></a></h1><p><code>SamplingProblem</code> enables robust optimization over multiple system variants with shared controls. This is essential for designing pulses that perform well despite parameter uncertainty or variation.</p><h2 id="When-to-Use"><a class="docs-heading-anchor" href="#When-to-Use">When to Use</a><a id="When-to-Use-1"></a><a class="docs-heading-anchor-permalink" href="#When-to-Use" title="Permalink"></a></h2><p>Use <code>SamplingProblem</code> when:</p><ul><li>Your system parameters have uncertainty (e.g., qubit frequency drift)</li><li>You need pulses robust to fabrication variations</li><li>You want to optimize across an ensemble of similar systems</li><li>You&#39;re designing calibration-free gates</li></ul><h2 id="Key-Design:-Composition-Pattern"><a class="docs-heading-anchor" href="#Key-Design:-Composition-Pattern">Key Design: Composition Pattern</a><a id="Key-Design:-Composition-Pattern-1"></a><a class="docs-heading-anchor-permalink" href="#Key-Design:-Composition-Pattern" title="Permalink"></a></h2><p><code>SamplingProblem</code> <strong>wraps</strong> an existing <code>QuantumControlProblem</code> and extends it with multiple system variants:</p><pre><code class="language-julia hljs"># Create base problem
+qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0)
+solve!(qcp_base; max_iter=100)
+
+# Create perturbed systems
+sys_nominal = get_system(qcp_base)
+sys_high = QuantumSystem(1.05 * H_drift, H_drives, drive_bounds)
+sys_low = QuantumSystem(0.95 * H_drift, H_drives, drive_bounds)
+
+# Robust optimization
+qcp_robust = SamplingProblem(qcp_base, [sys_nominal, sys_high, sys_low])
+solve!(qcp_robust; max_iter=100)</code></pre><h2 id="Constructor"><a class="docs-heading-anchor" href="#Constructor">Constructor</a><a id="Constructor-1"></a><a class="docs-heading-anchor-permalink" href="#Constructor" title="Permalink"></a></h2><pre><code class="language-julia hljs">SamplingProblem(
+    qcp::QuantumControlProblem,
+    systems::Vector{&lt;:AbstractQuantumSystem};
+    weights = fill(1.0, length(systems)),
+    Q = 100.0,
+    piccolo_options = PiccoloOptions()
+)</code></pre><h2 id="Parameter-Reference"><a class="docs-heading-anchor" href="#Parameter-Reference">Parameter Reference</a><a id="Parameter-Reference-1"></a><a class="docs-heading-anchor-permalink" href="#Parameter-Reference" title="Permalink"></a></h2><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>qcp</code></td><td style="text-align: right"><code>QuantumControlProblem</code></td><td style="text-align: right">required</td><td style="text-align: right">Base problem providing trajectory structure</td></tr><tr><td style="text-align: right"><code>systems</code></td><td style="text-align: right"><code>Vector{AbstractQuantumSystem}</code></td><td style="text-align: right">required</td><td style="text-align: right">System variants to optimize over</td></tr><tr><td style="text-align: right"><code>weights</code></td><td style="text-align: right"><code>Vector{Float64}</code></td><td style="text-align: right"><code>fill(1.0, length(systems))</code></td><td style="text-align: right">Relative importance of each system</td></tr><tr><td style="text-align: right"><code>Q</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>100.0</code></td><td style="text-align: right">Infidelity weight (applied to all systems)</td></tr><tr><td style="text-align: right"><code>piccolo_options</code></td><td style="text-align: right"><code>PiccoloOptions</code></td><td style="text-align: right"><code>PiccoloOptions()</code></td><td style="text-align: right">Solver options</td></tr></table><h2 id="Optimization-Objective"><a class="docs-heading-anchor" href="#Optimization-Objective">Optimization Objective</a><a id="Optimization-Objective-1"></a><a class="docs-heading-anchor-permalink" href="#Optimization-Objective" title="Permalink"></a></h2><p><code>SamplingProblem</code> creates a weighted sum of objectives:</p><pre><code class="nohighlight hljs">minimize: Σᵢ wᵢ × Qᵢ × (1 - Fᵢ) + regularization</code></pre><p>Where:</p><ul><li><code>wᵢ</code> is the weight for system <code>i</code></li><li><code>Qᵢ</code> is the infidelity weight</li><li><code>Fᵢ</code> is the fidelity for system <code>i</code></li></ul><p>All systems share the same control pulse, but each has its own state trajectory.</p><h2 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h2><h3 id="Robust-to-Frequency-Drift"><a class="docs-heading-anchor" href="#Robust-to-Frequency-Drift">Robust to Frequency Drift</a><a id="Robust-to-Frequency-Drift-1"></a><a class="docs-heading-anchor-permalink" href="#Robust-to-Frequency-Drift" title="Permalink"></a></h3><pre><code class="language-julia hljs">using Piccolo
+
+# Nominal system
+H_drift = 0.5 * PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys_nominal = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+# Create trajectory and base problem
+T, N = 10.0, 100
+times = collect(range(0, T, length = N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
+
+qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0)
+solve!(qcp_base; max_iter = 100)
+
+# ±5% frequency variation
+sys_high = QuantumSystem(1.05 * H_drift, H_drives, [1.0, 1.0])
+sys_low = QuantumSystem(0.95 * H_drift, H_drives, [1.0, 1.0])
+
+# Robust optimization
+qcp_robust = SamplingProblem(
+    qcp_base,
+    [sys_nominal, sys_high, sys_low];
+    weights = [1.0, 1.0, 1.0],
+)
+solve!(qcp_robust; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SmoothPulseProblem for UnitaryTrajectory...
+	applying timesteps_all_equal constraint: Δt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/4TeZc/src/problems.jl:65</span>
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:    38354
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:    38584
+
+Total number of variables............................:     1587
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     1188
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     1386
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.0002783e+02 7.15e+00 2.32e-02   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.6693747e+01 3.26e+00 3.94e+01  -1.4 5.19e+00   0.0 1.66e-01 5.45e-01f  1
+   2  8.6059455e+01 2.24e+00 2.81e+01  -4.0 2.35e+00   0.4 9.23e-02 3.14e-01f  1
+   3  4.9990637e+01 2.06e+00 2.63e+01  -4.0 4.92e+00  -0.1 2.62e-02 7.74e-02f  1
+   4  5.9481147e-01 1.62e+00 1.98e+01  -1.2 5.47e+00    -  9.93e-02 2.16e-01f  1
+   5  1.5378107e-02 1.28e+00 1.55e+01  -1.2 1.20e+00    -  8.77e-01 2.06e-01f  1
+   6  4.8837671e-02 1.67e-03 1.65e+01  -2.2 9.34e-01  -0.5 7.08e-01 1.00e+00h  1
+   7  8.3861835e-03 5.33e-04 4.95e+00  -2.7 1.61e-01    -  9.51e-01 7.08e-01h  1
+   8  8.3871683e-03 1.12e-04 3.55e-01  -3.6 6.10e-02  -1.0 1.00e+00 1.00e+00h  1
+   9  7.7803677e-03 2.19e-05 1.19e-01  -4.0 3.24e-02  -1.5 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  7.0994526e-03 2.64e-05 3.93e-02  -4.0 5.93e-02  -2.0 1.00e+00 1.00e+00h  1
+  11  5.9173776e-03 1.54e-04 4.15e-02  -4.0 1.10e-01  -2.4 1.00e+00 1.00e+00h  1
+  12  5.4747361e-03 1.20e-05 3.17e-03  -4.0 4.37e-02  -2.0 1.00e+00 1.00e+00h  1
+  13  4.5804826e-03 8.58e-05 1.80e-02  -4.0 9.88e-02  -2.5 1.00e+00 1.00e+00h  1
+  14  3.1904014e-03 3.59e-04 1.44e-01  -4.0 1.93e-01  -3.0 1.00e+00 1.00e+00h  1
+  15  3.1308429e-03 2.35e-06 3.91e-03  -4.0 1.06e-02  -1.6 1.00e+00 1.00e+00h  1
+  16  2.9620902e-03 4.79e-06 1.78e-03  -4.0 2.68e-02  -2.1 1.00e+00 1.00e+00h  1
+  17  2.5730021e-03 3.31e-05 9.66e-03  -4.0 6.87e-02  -2.6 1.00e+00 1.00e+00h  1
+  18  1.9431289e-03 1.41e-04 6.39e-02  -4.0 1.47e-01  -3.1 1.00e+00 1.00e+00h  1
+  19  1.7767155e-03 1.32e-05 6.67e-03  -4.0 4.58e-02  -2.6 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  1.4980582e-03 7.25e-05 1.37e-03  -4.0 1.09e-01  -3.1 1.00e+00 1.00e+00h  1
+  21  1.2443306e-03 2.60e-04 1.90e-02  -4.0 1.67e-01  -3.6 1.00e+00 1.00e+00h  1
+  22  1.2366389e-03 5.86e-07 4.47e-04  -4.0 8.03e-03  -2.3 1.00e+00 1.00e+00h  1
+  23  1.2110641e-03 5.30e-06 2.12e-02  -4.0 2.51e-02  -2.7 1.00e+00 1.00e+00h  1
+  24  1.2057972e-03 1.12e-06 1.11e-03  -4.0 9.40e-03  -2.3 1.00e+00 1.00e+00h  1
+  25  1.1913571e-03 5.82e-06 4.19e-03  -4.0 2.78e-02  -2.8 1.00e+00 1.00e+00h  1
+  26  1.1576328e-03 3.95e-05 2.60e-03  -4.0 7.89e-02  -3.3 1.00e+00 1.00e+00h  1
+  27  1.1317953e-03 2.70e-04 2.18e-02  -4.0 2.02e-01  -3.7 1.00e+00 1.00e+00h  1
+  28  1.1266079e-03 3.25e-06 1.34e-04  -4.0 9.60e-03  -2.4 1.00e+00 1.00e+00h  1
+  29  1.2369246e-03 2.62e-03 2.32e+01  -4.0 1.67e+01    -  1.50e-01 3.16e-02h  3
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  1.1715019e-03 8.47e-05 3.85e-02  -4.1 3.47e-02  -1.1 1.00e+00 1.00e+00h  1
+  31  1.1644979e-03 5.25e-07 1.26e-03  -4.1 3.96e-03  -1.6 1.00e+00 1.00e+00h  1
+  32  1.2259206e-03 1.28e-03 5.51e-01  -4.0 3.31e+00    -  1.00e+00 2.01e-01h  3
+  33  1.1785181e-03 1.49e-05 3.17e-04  -4.1 1.99e-02  -2.0 1.00e+00 1.00e+00h  1
+  34  8.6070291e-04 1.56e-04 2.00e+02  -6.2 1.40e-01    -  8.97e-01 1.00e+00h  1
+  35  1.0684209e-03 2.61e-06 9.76e+01  -4.0 7.34e-03  -2.5 4.88e-01 1.00e+00h  1
+  36  1.0314980e-03 2.41e-05 4.20e-03  -4.0 2.61e-02  -3.0 1.00e+00 1.00e+00h  1
+  37  1.1140217e-03 9.65e-05 1.84e-02  -4.0 7.78e-02  -3.5 1.00e+00 1.00e+00h  1
+  38  1.0715544e-03 6.51e-06 1.03e-03  -4.1 2.42e-02  -3.1 1.00e+00 1.00e+00h  1
+  39  1.0708749e-03 8.30e-05 1.97e-02  -4.1 7.55e-02  -3.5 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  1.0681175e-03 1.05e-05 2.02e-03  -4.1 2.89e-02  -3.1 1.00e+00 1.00e+00h  1
+  41  1.1168580e-03 1.44e-04 3.87e-02  -4.0 9.94e-02  -3.6 1.00e+00 1.00e+00h  1
+  42  1.0704106e-03 1.96e-07 5.62e-04  -4.1 1.45e-03  -1.3 1.00e+00 1.00e+00h  1
+  43  1.1105145e-03 1.22e-03 4.94e-01  -4.0 2.29e+00    -  1.00e+00 2.50e-01h  3
+  44  1.0776310e-03 9.34e-06 2.84e-04  -4.1 9.11e-03  -1.8 1.00e+00 1.00e+00h  1
+  45  7.8418511e-04 1.26e-04 2.00e+02  -6.2 1.05e-01    -  9.28e-01 9.97e-01h  1
+  46  9.9176844e-04 4.97e-06 9.72e+01  -4.0 6.78e-03  -2.3 4.86e-01 1.00e+00f  1
+  47  1.0766089e-03 1.13e-05 1.52e-03  -4.0 1.80e-02  -2.8 1.00e+00 1.00e+00H  1
+  48  9.8959274e-04 7.60e-05 6.88e-03  -4.1 3.25e-02  -3.3 1.00e+00 1.00e+00h  1
+  49  1.0723152e-03 7.75e-04 7.71e-02  -4.0 1.46e-01  -3.7 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  1.0400504e-03 2.78e-05 3.79e-03  -4.1 1.68e-02  -2.4 1.00e+00 1.00e+00h  1
+  51  1.0512656e-03 5.70e-04 8.45e+00  -4.1 2.08e+00    -  8.66e-01 1.11e-01h  4
+  52  1.0464819e-03 1.92e-06 5.18e-04  -4.1 4.77e-03  -2.0 1.00e+00 1.00e+00h  1
+  53  1.0978284e-03 2.17e-03 1.49e+01  -4.0 3.12e+00    -  9.92e-01 1.53e-01h  3
+  54  1.0676763e-03 5.35e-05 6.77e-03  -4.1 2.49e-02  -1.6 1.00e+00 1.00e+00h  1
+  55  1.0622375e-03 1.62e-06 3.79e-03  -4.1 3.36e-03  -2.0 1.00e+00 1.00e+00h  1
+  56  1.0996135e-03 1.93e-06 1.55e-02  -4.0 6.38e-03  -2.5 1.00e+00 1.00e+00h  1
+  57  1.0696774e-03 1.76e-08 1.79e-03  -4.1 6.20e-04  -0.3 1.00e+00 1.00e+00h  1
+  58  1.1091875e-03 6.36e-04 4.40e-01  -4.0 1.32e+01    -  1.59e-01 1.87e-02f  4
+  59  1.0388242e-03 7.95e-04 3.19e-01  -4.2 1.62e+00    -  1.00e+00 2.50e-01h  3
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60  1.0042057e-03 3.84e-06 1.53e-03  -4.2 8.67e-03  -0.8 1.00e+00 1.00e+00h  1
+  61  9.9329363e-04 5.73e-05 1.05e-02  -4.2 1.13e-01    -  1.00e+00 1.00e+00h  1
+  62  9.9043416e-04 9.89e-09 2.86e-04  -4.2 5.57e-04  -1.2 1.00e+00 1.00e+00h  1
+  63  1.0393329e-03 6.89e-04 3.26e-01  -4.0 1.13e+02    -  1.72e-02 1.95e-03f  4
+  64  9.7335916e-04 6.78e-04 2.51e-01  -4.3 1.31e+00    -  1.00e+00 2.50e-01h  3
+  65  9.4578596e-04 3.21e-06 1.35e-04  -4.3 6.51e-03  -1.7 1.00e+00 1.00e+00h  1
+  66  1.1084687e-03 1.76e-03 4.90e+00  -4.0 8.47e-01    -  1.00e+00 5.00e-01h  2
+  67  1.1046259e-03 2.87e-05 8.40e-03  -4.1 1.45e-02  -1.3 1.00e+00 1.00e+00h  1
+  68  1.0936562e-03 5.54e-07 4.26e-03  -4.1 2.32e-03  -1.8 1.00e+00 1.00e+00h  1
+  69  1.0893819e-03 6.62e-07 5.69e-03  -4.1 2.64e-03  -2.2 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70  1.0937459e-03 1.02e-07 2.78e-03  -4.1 1.08e-03  -0.9 1.00e+00 1.00e+00h  1
+  71  1.0966475e-03 2.57e-08 2.95e-04  -4.1 6.30e-04  -1.4 1.00e+00 1.00e+00h  1
+  72  9.3126168e-04 1.50e-07 2.00e+02  -6.1 2.00e-03  -1.9 1.00e+00 1.00e+00h  1
+  73  1.1383288e-03 2.58e-06 9.48e+01  -4.0 4.28e-03  -2.3 4.80e-01 1.00e+00f  1
+  74  9.3832271e-04 2.49e-06 1.69e+02  -4.4 1.61e-02  -2.8 1.00e+00 3.89e-02h  1
+  75  1.0026335e-03 1.87e-05 1.49e+02  -4.4 3.09e-02  -3.3 2.37e-01 1.00e+00f  1
+  76  9.4101664e-04 1.19e-05 4.34e+01  -4.4 9.75e-04  -2.0 1.00e+00 3.63e-01h  2
+  77  9.5370970e-04 4.90e-07 1.94e-02  -4.4 2.65e-03  -2.4 1.00e+00 1.00e+00h  1
+  78  9.7453356e-04 6.74e-04 3.12e+00  -4.4 7.52e+00    -  2.79e-01 3.46e-02h  4
+  79  9.5267527e-04 6.26e-06 6.90e-03  -4.4 8.48e-03  -2.9 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  9.6037455e-04 1.98e-04 4.40e+00  -4.4 1.77e+00    -  1.00e+00 1.25e-01h  4
+  81  9.5186165e-04 9.32e-07 1.82e-04  -4.4 3.08e-03  -2.5 1.00e+00 1.00e+00h  1
+  82  6.4222587e-04 1.18e-03 8.20e-01  -6.6 1.19e-01    -  8.25e-01 1.00e+00h  1
+  83  8.5148483e-04 1.12e-05 4.06e-03  -4.0 1.03e-02  -1.2 1.00e+00 1.00e+00h  1
+  84  8.3648898e-04 1.81e-06 2.32e-02  -4.0 4.00e-03  -1.6 1.00e+00 1.00e+00h  1
+  85  8.3302867e-04 3.61e-06 7.03e-03  -4.0 7.28e-03  -1.2 1.00e+00 1.00e+00h  1
+  86  8.4231664e-04 1.94e-06 1.66e-04  -4.0 5.71e-03  -1.7 1.00e+00 1.00e+00h  1
+  87  8.5872109e-04 5.91e-06 1.54e-03  -4.0 8.07e-03  -2.2 1.00e+00 1.00e+00h  1
+  88  8.4684996e-04 2.29e-05 3.91e-03  -4.1 1.54e-02  -2.6 1.00e+00 1.00e+00h  1
+  89  9.1669680e-04 1.17e-04 1.38e-02  -4.1 3.48e-02  -3.1 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  90  9.4100549e-04 1.40e-05 1.03e-03  -4.1 1.22e-02  -2.7 1.00e+00 1.00e+00h  1
+  91  9.9804256e-04 7.76e-05 5.04e-03  -4.1 2.85e-02  -3.2 1.00e+00 1.00e+00h  1
+  92  1.0795457e-03 2.27e-04 1.40e-02  -4.1 5.76e-02  -3.6 1.00e+00 1.00e+00h  1
+  93  1.1015719e-03 2.87e-05 1.54e-03  -4.1 1.96e-02  -3.2 1.00e+00 1.00e+00h  1
+  94  1.1231366e-03 5.85e-04 9.94e+00  -4.1 4.88e+01    -  5.22e-02 6.63e-03h  4
+  95  1.1167712e-03 6.76e-06 6.03e-04  -4.1 8.36e-03  -1.9 1.00e+00 1.00e+00h  1
+  96  7.6019938e-04 3.40e-04 1.22e-01  -6.1 2.19e-01    -  9.07e-01 1.00e+00h  1
+  97  9.8940715e-04 4.87e-06 1.14e-03  -4.0 9.13e-03  -2.4 1.00e+00 1.00e+00h  1
+  98  9.5286384e-04 1.95e-05 5.30e-02  -4.1 1.46e-02  -2.8 1.00e+00 1.00e+00h  1
+  99  9.6570900e-04 3.61e-09 6.51e-04  -4.1 2.19e-04  -0.6 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  9.7952642e-04 5.41e-04 5.22e-01  -4.0 7.70e+00    -  3.64e-01 3.92e-02f  4
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   9.7952642447821786e-04    9.7952642447821786e-04
+Dual infeasibility......:   5.2196567559846585e-01    5.2196567559846585e-01
+Constraint violation....:   5.4146382878772492e-04    5.4146382878772492e-04
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.5768824737022940e-04    1.5768824737022940e-04
+Overall NLP error.......:   5.2196567559846585e-01    5.2196567559846585e-01
+
+
+Number of objective function evaluations             = 158
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 158
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 21.879
+
+EXIT: Maximum Number of Iterations Exceeded.
+    constructing SamplingProblem...
+	using 3 systems
+    initializing optimizer...
+        applying constraint: initial value of Ũ⃗1
+        applying constraint: initial value of Ũ⃗2
+        applying constraint: initial value of Ũ⃗3
+        applying constraint: bounds on Ũ⃗1
+        applying constraint: bounds on Ũ⃗2
+        applying constraint: bounds on Ũ⃗3
+        applying constraint: bounds on u
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:   132752
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   117116
+
+Total number of variables............................:     2775
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     2576
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     2475
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  5.9703364e+00 8.80e-03 1.00e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.4399649e+01 5.39e-02 1.33e+01  -1.4 6.89e-01   0.0 3.44e-01 4.78e-01h  1
+   2  2.4959241e+01 1.96e-02 2.33e+01  -0.7 2.58e-01   1.3 1.00e+00 1.00e+00h  1
+   3  2.0384934e+01 3.72e-04 2.31e+00  -1.5 2.53e-02   1.8 9.98e-01 1.00e+00f  1
+   4  2.0201597e+01 3.60e-05 1.03e+00  -2.4 1.70e-02   1.3 1.00e+00 1.00e+00f  1
+   5  1.9379432e+01 6.46e-04 3.70e-01  -3.6 5.40e-02   0.8 1.00e+00 1.00e+00f  1
+   6  1.6963283e+01 4.14e-03 9.94e-01  -4.0 1.52e-01   0.3 1.00e+00 1.00e+00f  1
+   7  1.6138521e+01 2.62e-04 3.74e-01  -4.0 6.30e-02   0.7 1.00e+00 1.00e+00f  1
+   8  1.3754627e+01 3.33e-03 1.12e+00  -4.0 1.63e-01   0.3 1.00e+00 1.00e+00f  1
+   9  1.2967887e+01 1.48e-04 2.98e-01  -4.0 6.16e-02   0.7 1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  1.0694771e+01 1.99e-03 9.06e-01  -4.0 1.60e-01   0.2 1.00e+00 1.00e+00f  1
+  11  9.9994148e+00 1.34e-04 2.32e-01  -4.0 5.55e-02   0.6 1.00e+00 1.00e+00f  1
+  12  8.1042100e+00 1.41e-03 6.90e-01  -4.0 1.42e-01   0.2 1.00e+00 9.30e-01f  1
+  13  8.0793839e+00 1.35e-03 6.61e-01  -4.0 4.81e-02   0.6 1.00e+00 4.16e-02h  1
+  14  6.7260960e+00 8.22e-04 2.10e-01  -4.0 1.35e-01   0.1 1.00e+00 7.56e-01f  1
+  15  6.6913088e+00 7.71e-04 1.96e-01  -4.0 2.72e-02   0.5 1.00e+00 6.30e-02h  1
+  16  5.0401776e+00 1.88e-03 2.65e-01  -4.0 7.72e-02   0.1 1.00e+00 1.00e+00f  1
+  17  4.5897787e+00 1.79e-04 7.51e-02  -4.0 2.48e-02   0.5 1.00e+00 1.00e+00h  1
+  18  3.2489872e+00 1.83e-03 2.79e-01  -4.0 7.40e-02   0.0 1.00e+00 1.00e+00f  1
+  19  2.9260654e+00 1.56e-04 6.30e-02  -4.0 2.34e-02   0.4 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  2.4184208e+00 4.37e-04 8.89e-02  -4.0 8.07e-02  -0.0 1.00e+00 5.21e-01f  1
+  21  5.0107529e-01 6.68e-03 1.52e+00  -4.0 2.31e-01  -0.5 1.00e+00 1.00e+00f  1
+  22  7.3117600e-01 7.29e-05 1.13e-01  -3.5 1.97e-02   0.8 1.00e+00 1.00e+00h  1
+  23  6.6060084e-01 8.09e-05 4.23e-02  -3.7 2.04e-02   0.3 1.00e+00 1.00e+00h  1
+  24  3.8122082e-01 5.22e-04 1.56e-01  -4.0 5.73e-02  -0.1 1.00e+00 1.00e+00f  1
+  25  6.1240723e-02 1.45e-03 3.47e-01  -4.0 1.02e-01  -0.6 1.00e+00 1.00e+00f  1
+  26  8.8850915e-02 1.06e-04 1.92e-02  -4.0 2.59e-02  -0.2 1.00e+00 1.00e+00h  1
+  27  2.8240254e-02 3.04e-04 8.67e-02  -4.0 4.48e-02  -0.7 1.00e+00 1.00e+00h  1
+  28  2.2311305e-02 1.57e-04 2.23e-01  -4.0 3.04e-02  -1.1 1.00e+00 1.00e+00h  1
+  29  2.6577379e-02 7.67e-07 5.37e-03  -4.0 1.75e-03   0.2 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  2.5881291e-02 4.97e-06 1.29e-02  -4.0 4.28e-03  -0.3 1.00e+00 1.00e+00h  1
+  31  2.5168257e-02 2.74e-05 2.16e-02  -4.0 1.04e-02  -0.8 1.00e+00 1.00e+00h  1
+  32  2.4751534e-02 1.23e-04 9.39e-02  -4.0 2.25e-02  -1.2 1.00e+00 1.00e+00h  1
+  33  2.4146772e-02 2.58e-04 1.37e-01  -4.0 5.15e-02  -1.7 1.00e+00 1.00e+00h  1
+  34  2.3196557e-02 1.13e-04 3.49e-02  -4.1 2.01e-02  -1.3 1.00e+00 1.00e+00h  1
+  35  2.3150225e-02 1.83e-05 1.62e-02  -4.0 8.41e-03  -0.9 1.00e+00 1.00e+00h  1
+  36  2.2556769e-02 1.24e-04 9.49e-02  -4.0 2.18e-02  -1.3 1.00e+00 1.00e+00h  1
+  37  2.1982811e-02 2.10e-04 9.76e-02  -4.0 5.57e-02  -1.8 1.00e+00 1.00e+00h  1
+  38  2.1397329e-02 1.78e-06 2.27e-03  -4.0 2.61e-03  -0.5 1.00e+00 1.00e+00h  1
+  39  2.1013988e-02 2.08e-05 1.74e-02  -4.0 8.23e-03  -1.0 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  2.0529738e-02 1.25e-04 9.15e-02  -4.0 2.21e-02  -1.4 1.00e+00 1.00e+00h  1
+  41  1.9935956e-02 3.00e-04 8.36e-02  -4.0 6.19e-02  -1.9 1.00e+00 1.00e+00h  1
+  42  1.9412481e-02 1.91e-06 2.09e-03  -4.0 2.81e-03  -0.6 1.00e+00 1.00e+00h  1
+  43  1.8857156e-02 2.23e-05 1.82e-02  -4.0 8.26e-03  -1.1 1.00e+00 1.00e+00h  1
+  44  1.8369794e-02 1.24e-04 8.61e-02  -4.0 2.34e-02  -1.6 1.00e+00 1.00e+00h  1
+  45  1.8330513e-02 1.45e-05 1.11e-02  -4.0 8.40e-03  -1.1 1.00e+00 1.00e+00h  1
+  46  1.7578056e-02 1.38e-04 9.60e-02  -4.0 2.49e-02  -1.6 1.00e+00 1.00e+00h  1
+  47  1.7551781e-02 1.36e-05 9.91e-03  -4.0 8.81e-03  -1.2 1.00e+00 1.00e+00h  1
+  48  1.6781898e-02 1.41e-04 9.55e-02  -4.0 2.62e-02  -1.7 1.00e+00 1.00e+00h  1
+  49  1.6765849e-02 1.31e-05 9.25e-03  -4.0 9.12e-03  -1.2 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  1.5961541e-02 1.40e-04 9.25e-02  -4.0 2.74e-02  -1.7 1.00e+00 1.00e+00h  1
+  51  1.5953694e-02 1.25e-05 8.61e-03  -4.0 9.34e-03  -1.3 1.00e+00 1.00e+00h  1
+  52  1.5136432e-02 1.37e-04 8.80e-02  -4.0 2.84e-02  -1.8 1.00e+00 1.00e+00h  1
+  53  1.5121611e-02 1.30e-05 7.90e-03  -4.0 9.60e-03  -1.3 1.00e+00 1.00e+00h  1
+  54  1.4324999e-02 1.30e-04 8.22e-02  -4.0 2.94e-02  -1.8 1.00e+00 1.00e+00h  1
+  55  1.4294628e-02 2.76e-05 7.89e-03  -4.0 9.60e-03  -1.4 1.00e+00 1.00e+00h  1
+  56  1.3689677e-02 2.99e-04 7.96e-02  -4.0 3.25e-02  -1.9 1.00e+00 1.00e+00h  1
+  57  1.3307497e-02 4.23e-07 9.81e-04  -4.0 1.35e-03  -0.5 1.00e+00 1.00e+00h  1
+  58  1.3067074e-02 3.25e-06 1.87e-03  -4.0 4.05e-03  -1.0 1.00e+00 1.00e+00h  1
+  59  1.2829205e-02 2.76e-05 1.39e-02  -4.0 1.18e-02  -1.5 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60  1.2536120e-02 1.32e-04 5.66e-02  -4.0 3.13e-02  -2.0 1.00e+00 1.00e+00h  1
+  61  1.2272058e-02 5.77e-07 9.79e-04  -4.0 1.50e-03  -0.6 1.00e+00 1.00e+00h  1
+  62  1.2020689e-02 4.44e-06 2.53e-03  -4.0 4.45e-03  -1.1 1.00e+00 1.00e+00h  1
+  63  1.1780046e-02 3.70e-05 1.22e-02  -4.0 1.32e-02  -1.6 1.00e+00 1.00e+00h  1
+  64  1.1612605e-02 2.67e-04 5.48e-02  -4.0 3.51e-02  -2.1 1.00e+00 1.00e+00h  1
+  65  1.1431287e-02 1.29e-06 9.80e-04  -4.0 1.74e-03  -0.7 1.00e+00 1.00e+00h  1
+  66  1.0956769e-02 6.26e-06 6.84e-03  -4.0 4.96e-03  -1.2 1.00e+00 1.00e+00h  1
+  67  1.0726559e-02 6.15e-05 1.46e-02  -4.0 1.54e-02  -1.7 1.00e+00 1.00e+00h  1
+  68  1.0739268e-02 4.83e-06 2.30e-03  -4.0 4.96e-03  -1.3 1.00e+00 1.00e+00h  1
+  69  1.0372054e-02 4.84e-05 1.71e-02  -4.0 1.52e-02  -1.7 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70  1.0334367e-02 6.95e-06 1.71e-03  -4.0 5.43e-03  -1.3 1.00e+00 1.00e+00h  1
+  71  1.0032648e-02 5.55e-05 1.64e-02  -4.0 1.59e-02  -1.8 1.00e+00 1.00e+00h  1
+  72  9.9897597e-03 7.41e-06 1.87e-03  -4.0 5.66e-03  -1.4 1.00e+00 1.00e+00h  1
+  73  9.6811160e-03 6.27e-05 2.07e-02  -4.0 1.66e-02  -1.8 1.00e+00 1.00e+00h  1
+  74  9.6381281e-03 8.43e-06 1.99e-03  -4.0 5.98e-03  -1.4 1.00e+00 1.00e+00h  1
+  75  9.3493802e-03 6.87e-05 2.35e-02  -4.0 1.70e-02  -1.9 1.00e+00 1.00e+00h  1
+  76  9.2919343e-03 9.42e-06 2.09e-03  -4.0 6.42e-03  -1.5 1.00e+00 1.00e+00h  1
+  77  9.0374155e-03 7.58e-05 2.48e-02  -4.0 1.72e-02  -1.9 1.00e+00 1.00e+00h  1
+  78  8.9622678e-03 1.52e-05 3.53e-03  -4.0 7.14e-03  -1.5 1.00e+00 1.00e+00h  1
+  79  8.7749236e-03 8.87e-05 2.10e-02  -4.0 1.73e-02  -2.0 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  8.6713042e-03 3.48e-05 9.80e-03  -4.0 8.95e-03  -1.6 1.00e+00 1.00e+00h  1
+  81  8.6503880e-03 1.52e-04 3.18e-02  -4.0 1.81e-02  -2.0 1.00e+00 1.00e+00h  1
+  82  8.3996486e-03 3.68e-07 3.03e-03  -4.0 9.46e-04  -0.7 1.00e+00 1.00e+00h  1
+  83  8.2647752e-03 1.59e-06 4.03e-03  -4.0 2.47e-03  -1.2 1.00e+00 1.00e+00h  1
+  84  8.1847409e-03 1.37e-05 6.26e-03  -4.0 7.30e-03  -1.7 1.00e+00 1.00e+00h  1
+  85  8.0208933e-03 8.24e-05 3.31e-02  -4.0 2.06e-02  -2.1 1.00e+00 1.00e+00h  1
+  86  7.9928095e-03 1.64e-07 4.92e-04  -4.0 9.45e-04  -0.8 1.00e+00 1.00e+00h  1
+  87  7.9339245e-03 1.82e-06 2.17e-03  -4.0 2.83e-03  -1.3 1.00e+00 1.00e+00h  1
+  88  7.8559771e-03 1.55e-05 8.04e-03  -4.0 8.37e-03  -1.8 1.00e+00 1.00e+00h  1
+  89  7.8306234e-03 1.90e-06 1.09e-03  -4.0 3.13e-03  -1.3 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  90  7.7497536e-03 1.67e-05 9.67e-03  -4.0 9.26e-03  -1.8 1.00e+00 1.00e+00h  1
+  91  7.7214029e-03 2.05e-06 1.43e-03  -4.0 3.45e-03  -1.4 1.00e+00 1.00e+00h  1
+  92  7.6426496e-03 1.80e-05 1.11e-02  -4.0 1.02e-02  -1.9 1.00e+00 1.00e+00h  1
+  93  7.6132732e-03 2.19e-06 1.74e-03  -4.0 3.81e-03  -1.4 1.00e+00 1.00e+00h  1
+  94  7.5362103e-03 1.89e-05 1.27e-02  -4.0 1.13e-02  -1.9 1.00e+00 1.00e+00h  1
+  95  7.5057881e-03 2.49e-06 2.11e-03  -4.0 4.20e-03  -1.5 1.00e+00 1.00e+00h  1
+  96  7.4317277e-03 1.95e-05 1.46e-02  -4.0 1.24e-02  -2.0 1.00e+00 1.00e+00h  1
+  97  7.4003266e-03 2.81e-06 2.53e-03  -4.0 4.62e-03  -1.6 1.00e+00 1.00e+00h  1
+  98  7.3302958e-03 1.99e-05 1.64e-02  -4.0 1.36e-02  -2.0 1.00e+00 1.00e+00h  1
+  99  7.2981636e-03 3.17e-06 3.01e-03  -4.0 5.08e-03  -1.6 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  7.2331746e-03 2.23e-05 1.77e-02  -4.0 1.49e-02  -2.1 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   7.2331746000408783e-03    7.2331746000408783e-03
+Dual infeasibility......:   1.7737348044935184e-02    1.7737348044935184e-02
+Constraint violation....:   2.2290017154163837e-05    2.2290017154163837e-05
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0000000000000000e-04    1.0000000000000000e-04
+Overall NLP error.......:   1.7737348044935184e-02    1.7737348044935184e-02
+
+
+Number of objective function evaluations             = 101
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 101
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 175.333
+
+EXIT: Maximum Number of Iterations Exceeded.</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
+    qcp_base,
+    [sys_nominal, sys_high, sys_low];
+    weights = [2.0, 1.0, 1.0],  ## Nominal weighted 2x
+)
+solve!(qcp_weighted; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SamplingProblem...
+	using 3 systems
+    initializing optimizer...
+        applying constraint: initial value of Ũ⃗1
+        applying constraint: initial value of Ũ⃗2
+        applying constraint: initial value of Ũ⃗3
+        applying constraint: bounds on Ũ⃗1
+        applying constraint: bounds on Ũ⃗2
+        applying constraint: bounds on Ũ⃗3
+        applying constraint: bounds on u
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:   132752
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   117116
+
+Total number of variables............................:     2775
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     2576
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     2475
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  7.9636011e+00 5.65e-02 1.97e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  5.2302306e+00 3.64e-02 5.63e+00  -1.1 8.55e-02   2.0 9.88e-01 3.59e-01h  1
+   2  1.5307955e+01 1.05e-02 1.05e+02  -0.7 1.39e-01   1.5 7.93e-01 1.00e+00f  1
+   3  5.7221309e+00 6.11e-02 1.08e+02  -0.5 2.67e-01   1.9 1.00e+00 1.00e+00h  1
+   4  6.6087332e+00 1.48e-02 8.31e+01  -1.2 9.58e-02   2.4 8.69e-01 1.00e+00h  1
+   5  4.4948149e+00 3.89e-03 7.39e+00  -2.2 6.46e-02   1.9 1.00e+00 1.00e+00f  1
+   6  3.9155569e-01 2.88e-03 4.16e+00  -2.9 6.96e-02   1.4 1.00e+00 6.75e-01f  1
+   7  3.3195637e-01 2.64e-03 5.01e+01  -4.0 5.58e-02   0.9 1.00e+00 8.39e-02h  1
+   8  1.8140156e-01 7.34e-04 3.45e+00  -4.0 3.56e-02   1.4 1.00e+00 1.00e+00h  1
+   9  8.4840070e-02 2.06e-04 8.65e+00  -4.0 3.50e-02   0.9 1.00e+00 8.70e-01h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  3.0887734e-02 6.17e-04 2.24e+01  -4.0 7.61e-02   0.4 1.00e+00 4.65e-01h  1
+  11  1.3414060e-02 4.39e-05 3.74e-01  -4.0 9.27e-03   0.8 1.00e+00 1.00e+00h  1
+  12  5.0002382e-03 3.09e-05 1.41e+01  -4.0 1.49e-02   0.4 1.00e+00 3.79e-01h  1
+  13  6.0847522e-03 2.03e-05 5.04e+01  -4.0 1.08e-02  -0.1 1.00e+00 5.00e-01h  2
+  14  5.6825628e-03 6.36e-05 1.38e-01  -4.0 9.21e-03  -0.6 1.00e+00 1.00e+00h  1
+  15  5.4139299e-03 4.65e-05 1.24e-01  -4.1 8.62e-03  -1.1 1.00e+00 1.00e+00h  1
+  16  6.0861451e-03 3.06e-05 6.31e-01  -4.1 6.40e-03  -0.6 1.00e+00 1.00e+00h  1
+  17  6.8572763e-03 2.96e-06 3.41e-02  -4.1 2.23e-03  -0.2 1.00e+00 1.00e+00h  1
+  18  7.4950445e-03 1.65e-06 4.21e-03  -4.0 3.55e-03  -0.7 1.00e+00 1.00e+00H  1
+  19  6.9218253e-03 2.38e-05 1.36e-01  -4.0 7.95e-03  -1.2 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  6.8676179e-03 2.06e-06 4.84e-02  -4.1 2.71e-03  -0.7 1.00e+00 1.00e+00h  1
+  21  6.7497926e-03 2.36e-05 3.29e-02  -4.1 6.93e-03  -1.2 1.00e+00 1.00e+00h  1
+  22  6.3834469e-03 1.40e-04 2.71e-01  -4.1 1.88e-02  -1.7 1.00e+00 1.00e+00h  1
+  23  6.7206960e-03 1.76e-07 9.21e-03  -4.1 7.96e-04  -0.4 1.00e+00 1.00e+00h  1
+  24  6.7432540e-03 4.04e-06 9.56e-02  -4.0 3.19e-03  -0.8 1.00e+00 1.00e+00h  1
+  25  6.7360923e-03 1.97e-03 8.84e-01  -4.1 5.50e-02  -1.3 1.00e+00 1.00e+00h  1
+  26  6.6950170e-03 1.93e-06 2.95e-03  -4.1 2.85e-03   0.0 1.00e+00 1.00e+00h  1
+  27  6.7451489e-03 6.12e-07 3.43e-02  -4.0 1.10e-03  -0.5 1.00e+00 1.00e+00h  1
+  28  6.7388463e-03 3.20e-06 8.23e-02  -4.1 2.63e-03  -0.9 1.00e+00 1.00e+00h  1
+  29  6.7394217e-03 4.30e-07 3.43e-04  -4.1 1.00e-03  -0.5 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  6.6752127e-03 3.80e-07 3.80e+00  -6.1 1.31e-03  -1.0 8.89e-01 1.00e+00h  1
+  31  6.6755997e-03 5.47e-08 5.55e-04  -6.1 5.11e-04  -0.6 1.00e+00 1.00e+00h  1
+  32  6.6920058e-03 8.83e-06 7.01e-01  -4.0 4.20e-03  -1.1 1.00e+00 1.00e+00h  1
+  33  6.7068981e-03 4.58e-08 4.51e-03  -4.1 2.34e-04   0.3 1.00e+00 1.00e+00h  1
+  34  6.7220035e-03 1.64e-07 1.71e-02  -4.0 5.70e-04  -0.2 1.00e+00 1.00e+00h  1
+  35  6.7151593e-03 9.16e-07 4.19e-02  -4.1 1.34e-03  -0.7 1.00e+00 1.00e+00h  1
+  36  6.7189985e-03 7.98e-06 1.53e-03  -4.1 4.05e-03  -1.2 1.00e+00 1.00e+00h  1
+  37  6.7096639e-03 5.48e-05 2.03e-02  -4.1 1.12e-02  -1.6 1.00e+00 1.00e+00h  1
+  38  6.7742097e-03 6.26e-06 1.10e-02  -4.1 4.16e-03  -1.2 1.00e+00 1.00e+00h  1
+  39  6.7559229e-03 5.64e-05 2.82e-02  -4.1 1.20e-02  -1.7 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  6.7322120e-03 8.10e-06 6.99e-03  -4.1 4.44e-03  -1.3 1.00e+00 1.00e+00h  1
+  41  6.8005574e-03 6.11e-05 2.97e-02  -4.1 1.28e-02  -1.7 1.00e+00 1.00e+00h  1
+  42  6.8345965e-03 6.49e-06 4.20e-03  -4.1 4.74e-03  -1.3 1.00e+00 1.00e+00h  1
+  43  6.7670957e-03 5.40e-05 5.70e-02  -4.1 1.37e-02  -1.8 1.00e+00 1.00e+00h  1
+  44  6.8169304e-03 8.67e-06 8.76e-03  -4.1 5.06e-03  -1.4 1.00e+00 1.00e+00h  1
+  45  6.8774987e-03 5.43e-05 1.58e-02  -4.1 1.46e-02  -1.8 1.00e+00 1.00e+00h  1
+  46  6.8127062e-03 7.08e-06 1.62e-02  -4.1 5.39e-03  -1.4 1.00e+00 1.00e+00h  1
+  47  6.8528120e-03 7.45e-05 7.31e-03  -4.1 1.55e-02  -1.9 1.00e+00 1.00e+00h  1
+  48  7.0846939e-03 2.03e-04 2.19e-01  -4.1 4.17e-02  -2.4 1.00e+00 1.00e+00h  1
+  49  6.8967326e-03 8.33e-08 2.32e-03  -4.1 4.19e-04  -0.1 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  6.8239569e-03 1.31e-07 2.77e-03  -4.1 7.40e-04  -0.6 1.00e+00 1.00e+00h  1
+  51  6.8281841e-03 1.14e-06 5.00e-04  -4.1 2.21e-03  -1.1 1.00e+00 1.00e+00h  1
+  52  6.7007160e-03 1.11e-05 3.68e+00  -6.1 4.56e-03  -1.6 9.04e-01 1.00e+00h  1
+  53  6.7098220e-03 3.41e-08 1.19e-03  -6.1 2.25e-04  -0.2 1.00e+00 1.00e+00h  1
+  54  6.7007754e-03 1.70e-07 3.64e-04  -6.1 6.84e-04  -0.7 1.00e+00 1.00e+00h  1
+  55  6.6654589e-03 1.52e-06 5.03e-04  -6.1 2.03e-03  -1.2 1.00e+00 1.00e+00h  1
+  56  6.7323319e-03 5.61e-05 2.03e+00  -4.0 1.05e-02  -1.7 1.00e+00 1.00e+00h  1
+  57  6.7381666e-03 1.38e-08 3.25e-03  -4.1 2.52e-04   0.6 1.00e+00 1.00e+00h  1
+  58  6.7564817e-03 2.42e-11 4.90e-03  -4.0 1.80e-04   0.1 1.00e+00 1.00e+00H  1
+  59  6.7588294e-03 1.01e-07 2.21e-04  -4.0 5.39e-04  -0.4 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60  6.7533740e-03 3.77e-07 3.28e-02  -4.1 1.29e-03  -0.9 1.00e+00 1.00e+00h  1
+  61  6.7623266e-03 2.69e-06 5.69e-04  -4.1 3.84e-03  -1.3 1.00e+00 1.00e+00h  1
+  62  6.5648738e-03 3.81e-05 2.76e+00  -6.1 7.69e-03  -1.8 9.30e-01 1.00e+00h  1
+  63  6.5879387e-03 6.64e-09 9.56e-04  -6.1 9.72e-05   0.4 1.00e+00 1.00e+00h  1
+  64  6.5961982e-03 6.08e-08 4.74e-02  -4.0 5.73e-04  -0.1 1.00e+00 1.00e+00h  1
+  65  6.6202522e-03 3.06e-09 1.96e-02  -4.1 6.05e-04  -0.5 1.00e+00 1.00e+00H  1
+  66  6.6238299e-03 8.90e-07 6.03e-03  -4.1 1.81e-03  -1.0 1.00e+00 1.00e+00h  1
+  67  6.6426522e-03 7.04e-06 1.54e-03  -4.1 5.37e-03  -1.5 1.00e+00 1.00e+00h  1
+  68  6.7123519e-03 4.87e-05 2.50e-02  -4.1 1.56e-02  -2.0 1.00e+00 1.00e+00h  1
+  69  6.7518607e-03 4.76e-06 5.85e-03  -4.1 5.77e-03  -1.5 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70  6.7402716e-03 4.20e-05 3.92e-02  -4.1 1.67e-02  -2.0 1.00e+00 1.00e+00h  1
+  71  6.7786936e-03 1.85e-05 6.49e-03  -4.1 7.55e-03  -1.6 1.00e+00 1.00e+00h  1
+  72  6.9578892e-03 3.07e-05 9.20e-02  -4.1 1.79e-02  -2.1 1.00e+00 1.00e+00h  1
+  73  6.8038762e-03 1.14e-07 5.19e-03  -4.1 8.41e-04  -0.7 1.00e+00 1.00e+00h  1
+  74  6.7968797e-03 7.79e-07 2.58e-03  -4.1 2.51e-03  -1.2 1.00e+00 1.00e+00h  1
+  75  6.8169439e-03 6.40e-06 6.99e-04  -4.1 7.43e-03  -1.7 1.00e+00 1.00e+00h  1
+  76  6.2966349e-03 2.89e-04 2.67e+00  -6.1 1.80e-02  -2.2 9.29e-01 1.00e+00h  1
+  77  6.0336186e-03 1.81e-06 4.55e-02  -6.1 1.45e-03   0.1 1.00e+00 1.00e+00h  1
+  78  6.4787863e-03 3.89e-08 2.13e-03  -5.9 3.53e-04  -0.4 1.00e+00 1.00e+00h  1
+  79  6.4894648e-03 9.19e-07 3.06e-01  -4.0 1.47e-03  -0.9 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  6.5027739e-03 1.01e-07 1.59e-02  -4.1 4.39e-04  -0.5 1.00e+00 1.00e+00h  1
+  81  6.5227829e-03 4.78e-07 9.73e-03  -4.1 1.31e-03  -0.9 1.00e+00 1.00e+00h  1
+  82  6.5413560e-03 3.61e-06 1.97e-03  -4.1 3.91e-03  -1.4 1.00e+00 1.00e+00h  1
+  83  6.6005385e-03 2.58e-05 2.11e-02  -4.1 1.15e-02  -1.9 1.00e+00 1.00e+00h  1
+  84  6.6320278e-03 2.49e-06 4.55e-03  -4.1 4.28e-03  -1.5 1.00e+00 1.00e+00h  1
+  85  6.6562996e-03 2.31e-05 5.61e-03  -4.1 1.26e-02  -2.0 1.00e+00 1.00e+00h  1
+  86  6.8027353e-03 1.74e-04 1.08e-01  -4.1 3.54e-02  -2.4 1.00e+00 1.00e+00h  1
+  87  6.8266069e-03 1.03e-06 1.18e-03  -4.1 1.66e-03  -1.1 1.00e+00 1.00e+00h  1
+  88  6.7739966e-03 2.32e-06 1.26e-02  -4.1 4.94e-03  -1.6 1.00e+00 1.00e+00h  1
+  89  6.8294957e-03 2.53e-05 1.37e-02  -4.1 1.45e-02  -2.1 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  90  6.8955954e-03 1.84e-06 9.93e-03  -4.1 5.38e-03  -1.6 1.00e+00 1.00e+00h  1
+  91  6.8786724e-03 2.87e-05 2.39e-02  -4.1 1.57e-02  -2.1 1.00e+00 1.00e+00h  1
+  92  6.8574628e-03 2.75e-05 7.83e-03  -4.1 6.76e-03  -1.7 1.00e+00 1.00e+00h  1
+  93  7.0197446e-03 1.60e-05 8.06e-02  -4.1 1.71e-02  -2.2 1.00e+00 1.00e+00h  1
+  94  6.9446328e-03 8.20e-08 1.86e-03  -4.1 8.01e-04  -0.8 1.00e+00 1.00e+00h  1
+  95  6.9376923e-03 4.58e-07 1.10e-03  -4.1 2.40e-03  -1.3 1.00e+00 1.00e+00h  1
+  96  6.9547009e-03 3.91e-06 5.83e-04  -4.1 7.11e-03  -1.8 1.00e+00 1.00e+00h  1
+  97  6.4961333e-03 2.61e-04 2.77e+00  -6.1 1.89e-02  -2.3 9.52e-01 1.00e+00h  1
+  98  6.4948729e-03 9.92e-08 1.14e-02  -6.1 5.56e-04   0.9 1.00e+00 1.00e+00h  1
+  99  6.5920804e-03 9.37e-08 6.94e-02  -4.0 5.66e-04   0.4 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  6.5969129e-03 3.19e-08 6.67e-03  -4.1 2.16e-04  -0.1 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.2998021766454063e-03    6.5969128574661119e-03
+Dual infeasibility......:   6.6663340692321750e-03    1.3327230718475847e-02
+Constraint violation....:   3.1888836693211992e-08    3.1888836693211992e-08
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   8.6677311470838498e-05    1.7328392427265642e-04
+Overall NLP error.......:   6.6663340692321750e-03    1.3327230718475847e-02
+
+
+Number of objective function evaluations             = 106
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 106
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 179.932
+
+EXIT: Maximum Number of Iterations Exceeded.</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
+systems = [QuantumSystem(s * H_drift, H_drives, [1.0, 1.0]) for s in scales]
+
+qcp_dense = SamplingProblem(qcp_base, systems)
+solve!(qcp_dense; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SamplingProblem...
+	using 3 systems
+    initializing optimizer...
+        applying constraint: initial value of Ũ⃗1
+        applying constraint: initial value of Ũ⃗2
+        applying constraint: initial value of Ũ⃗3
+        applying constraint: bounds on Ũ⃗1
+        applying constraint: bounds on Ũ⃗2
+        applying constraint: bounds on Ũ⃗3
+        applying constraint: bounds on u
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:   132752
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   117116
+
+Total number of variables............................:     2775
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     2576
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     2475
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  5.9741200e+00 3.71e-02 3.77e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  4.7761098e+00 2.66e-02 1.19e+01  -0.8 1.55e-01   2.0 9.90e-01 2.87e-01h  1
+   2  4.7243464e+00 2.50e-02 1.29e+02  -4.0 1.11e-01   1.5 4.66e-01 6.04e-02h  1
+   3  4.3984965e+00 3.28e-03 7.17e+01  -1.4 1.04e-01   1.9 1.00e+00 1.00e+00f  1
+   4  1.2696354e-01 2.75e-05 3.55e+00  -2.3 1.50e-02   2.4 1.00e+00 1.00e+00f  1
+   5  7.7393257e-02 2.30e-05 3.01e+01  -3.8 8.91e-03   1.9 1.00e+00 8.89e-01f  1
+   6  6.7238364e-02 1.45e-05 1.30e-01  -3.6 8.06e-03   1.4 1.00e+00 1.00e+00h  1
+   7  6.2496460e-02 4.70e-06 5.71e-02  -3.1 3.61e-03   0.9 1.00e+00 1.00e+00h  1
+   8  4.6256347e-02 6.42e-06 2.63e-02  -4.0 6.39e-03   0.5 1.00e+00 1.00e+00h  1
+   9  2.3468189e-02 2.44e-05 1.75e-02  -4.0 1.19e-02  -0.0 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  1.4315271e-02 4.02e-05 5.00e-02  -4.0 1.31e-02  -0.5 1.00e+00 1.00e+00h  1
+  11  1.4314251e-02 6.90e-05 2.09e-01  -4.0 1.42e-02  -1.0 1.00e+00 1.00e+00h  1
+  12  1.4518826e-02 4.81e-06 6.97e-02  -4.1 5.18e-03  -0.5 1.00e+00 1.00e+00h  1
+  13  1.2910996e-02 7.43e-05 1.17e-01  -4.0 1.38e-02  -1.0 1.00e+00 1.00e+00h  1
+  14  1.2327049e-02 5.50e-06 1.46e-02  -4.0 4.98e-03  -0.6 1.00e+00 1.00e+00h  1
+  15  1.0999967e-02 5.24e-05 6.31e-02  -4.0 1.30e-02  -1.1 1.00e+00 1.00e+00h  1
+  16  1.0624069e-02 5.54e-06 1.40e-02  -4.0 4.64e-03  -0.6 1.00e+00 1.00e+00h  1
+  17  9.4722801e-03 4.92e-05 9.35e-02  -4.0 1.19e-02  -1.1 1.00e+00 1.00e+00h  1
+  18  9.1949864e-03 5.11e-06 1.96e-02  -4.0 4.21e-03  -0.7 1.00e+00 1.00e+00h  1
+  19  8.3164760e-03 4.50e-05 1.24e-01  -4.0 1.05e-02  -1.2 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  8.1221405e-03 6.12e-06 2.50e-02  -4.0 3.79e-03  -0.7 1.00e+00 1.00e+00h  1
+  21  7.4725792e-03 4.32e-05 1.60e-01  -4.0 1.07e-02  -1.2 1.00e+00 1.00e+00h  1
+  22  7.3468078e-03 7.56e-06 2.99e-02  -4.0 3.84e-03  -0.8 1.00e+00 1.00e+00h  1
+  23  6.8837870e-03 4.81e-05 1.94e-01  -4.0 1.08e-02  -1.3 1.00e+00 1.00e+00h  1
+  24  6.8102720e-03 9.51e-06 3.23e-02  -4.0 3.86e-03  -0.8 1.00e+00 1.00e+00h  1
+  25  6.4925585e-03 5.20e-05 2.16e-01  -4.0 1.09e-02  -1.3 1.00e+00 1.00e+00h  1
+  26  6.4496336e-03 1.18e-05 3.30e-02  -4.0 3.67e-03  -0.9 1.00e+00 1.00e+00h  1
+  27  6.2656169e-03 5.29e-05 1.89e-01  -4.0 1.12e-02  -1.4 1.00e+00 1.00e+00h  1
+  28  6.2011509e-03 1.23e-05 5.04e-02  -4.0 3.75e-03  -0.9 1.00e+00 1.00e+00h  1
+  29  6.1120492e-03 5.98e-05 1.47e-01  -4.0 1.13e-02  -1.4 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  6.0645636e-03 1.04e-05 4.23e-02  -4.0 3.89e-03  -1.0 1.00e+00 1.00e+00h  1
+  31  5.9457299e-03 5.59e-05 2.49e-01  -4.0 1.12e-02  -1.5 1.00e+00 1.00e+00h  1
+  32  5.8975492e-03 9.92e-08 6.23e-03  -4.0 5.14e-04  -0.1 1.00e+00 1.00e+00h  1
+  33  5.8817347e-03 9.18e-07 5.81e-03  -4.0 1.60e-03  -0.6 1.00e+00 1.00e+00h  1
+  34  5.8639362e-03 7.71e-06 2.17e-02  -4.0 4.61e-03  -1.1 1.00e+00 1.00e+00h  1
+  35  5.8251958e-03 5.38e-05 1.57e-01  -4.0 1.22e-02  -1.6 1.00e+00 1.00e+00h  1
+  36  5.8385632e-03 1.21e-07 1.02e-03  -4.0 5.86e-04  -0.2 1.00e+00 1.00e+00h  1
+  37  5.8351864e-03 1.10e-06 2.61e-03  -4.0 1.76e-03  -0.7 1.00e+00 1.00e+00h  1
+  38  5.8270015e-03 9.19e-06 1.98e-02  -4.0 5.05e-03  -1.2 1.00e+00 1.00e+00h  1
+  39  5.8033705e-03 6.15e-05 1.68e-01  -4.0 1.44e-02  -1.7 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  5.8252248e-03 1.39e-07 2.74e-03  -4.0 6.76e-04  -0.4 1.00e+00 1.00e+00h  1
+  41  5.8270793e-03 1.27e-06 1.25e-03  -4.0 2.01e-03  -0.8 1.00e+00 1.00e+00h  1
+  42  5.7747536e-03 5.09e-06 1.41e-01  -4.1 4.75e-03  -1.3 1.00e+00 1.00e+00h  1
+  43  5.7923627e-03 1.48e-06 9.27e-02  -4.0 2.22e-03  -0.9 1.00e+00 1.00e+00h  1
+  44  5.7960179e-03 2.02e-07 6.59e-04  -4.0 8.30e-04  -0.5 1.00e+00 1.00e+00h  1
+  45  5.7999558e-03 1.77e-06 7.23e-04  -4.0 2.47e-03  -0.9 1.00e+00 1.00e+00h  1
+  46  5.7502931e-03 6.89e-06 1.73e-01  -4.1 5.81e-03  -1.4 1.00e+00 1.00e+00h  1
+  47  5.7718446e-03 5.49e-06 1.35e-01  -4.0 3.28e-03  -1.0 1.00e+00 1.00e+00h  1
+  48  5.7751584e-03 2.72e-07 7.82e-04  -4.0 1.02e-03  -0.6 1.00e+00 1.00e+00h  1
+  49  5.7862468e-03 2.38e-06 3.91e-03  -4.0 3.02e-03  -1.0 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  5.7376690e-03 9.30e-06 2.01e-01  -4.1 7.07e-03  -1.5 1.00e+00 1.00e+00h  1
+  51  5.7594931e-03 4.69e-08 1.59e-02  -4.0 4.16e-04  -0.2 1.00e+00 1.00e+00h  1
+  52  5.7646375e-03 3.82e-07 1.59e-03  -4.0 1.24e-03  -0.7 1.00e+00 1.00e+00h  1
+  53  5.7383397e-03 1.48e-06 1.04e-01  -4.1 2.96e-03  -1.1 1.00e+00 1.00e+00h  1
+  54  5.7590255e-03 4.60e-07 5.62e-02  -4.0 1.38e-03  -0.7 1.00e+00 1.00e+00h  1
+  55  5.7334915e-03 1.83e-06 1.25e-01  -4.1 3.28e-03  -1.2 1.00e+00 1.00e+00h  1
+  56  5.7562441e-03 5.60e-07 6.27e-02  -4.0 1.54e-03  -0.8 1.00e+00 1.00e+00h  1
+  57  5.7738488e-03 4.24e-06 1.43e-02  -4.0 4.55e-03  -1.2 1.00e+00 1.00e+00h  1
+  58  5.7285219e-03 1.99e-05 2.81e-01  -4.1 1.05e-02  -1.7 1.00e+00 1.00e+00h  1
+  59  5.7543585e-03 1.57e-07 2.15e-02  -4.0 6.22e-04  -0.4 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60  5.7621194e-03 7.04e-07 3.35e-03  -4.0 1.86e-03  -0.9 1.00e+00 1.00e+00h  1
+  61  5.7361433e-03 2.99e-06 1.43e-01  -4.1 4.39e-03  -1.3 1.00e+00 1.00e+00h  1
+  62  5.7318391e-03 5.81e-07 4.86e-04  -4.1 1.65e-03  -0.9 1.00e+00 1.00e+00h  1
+  63  5.7769940e-03 6.78e-06 2.22e-01  -4.0 6.10e-03  -1.4 1.00e+00 1.00e+00h  1
+  64  5.7626540e-03 7.81e-09 8.74e-03  -4.1 2.28e-04  -0.1 1.00e+00 1.00e+00h  1
+  65  5.7830684e-03 1.46e-07 3.28e-02  -4.0 8.53e-04  -0.5 1.00e+00 1.00e+00h  1
+  66  5.7611639e-03 6.08e-07 6.87e-02  -4.1 2.03e-03  -1.0 1.00e+00 1.00e+00h  1
+  67  5.7587851e-03 9.02e-08 1.95e-04  -4.1 7.62e-04  -0.6 1.00e+00 1.00e+00h  1
+  68  5.6129668e-03 2.82e-06 5.76e+00  -6.1 3.67e-03  -1.1 8.86e-01 1.00e+00h  1
+  69  5.6822774e-03 1.14e-07 8.76e-02  -4.0 8.53e-04   0.3 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70  5.6879305e-03 8.24e-08 8.23e-03  -4.0 4.01e-04  -0.2 1.00e+00 1.00e+00h  1
+  71  5.6830607e-03 1.22e-07 5.20e-02  -4.1 9.61e-04  -0.7 1.00e+00 1.00e+00h  1
+  72  5.6857595e-03 1.19e-06 9.01e-04  -4.1 2.86e-03  -1.2 1.00e+00 1.00e+00h  1
+  73  5.6883733e-03 9.53e-06 9.64e-03  -4.1 8.42e-03  -1.6 1.00e+00 1.00e+00h  1
+  74  5.6767342e-03 8.59e-05 1.46e-01  -4.1 2.38e-02  -2.1 1.00e+00 1.00e+00h  1
+  75  5.6917899e-03 2.81e-07 3.47e-03  -4.1 1.12e-03  -0.8 1.00e+00 1.00e+00h  1
+  76  5.7161563e-03 1.55e-06 1.41e-02  -4.1 3.33e-03  -1.3 1.00e+00 1.00e+00h  1
+  77  5.7141449e-03 1.27e-05 2.18e-02  -4.1 9.77e-03  -1.7 1.00e+00 1.00e+00h  1
+  78  5.7046486e-03 1.97e-06 8.24e-03  -4.1 3.64e-03  -1.3 1.00e+00 1.00e+00h  1
+  79  5.7201940e-03 1.45e-05 1.32e-02  -4.1 1.07e-02  -1.8 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  5.7176712e-03 2.51e-06 4.06e-03  -4.1 3.97e-03  -1.4 1.00e+00 1.00e+00h  1
+  81  5.7230161e-03 1.65e-05 7.33e-03  -4.1 1.16e-02  -1.9 1.00e+00 1.00e+00h  1
+  82  5.7201927e-03 1.02e-04 9.20e-02  -4.1 3.25e-02  -2.3 1.00e+00 1.00e+00h  1
+  83  5.7255422e-03 4.44e-07 1.13e-03  -4.1 1.53e-03  -1.0 1.00e+00 1.00e+00h  1
+  84  5.7403387e-03 3.70e-06 9.36e-03  -4.1 4.54e-03  -1.5 1.00e+00 1.00e+00h  1
+  85  5.7365293e-03 2.80e-05 2.93e-02  -4.1 1.33e-02  -2.0 1.00e+00 1.00e+00h  1
+  86  5.7281106e-03 4.42e-06 7.74e-03  -4.1 4.94e-03  -1.5 1.00e+00 1.00e+00h  1
+  87  5.7453756e-03 2.70e-05 2.07e-02  -4.1 1.44e-02  -2.0 1.00e+00 1.00e+00h  1
+  88  5.7459815e-03 5.61e-06 2.03e-03  -4.1 5.36e-03  -1.6 1.00e+00 1.00e+00h  1
+  89  5.7422234e-03 3.63e-05 2.54e-02  -4.1 1.56e-02  -2.1 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  90  5.7441839e-03 5.14e-06 9.50e-04  -4.1 5.81e-03  -1.6 1.00e+00 1.00e+00h  1
+  91  5.7570173e-03 4.16e-05 1.28e-02  -4.1 1.69e-02  -2.1 1.00e+00 1.00e+00h  1
+  92  5.7544093e-03 7.88e-06 3.86e-03  -4.1 6.29e-03  -1.7 1.00e+00 1.00e+00h  1
+  93  5.7504765e-03 4.75e-05 2.30e-02  -4.1 1.83e-02  -2.2 1.00e+00 1.00e+00h  1
+  94  5.7553833e-03 6.10e-06 1.70e-03  -4.1 6.80e-03  -1.7 1.00e+00 1.00e+00h  1
+  95  5.7686335e-03 5.74e-05 1.65e-02  -4.1 1.98e-02  -2.2 1.00e+00 1.00e+00h  1
+  96  5.7648798e-03 1.06e-05 3.90e-03  -4.1 7.34e-03  -1.8 1.00e+00 1.00e+00h  1
+  97  5.7511244e-03 6.24e-05 4.00e-02  -4.1 2.13e-02  -2.3 1.00e+00 1.00e+00h  1
+  98  5.7585761e-03 1.52e-07 8.31e-04  -4.1 9.98e-04  -0.9 1.00e+00 1.00e+00h  1
+  99  5.7622241e-03 2.15e-06 9.37e-04  -4.1 2.98e-03  -1.4 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  5.7616028e-03 1.62e-05 2.66e-03  -4.1 8.83e-03  -1.9 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   5.7616028153854209e-03    5.7616028153854209e-03
+Dual infeasibility......:   2.6558567349869509e-03    2.6558567349869509e-03
+Constraint violation....:   1.6158396877356774e-05    1.6158396877356774e-05
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   8.0005380616779309e-05    8.0005380616779309e-05
+Overall NLP error.......:   2.6558567349869509e-03    2.6558567349869509e-03
+
+
+Number of objective function evaluations             = 101
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 101
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 176.876
+
+EXIT: Maximum Number of Iterations Exceeded.</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
+qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
+solve!(qcp_base; max_iter=100)
+
+# Add robustness
+qcp_robust = SamplingProblem(qcp_base, [sys_nominal, sys_high, sys_low])
+solve!(qcp_robust; max_iter=100)
+
+# Minimize time
+qcp_mintime = MinimumTimeProblem(qcp_robust; final_fidelity=0.95)
+solve!(qcp_mintime; max_iter=100)</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p><code>SamplingProblem</code> creates a <code>SamplingTrajectory</code> internally with:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Shared control values</td></tr><tr><td style="text-align: right"><code>:Ũ⃗1</code>, <code>:Ũ⃗2</code>, ...</td><td style="text-align: right">State for each system (unitary case)</td></tr><tr><td style="text-align: right">or <code>:ψ̃1</code>, <code>:ψ̃2</code>, ...</td><td style="text-align: right">State for each system (ket case)</td></tr></table><p>Note: Derivative variables (<code>:du</code>, <code>:ddu</code>) from the base problem are <strong>not</strong> carried over. The robustness is achieved through multiple dynamics integrators, one per system.</p><h2 id="Difference-from-MultiKetTrajectory"><a class="docs-heading-anchor" href="#Difference-from-MultiKetTrajectory">Difference from MultiKetTrajectory</a><a id="Difference-from-MultiKetTrajectory-1"></a><a class="docs-heading-anchor-permalink" href="#Difference-from-MultiKetTrajectory" title="Permalink"></a></h2><p>These serve different purposes:</p><table><tr><th style="text-align: right">Feature</th><th style="text-align: right"><code>SamplingProblem</code></th><th style="text-align: right"><code>MultiKetTrajectory</code></th></tr><tr><td style="text-align: right">Systems</td><td style="text-align: right">Multiple different systems</td><td style="text-align: right">Single system</td></tr><tr><td style="text-align: right">States</td><td style="text-align: right">Same goal across systems</td><td style="text-align: right">Different initial/goal pairs</td></tr><tr><td style="text-align: right">Use case</td><td style="text-align: right">Parameter uncertainty</td><td style="text-align: right">Multi-state gates</td></tr></table><p><strong><code>SamplingProblem</code></strong>: &quot;Same gate, different systems&quot; <strong><code>MultiKetTrajectory</code></strong>: &quot;Same system, different state transfers&quot;</p><h2 id="Evaluating-Robustness"><a class="docs-heading-anchor" href="#Evaluating-Robustness">Evaluating Robustness</a><a id="Evaluating-Robustness-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluating-Robustness" title="Permalink"></a></h2><p>After solving, check fidelity across the parameter range:</p><pre><code class="language-julia hljs"># Sample more densely for evaluation
+eval_scales = range(0.8, 1.2, length=21)
+eval_systems = [QuantumSystem(s * H_drift, H_drives, drive_bounds) for s in eval_scales]
+
+# Get optimized pulse
+optimized_pulse = get_pulse(qcp_robust.qtraj)
+
+# Evaluate
+for (s, sys) in zip(eval_scales, eval_systems)
+    qtraj_eval = UnitaryTrajectory(sys, optimized_pulse, GATES[:X])
+    fid = fidelity(qtraj_eval)
+    println(&quot;Scale $s: Fidelity = $fid&quot;)
+end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:39">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
