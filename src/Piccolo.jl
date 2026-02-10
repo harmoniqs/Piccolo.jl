@@ -15,8 +15,8 @@ include("quantum/_quantum.jl")
 include("control/_control.jl")
 @reexport using .Control
 
-# Plotting
-include("pplots/_pplots.jl")
-@reexport using .PPlots
+# Visualizations
+include("visualizations/_visualizations.jl")
+@reexport using .Visualizations
 
 end

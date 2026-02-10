@@ -64,7 +64,7 @@ For N=2 ions: **4 radial modes** participate in the gate dynamics.
 - `N_ions`: Number of ions (default: 2)
 - `mode_levels`: Fock states per radial mode (default: 5)
 - `ωm_radial`: Radial mode frequencies in GHz. Vector of length 2N. 
-  Example for 2 ions: [5.0, 5.0, 5.1, 5.1] (nearly degenerate pairs)
+  Example for 2 ions: `[5.0, 5.0, 5.1, 5.1]` (nearly degenerate pairs)
 - `δ`: Detuning(s) from sideband in GHz. Scalar (uniform) or vector per mode.
 - `η`: Lamb-Dicke parameter(s). Scalar (uniform) or N_ions × 2N matrix.
 - `multiply_by_2π`: Multiply by 2π (default true, since frequencies in GHz)

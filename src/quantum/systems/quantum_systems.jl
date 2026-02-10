@@ -49,7 +49,7 @@ Construct a QuantumSystem from a Hamiltonian function.
 
 # Arguments
 - `H::Function`: Hamiltonian function with signature (u, t) -> H(u, t) where:
-  - `u` is a vector containing [controls..., globals...] (if system has global parameters)
+  - `u` is a vector containing `[controls..., globals...]` (if system has global parameters)
   - For matrix-based systems, only the first n_drives elements are used for controls
   - For function-based systems, handle globals via closure or by accessing u beyond control indices
   - `t` is time

@@ -124,7 +124,7 @@ rollout!(qtraj, new_pulse)  # Updates qtraj in-place
 fid = fidelity(qtraj)  # Uses new solution
 ```
 
-See also: [`rollout`](@ref)
+See also: `rollout`
 """
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory,
@@ -163,7 +163,7 @@ rollout!(qtraj; algorithm=Tsit5(), abstol=1e-10)
 fid_rk = fidelity(qtraj)
 ```
 
-See also: [`rollout`](@ref)
+See also: `rollout`
 """
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory;
@@ -183,7 +183,7 @@ end
     rollout!(qtraj::KetTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
 
 Update ket trajectory in-place with a new pulse.
-See [`rollout!(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
+See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
 """
 function Rollouts.rollout!(
     qtraj::KetTrajectory,
@@ -204,7 +204,7 @@ end
     rollout!(qtraj::KetTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
 
 Update ket trajectory in-place with same pulse but different ODE parameters.
-See [`rollout!(::UnitaryTrajectory; kwargs...)`](@ref) for details.
+See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout!(
     qtraj::KetTrajectory;
@@ -224,7 +224,7 @@ end
     rollout!(qtraj::MultiKetTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
 
 Update multi-ket trajectory in-place with a new pulse.
-See [`rollout!(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
+See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
 """
 function Rollouts.rollout!(
     qtraj::MultiKetTrajectory,
@@ -255,7 +255,7 @@ end
     rollout!(qtraj::MultiKetTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
 
 Update multi-ket trajectory in-place with same pulse but different ODE parameters.
-See [`rollout!(::UnitaryTrajectory; kwargs...)`](@ref) for details.
+See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout!(
     qtraj::MultiKetTrajectory;
@@ -287,7 +287,7 @@ end
 
 Update density trajectory in-place with a new pulse.
 Note: Default algorithm is `Tsit5()` since density evolution uses standard ODE solvers.
-See [`rollout!(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
+See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
 """
 function Rollouts.rollout!(
     qtraj::DensityTrajectory,
@@ -309,7 +309,7 @@ end
 
 Update density trajectory in-place with same pulse but different ODE parameters.
 Note: Default algorithm is `Tsit5()` since density evolution uses standard ODE solvers.
-See [`rollout!(::UnitaryTrajectory; kwargs...)`](@ref) for details.
+See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout!(
     qtraj::DensityTrajectory;
@@ -382,7 +382,7 @@ qtraj_new = rollout(qtraj, new_pulse)
 fid = fidelity(qtraj_new)
 ```
 
-See also: [`extract_pulse`](@ref), [`rollout!`](@ref), [`fidelity`](@ref)
+See also: `extract_pulse`, `rollout!`, `fidelity`
 """
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory,
@@ -400,7 +400,7 @@ end
     rollout(qtraj::KetTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
 
 Create a new ket trajectory by rolling out a new pulse.
-See [`rollout(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
+See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 """
 function Rollouts.rollout(
     qtraj::KetTrajectory,
@@ -418,7 +418,7 @@ end
     rollout(qtraj::MultiKetTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
 
 Create a new multi-ket trajectory by rolling out a new pulse.
-See [`rollout(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
+See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 """
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory,
@@ -455,7 +455,7 @@ end
 
 Create a new density trajectory by rolling out a new pulse.
 Note: Default algorithm is `Tsit5()` since density evolution uses standard ODE solvers.
-See [`rollout(::UnitaryTrajectory, ::AbstractPulse)`](@ref) for details.
+See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 """
 function Rollouts.rollout(
     qtraj::DensityTrajectory,
@@ -512,7 +512,7 @@ end
     rollout(qtraj::KetTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
 
 Re-solve ket trajectory with same pulse but different ODE parameters.
-See [`rollout(::UnitaryTrajectory; kwargs...)`](@ref) for details.
+See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::KetTrajectory;
@@ -530,7 +530,7 @@ end
     rollout(qtraj::MultiKetTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
 
 Re-solve multi-ket trajectory with same pulse but different ODE parameters.
-See [`rollout(::UnitaryTrajectory; kwargs...)`](@ref) for details.
+See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory;
@@ -568,7 +568,7 @@ end
 
 Re-solve density trajectory with same pulse but different ODE parameters.
 Note: Default algorithm is `Tsit5()` since density evolution uses standard ODE solvers.
-See [`rollout(::UnitaryTrajectory; kwargs...)`](@ref) for details.
+See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::DensityTrajectory;
@@ -636,6 +636,29 @@ function Rollouts.fidelity(traj::DensityTrajectory)
     ρ_final = traj.solution.u[end]
     return real(tr(ρ_final * traj.goal))
 end
+
+"""
+    fidelity(traj::SamplingTrajectory; kwargs...)
+
+Compute the fidelity for each system in the sampling trajectory.
+
+Returns a vector of fidelities, one per system, by rolling out the current pulse
+with each system and computing the fidelity against the goal.
+"""
+function Rollouts.fidelity(traj::SamplingTrajectory; kwargs...)
+    base = traj.base_trajectory
+    return [
+        Rollouts.fidelity(_swap_system(base, sys); kwargs...)
+        for sys in traj.systems
+    ]
+end
+
+# Helpers to create a trajectory with a different system (for per-system fidelity evaluation)
+_swap_system(qtraj::UnitaryTrajectory, sys::AbstractQuantumSystem) =
+    UnitaryTrajectory(sys, qtraj.pulse, get_goal(qtraj))
+
+_swap_system(qtraj::KetTrajectory, sys::AbstractQuantumSystem) =
+    KetTrajectory(sys, qtraj.pulse, qtraj.initial, qtraj.goal)
 
 # ============================================================================ #
 # Tests
