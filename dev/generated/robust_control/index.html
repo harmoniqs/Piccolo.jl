@@ -22,9 +22,9 @@ U_goal = GATES[:X]</code></pre><pre class="documenter-example-output"><code clas
 qtraj_nom = UnitaryTrajectory(sys_nominal, pulse_nom, U_goal)
 
 qcp_nom = SmoothPulseProblem(qtraj_nom, N; Q = 100.0, R = 1e-2)
-solve!(qcp_nom; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(qcp_nom, &quot;robust_nominal&quot;; max_iter = 20, verbose = false, print_level = 1)
 
-fidelity(qcp_nom)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999904772486397</code></pre><h2 id="Step-2:-Test-Robustness"><a class="docs-heading-anchor" href="#Step-2:-Test-Robustness">Step 2: Test Robustness</a><a id="Step-2:-Test-Robustness-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Test-Robustness" title="Permalink"></a></h2><p>Let&#39;s see how this pulse performs with ±10% frequency variation:</p><pre><code class="language-julia hljs">function evaluate_fidelity(qcp, ω_test)
+fidelity(qcp_nom)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.999990477248649</code></pre><h2 id="Step-2:-Test-Robustness"><a class="docs-heading-anchor" href="#Step-2:-Test-Robustness">Step 2: Test Robustness</a><a id="Step-2:-Test-Robustness-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Test-Robustness" title="Permalink"></a></h2><p>Let&#39;s see how this pulse performs with ±10% frequency variation:</p><pre><code class="language-julia hljs">function evaluate_fidelity(qcp, ω_test)
     # Create test system with different frequency
     H_test = ω_test * PAULIS[:Z]
     sys_test = QuantumSystem(H_test, H_drives, drive_bounds)
@@ -41,7 +41,7 @@ end
 ω_range = range(0.9 * ω_nominal, 1.1 * ω_nominal, length = 21)
 fidelities_nom = [evaluate_fidelity(qcp_nom, ω) for ω in ω_range]
 
-extrema(fidelities_nom)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.8708456097347047, 0.9999904772486397)</code></pre><h2 id="Step-3:-Robust-Optimization-with-SamplingProblem"><a class="docs-heading-anchor" href="#Step-3:-Robust-Optimization-with-SamplingProblem">Step 3: Robust Optimization with SamplingProblem</a><a id="Step-3:-Robust-Optimization-with-SamplingProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Step-3:-Robust-Optimization-with-SamplingProblem" title="Permalink"></a></h2><p>Now let&#39;s optimize for multiple frequency values simultaneously.</p><pre><code class="language-julia hljs"># Create perturbed systems (±5% and ±10%)
+extrema(fidelities_nom)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.8708456097332563, 0.999990477248649)</code></pre><h2 id="Step-3:-Robust-Optimization-with-SamplingProblem"><a class="docs-heading-anchor" href="#Step-3:-Robust-Optimization-with-SamplingProblem">Step 3: Robust Optimization with SamplingProblem</a><a id="Step-3:-Robust-Optimization-with-SamplingProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Step-3:-Robust-Optimization-with-SamplingProblem" title="Permalink"></a></h2><p>Now let&#39;s optimize for multiple frequency values simultaneously.</p><pre><code class="language-julia hljs"># Create perturbed systems (±5% and ±10%)
 ω_samples = [0.9, 0.95, 1.0, 1.05, 1.1] .* ω_nominal
 systems = [QuantumSystem(ω * PAULIS[:Z], H_drives, drive_bounds) for ω in ω_samples]
 
@@ -49,14 +49,20 @@ systems = [QuantumSystem(ω * PAULIS[:Z], H_drives, drive_bounds) for ω in ω_s
 
 # Start from the nominal solution
 qcp_robust = SamplingProblem(qcp_nom, systems; Q = 100.0)
-solve!(qcp_robust; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_robust,
+    &quot;robust_sampling&quot;;
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 
 fidelity(qcp_robust)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5-element Vector{Float64}:
- 0.9832634727580154
- 0.9927299245732664
- 0.99742983990531
- 0.9982983838113265
- 0.9951904458346256</code></pre><h2 id="Step-4:-Compare-Performance"><a class="docs-heading-anchor" href="#Step-4:-Compare-Performance">Step 4: Compare Performance</a><a id="Step-4:-Compare-Performance-1"></a><a class="docs-heading-anchor-permalink" href="#Step-4:-Compare-Performance" title="Permalink"></a></h2><pre><code class="language-julia hljs"># Evaluate robust pulse
+ 0.9844847497538942
+ 0.9935336889710623
+ 0.9979357534580573
+ 0.9986953855956474
+ 0.9957220765539823</code></pre><h2 id="Step-4:-Compare-Performance"><a class="docs-heading-anchor" href="#Step-4:-Compare-Performance">Step 4: Compare Performance</a><a id="Step-4:-Compare-Performance-1"></a><a class="docs-heading-anchor-permalink" href="#Step-4:-Compare-Performance" title="Permalink"></a></h2><pre><code class="language-julia hljs"># Evaluate robust pulse
 fidelities_robust = Float64[]
 for ω in ω_range
     H_test = ω * PAULIS[:Z]
@@ -66,7 +72,7 @@ for ω in ω_range
     push!(fidelities_robust, fidelity(qtraj_test))
 end
 
-extrema(fidelities_robust)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.9832634727580154, 0.9984215119838201)</code></pre><h2 id="Step-5:-Visualize-Comparison"><a class="docs-heading-anchor" href="#Step-5:-Visualize-Comparison">Step 5: Visualize Comparison</a><a id="Step-5:-Visualize-Comparison-1"></a><a class="docs-heading-anchor-permalink" href="#Step-5:-Visualize-Comparison" title="Permalink"></a></h2><pre><code class="language-julia hljs">fig = Figure(size = (800, 400))
+extrema(fidelities_robust)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.9844847497538942, 0.9988223102507504)</code></pre><h2 id="Step-5:-Visualize-Comparison"><a class="docs-heading-anchor" href="#Step-5:-Visualize-Comparison">Step 5: Visualize Comparison</a><a id="Step-5:-Visualize-Comparison-1"></a><a class="docs-heading-anchor-permalink" href="#Step-5:-Visualize-Comparison" title="Permalink"></a></h2><pre><code class="language-julia hljs">fig = Figure(size = (800, 400))
 
 ax = Axis(
     fig[1, 1],
@@ -96,7 +102,7 @@ hlines!(ax, [0.99], linestyle = :dash, color = :gray, label = &quot;99% threshol
 
 axislegend(ax, position = :lb)
 
-fig</code></pre><img src="7229d439.png" alt="Example block output"/><h2 id="Step-6:-Combine-with-Time-Optimization"><a class="docs-heading-anchor" href="#Step-6:-Combine-with-Time-Optimization">Step 6: Combine with Time Optimization</a><a id="Step-6:-Combine-with-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Step-6:-Combine-with-Time-Optimization" title="Permalink"></a></h2><p>We can chain <code>SamplingProblem</code> with <code>MinimumTimeProblem</code> for robust AND time-optimal pulses.</p><pre><code class="language-julia hljs"># First, create base problem with free time
+fig</code></pre><img src="2baade22.png" alt="Example block output"/><h2 id="Step-6:-Combine-with-Time-Optimization"><a class="docs-heading-anchor" href="#Step-6:-Combine-with-Time-Optimization">Step 6: Combine with Time Optimization</a><a id="Step-6:-Combine-with-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Step-6:-Combine-with-Time-Optimization" title="Permalink"></a></h2><p>We can chain <code>SamplingProblem</code> with <code>MinimumTimeProblem</code> for robust AND time-optimal pulses.</p><pre><code class="language-julia hljs"># First, create base problem with free time
 pulse_free = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_free = UnitaryTrajectory(sys_nominal, pulse_free, U_goal)
 
@@ -107,26 +113,44 @@ qcp_free = SmoothPulseProblem(
     R = 1e-2,
     Δt_bounds = (0.05, 0.3),  # Enable variable timesteps
 )
-solve!(qcp_free; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(qcp_free, &quot;robust_free_time&quot;; max_iter = 15, verbose = false, print_level = 1)
 
 # Add robustness
 qcp_robust_free = SamplingProblem(qcp_free, systems; Q = 100.0)
-solve!(qcp_robust_free; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_robust_free,
+    &quot;robust_free_sampling&quot;;
+    max_iter = 15,
+    verbose = false,
+    print_level = 1,
+)
 
 # Minimize time while maintaining fidelity
 qcp_fast_robust = MinimumTimeProblem(qcp_robust_free; final_fidelity = 0.95, D = 100.0)
-solve!(qcp_fast_robust; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_fast_robust,
+    &quot;robust_fast_mintime&quot;;
+    max_iter = 15,
+    verbose = false,
+    print_level = 1,
+)
 
 # Compare durations
 duration_initial = sum(get_timesteps(get_trajectory(qcp_free)))
 duration_robust = sum(get_timesteps(get_trajectory(qcp_robust_free)))
 duration_fast = sum(get_timesteps(get_trajectory(qcp_fast_robust)))
 
-duration_initial, duration_robust, duration_fast</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(10.389225839438032, 9.981564534845418, 7.327240445760958)</code></pre><h2 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h2><p>You can weight some parameter values more heavily:</p><pre><code class="language-julia hljs"># More weight on nominal, less on extremes
+duration_initial, duration_robust, duration_fast</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(10.389225839437566, 9.639544722323116, 8.325470883383534)</code></pre><h2 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h2><p>You can weight some parameter values more heavily:</p><pre><code class="language-julia hljs"># More weight on nominal, less on extremes
 weights = [0.5, 1.0, 2.0, 1.0, 0.5]  # Emphasize nominal
 
 qcp_weighted = SamplingProblem(qcp_nom, systems; weights = weights, Q = 100.0)
-solve!(qcp_weighted; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_weighted,
+    &quot;robust_weighted&quot;;
+    max_iter = 15,
+    verbose = false,
+    print_level = 1,
+)
 
 # Evaluate
 fidelities_weighted = Float64[]
@@ -138,4 +162,4 @@ for ω in ω_range
     push!(fidelities_weighted, fidelity(qtraj_test))
 end
 
-extrema(fidelities_weighted)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.9980160540472816, 0.9989763070591002)</code></pre><h2 id="Best-Practices"><a class="docs-heading-anchor" href="#Best-Practices">Best Practices</a><a id="Best-Practices-1"></a><a class="docs-heading-anchor-permalink" href="#Best-Practices" title="Permalink"></a></h2><ol><li><strong>Start with nominal optimization</strong> - Get a working solution first</li><li><strong>Sample key parameters</strong> - Focus on parameters with most uncertainty</li><li><strong>Use 3-5 samples initially</strong> - More samples = slower optimization</li><li><strong>Verify with dense evaluation</strong> - Test on more points than you optimized for</li><li><strong>Balance robustness and performance</strong> - More robust often means longer gates</li></ol><h2 id="Next-Steps"><a class="docs-heading-anchor" href="#Next-Steps">Next Steps</a><a id="Next-Steps-1"></a><a class="docs-heading-anchor-permalink" href="#Next-Steps" title="Permalink"></a></h2><ul><li><a href="../../problem-templates/#problem-templates-overview">Problem Templates</a>: Full <code>SamplingProblem</code> documentation</li><li><a href="../problem-templates/minimum_time/#minimum-time">MinimumTimeProblem</a>: Time optimization details</li><li><a href="../problem-templates/composition/#composition">Composing Templates</a>: Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../state_transfer/">« State Transfer</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:39">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+extrema(fidelities_weighted)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.997761537942937, 0.9994828368548555)</code></pre><h2 id="Best-Practices"><a class="docs-heading-anchor" href="#Best-Practices">Best Practices</a><a id="Best-Practices-1"></a><a class="docs-heading-anchor-permalink" href="#Best-Practices" title="Permalink"></a></h2><ol><li><strong>Start with nominal optimization</strong> - Get a working solution first</li><li><strong>Sample key parameters</strong> - Focus on parameters with most uncertainty</li><li><strong>Use 3-5 samples initially</strong> - More samples = slower optimization</li><li><strong>Verify with dense evaluation</strong> - Test on more points than you optimized for</li><li><strong>Balance robustness and performance</strong> - More robust often means longer gates</li></ol><h2 id="Next-Steps"><a class="docs-heading-anchor" href="#Next-Steps">Next Steps</a><a id="Next-Steps-1"></a><a class="docs-heading-anchor-permalink" href="#Next-Steps" title="Permalink"></a></h2><ul><li><a href="../../problem-templates/#problem-templates-overview">Problem Templates</a>: Full <code>SamplingProblem</code> documentation</li><li><a href="../problem-templates/minimum_time/#minimum-time">MinimumTimeProblem</a>: Time optimization details</li><li><a href="../problem-templates/composition/#composition">Composing Templates</a>: Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../state_transfer/">« State Transfer</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:45">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

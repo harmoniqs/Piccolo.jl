@@ -25,7 +25,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 # Solve using native knot times
 qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0)
-solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SplinePulseProblem with CubicSplinePulse{DataInterpolations.CubicHermiteSpline{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Matrix{Float64}, Vector{Vector{Float64}}, Float64}}...
+cached_solve!(qcp, &quot;spline_pulse_basic&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SplinePulseProblem with CubicSplinePulse{DataInterpolations.CubicHermiteSpline{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Matrix{Float64}, Vector{Vector{Float64}}, Float64}}...
     set du bounds to ±10.0 for CubicSplinePulse
 	applying timesteps_all_equal constraint: Δt
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
@@ -38,19 +38,6 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/4TeZc/src/problems.jl:65</span>
-    initializing optimizer...
-        applying constraint: timesteps all equal constraint
-        applying constraint: initial value of Ũ⃗
-        applying constraint: initial value of u
-        applying constraint: initial value of du
-        applying constraint: final value of u
-        applying constraint: final value of du
-        applying constraint: bounds on Ũ⃗
-        applying constraint: bounds on u
-        applying constraint: bounds on du
-        applying constraint: bounds on Δt
-        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
-        applying constraint: initial time t₁ = 0
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:    11084
@@ -73,155 +60,35 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    2  4.0042059e+01 4.90e-02 3.71e+01  -0.8 5.97e-01   1.5 9.84e-01 1.00e+00f  1
    3  4.5152731e-01 4.62e-02 1.99e+01  -0.2 1.20e+00   1.0 1.00e+00 2.16e-01f  1
    4  1.3139207e+01 4.38e-03 1.92e+01  -0.4 1.61e-01   0.6 8.05e-01 1.00e+00h  1
-   5  1.3675980e-01 5.77e-03 2.69e+00  -0.8 2.24e-01   0.1 9.59e-01 7.56e-01f  1
-   6  3.3501019e-02 7.21e-04 1.35e+00  -1.7 7.72e-02  -0.4 9.22e-01 1.00e+00h  1
-   7  1.5993155e-03 2.44e-04 5.74e-01  -2.8 3.71e-02  -0.9 9.99e-01 1.00e+00h  1
-   8  1.1208743e-03 7.06e-05 1.98e-01  -4.0 1.77e-02  -1.3 1.00e+00 1.00e+00h  1
-   9  1.1384627e-03 1.45e-05 5.51e-02  -4.0 1.13e-02  -1.8 1.00e+00 1.00e+00h  1
+⋮
+  96  1.0670902e-01 4.37e-03 8.47e-03  -3.2 3.22e-01    -  1.00e+00 1.00e+00h  1
+  97  2.6934635e-03 1.33e-02 3.25e-02  -3.2 4.95e-01  -3.9 1.00e+00 1.00e+00h  1
+  98  2.5343115e-03 1.31e-04 2.23e-03  -3.2 5.33e-02  -1.7 1.00e+00 1.00e+00h  1
+  99  1.1065953e-03 5.56e-04 2.07e-03  -4.8 5.61e-02    -  9.30e-01 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  10  1.0652728e-03 6.93e-05 3.43e-02  -4.1 2.65e-02  -2.3 1.00e+00 1.00e+00h  1
-  11  1.0329403e-03 4.77e-04 2.80e-02  -4.0 6.87e-02  -2.8 1.00e+00 1.00e+00h  1
-  12  1.0159460e-03 4.45e-05 1.80e-03  -4.0 1.97e-02  -2.3 1.00e+00 1.00e+00h  1
-  13  9.7517279e-04 2.59e-04 1.59e-02  -4.0 4.76e-02  -2.8 1.00e+00 1.00e+00h  1
-  14  9.6278247e-04 3.21e-05 7.85e-04  -4.0 1.72e-02  -2.4 1.00e+00 1.00e+00h  1
-  15  9.3921369e-04 1.50e-04 1.46e-02  -4.0 3.53e-02  -2.9 1.00e+00 1.00e+00h  1
-  16  9.3307926e-04 1.63e-05 1.04e-03  -4.0 1.14e-02  -2.4 1.00e+00 1.00e+00h  1
-  17  9.2025794e-04 8.18e-05 7.72e-04  -4.0 2.59e-02  -2.9 1.00e+00 1.00e+00h  1
-  18  9.0779344e-04 1.85e-04 1.80e-02  -4.0 4.18e-02  -3.4 1.00e+00 1.00e+00h  1
-  19  9.0677152e-04 6.83e-07 2.96e-04  -4.0 2.16e-03  -2.1 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  20  9.0810868e-04 2.60e-04 1.26e-02  -4.0 1.09e+01    -  8.41e-02 5.17e-03h  5
-  21  8.5956325e-04 3.73e-06 3.78e-04  -4.1 8.99e-03  -2.5 1.00e+00 1.00e+00h  1
-  22  8.9930573e-04 2.06e-05 2.60e-03  -4.0 1.47e-02  -3.0 1.00e+00 1.00e+00h  1
-  23  8.3230790e-04 1.08e-04 3.28e-03  -4.1 3.06e-02  -3.5 1.00e+00 1.00e+00h  1
-  24  8.4657796e-04 1.74e-04 8.62e-01  -4.0 9.89e-01  -4.0 9.43e-01 4.88e-02h  5
-  25  7.9190725e-04 8.85e-04 1.96e-03  -4.1 7.99e-02  -3.6 1.00e+00 1.00e+00h  1
-  26  8.1157897e-04 9.18e-04 1.66e-02  -4.0 6.24e+00    -  1.11e-01 9.09e-03h  5
-  27  7.3955517e-04 7.95e-04 1.22e-03  -4.2 8.95e-02  -4.0 1.00e+00 1.00e+00h  1
-  28  8.0144210e-04 1.05e-03 1.82e-02  -4.0 5.73e-01  -4.5 1.00e+00 2.50e-01h  3
-  29  8.3253656e-04 1.07e-03 1.16e-03  -4.1 1.69e-01    -  1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  30  8.2487580e-04 1.01e-03 4.30e-02  -4.1 5.48e-01    -  1.00e+00 1.25e-01h  4
-  31  8.1858463e-04 9.37e-04 5.11e-02  -4.1 6.14e-01    -  1.00e+00 1.25e-01h  4
-  32  8.2420499e-04 1.58e-03 1.07e-02  -4.1 3.15e-01    -  1.00e+00 5.00e-01h  2
-  33  8.3513157e-04 1.70e-03 1.82e-02  -4.1 3.71e-01    -  1.00e+00 5.00e-01h  2
-  34  8.5812324e-04 3.17e-03 3.29e-03  -4.1 1.77e-01  -4.1 1.00e+00 1.00e+00h  1
-  35  8.1220279e-04 2.01e-03 2.57e-02  -4.1 2.67e-01    -  1.00e+00 5.00e-01h  2
-  36  8.0410022e-04 3.29e-04 6.13e-04  -4.1 6.36e-02  -3.7 1.00e+00 1.00e+00h  1
-  37  8.1071587e-04 3.18e-04 2.22e-01  -4.0 2.00e+00    -  5.36e-01 2.77e-02h  5
-  38  8.0608641e-04 9.36e-04 5.91e-02  -4.1 4.88e-01    -  1.00e+00 2.50e-01h  3
-  39  7.8323403e-04 9.45e-04 4.39e-03  -4.1 1.19e-01  -4.1 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  40  8.5766160e-04 2.59e-05 1.90e-04  -4.0 2.05e-02  -2.8 1.00e+00 1.00e+00h  1
-  41  8.6371988e-04 2.88e-04 1.26e+00  -4.0 3.09e+00    -  2.75e-01 1.69e-02h  5
-  42  8.2446106e-04 2.87e-05 3.65e-04  -4.1 2.36e-02  -3.3 1.00e+00 1.00e+00h  1
-  43  8.5450904e-04 7.00e-04 2.78e+00  -4.0 7.48e-01    -  1.00e+00 1.25e-01h  4
-  44  8.4749323e-04 4.66e-07 9.88e-05  -4.1 2.61e-03  -2.0 1.00e+00 1.00e+00h  1
-  45  8.7407933e-04 6.39e-04 1.09e+00  -4.0 1.09e+00    -  1.00e+00 1.16e-01h  4
-  46  8.6231021e-04 1.10e-06 7.69e-05  -4.1 3.73e-03  -2.4 1.00e+00 1.00e+00h  1
-  47  5.0646835e-04 2.66e-03 2.00e+02  -6.2 2.14e-01    -  7.35e-01 1.00e+00h  1
-  48  7.1583930e-04 1.51e-05 9.79e+01  -4.0 1.19e-02  -2.0 4.90e-01 1.00e+00h  1
-  49  5.7292774e-04 3.40e-06 6.43e-03  -4.0 2.41e-02  -2.5 1.00e+00 1.00e+00H  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  50  7.8586576e-04 1.48e-04 1.42e-01  -4.0 5.09e-02  -3.0 1.00e+00 1.00e+00h  1
-  51  7.8103009e-04 2.78e-07 3.73e-02  -4.1 1.01e-03   1.1 1.00e+00 1.00e+00h  1
-  52  8.0534076e-04 1.42e-08 5.62e-03  -4.0 3.30e-04   0.6 1.00e+00 1.00e+00h  1
-  53  7.8948015e-04 1.91e-09 1.05e-03  -4.0 1.22e-04   0.1 1.00e+00 1.00e+00h  1
-  54  7.8877077e-04 1.35e-09 6.17e-05  -4.0 8.56e-05  -0.4 1.00e+00 1.00e+00h  1
-  55  7.8900789e-04 1.23e-08 4.16e-05  -4.0 2.89e-04  -0.8 1.00e+00 1.00e+00h  1
-  56  7.4928243e-04 3.81e-08 3.33e-05  -4.1 6.69e-04  -1.3 1.00e+00 1.00e+00h  1
-  57  7.9307762e-04 6.67e-07 5.20e-05  -4.0 3.25e-03  -1.8 1.00e+00 1.00e+00h  1
-  58  7.5797895e-04 1.67e-06 3.29e-05  -4.1 5.99e-03  -2.3 1.00e+00 1.00e+00h  1
-  59  5.6503766e-04 6.09e-05 2.00e+02  -6.1 2.72e-02  -2.7 9.63e-01 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  60  4.8773574e-04 3.83e-04 9.91e+01  -6.1 5.97e-02  -3.2 4.96e-01 1.00e+00h  1
-  61  1.2795055e-03 3.90e-04 2.32e+03  -4.0 2.23e+01  -2.8 1.00e+00 6.17e-04f  7
-  62  1.2515374e-03 2.71e-06 1.13e-03  -4.0 2.95e-03  -0.6 1.00e+00 1.00e+00h  1
-  63  6.7953319e-04 1.03e-06 2.86e-03  -4.0 1.89e-03  -0.1 1.00e+00 1.00e+00h  1
-  64  6.8483066e-04 2.23e-07 2.78e-04  -4.0 1.12e-03  -0.6 1.00e+00 1.00e+00h  1
-  65  6.8569286e-04 1.48e-07 1.67e-04  -4.0 1.41e-03  -1.1 1.00e+00 1.00e+00h  1
-  66  6.4793186e-04 6.54e-07 7.20e-05  -4.1 2.47e-03  -1.6 1.00e+00 1.00e+00h  1
-  67  6.9841851e-04 1.01e-05 1.49e-04  -4.0 8.56e-03  -2.0 1.00e+00 1.00e+00h  1
-  68  6.7678360e-04 2.93e-05 6.77e-05  -4.1 1.62e-02  -2.5 1.00e+00 1.00e+00h  1
-  69  4.8289653e-04 8.41e-05 2.00e+02  -6.1 3.27e-02  -3.0 9.59e-01 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  70  1.6120245e-03 1.51e-02 1.00e+02  -3.4 6.77e-01  -3.5 5.03e-01 4.52e-01f  2
-  71  1.2532616e-03 1.35e-02 1.98e+02  -3.8 4.16e-02  -0.3 1.00e+00 1.02e-01h  1
-  72  1.5589891e-03 4.53e-05 9.98e+01  -3.8 3.76e-02   0.1 4.86e-01 1.00e+00f  1
-  73  1.5980960e-03 3.13e-06 5.80e-03  -3.8 4.75e-03  -0.4 1.00e+00 1.00e+00h  1
-  74  1.5504490e-03 1.33e-06 7.30e-04  -3.8 3.49e-03  -0.9 1.00e+00 1.00e+00h  1
-  75  9.1681050e-04 1.77e-03 6.28e-02  -5.7 1.50e-01    -  7.58e-01 1.00e+00h  1
-  76  9.1786629e-04 9.23e-06 1.75e-03  -5.7 1.03e-02  -1.3 1.00e+00 1.00e+00h  1
-  77  9.0786964e-04 3.23e-06 3.34e-04  -5.7 7.32e-03  -1.8 1.00e+00 1.00e+00h  1
-  78  4.7597191e-04 1.92e-02 5.92e-02  -5.7 7.73e-01    -  5.50e-01 6.19e-01h  1
-  79  1.1720043e-03 9.25e-02 1.49e+00  -4.0 4.25e+00  -1.4 1.00e+00 1.77e-01f  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  80  2.2756863e-03 2.28e-02 1.62e-01  -3.1 3.51e-01  -1.0 9.05e-01 1.00e+00h  1
-  81  2.3522921e-03 3.73e-03 1.27e-02  -3.1 1.82e-01  -1.4 9.42e-01 1.00e+00h  1
-  82  2.3329138e-03 4.68e-04 3.76e-03  -3.1 7.44e-02  -1.9 1.00e+00 1.00e+00h  1
-  83  8.3649968e-04 6.89e-05 2.29e-03  -4.7 3.12e-02  -2.4 9.89e-01 1.00e+00h  1
-  84  7.3790256e-04 7.21e-04 3.27e-03  -4.7 9.91e-02  -2.9 1.00e+00 1.00e+00h  1
-  85  6.0809413e-04 1.47e-03 4.33e-03  -4.7 1.17e-01  -3.4 1.00e+00 1.00e+00h  1
-  86  5.1155462e-04 1.30e-03 2.63e-03  -4.7 8.10e-02  -3.8 1.00e+00 1.00e+00h  1
-  87  4.8922063e-04 1.26e-04 2.32e-04  -4.7 2.48e-02  -3.4 1.00e+00 1.00e+00h  1
-  88  4.8832826e-04 1.99e-04 6.44e-02  -4.7 6.71e-01    -  1.00e+00 1.25e-01h  4
-  89  4.8748333e-04 5.61e-04 2.68e-02  -4.7 5.07e-01    -  1.00e+00 2.50e-01h  3
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  90  4.8716735e-04 7.06e-04 1.40e-02  -4.7 3.42e-01    -  1.00e+00 2.50e-01h  3
-  91  4.8568897e-04 8.41e-04 1.94e-02  -4.7 4.43e-01    -  1.00e+00 2.50e-01h  3
-  92  4.8943208e-04 1.05e-03 1.70e-02  -4.7 4.57e-01    -  1.00e+00 2.50e-01h  3
-  93  4.7241576e-04 1.02e-03 1.03e-02  -4.7 3.09e-01    -  1.00e+00 5.00e-01h  2
-  94  7.8983640e-04 3.52e-03 1.00e-02  -4.0 3.41e-01  -3.9 1.00e+00 5.00e-01h  2
-  95  8.6665069e-04 1.03e-03 3.22e-03  -4.1 1.43e-01    -  1.00e+00 1.00e+00h  1
-  96  8.6035216e-04 8.12e-04 2.03e-02  -4.1 2.30e-01  -4.4 1.00e+00 2.50e-01h  3
-  97  8.6360202e-04 8.71e-04 4.16e-02  -4.1 1.38e+00  -4.8 6.77e-01 3.78e-02h  5
-  98  8.5505230e-04 1.02e-03 4.21e-03  -4.1 2.48e-01  -4.4 1.00e+00 2.50e-01h  3
-  99  8.5083138e-04 9.76e-04 1.39e-01  -4.1 6.08e-01    -  1.00e+00 1.25e-01h  4
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  8.2109041e-04 2.82e-04 1.36e-03  -4.1 4.96e-02  -4.0 1.00e+00 1.00e+00h  1
+ 100  7.1298679e-04 4.02e-03 7.43e-03  -4.8 2.99e-01    -  9.11e-01 1.00e+00h  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   8.2109041298868330e-04    8.2109041298868330e-04
-Dual infeasibility......:   1.3578099416086586e-03    1.3578099416086586e-03
-Constraint violation....:   2.8160108348607160e-04    2.8160108348607160e-04
+Objective...............:   7.1298679183760415e-04    7.1298679183760415e-04
+Dual infeasibility......:   7.4348989089005665e-03    7.4348989089005665e-03
+Constraint violation....:   4.0216221689757248e-03    4.0216221689757248e-03
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   8.2558432474673198e-05    8.2558432474673198e-05
-Overall NLP error.......:   1.3578099416086586e-03    1.3578099416086586e-03
+Complementarity.........:   3.7686388961381778e-05    3.7686388961381778e-05
+Overall NLP error.......:   7.4348989089005665e-03    7.4348989089005665e-03
 
 
-Number of objective function evaluations             = 206
+Number of objective function evaluations             = 189
 Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 206
+Number of equality constraint evaluations            = 189
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 21.432
+Total seconds in IPOPT                               = 12.718
 
-EXIT: Maximum Number of Iterations Exceeded.</code></pre><h3 id="Warm-Starting-from-Previous-Solution"><a class="docs-heading-anchor" href="#Warm-Starting-from-Previous-Solution">Warm-Starting from Previous Solution</a><a id="Warm-Starting-from-Previous-Solution-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-Previous-Solution" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Load previously optimized pulse
-using JLD2
-@load &quot;optimized_pulse.jld2&quot; saved_pulse
-
-# Create new trajectory with saved pulse
-qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
-
-# Use native knot times (no resampling)
-qcp = SplinePulseProblem(qtraj)
-solve!(qcp; max_iter=50)  # Converges quickly from good initial guess</code></pre><h3 id="Resampling-to-Different-Resolution"><a class="docs-heading-anchor" href="#Resampling-to-Different-Resolution">Resampling to Different Resolution</a><a id="Resampling-to-Different-Resolution-1"></a><a class="docs-heading-anchor-permalink" href="#Resampling-to-Different-Resolution" title="Permalink"></a></h3><p>The original pulse above has 50 knots. We can resample to 100 for finer control:</p><pre><code class="language-julia hljs">qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
-solve!(qcp_resampled; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SplinePulseProblem with CubicSplinePulse{DataInterpolations.CubicHermiteSpline{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Matrix{Float64}, Vector{Vector{Float64}}, Float64}}...
-	applying timesteps_all_equal constraint: Δt
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
-<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
-<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
-<span class="sgr33"><span class="sgr1">│ </span></span>Example:
-<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/4TeZc/src/problems.jl:65</span>
+EXIT: Maximum Number of Iterations Exceeded.
     initializing optimizer...
         applying constraint: timesteps all equal constraint
         applying constraint: initial value of Ũ⃗
@@ -235,6 +102,28 @@ solve!(qcp_resampled; max_iter = 100)</code></pre><pre class="documenter-example
         applying constraint: bounds on Δt
         applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
         applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from spline_pulse_basic_573ffb2.jld2</code></pre><h3 id="Warm-Starting-from-Previous-Solution"><a class="docs-heading-anchor" href="#Warm-Starting-from-Previous-Solution">Warm-Starting from Previous Solution</a><a id="Warm-Starting-from-Previous-Solution-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-Previous-Solution" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Load previously optimized pulse
+using JLD2
+@load &quot;optimized_pulse.jld2&quot; saved_pulse
+
+# Create new trajectory with saved pulse
+qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
+
+# Use native knot times (no resampling)
+qcp = SplinePulseProblem(qtraj)
+solve!(qcp; max_iter=50)  # Converges quickly from good initial guess</code></pre><h3 id="Resampling-to-Different-Resolution"><a class="docs-heading-anchor" href="#Resampling-to-Different-Resolution">Resampling to Different Resolution</a><a id="Resampling-to-Different-Resolution-1"></a><a class="docs-heading-anchor-permalink" href="#Resampling-to-Different-Resolution" title="Permalink"></a></h3><p>The original pulse above has 50 knots. We can resample to 100 for finer control:</p><pre><code class="language-julia hljs">qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
+cached_solve!(qcp_resampled, &quot;spline_pulse_resampled&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SplinePulseProblem with CubicSplinePulse{DataInterpolations.CubicHermiteSpline{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Matrix{Float64}, Vector{Vector{Float64}}, Float64}}...
+	applying timesteps_all_equal constraint: Δt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/4TeZc/src/problems.jl:65</span>
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:    22534
@@ -252,139 +141,54 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  6.4878555e+00 2.17e-02 1.27e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  6.6538973e-02 1.32e-02 3.66e+00  -1.2 3.23e+00    -  6.72e-01 9.61e-01f  1
-   2  3.4106672e+00 2.19e-02 1.82e+01  -1.3 1.17e+00    -  4.49e-01 9.39e-01h  1
-   3  3.4916735e-02 1.91e-03 1.04e+00  -1.8 3.82e-01    -  9.72e-01 9.78e-01f  1
-   4  5.2526715e-03 3.73e-04 1.68e-01  -2.7 1.08e-01  -2.0 1.00e+00 1.00e+00h  1
-   5  1.1437964e-03 1.70e-06 3.56e-03  -4.0 8.06e-03  -1.6 1.00e+00 1.00e+00h  1
-   6  8.2933519e-04 1.30e-06 1.56e+01  -4.0 1.64e-02  -2.1 1.00e+00 5.00e-01h  2
-   7  6.7190940e-04 6.49e-06 3.80e+01  -4.0 4.21e-02  -2.5 1.00e+00 5.00e-01h  2
-   8  5.3717668e-04 5.21e-07 5.71e-01  -4.0 3.93e-03  -1.2 1.00e+00 1.00e+00h  1
-   9  6.0700614e-04 1.10e-09 1.10e-02  -4.0 1.15e-04   1.9 1.00e+00 1.00e+00h  1
+   0  6.5506788e+00 1.51e-02 1.27e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.6487213e+00 6.08e-03 1.37e+00  -1.4 2.68e+00    -  6.63e-01 6.54e-01f  1
+   2  1.7509838e-02 8.96e-03 3.34e+00  -1.8 9.18e-01  -2.0 5.05e-01 7.10e-01f  1
+   3  1.1172286e-03 6.28e-03 9.10e+00  -4.0 3.84e-01  -0.7 6.45e-01 2.92e-01h  1
+   4  1.4567926e-01 5.12e-04 2.69e-01  -2.2 1.24e-01  -0.2 9.79e-01 1.00e+00h  1
+⋮
+  96  5.0443213e-04 3.93e-06 2.57e-03  -4.0 7.99e-03  -0.6 1.00e+00 1.00e+00h  1
+  97  4.6384257e-04 5.44e-07 7.67e-04  -4.1 3.77e-03  -1.1 1.00e+00 1.00e+00h  1
+  98  3.0384707e-04 1.96e-07 2.00e+02  -6.1 1.53e-03  -1.6 1.00e+00 1.00e+00h  1
+  99  5.1067072e-04 1.09e-05 9.93e+01  -4.0 1.69e-02  -2.1 4.50e-01 1.00e+00f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  10  6.4816742e-04 7.09e-09 8.08e-03  -4.0 2.88e-04   1.5 1.00e+00 1.00e+00h  1
-  11  6.6244234e-04 2.22e-10 2.32e-03  -4.1 4.52e-05   1.0 1.00e+00 1.00e+00h  1
-  12  6.6840198e-04 1.07e-10 1.38e-04  -4.1 4.41e-05   0.5 1.00e+00 1.00e+00h  1
-  13  7.0807714e-04 2.85e-09 2.19e-04  -4.0 1.93e-04   0.0 1.00e+00 1.00e+00h  1
-  14  6.6981084e-04 6.19e-09 2.97e-04  -4.1 4.63e-04  -0.4 1.00e+00 1.00e+00h  1
-  15  5.0933286e-04 2.98e-08 2.00e+02  -6.1 4.78e-04  -0.9 1.00e+00 1.00e+00h  1
-  16  5.5572244e-04 7.40e-04 9.75e+01  -4.1 2.17e+00    -  4.89e-01 7.61e-02f  3
-  17  5.0594844e-03 2.17e-06 1.92e-03  -4.5 7.25e-03  -1.4 1.00e+00 1.00e+00h  1
-  18  5.5828385e-04 5.71e-07 1.33e-03  -4.5 7.58e-03  -1.9 1.00e+00 1.00e+00h  1
-  19  5.8605249e-04 2.78e-06 1.18e-03  -4.5 2.20e-02  -2.4 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  20  5.6711920e-04 2.57e-05 1.61e-03  -4.5 5.32e-02  -2.8 1.00e+00 1.00e+00h  1
-  21  5.2977568e-04 1.21e-04 5.46e-03  -4.5 1.19e-01  -3.3 1.00e+00 1.00e+00h  1
-  22  4.8606512e-04 2.41e-04 1.05e-02  -4.5 1.68e-01  -3.8 1.00e+00 1.00e+00h  1
-  23  7.0986058e-04 5.41e-04 3.95e-03  -4.0 2.07e-01  -3.4 1.00e+00 1.00e+00h  1
-  24  6.7012676e-04 2.39e-04 4.84e-03  -4.1 1.55e-01  -3.8 1.00e+00 1.00e+00h  1
-  25  6.6994711e-04 2.42e-05 3.15e-03  -4.1 2.91e-02  -3.4 1.00e+00 1.00e+00h  1
-  26  6.7929414e-04 2.97e-04 5.97e-02  -4.1 1.24e-01  -3.9 1.00e+00 1.00e+00h  1
-  27  6.7766989e-04 2.01e-07 1.03e-04  -4.1 2.19e-03  -1.7 1.00e+00 1.00e+00h  1
-  28  4.2901755e-04 8.78e-04 2.00e+02  -6.1 1.78e-01    -  7.23e-01 1.00e+00h  1
-  29  6.3411502e-04 2.91e-06 9.75e+01  -4.0 8.59e-03  -2.1 4.87e-01 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  30  4.3386047e-04 2.79e-06 1.81e+02  -4.3 1.91e-02  -2.6 1.00e+00 3.12e-02h  1
-  31  7.1843414e-04 8.94e-05 1.00e+02  -4.0 5.65e-02  -3.1 4.23e-01 1.00e+00f  1
-  32  4.6856051e-04 8.41e-05 2.32e+02  -4.3 1.05e-02  -1.8 1.00e+00 5.82e-02h  1
-  33  5.7731797e-04 8.09e-07 3.25e+05  -4.3 4.87e-03  -2.2 4.27e-04 1.00e+00f  1
-  34  5.7632611e-04 5.52e-06 3.45e+02  -4.3 9.42e-03  -2.7 1.00e+00 1.00e+00h  1
-  35  5.7526872e-04 4.38e-06 1.01e+00  -4.3 1.35e-02  -3.2 1.00e+00 1.00e+00h  1
-  36  5.7605090e-04 3.27e-05 1.84e-02  -4.3 3.85e-02  -3.7 1.00e+00 1.00e+00h  1
-  37  5.7644550e-04 4.74e-06 2.19e-04  -4.3 1.45e-02  -3.2 1.00e+00 1.00e+00h  1
-  38  4.1164226e-04 1.72e-04 2.00e+02  -6.4 8.40e-02  -3.7 8.33e-01 1.00e+00h  1
-  39  8.2747083e-04 3.52e-03 9.84e+01  -3.0 8.97e+00    -  5.28e-01 4.17e-02f  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  40  7.6109097e-02 1.80e-04 1.97e-02  -3.4 2.73e-01  -1.5 1.00e+00 1.00e+00h  1
-  41  1.7841891e-03 2.68e-05 9.36e-03  -3.4 3.01e-02  -2.0 1.00e+00 1.00e+00h  1
-  42  1.4970446e-03 6.64e-05 5.50e-03  -3.4 6.59e-02  -2.4 1.00e+00 1.00e+00h  1
-  43  1.4887722e-03 2.34e-04 2.57e-02  -3.4 8.68e-02  -2.9 1.00e+00 1.00e+00h  1
-  44  1.4918134e-03 2.07e-05 1.11e-02  -3.4 2.68e-02  -2.5 1.00e+00 1.00e+00h  1
-  45  1.5077683e-03 1.18e-04 3.43e-02  -3.4 5.88e-02  -3.0 1.00e+00 1.00e+00h  1
-  46  1.5099753e-03 1.53e-05 1.12e-03  -3.4 2.00e-02  -2.5 1.00e+00 1.00e+00h  1
-  47  6.2972233e-04 6.42e-05 5.62e-02  -5.1 4.12e-02    -  9.47e-01 1.00e+00h  1
-  48  5.8992017e-04 1.50e-03 1.69e-01  -5.1 1.35e-01  -3.0 1.00e+00 1.00e+00h  1
-  49  5.9346534e-04 6.42e-06 1.70e-01  -5.1 8.27e-03   0.1 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  50  5.9162819e-04 4.24e-06 7.52e-03  -5.1 7.48e-03  -0.4 1.00e+00 1.00e+00h  1
-  51  5.9016592e-04 9.64e-07 6.64e-03  -5.1 3.86e-03  -0.8 1.00e+00 1.00e+00h  1
-  52  5.8862653e-04 2.26e-07 3.18e-03  -5.1 2.63e-03  -1.3 1.00e+00 1.00e+00h  1
-  53  5.8565297e-04 2.27e-07 2.01e-03  -5.1 3.54e-03  -1.8 1.00e+00 1.00e+00h  1
-  54  5.7795056e-04 1.59e-06 1.86e-03  -5.1 8.33e-03  -2.3 1.00e+00 1.00e+00h  1
-  55  5.5792096e-04 1.29e-05 1.86e-03  -5.1 2.20e-02  -2.8 1.00e+00 1.00e+00h  1
-  56  5.1224140e-04 7.70e-05 3.96e-03  -5.1 5.29e-02  -3.2 1.00e+00 1.00e+00h  1
-  57  4.3450931e-04 2.53e-04 1.38e-02  -5.1 9.00e-02  -3.7 1.00e+00 1.00e+00h  1
-  58  4.1264075e-04 2.96e-05 1.20e-03  -5.1 3.24e-02  -3.3 1.00e+00 1.00e+00h  1
-  59  9.1031705e-04 3.31e-03 1.29e-01  -4.0 4.41e-01  -3.8 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  60  8.6373961e-04 2.34e-05 7.31e-03  -4.1 2.78e-02  -1.5 1.00e+00 1.00e+00h  1
-  61  8.5561070e-04 5.21e-06 3.65e-04  -4.1 2.42e-02  -2.0 1.00e+00 1.00e+00h  1
-  62  5.4472586e-04 6.84e-04 2.00e+02  -6.1 1.51e-01    -  7.64e-01 1.00e+00h  1
-  63  5.3110950e-04 1.31e-05 9.93e+01  -6.1 2.57e-02  -2.5 4.96e-01 1.00e+00h  1
-  64  5.3193890e-04 1.31e-05 1.29e+02  -6.1 7.23e-01    -  3.46e-01 2.28e-04h  1
-  65  2.8419306e-04 4.00e-03 1.19e+02  -6.1 5.23e-01    -  1.75e-01 1.00e+00h  1
-  66  3.9021620e-03 6.06e-05 3.88e+03  -4.0 4.23e-02  -1.1 2.88e-03 1.00e+00h  1
-  67  2.8570976e-04 5.68e-05 3.66e+03  -5.3 5.18e-02  -1.6 1.00e+00 6.25e-02h  1
-  68  5.1170706e-04 2.20e-05 1.11e+06  -4.0 2.67e-02  -2.1 1.59e-04 1.00e+00f  1
-  69  3.7372341e-04 1.07e-02 4.43e+04  -5.4 3.74e-01  -2.6 1.00e+00 9.72e-01h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  70  3.7701196e-04 2.61e-04 1.55e+03  -5.4 5.13e-02  -1.3 1.00e+00 1.00e+00h  1
-  71  5.7285361e-04 5.17e-06 3.91e+03  -4.0 7.18e-03  -1.7 4.50e-02 1.00e+00h  1
-  72  3.8130762e-04 4.29e-06 4.90e+00  -5.2 9.76e-03  -2.2 1.00e+00 1.00e+00h  1
-  73  4.0320624e-04 3.60e-04 1.78e+02  -4.0 1.84e+01    -  1.39e-01 8.53e-03h  4
-  74  3.3680719e-04 6.63e-03 3.48e+00  -4.8 3.21e-01    -  9.83e-01 1.00e+00h  1
-  75  3.3739322e-04 1.74e-05 7.30e-02  -4.8 1.84e-02  -2.7 1.00e+00 1.00e+00h  1
-  76  3.5667362e-04 5.25e-04 2.35e-01  -4.0 8.59e+00    -  3.93e-01 1.65e-02h  4
-  77  4.4710652e-04 3.70e-04 1.52e-02  -4.4 1.10e-01    -  1.00e+00 1.00e+00h  1
-  78  4.5899190e-04 2.16e-05 4.48e-04  -4.4 3.06e-02  -3.2 1.00e+00 1.00e+00h  1
-  79  4.8211155e-04 5.31e-05 6.79e-04  -4.4 4.44e-02  -3.6 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  80  5.0245087e-04 7.80e-05 5.26e-03  -4.4 6.38e-02  -4.1 1.00e+00 1.00e+00h  1
-  81  5.0282393e-04 5.37e-07 3.35e-04  -4.4 3.29e-03  -2.8 1.00e+00 1.00e+00h  1
-  82  6.8923606e-04 1.54e-04 1.86e-02  -4.0 8.46e-02  -3.3 1.00e+00 1.00e+00h  1
-  83  6.5310355e-04 2.50e-06 3.32e-04  -4.1 9.74e-03  -2.8 1.00e+00 1.00e+00h  1
-  84  4.5834401e-04 5.17e-05 2.00e+02  -6.1 3.66e-02  -3.3 8.82e-01 1.00e+00h  1
-  85  4.3924783e-04 1.79e-05 9.92e+01  -6.1 3.60e-02  -2.9 4.96e-01 1.00e+00h  1
-  86  4.3979099e-04 1.79e-05 1.36e+02  -6.1 5.63e-01    -  6.60e-01 9.28e-04h  1
-  87  1.7616698e-04 5.90e-03 9.82e+01  -6.1 4.24e-01    -  2.51e-01 1.00e+00h  1
-  88  1.1314874e-03 5.18e-04 7.59e-01  -5.5 8.08e-02  -1.6 1.00e+00 1.00e+00h  1
-  89  1.9898861e-04 3.12e-06 1.71e-03  -5.5 7.99e-03  -2.0 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  90  4.2413940e-04 2.51e-04 2.48e+03  -4.0 6.04e-02  -2.5 6.15e-02 1.00e+00h  1
-  91  2.7468247e-04 4.17e-08 1.67e-01  -5.1 1.26e-03   0.6 1.00e+00 1.00e+00h  1
-  92  4.3754373e-04 6.08e-08 1.20e+02  -4.0 7.58e-04   0.1 6.41e-01 1.00e+00h  1
-  93  4.3094805e-04 2.55e-09 1.87e-02  -4.3 1.36e-04   1.5 1.00e+00 1.00e+00h  1
-  94  4.2481714e-04 1.18e-10 2.67e-03  -4.0 2.75e-05   1.0 1.00e+00 1.00e+00h  1
-  95  4.1956779e-04 1.46e-10 3.17e-04  -4.0 5.51e-05   0.5 1.00e+00 1.00e+00h  1
-  96  4.1829304e-04 3.20e-09 2.42e-04  -4.0 2.19e-04   0.0 1.00e+00 1.00e+00h  1
-  97  4.1992366e-04 8.64e-08 1.16e-03  -4.0 9.92e-04  -0.4 1.00e+00 1.00e+00h  1
-  98  3.8160365e-04 1.66e-07 1.11e-03  -4.1 1.65e-03  -0.9 1.00e+00 1.00e+00h  1
-  99  3.8268570e-04 5.45e-07 1.77e-04  -4.1 4.31e-03  -1.4 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  2.2405989e-04 7.84e-08 2.00e+02  -6.1 8.80e-04  -1.9 1.00e+00 1.00e+00h  1
+ 100  3.1280147e-04 9.51e-06 2.29e+02  -4.4 1.72e-02  -2.5 1.00e+00 1.43e-01h  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.2405989143548714e-04    2.2405989143548714e-04
-Dual infeasibility......:   2.0000000085585219e+02    2.0000000085585219e+02
-Constraint violation....:   7.8388529445305721e-08    7.8388529445305721e-08
-Variable bound violation:   4.3338441724216636e-09    4.3338441724216636e-09
-Complementarity.........:   1.2603111827137747e-06    1.2603111827137747e-06
-Overall NLP error.......:   2.0000000085585219e+02    2.0000000085585219e+02
+Objective...............:   3.1280147078015762e-04    3.1280147078015762e-04
+Dual infeasibility......:   2.2870804922710613e+02    2.2870804922710613e+02
+Constraint violation....:   9.5142374039181021e-06    9.5142374039181021e-06
+Variable bound violation:   9.9631387584508957e-09    9.9631387584508957e-09
+Complementarity.........:   3.7916079980831969e-05    3.7916079980831969e-05
+Overall NLP error.......:   2.2870804922710613e+02    2.2870804922710613e+02
 
 
-Number of objective function evaluations             = 120
+Number of objective function evaluations             = 141
 Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 120
+Number of equality constraint evaluations            = 141
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 20.388
+Total seconds in IPOPT                               = 14.907
 
-EXIT: Maximum Number of Iterations Exceeded.</code></pre><h3 id="Linear-vs-Cubic-Splines"><a class="docs-heading-anchor" href="#Linear-vs-Cubic-Splines">Linear vs Cubic Splines</a><a id="Linear-vs-Cubic-Splines-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-vs-Cubic-Splines" title="Permalink"></a></h3><p><strong>Linear Splines</strong>: The derivative <code>:du</code> represents the slope between knots. A <code>DerivativeIntegrator</code> constraint enforces <code>du[k] = (u[k+1] - u[k]) / Δt</code>.</p><pre><code class="language-julia hljs">pulse_linear = LinearSplinePulse(controls, times)
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: initial value of du
+        applying constraint: final value of u
+        applying constraint: final value of du
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from spline_pulse_resampled_573ffb2.jld2</code></pre><h3 id="Linear-vs-Cubic-Splines"><a class="docs-heading-anchor" href="#Linear-vs-Cubic-Splines">Linear vs Cubic Splines</a><a id="Linear-vs-Cubic-Splines-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-vs-Cubic-Splines" title="Permalink"></a></h3><p><strong>Linear Splines</strong>: The derivative <code>:du</code> represents the slope between knots. A <code>DerivativeIntegrator</code> constraint enforces <code>du[k] = (u[k+1] - u[k]) / Δt</code>.</p><pre><code class="language-julia hljs">pulse_linear = LinearSplinePulse(controls, times)
 qtraj_linear = UnitaryTrajectory(sys, pulse_linear, GATES[:X])
 qcp_linear = SplinePulseProblem(qtraj_linear)
 # du is constrained to be consistent with u</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{LinearSplinePulse{DataInterpolations.LinearInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Vector{Vector{Float64}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}, saveat::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusGL4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusGL4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}, Matrix{ComplexF64}}}
@@ -400,4 +204,4 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic)
   Goal: Matrix{ComplexF64}
   Trajectory: 50 knots
   State: Ũ⃗
-  Controls: u</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../smooth_pulse/">« SmoothPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:39">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+  Controls: u</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../smooth_pulse/">« SmoothPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:45">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

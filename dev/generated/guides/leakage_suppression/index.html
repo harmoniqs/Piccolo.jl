@@ -4,7 +4,7 @@ using Random
 Random.seed!(42)
 
 # Create a 3-level transmon
-sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
+sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.4, 0.4])
 
 # Define X gate in computational subspace
 U_goal = EmbeddedOperator(:X, sys)
@@ -43,7 +43,7 @@ leak_indices</code></pre><pre class="documenter-example-output"><code class="noh
     leakage_constraint_value = 1e-3,
     verbose = false,
 )</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PiccoloOptions(false, true, ExponentialAction.expv, true, false, nothing, 1.0, false, true, 0.001, 10.0)</code></pre><h2 id="Complete-Example:-X-Gate-on-3-Level-Transmon"><a class="docs-heading-anchor" href="#Complete-Example:-X-Gate-on-3-Level-Transmon">Complete Example: X Gate on 3-Level Transmon</a><a id="Complete-Example:-X-Gate-on-3-Level-Transmon-1"></a><a class="docs-heading-anchor-permalink" href="#Complete-Example:-X-Gate-on-3-Level-Transmon" title="Permalink"></a></h2><pre><code class="language-julia hljs"># 1. Create multilevel system
-sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
+sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.4, 0.4])
 
 # 2. Define embedded gate
 U_goal = EmbeddedOperator(:X, sys)
@@ -56,7 +56,7 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 # 4. Configure leakage suppression
 opts = PiccoloOptions(
-    leakage_cost = 10.0,
+    leakage_cost = 5.0,
     leakage_constraint = true,
     leakage_constraint_value = 1e-3,
     verbose = false,
@@ -64,9 +64,15 @@ opts = PiccoloOptions(
 
 # 5. Solve
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
-solve!(qcp; max_iter = 150, verbose = false, print_level = 1)
+cached_solve!(
+    qcp,
+    &quot;leakage_suppression_2&quot;;
+    max_iter = 150,
+    verbose = false,
+    print_level = 1,
+)
 
-fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.13934707628478002</code></pre><h2 id="Manual-Leakage-Objectives-and-Constraints"><a class="docs-heading-anchor" href="#Manual-Leakage-Objectives-and-Constraints">Manual Leakage Objectives and Constraints</a><a id="Manual-Leakage-Objectives-and-Constraints-1"></a><a class="docs-heading-anchor-permalink" href="#Manual-Leakage-Objectives-and-Constraints" title="Permalink"></a></h2><p>For more control, add leakage handling manually using <code>LeakageObjective</code> and <code>LeakageConstraint</code>. Both take the leakage indices in the isomorphic vector space:</p><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.14267269018434495</code></pre><h2 id="Manual-Leakage-Objectives-and-Constraints"><a class="docs-heading-anchor" href="#Manual-Leakage-Objectives-and-Constraints">Manual Leakage Objectives and Constraints</a><a id="Manual-Leakage-Objectives-and-Constraints-1"></a><a class="docs-heading-anchor-permalink" href="#Manual-Leakage-Objectives-and-Constraints" title="Permalink"></a></h2><p>For more control, add leakage handling manually using <code>LeakageObjective</code> and <code>LeakageConstraint</code>. Both take the leakage indices in the isomorphic vector space:</p><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
 leak_indices = get_iso_vec_leakage_indices(U_goal)
 
 # Leakage objective (soft penalty)
@@ -74,20 +80,33 @@ leak_obj = LeakageObjective(leak_indices, :Ũ⃗, traj; Qs = fill(10.0, N))
 
 # Leakage constraint (hard bound)
 leak_constraint = LeakageConstraint(1e-3, leak_indices, :Ũ⃗, traj)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">NonlinearKnotPointConstraint{DirectTrajOpt.Constraints.var&quot;#32#33&quot;{Piccolo.Control.QuantumConstraints.var&quot;#leakage_constraint#7&quot;{Float64, Vector{Int64}}}}(DirectTrajOpt.Constraints.var&quot;#32#33&quot;{Piccolo.Control.QuantumConstraints.var&quot;#leakage_constraint#7&quot;{Float64, Vector{Int64}}}(Piccolo.Control.QuantumConstraints.var&quot;#leakage_constraint#7&quot;{Float64, Vector{Int64}}(0.001, [3, 6, 9, 12, 13, 14, 16, 17])), [:Ũ⃗], false, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10  …  91, 92, 93, 94, 95, 96, 97, 98, 99, 100], [nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing  …  nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing], 8, 18, 800)</code></pre><h2 id="Strategies-for-Difficult-Problems"><a class="docs-heading-anchor" href="#Strategies-for-Difficult-Problems">Strategies for Difficult Problems</a><a id="Strategies-for-Difficult-Problems-1"></a><a class="docs-heading-anchor-permalink" href="#Strategies-for-Difficult-Problems" title="Permalink"></a></h2><h3 id="1.-Start-Without-Leakage-Constraints"><a class="docs-heading-anchor" href="#1.-Start-Without-Leakage-Constraints">1. Start Without Leakage Constraints</a><a id="1.-Start-Without-Leakage-Constraints-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Start-Without-Leakage-Constraints" title="Permalink"></a></h3><p>Get a working solution first, then add constraints:</p><pre><code class="language-julia hljs"># Step 1: Optimize without leakage constraints
-qcp_initial = SmoothPulseProblem(qtraj, N; Q = 100.0)
-solve!(qcp_initial; max_iter = 100, verbose = false, print_level = 1)
+qtraj2 = UnitaryTrajectory(sys, pulse, U_goal)
+qcp_initial = SmoothPulseProblem(qtraj2, N; Q = 100.0)
+cached_solve!(
+    qcp_initial,
+    &quot;leakage_initial_2&quot;;
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
 
 # Step 2: Add leakage suppression
 opts = PiccoloOptions(
-    leakage_cost = 10.0,
+    leakage_cost = 5.0,
     leakage_constraint = true,
     leakage_constraint_value = 1e-3,
     verbose = false,
 )
-qcp_leakage = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
-solve!(qcp_leakage; max_iter = 150, verbose = false, print_level = 1)
+qcp_leakage = SmoothPulseProblem(qtraj2, N; Q = 100.0, piccolo_options = opts)
+cached_solve!(
+    qcp_leakage,
+    &quot;leakage_with_suppression_2&quot;;
+    max_iter = 150,
+    verbose = false,
+    print_level = 1,
+)
 
-fidelity(qcp_initial)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.15285901013588088</code></pre><pre><code class="language-julia hljs">fidelity(qcp_leakage)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.15285901013588088</code></pre><h3 id="2.-Increase-Gate-Time"><a class="docs-heading-anchor" href="#2.-Increase-Gate-Time">2. Increase Gate Time</a><a id="2.-Increase-Gate-Time-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Increase-Gate-Time" title="Permalink"></a></h3><p>Faster gates often have more leakage. Try a longer gate time if leakage is high.</p><h3 id="3.-Use-More-Levels"><a class="docs-heading-anchor" href="#3.-Use-More-Levels">3. Use More Levels</a><a id="3.-Use-More-Levels-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Use-More-Levels" title="Permalink"></a></h3><p>Include more levels to capture dynamics accurately:</p><pre><code class="language-julia hljs">sys_4level = TransmonSystem(levels = 4, δ = 0.2, drive_bounds = [0.2, 0.2])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumSystem: levels = 4, n_drives = 2</code></pre><h3 id="4.-Reduce-Drive-Amplitude"><a class="docs-heading-anchor" href="#4.-Reduce-Drive-Amplitude">4. Reduce Drive Amplitude</a><a id="4.-Reduce-Drive-Amplitude-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Reduce-Drive-Amplitude" title="Permalink"></a></h3><p>Lower drives can reduce leakage:</p><pre><code class="language-julia hljs">sys_low_drive = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.1, 0.1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumSystem: levels = 3, n_drives = 2</code></pre><h2 id="Analyzing-Leakage"><a class="docs-heading-anchor" href="#Analyzing-Leakage">Analyzing Leakage</a><a id="Analyzing-Leakage-1"></a><a class="docs-heading-anchor-permalink" href="#Analyzing-Leakage" title="Permalink"></a></h2><p>After solving, visualize the state evolution including leakage levels:</p><pre><code class="language-julia hljs">using CairoMakie
+fidelity(qcp_initial)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.2536874122193978</code></pre><pre><code class="language-julia hljs">fidelity(qcp_leakage)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.2536874122193978</code></pre><h3 id="2.-Increase-Gate-Time"><a class="docs-heading-anchor" href="#2.-Increase-Gate-Time">2. Increase Gate Time</a><a id="2.-Increase-Gate-Time-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Increase-Gate-Time" title="Permalink"></a></h3><p>Faster gates often have more leakage. Try a longer gate time if leakage is high.</p><h3 id="3.-Use-More-Levels"><a class="docs-heading-anchor" href="#3.-Use-More-Levels">3. Use More Levels</a><a id="3.-Use-More-Levels-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Use-More-Levels" title="Permalink"></a></h3><p>Include more levels to capture dynamics accurately:</p><pre><code class="language-julia hljs">sys_4level = TransmonSystem(levels = 4, δ = 0.2, drive_bounds = [0.2, 0.2])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumSystem: levels = 4, n_drives = 2</code></pre><h3 id="4.-Reduce-Drive-Amplitude"><a class="docs-heading-anchor" href="#4.-Reduce-Drive-Amplitude">4. Reduce Drive Amplitude</a><a id="4.-Reduce-Drive-Amplitude-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Reduce-Drive-Amplitude" title="Permalink"></a></h3><p>Lower drives can reduce leakage:</p><pre><code class="language-julia hljs">sys_low_drive = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.1, 0.1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumSystem: levels = 3, n_drives = 2</code></pre><h2 id="Analyzing-Leakage"><a class="docs-heading-anchor" href="#Analyzing-Leakage">Analyzing Leakage</a><a id="Analyzing-Leakage-1"></a><a class="docs-heading-anchor-permalink" href="#Analyzing-Leakage" title="Permalink"></a></h2><p>After solving, visualize the state evolution including leakage levels:</p><pre><code class="language-julia hljs">using CairoMakie
 
 traj = get_trajectory(qcp)
-fig = plot_unitary_populations(traj)</code></pre><img src="115cfa2d.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../concepts/operators/#operators-concept">Operators</a> - EmbeddedOperator details</li><li><a href="../system_templates/#system-templates">System Templates</a> - Creating multilevel systems</li><li><a href="../../concepts/objectives/#objectives-concept">Objectives</a> - LeakageObjective documentation</li><li><a href="../../concepts/constraints/#constraints-concept">Constraints</a> - LeakageConstraint documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../system_templates/">« System Templates</a><a class="docs-footer-nextpage" href="../global_variables/">Global Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:39">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig = plot_unitary_populations(traj)</code></pre><img src="9da6b376.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../concepts/operators/#operators-concept">Operators</a> - EmbeddedOperator details</li><li><a href="../system_templates/#system-templates">System Templates</a> - Creating multilevel systems</li><li><a href="../../concepts/objectives/#objectives-concept">Objectives</a> - LeakageObjective documentation</li><li><a href="../../concepts/constraints/#constraints-concept">Constraints</a> - LeakageConstraint documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../system_templates/">« System Templates</a><a class="docs-footer-nextpage" href="../global_variables/">Global Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:45">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

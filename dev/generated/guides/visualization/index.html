@@ -17,16 +17,16 @@ pulse = ZeroOrderPulse(initial_controls, times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp, &quot;visualization_unitary&quot;; max_iter = 50, verbose = false, print_level = 1)
 
-fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999695280856856</code></pre><h2 id="Basic-Trajectory-Plotting"><a class="docs-heading-anchor" href="#Basic-Trajectory-Plotting">Basic Trajectory Plotting</a><a id="Basic-Trajectory-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Trajectory-Plotting" title="Permalink"></a></h2><p>The <code>plot</code> function from NamedTrajectories.jl plots trajectory components.</p><h3 id="Plot-Controls"><a class="docs-heading-anchor" href="#Plot-Controls">Plot Controls</a><a id="Plot-Controls-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls" title="Permalink"></a></h3><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
-fig = plot(traj, [:u])</code></pre><img src="2fadfb4e.png" alt="Example block output"/><h3 id="Plot-Controls-and-Derivatives"><a class="docs-heading-anchor" href="#Plot-Controls-and-Derivatives">Plot Controls and Derivatives</a><a id="Plot-Controls-and-Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls-and-Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = plot(traj, [:u, :du, :ddu])</code></pre><img src="a6b7fe0a.png" alt="Example block output"/><h2 id="Quantum-Specific-Plots"><a class="docs-heading-anchor" href="#Quantum-Specific-Plots">Quantum-Specific Plots</a><a id="Quantum-Specific-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Specific-Plots" title="Permalink"></a></h2><h3 id="Unitary-Populations"><a class="docs-heading-anchor" href="#Unitary-Populations">Unitary Populations</a><a id="Unitary-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Unitary-Populations" title="Permalink"></a></h3><p>For <code>UnitaryTrajectory</code>, visualize how state populations evolve during the gate:</p><pre><code class="language-julia hljs">fig = plot_unitary_populations(traj)</code></pre><img src="03c00293.png" alt="Example block output"/><h3 id="Ket-State-Populations"><a class="docs-heading-anchor" href="#Ket-State-Populations">Ket State Populations</a><a id="Ket-State-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Ket-State-Populations" title="Permalink"></a></h3><p>For <code>KetTrajectory</code>, use <code>plot_state_populations</code>:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]
+fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999695284628932</code></pre><h2 id="Basic-Trajectory-Plotting"><a class="docs-heading-anchor" href="#Basic-Trajectory-Plotting">Basic Trajectory Plotting</a><a id="Basic-Trajectory-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Trajectory-Plotting" title="Permalink"></a></h2><p>The <code>plot</code> function from NamedTrajectories.jl plots trajectory components.</p><h3 id="Plot-Controls"><a class="docs-heading-anchor" href="#Plot-Controls">Plot Controls</a><a id="Plot-Controls-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls" title="Permalink"></a></h3><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+fig = plot(traj, [:u])</code></pre><img src="2fadfb4e.png" alt="Example block output"/><h3 id="Plot-Controls-and-Derivatives"><a class="docs-heading-anchor" href="#Plot-Controls-and-Derivatives">Plot Controls and Derivatives</a><a id="Plot-Controls-and-Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls-and-Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = plot(traj, [:u, :du, :ddu])</code></pre><img src="f7ca1202.png" alt="Example block output"/><h2 id="Quantum-Specific-Plots"><a class="docs-heading-anchor" href="#Quantum-Specific-Plots">Quantum-Specific Plots</a><a id="Quantum-Specific-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Specific-Plots" title="Permalink"></a></h2><h3 id="Unitary-Populations"><a class="docs-heading-anchor" href="#Unitary-Populations">Unitary Populations</a><a id="Unitary-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Unitary-Populations" title="Permalink"></a></h3><p>For <code>UnitaryTrajectory</code>, visualize how state populations evolve during the gate:</p><pre><code class="language-julia hljs">fig = plot_unitary_populations(traj)</code></pre><img src="03c00293.png" alt="Example block output"/><h3 id="Ket-State-Populations"><a class="docs-heading-anchor" href="#Ket-State-Populations">Ket State Populations</a><a id="Ket-State-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Ket-State-Populations" title="Permalink"></a></h3><p>For <code>KetTrajectory</code>, use <code>plot_state_populations</code>:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]
 ψ_goal = ComplexF64[0.0, 1.0]
 
 pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
 qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp_ket; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp_ket, &quot;visualization_ket&quot;; max_iter = 50, verbose = false, print_level = 1)
 
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)</code></pre><img src="19704731.png" alt="Example block output"/><h2 id="Custom-Plotting"><a class="docs-heading-anchor" href="#Custom-Plotting">Custom Plotting</a><a id="Custom-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Plotting" title="Permalink"></a></h2><p>For full control, extract trajectory data and use Makie directly.</p><h3 id="Manual-Control-Plots"><a class="docs-heading-anchor" href="#Manual-Control-Plots">Manual Control Plots</a><a id="Manual-Control-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Manual-Control-Plots" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_times = cumsum([0; get_timesteps(traj)])[1:(end-1)]
@@ -34,7 +34,7 @@ fig = plot_state_populations(traj_ket)</code></pre><img src="19704731.png" alt="
 fig = Figure(size = (800, 400))
 ax = Axis(fig[1, 1], xlabel = &quot;Time&quot;, ylabel = &quot;Control Amplitude&quot;)
 
-for i in 1:size(traj[:u], 1)
+for i = 1:size(traj[:u], 1)
     lines!(ax, plot_times, traj[:u][i, :], label = &quot;Drive $i&quot;, linewidth = 2)
 end
 
@@ -53,17 +53,31 @@ lines!(ax2, plot_times, traj[:du][1, :], label = &quot;du_x&quot;, linewidth = 2
 lines!(ax2, plot_times, traj[:du][2, :], label = &quot;du_y&quot;, linewidth = 2)
 axislegend(ax2, position = :rt)
 
-fig</code></pre><img src="e6cf1cae.png" alt="Example block output"/><h3 id="Phase-Space-Plot"><a class="docs-heading-anchor" href="#Phase-Space-Plot">Phase Space Plot</a><a id="Phase-Space-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-Space-Plot" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = Figure(size = (500, 500))
+fig</code></pre><img src="14c46f1a.png" alt="Example block output"/><h3 id="Phase-Space-Plot"><a class="docs-heading-anchor" href="#Phase-Space-Plot">Phase Space Plot</a><a id="Phase-Space-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-Space-Plot" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = Figure(size = (500, 500))
 ax = Axis(fig[1, 1], xlabel = &quot;u_x&quot;, ylabel = &quot;u_y&quot;, title = &quot;Control Phase Space&quot;)
 lines!(ax, traj[:u][1, :], traj[:u][2, :], linewidth = 2)
-scatter!(ax, [traj[:u][1, 1]], [traj[:u][2, 1]], color = :green, markersize = 15, label = &quot;Start&quot;)
-scatter!(ax, [traj[:u][1, end]], [traj[:u][2, end]], color = :red, markersize = 15, label = &quot;End&quot;)
+scatter!(
+    ax,
+    [traj[:u][1, 1]],
+    [traj[:u][2, 1]],
+    color = :green,
+    markersize = 15,
+    label = &quot;Start&quot;,
+)
+scatter!(
+    ax,
+    [traj[:u][1, end]],
+    [traj[:u][2, end]],
+    color = :red,
+    markersize = 15,
+    label = &quot;End&quot;,
+)
 axislegend(ax, position = :rt)
-fig</code></pre><img src="96dc516e.png" alt="Example block output"/><h2 id="Fidelity-Evolution"><a class="docs-heading-anchor" href="#Fidelity-Evolution">Fidelity Evolution</a><a id="Fidelity-Evolution-1"></a><a class="docs-heading-anchor-permalink" href="#Fidelity-Evolution" title="Permalink"></a></h2><p>Track fidelity during the pulse:</p><pre><code class="language-julia hljs">using LinearAlgebra
+fig</code></pre><img src="95fe57c9.png" alt="Example block output"/><h2 id="Fidelity-Evolution"><a class="docs-heading-anchor" href="#Fidelity-Evolution">Fidelity Evolution</a><a id="Fidelity-Evolution-1"></a><a class="docs-heading-anchor-permalink" href="#Fidelity-Evolution" title="Permalink"></a></h2><p>Track fidelity during the pulse:</p><pre><code class="language-julia hljs">using LinearAlgebra
 
 U_goal = GATES[:X]
 fidelities = Float64[]
-for k in 1:size(traj[:Ũ⃗], 2)
+for k = 1:size(traj[:Ũ⃗], 2)
     U_k = iso_vec_to_operator(traj[:Ũ⃗][:, k])
     F_k = abs(tr(U_goal&#39; * U_k))^2 / sys.levels^2
     push!(fidelities, F_k)
@@ -81,14 +95,20 @@ for (R, label) in [(1e-3, &quot;R=1e-3&quot;), (1e-2, &quot;R=1e-2&quot;), (1e-1
     pulse_r = ZeroOrderPulse(0.1 * randn(2, N), times)
     qtraj_r = UnitaryTrajectory(sys, pulse_r, GATES[:X])
     qcp_r = SmoothPulseProblem(qtraj_r, N; Q = 100.0, R = R, ddu_bound = 1.0)
-    solve!(qcp_r; max_iter = 50, verbose = false, print_level = 1)
+    cached_solve!(
+        qcp_r,
+        &quot;visualization_R_$(R)&quot;;
+        max_iter = 50,
+        verbose = false,
+        print_level = 1,
+    )
     traj_r = get_trajectory(qcp_r)
     t_r = cumsum([0; get_timesteps(traj_r)])[1:(end-1)]
     lines!(ax, t_r, traj_r[:u][1, :], label = label, linewidth = 2)
 end
 
 axislegend(ax, position = :rt)
-fig</code></pre><img src="7a70e93a.png" alt="Example block output"/><h2 id="Saving-Figures"><a class="docs-heading-anchor" href="#Saving-Figures">Saving Figures</a><a id="Saving-Figures-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Figures" title="Permalink"></a></h2><pre><code class="language-julia hljs"># PNG (raster)
+fig</code></pre><img src="98fa4f50.png" alt="Example block output"/><h2 id="Saving-Figures"><a class="docs-heading-anchor" href="#Saving-Figures">Saving Figures</a><a id="Saving-Figures-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Figures" title="Permalink"></a></h2><pre><code class="language-julia hljs"># PNG (raster)
 # save(&quot;controls.png&quot;, fig)
 
 # PDF (vector graphics)
@@ -125,8 +145,14 @@ fig</code></pre><img src="7a70e93a.png" alt="Example block output"/><h2 id="Savi
 </svg>'/><h3 id="3.-Show-Drive-Bounds"><a class="docs-heading-anchor" href="#3.-Show-Drive-Bounds">3. Show Drive Bounds</a><a id="3.-Show-Drive-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Show-Drive-Bounds" title="Permalink"></a></h3><pre><code class="language-julia hljs">bound = 1.0
 fig = Figure(size = (800, 300))
 ax = Axis(fig[1, 1], xlabel = &quot;Time&quot;, ylabel = &quot;Amplitude&quot;)
-band!(ax, plot_times, -bound * ones(length(plot_times)), bound * ones(length(plot_times)),
-    color = (:gray, 0.2), label = &quot;Bounds&quot;)
+band!(
+    ax,
+    plot_times,
+    -bound * ones(length(plot_times)),
+    bound * ones(length(plot_times)),
+    color = (:gray, 0.2),
+    label = &quot;Bounds&quot;,
+)
 lines!(ax, plot_times, traj[:u][1, :], label = &quot;u_x&quot;, linewidth = 2)
 axislegend(ax, position = :rt)
-fig</code></pre><img src="c13cf52a.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../../lib/#lib-visualizations">Visualizations API</a> - Complete API reference</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Generating solutions to plot</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> - Understanding trajectory structure</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../global_variables/">« Global Variables</a><a class="docs-footer-nextpage" href="../custom_objectives/">Custom Objectives »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:39">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig</code></pre><img src="c13cf52a.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../../lib/#lib-visualizations">Visualizations API</a> - Complete API reference</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Generating solutions to plot</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> - Understanding trajectory structure</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../global_variables/">« Global Variables</a><a class="docs-footer-nextpage" href="../custom_objectives/">Custom Objectives »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 16:45">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
