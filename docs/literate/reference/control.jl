@@ -70,7 +70,7 @@ goal |> sparse
 #
 # Use the `solve!` function to optimize:
 
-solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(qcp, "control_ref_basic"; max_iter = 20, verbose = false, print_level = 1)
 
 # After optimization:
 

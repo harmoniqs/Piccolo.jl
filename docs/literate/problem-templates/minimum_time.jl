@@ -72,6 +72,7 @@
 # ### Basic Time-Optimal Gate
 
 using Piccolo
+using Printf # hide
 
 ## Setup
 H_drift = PAULIS[:Z]
@@ -85,7 +86,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Step 1: Solve base problem with free time enabled
 qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0, Δt_bounds = (0.05, 0.5))
-solve!(qcp_base; max_iter = 100)
+cached_solve!(qcp_base, "mintime_base"; max_iter = 100)
 
 sum(get_timesteps(get_trajectory(qcp_base)))
 
@@ -96,7 +97,7 @@ fidelity(qcp_base)
 # ### Step 2: Minimize Time
 
 qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
-solve!(qcp_mintime; max_iter = 100)
+cached_solve!(qcp_mintime, "mintime_optimal"; max_iter = 100)
 
 sum(get_timesteps(get_trajectory(qcp_mintime)))
 
@@ -106,13 +107,20 @@ fidelity(qcp_mintime)
 
 # ### Exploring Fidelity-Time Trade-off
 
+results = []
 for target_fidelity in [0.999, 0.99, 0.95, 0.90]
     qcp_mt = MinimumTimeProblem(qcp_base; final_fidelity = target_fidelity)
-    solve!(qcp_mt; max_iter = 100)
-
+    cached_solve!(qcp_mt, "mintime_tradeoff_$(target_fidelity)";
+        max_iter = 100, verbose = false, print_level = 1,
+    )
     dur = sum(get_timesteps(get_trajectory(qcp_mt)))
-    actual_fid = fidelity(qcp_mt)
-    println("Target: $target_fidelity, Duration: $(round(dur, digits=3)), Achieved: $(round(actual_fid, digits=4))")
+    push!(results, (target=target_fidelity, duration=dur, achieved=fidelity(qcp_mt)))
+end
+
+println("Fidelity-Time Trade-off")
+println("─" ^ 50)
+for r in results
+    @printf("  Target: %.3f  │  Duration: %.3f  │  Achieved: %.4f\n", r.target, r.duration, r.achieved)
 end
 #
 # ### With Robust Optimization
@@ -174,7 +182,7 @@ end
 # You can optimize for a different goal without recreating the base problem:
 
 qcp_y = MinimumTimeProblem(qcp_base; goal = GATES[:Y], final_fidelity = 0.99)
-solve!(qcp_y; max_iter = 100)
+cached_solve!(qcp_y, "mintime_y_gate"; max_iter = 100)
 #
 # ## See Also
 #

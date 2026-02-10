@@ -84,7 +84,7 @@ pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
 
 qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0)
-solve!(qcp_base; max_iter = 100)
+cached_solve!(qcp_base, "sampling_base"; max_iter = 100)
 
 ## ±5% frequency variation
 sys_high = QuantumSystem(1.05 * H_drift, H_drives, [1.0, 1.0])
@@ -96,7 +96,7 @@ qcp_robust = SamplingProblem(
     [sys_nominal, sys_high, sys_low];
     weights = [1.0, 1.0, 1.0],
 )
-solve!(qcp_robust; max_iter = 100)
+cached_solve!(qcp_robust, "sampling_robust"; max_iter = 100)
 
 # ### Weighted Sampling
 #
@@ -107,7 +107,7 @@ qcp_weighted = SamplingProblem(
     [sys_nominal, sys_high, sys_low];
     weights = [2.0, 1.0, 1.0],  ## Nominal weighted 2x
 )
-solve!(qcp_weighted; max_iter = 100)
+cached_solve!(qcp_weighted, "sampling_weighted"; max_iter = 100)
 
 # ### Dense Parameter Sampling
 #
@@ -117,7 +117,7 @@ scales = range(0.9, 1.1, length = 3)
 systems = [QuantumSystem(s * H_drift, H_drives, [1.0, 1.0]) for s in scales]
 
 qcp_dense = SamplingProblem(qcp_base, systems)
-solve!(qcp_dense; max_iter = 100)
+cached_solve!(qcp_dense, "sampling_dense"; max_iter = 100)
 #
 # ### With Time Optimization
 #

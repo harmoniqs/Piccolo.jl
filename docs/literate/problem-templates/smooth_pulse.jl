@@ -88,7 +88,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
-solve!(qcp; max_iter = 100)
+cached_solve!(qcp, "smooth_pulse_basic"; max_iter = 100)
 
 fidelity(qcp)
 
@@ -112,11 +112,11 @@ qcp = SmoothPulseProblem(
     Q=100.0,
     Δt_bounds=(0.01, 0.5)  ## Timesteps can vary from 0.01 to 0.5
 )
-solve!(qcp; max_iter=100)
+cached_solve!(qcp, "smooth_pulse_free_time"; max_iter=100)
 
 ## Now can minimize time
 qcp_mintime = MinimumTimeProblem(qcp; final_fidelity=0.99)
-solve!(qcp_mintime; max_iter=100)
+cached_solve!(qcp_mintime, "smooth_pulse_mintime"; max_iter=100)
 
 # ### Per-Drive Regularization
 #
@@ -148,7 +148,7 @@ opts = PiccoloOptions(
 )
 
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0, piccolo_options=opts)
-solve!(qcp; max_iter=100)
+cached_solve!(qcp, "smooth_pulse_leakage"; max_iter=100)
 
 # ### State Transfer
 #
@@ -163,7 +163,7 @@ pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0)
-solve!(qcp; max_iter=100)
+cached_solve!(qcp, "smooth_pulse_state_transfer"; max_iter=100)
 
 # ### Multiple State Transfers
 #
@@ -175,7 +175,7 @@ solve!(qcp; max_iter=100)
 qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0)
-solve!(qcp; max_iter=100)
+cached_solve!(qcp, "smooth_pulse_multi_ket"; max_iter=100)
 
 # ## How It Works
 #

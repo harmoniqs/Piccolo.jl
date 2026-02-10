@@ -48,7 +48,7 @@ qcp_base = SmoothPulseProblem(
     R = 1e-2,
     Δt_bounds = (0.05, 0.5),  ## Required for MinimumTimeProblem
 )
-solve!(qcp_base; max_iter = 100)
+cached_solve!(qcp_base, "composition_base"; max_iter = 100)
 
 fidelity(qcp_base)
 
@@ -67,7 +67,7 @@ qcp_robust = SamplingProblem(
     [sys_nominal, sys_high, sys_low];
     Q = 100.0,
 )
-solve!(qcp_robust; max_iter = 100)
+cached_solve!(qcp_robust, "composition_robust"; max_iter = 100)
 
 fidelity(qcp_robust)
 
@@ -78,7 +78,7 @@ qcp_mintime = MinimumTimeProblem(
     final_fidelity = 0.95,
     D = 100.0,
 )
-solve!(qcp_mintime; max_iter = 100)
+cached_solve!(qcp_mintime, "composition_mintime"; max_iter = 100)
 
 fidelity(qcp_mintime)
 

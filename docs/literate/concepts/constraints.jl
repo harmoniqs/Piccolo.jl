@@ -43,7 +43,7 @@ qcp = SmoothPulseProblem(
     du_bound = 0.5,    # Max control jump per timestep
     ddu_bound = 0.1,   # Max control acceleration
 )
-solve!(qcp; max_iter = 50)
+cached_solve!(qcp, "constraints_bounds"; max_iter = 50)
 fidelity(qcp)
 
 # ### Timestep Bounds
@@ -78,12 +78,12 @@ fidelity(qcp)
 
 ## First solve a base problem with variable timesteps
 qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds = (0.01, 0.5))
-solve!(qcp_base; max_iter = 100)
+cached_solve!(qcp_base, "constraints_base_freetime"; max_iter = 100)
 fidelity(qcp_base)
 
 ## Automatically adds FinalUnitaryFidelityConstraint
 qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99)
-solve!(qcp_mintime; max_iter = 100)
+cached_solve!(qcp_mintime, "constraints_mintime"; max_iter = 100)
 fidelity(qcp_mintime)
 
 # ## Leakage Constraints
@@ -104,7 +104,7 @@ U_X = EmbeddedOperator(:X, sys_transmon)
 qtraj_t = UnitaryTrajectory(sys_transmon, pulse_t, U_X)
 
 qcp_leak = SmoothPulseProblem(qtraj_t, N; piccolo_options = opts)
-solve!(qcp_leak; max_iter = 100)
+cached_solve!(qcp_leak, "constraints_leakage"; max_iter = 100)
 fidelity(qcp_leak)
 
 # ## PiccoloOptions
@@ -191,7 +191,7 @@ qcp_simple = SmoothPulseProblem(
     UnitaryTrajectory(sys, pulse, U_goal), N;
     Q = 100.0,
 )
-solve!(qcp_simple; max_iter = 100)
+cached_solve!(qcp_simple, "constraints_simple"; max_iter = 100)
 fidelity(qcp_simple)
 
 # ### 2. Add Constraints Gradually

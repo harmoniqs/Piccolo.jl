@@ -25,7 +25,7 @@ pulse = ZeroOrderPulse(initial_controls, times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp, "visualization_unitary"; max_iter = 50, verbose = false, print_level = 1)
 
 fidelity(qcp)
 
@@ -60,7 +60,7 @@ fig = plot_unitary_populations(traj)
 pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
 qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp_ket; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp_ket, "visualization_ket"; max_iter = 50, verbose = false, print_level = 1)
 
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)
@@ -143,7 +143,7 @@ for (R, label) in [(1e-3, "R=1e-3"), (1e-2, "R=1e-2"), (1e-1, "R=1e-1")]
     pulse_r = ZeroOrderPulse(0.1 * randn(2, N), times)
     qtraj_r = UnitaryTrajectory(sys, pulse_r, GATES[:X])
     qcp_r = SmoothPulseProblem(qtraj_r, N; Q = 100.0, R = R, ddu_bound = 1.0)
-    solve!(qcp_r; max_iter = 50, verbose = false, print_level = 1)
+    cached_solve!(qcp_r, "visualization_R_$(R)"; max_iter = 50, verbose = false, print_level = 1)
     traj_r = get_trajectory(qcp_r)
     t_r = cumsum([0; get_timesteps(traj_r)])[1:(end-1)]
     lines!(ax, t_r, traj_r[:u][1, :], label = label, linewidth = 2)

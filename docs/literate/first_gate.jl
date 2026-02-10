@@ -112,7 +112,7 @@ qcp = SmoothPulseProblem(
 #
 # The `solve!` function runs the optimizer:
 
-solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(qcp, "first_gate"; max_iter = 20, verbose = false, print_level = 1)
 
 # ## Step 6: Analyze the Results
 #

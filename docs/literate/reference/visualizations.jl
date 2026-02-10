@@ -28,7 +28,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp, "viz_ref_unitary"; max_iter = 50, verbose = false, print_level = 1)
 
 # Optimization complete:
 
@@ -78,7 +78,7 @@ fig3
 pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
 qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp_ket; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp_ket, "viz_ref_ket"; max_iter = 50, verbose = false, print_level = 1)
 
 traj_ket = get_trajectory(qcp_ket)
 fig4 = plot_state_populations(traj_ket)
@@ -215,7 +215,7 @@ println("Control array size: ", size(control_values)) # nothing
 pulse2 = ZeroOrderPulse(0.15 * randn(2, N), times)
 qtraj2 = UnitaryTrajectory(sys, pulse2, GATES[:X])
 qcp2 = SmoothPulseProblem(qtraj2, N; Q = 100.0, R = 2e-2, ddu_bound = 1.0)
-solve!(qcp2; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp2, "viz_ref_comparison"; max_iter = 50, verbose = false, print_level = 1)
 traj2 = get_trajectory(qcp2)
 
 fig9 = Figure(size = (800, 400))

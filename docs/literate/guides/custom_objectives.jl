@@ -105,13 +105,13 @@ qcp.prob.objective += custom_knotpoint_obj
 #
 # Solve with the extra control energy penalty:
 
-solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp, "custom_objectives_with_penalty"; max_iter = 50, verbose = false, print_level = 1)
 fidelity(qcp)
 
 # Compare against the standard problem:
 
 qcp_standard = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp_standard; max_iter = 50, verbose = false, print_level = 1)
+cached_solve!(qcp_standard, "custom_objectives_standard"; max_iter = 50, verbose = false, print_level = 1)
 fidelity(qcp_standard)
 
 # ## Example: Leakage-Style Penalty

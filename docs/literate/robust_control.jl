@@ -43,7 +43,7 @@ pulse_nom = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_nom = UnitaryTrajectory(sys_nominal, pulse_nom, U_goal)
 
 qcp_nom = SmoothPulseProblem(qtraj_nom, N; Q = 100.0, R = 1e-2)
-solve!(qcp_nom; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(qcp_nom, "robust_nominal"; max_iter = 20, verbose = false, print_level = 1)
 
 fidelity(qcp_nom)
 
@@ -82,7 +82,7 @@ systems = [QuantumSystem(ω * PAULIS[:Z], H_drives, drive_bounds) for ω in ω_s
 
 ## Start from the nominal solution
 qcp_robust = SamplingProblem(qcp_nom, systems; Q = 100.0)
-solve!(qcp_robust; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(qcp_robust, "robust_sampling"; max_iter = 20, verbose = false, print_level = 1)
 
 fidelity(qcp_robust)
 
@@ -150,15 +150,15 @@ qcp_free = SmoothPulseProblem(
     R = 1e-2,
     Δt_bounds = (0.05, 0.3),  # Enable variable timesteps
 )
-solve!(qcp_free; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(qcp_free, "robust_free_time"; max_iter = 15, verbose = false, print_level = 1)
 
 ## Add robustness
 qcp_robust_free = SamplingProblem(qcp_free, systems; Q = 100.0)
-solve!(qcp_robust_free; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(qcp_robust_free, "robust_free_sampling"; max_iter = 15, verbose = false, print_level = 1)
 
 ## Minimize time while maintaining fidelity
 qcp_fast_robust = MinimumTimeProblem(qcp_robust_free; final_fidelity = 0.95, D = 100.0)
-solve!(qcp_fast_robust; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(qcp_fast_robust, "robust_fast_mintime"; max_iter = 15, verbose = false, print_level = 1)
 
 ## Compare durations
 duration_initial = sum(get_timesteps(get_trajectory(qcp_free)))
@@ -175,7 +175,7 @@ duration_initial, duration_robust, duration_fast
 weights = [0.5, 1.0, 2.0, 1.0, 0.5]  # Emphasize nominal
 
 qcp_weighted = SamplingProblem(qcp_nom, systems; weights = weights, Q = 100.0)
-solve!(qcp_weighted; max_iter = 15, verbose = false, print_level = 1)
+cached_solve!(qcp_weighted, "robust_weighted"; max_iter = 15, verbose = false, print_level = 1)
 
 ## Evaluate
 fidelities_weighted = Float64[]

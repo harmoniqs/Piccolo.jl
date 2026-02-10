@@ -87,7 +87,7 @@ U_goal = GATES[:X]
 
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
-solve!(qcp; max_iter = 50)
+cached_solve!(qcp, "isomorphisms_example"; max_iter = 50)
 fidelity(qcp)
 
 # ### Inspecting Isomorphic State

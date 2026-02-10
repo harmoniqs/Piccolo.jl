@@ -88,7 +88,7 @@ qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 #
 # Let's run through the solve step now:
 
-solve!(qcp; max_iter = 100)
+cached_solve!(qcp, "concepts_basic"; max_iter = 100)
 fidelity(qcp)
 
 # ## Key Parameters
@@ -127,7 +127,7 @@ qcp_gate = SmoothPulseProblem(
     UnitaryTrajectory(sys, pulse, GATES[:X]),
     N
 )
-solve!(qcp_gate; max_iter = 100)
+cached_solve!(qcp_gate, "concepts_gate"; max_iter = 100)
 fidelity(qcp_gate)
 
 # ### State Preparation
@@ -140,7 +140,7 @@ qcp_state = SmoothPulseProblem(
     KetTrajectory(sys, pulse, ψ_init, ψ_goal),
     N
 )
-solve!(qcp_state; max_iter = 100)
+cached_solve!(qcp_state, "concepts_state"; max_iter = 100)
 fidelity(qcp_state)
 
 # ### Time-Optimal Control
@@ -148,10 +148,10 @@ fidelity(qcp_state)
 # Find the shortest gate duration:
 
 qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds = (0.01, 0.5))
-solve!(qcp_base; max_iter = 100)
+cached_solve!(qcp_base, "concepts_base_freetime"; max_iter = 100)
 
 qcp_fast = MinimumTimeProblem(qcp_base; final_fidelity = 0.99)
-solve!(qcp_fast; max_iter = 100)
+cached_solve!(qcp_fast, "concepts_fast"; max_iter = 100)
 fidelity(qcp_fast)
 
 # ### Robust Control
@@ -165,12 +165,12 @@ sys_high = QuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
 
 ## Solve for nominal system first
 qcp_nom = SmoothPulseProblem(qtraj, N)
-solve!(qcp_nom; max_iter = 100)
+cached_solve!(qcp_nom, "concepts_nominal"; max_iter = 100)
 
 ## Add robustness
 perturbed_systems = [sys_low, sys_nominal, sys_high]
 qcp_robust = SamplingProblem(qcp_nom, perturbed_systems)
-solve!(qcp_robust; max_iter = 100)
+cached_solve!(qcp_robust, "concepts_robust"; max_iter = 100)
 fidelity(qcp_robust)
 
 # ## Next Steps

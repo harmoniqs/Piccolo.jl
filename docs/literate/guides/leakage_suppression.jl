@@ -32,7 +32,7 @@ using Random
 Random.seed!(42)
 
 ## Create a 3-level transmon
-sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
+sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.4, 0.4])
 
 ## Define X gate in computational subspace
 U_goal = EmbeddedOperator(:X, sys)
@@ -99,7 +99,7 @@ opts = PiccoloOptions(
 # ## Complete Example: X Gate on 3-Level Transmon
 
 ## 1. Create multilevel system
-sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
+sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.4, 0.4])
 
 ## 2. Define embedded gate
 U_goal = EmbeddedOperator(:X, sys)
@@ -112,7 +112,7 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 ## 4. Configure leakage suppression
 opts = PiccoloOptions(
-    leakage_cost = 10.0,
+    leakage_cost = 5.0,
     leakage_constraint = true,
     leakage_constraint_value = 1e-3,
     verbose = false,
@@ -120,7 +120,7 @@ opts = PiccoloOptions(
 
 ## 5. Solve
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
-solve!(qcp; max_iter = 150, verbose = false, print_level = 1)
+cached_solve!(qcp, "leakage_suppression_2"; max_iter = 150, verbose = false, print_level = 1)
 
 fidelity(qcp)
 
@@ -146,18 +146,19 @@ leak_constraint = LeakageConstraint(1e-3, leak_indices, :Ũ⃗, traj)
 # Get a working solution first, then add constraints:
 
 ## Step 1: Optimize without leakage constraints
-qcp_initial = SmoothPulseProblem(qtraj, N; Q = 100.0)
-solve!(qcp_initial; max_iter = 100, verbose = false, print_level = 1)
+qtraj2 = UnitaryTrajectory(sys, pulse, U_goal)
+qcp_initial = SmoothPulseProblem(qtraj2, N; Q = 100.0)
+cached_solve!(qcp_initial, "leakage_initial_2"; max_iter = 100, verbose = false, print_level = 1)
 
 ## Step 2: Add leakage suppression
 opts = PiccoloOptions(
-    leakage_cost = 10.0,
+    leakage_cost = 5.0,
     leakage_constraint = true,
     leakage_constraint_value = 1e-3,
     verbose = false,
 )
-qcp_leakage = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
-solve!(qcp_leakage; max_iter = 150, verbose = false, print_level = 1)
+qcp_leakage = SmoothPulseProblem(qtraj2, N; Q = 100.0, piccolo_options = opts)
+cached_solve!(qcp_leakage, "leakage_with_suppression_2"; max_iter = 150, verbose = false, print_level = 1)
 
 fidelity(qcp_initial)
 

@@ -64,7 +64,7 @@ pulse = ZeroOrderPulse(0.05 * randn(2, N), times)
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
-solve!(qcp; max_iter = 100, verbose = false, print_level = 1)
+cached_solve!(qcp, "system_templates_transmon"; max_iter = 100, verbose = false, print_level = 1)
 
 fidelity(qcp)
 
