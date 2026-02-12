@@ -83,7 +83,13 @@ qcp = SmoothPulseProblem(
     global_bounds = Dict(:δ => 1.0),  ## symmetric bounds: δ ∈ [δ₀ - 1.0, δ₀ + 1.0]
 )
 
-cached_solve!(qcp, "global_variables_single"; max_iter = 100, verbose = false, print_level = 1)
+cached_solve!(
+    qcp,
+    "global_variables_single";
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
 
 # ## Accessing Global Variables
 #
@@ -126,12 +132,8 @@ optimized_δ
 #
 # You can define several system parameters simultaneously:
 
-sys_multi = QuantumSystem(
-    PAULIS[:Z],
-    [PAULIS[:X]],
-    [1.0];
-    global_params = (ω = 1.0, J = 0.05),
-)
+sys_multi =
+    QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [1.0]; global_params = (ω = 1.0, J = 0.05))
 
 qtraj_multi = UnitaryTrajectory(sys_multi, U_goal, T)
 
@@ -143,7 +145,13 @@ qcp_multi = SmoothPulseProblem(
     global_bounds = Dict(:ω => (0.9, 1.1), :J => (0.02, 0.1)),
 )
 
-cached_solve!(qcp_multi, "global_variables_multi"; max_iter = 100, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_multi,
+    "global_variables_multi";
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
 
 ## Access optimized global values
 traj_multi = get_trajectory(qcp_multi)
