@@ -23,115 +23,159 @@
 # ## Setup Requirements
 #
 # Global variable optimization requires:
-# 1. A **time-dependent system** with parameters
+# 1. A `QuantumSystem` with `global_params`
 # 2. A **custom integrator** that supports globals (e.g., from Piccolissimo)
 # 3. **Global bounds** specification
-
-# ## Example: Defining a Parametric System
 #
-# The first step is to create a time-dependent `QuantumSystem` with named global parameters:
+# Piccolo's built-in `BilinearIntegrator` does **not** support global variables —
+# it has no global-aware Jacobian columns or Hessian blocks. A custom integrator
+# from Piccolissimo handles the extended control vector `[controls..., globals...]`
+# and provides the correct derivative information to the optimizer.
+#
+# This guide demonstrates the global variable API using Piccolo's built-in
+# integrator. The globals are stored in the trajectory and bounded, but are not
+# coupled to the dynamics. For full global optimization, use a Piccolissimo
+# integrator.
+
+# ## Defining a System with Global Parameters
+#
+# Global parameters are stored on the `QuantumSystem` via the `global_params`
+# keyword argument. With a custom integrator from Piccolissimo, the Hamiltonian
+# function receives `u = [controls..., globals...]`:
+#
+# ```julia
+# ## Function-based system (requires Piccolissimo integrator for dynamics)
+# H = (u, t) -> u[3] * PAULIS[:Z] + u[1] * PAULIS[:X] + u[2] * PAULIS[:Y]
+# sys = QuantumSystem(H, [1.0, 1.0]; time_dependent=true, global_params=(δ=0.5,))
+# ```
+#
+# For this guide we use a matrix-based system, which works with the built-in
+# `BilinearIntegrator`:
 
 using Piccolo
 
-## Hamiltonian with global parameter δ (detuning)
-## The global parameter is passed as an extra element of u
-function H(u, t)
-    δ = u[end]
-    return δ * PAULIS[:Z] + u[1] * PAULIS[:X] + u[2] * PAULIS[:Y]
-end
-
-## Create system with named global parameter and initial value
-sys = QuantumSystem(H, [1.0, 1.0]; time_dependent = true, global_params = (δ = 0.1,))
+sys = QuantumSystem(
+    PAULIS[:Z],
+    [PAULIS[:X], PAULIS[:Y]],
+    [1.0, 1.0];
+    global_params = (δ = 0.5,),
+)
 
 sys.global_params
 
 # ## Setting Up a Problem with Globals
 #
-# Global variable optimization requires a custom integrator that handles global
-# parameters. The `HermitianExponentialIntegrator` from Piccolissimo supports this:
+# When `global_params` is set on the system, `SmoothPulseProblem` automatically
+# includes the global variables in the trajectory as optimization variables.
+# The `global_bounds` keyword constrains their range:
 
-using Piccolissimo
+T = 10.0
+N = 50
+U_goal = GATES[:X]
 
-T, N = 10.0, 100
-times = collect(range(0, T, length = N))
-pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
-qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+qtraj = UnitaryTrajectory(sys, U_goal, T)
 
-## Create integrator with global support
-integrator = HermitianExponentialIntegrator(qtraj, N; global_names = [:δ])
-
-## Set up problem with global bounds
 qcp = SmoothPulseProblem(
     qtraj,
     N;
-    integrator = integrator,
-    global_names = [:δ],
-    global_bounds = Dict(:δ => (0.05, 0.2)),  # δ ∈ [0.05, 0.2]
+    Q = 100.0,
+    R = 1e-2,
+    global_bounds = Dict(:δ => 1.0),  ## symmetric bounds: δ ∈ [δ₀ - 1.0, δ₀ + 1.0]
 )
 
-solve!(qcp; max_iter = 100)
+cached_solve!(
+    qcp,
+    "global_variables_single";
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
 
-## Access optimized global value
+# ## Accessing Global Variables
+#
+# After solving, global values are stored in the trajectory's `global_data`
+# vector, indexed by `global_components`:
+
 traj = get_trajectory(qcp)
-optimized_δ = traj[:δ][1]  # Global variables are constant over time
+optimized_δ = traj.global_data[traj.global_components[:δ]][1]
 optimized_δ
+
+# !!! note
+#     With the built-in `BilinearIntegrator`, the global variable is not coupled
+#     to the dynamics, so its value will remain near the initial value. To
+#     actually optimize globals through the Hamiltonian, use a Piccolissimo
+#     integrator that provides global-aware Jacobians and Hessians.
 
 # ## Global Bounds Format
 #
 # Global bounds can be specified in two ways:
-
-## Symmetric bounds: δ ∈ [δ₀ - 0.05, δ₀ + 0.05]
-global_bounds = Dict(:δ => 0.05)
-
-## Asymmetric bounds: δ ∈ [0.05, 0.2]
-global_bounds = Dict(:δ => (0.05, 0.2))
-
-## Multiple globals
-global_bounds = Dict(
-    :δ => (0.05, 0.2),
-    :J => 0.01,  # J ∈ [J₀ - 0.01, J₀ + 0.01]
-)
+#
+# **Symmetric bounds** (scalar): applied as ±value around the initial value.
+# ```julia
+# global_bounds = Dict(:δ => 0.05)  # δ ∈ [δ₀ - 0.05, δ₀ + 0.05]
+# ```
+#
+# **Asymmetric bounds** (tuple): explicit (lower, upper) bounds.
+# ```julia
+# global_bounds = Dict(:δ => (0.05, 0.2))  # δ ∈ [0.05, 0.2]
+# ```
+#
+# **Multiple globals** with mixed bound types:
+# ```julia
+# global_bounds = Dict(
+#     :δ => (0.05, 0.2),
+#     :J => 0.01,  # J ∈ [J₀ - 0.01, J₀ + 0.01]
+# )
+# ```
 
 # ## Multiple Global Variables
 #
-# You can optimize several system parameters simultaneously:
+# You can define several system parameters simultaneously:
 
-## Hamiltonian with multiple parameters
-function H_multi(u, t)
-    ω = u[end-1]
-    J = u[end]
-    return ω * PAULIS[:Z] + J * PAULIS[:X] + u[1] * PAULIS[:X]
-end
+sys_multi =
+    QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [1.0]; global_params = (ω = 1.0, J = 0.05))
 
-sys_multi = QuantumSystem(
-    H_multi,
-    [1.0];
-    time_dependent = true,
-    global_params = (ω = 1.0, J = 0.05),
-)
+qtraj_multi = UnitaryTrajectory(sys_multi, U_goal, T)
 
-## Optimize ω and J
-qcp = SmoothPulseProblem(
-    qtraj,
+qcp_multi = SmoothPulseProblem(
+    qtraj_multi,
     N;
-    integrator = integrator,
-    global_names = [:ω, :J],
-    global_bounds = Dict(:ω => (0.9, 1.1), :J => 0.02),
+    Q = 100.0,
+    R = 1e-2,
+    global_bounds = Dict(:ω => (0.9, 1.1), :J => (0.02, 0.1)),
 )
+
+cached_solve!(
+    qcp_multi,
+    "global_variables_multi";
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
+
+## Access optimized global values
+traj_multi = get_trajectory(qcp_multi)
+optimized_global_data = traj_multi.global_data
+(optimized_global_data)
 
 # ## Best Practices
 
 # ### 1. Start with Good Initial Values
 #
-# Use physically reasonable initial parameters:
-
-sys = QuantumSystem(H, [1.0, 1.0]; time_dependent = true, global_params = (δ = 0.15,))
+# Use physically reasonable initial parameters. The initial values come from
+# `global_params` in the `QuantumSystem` constructor:
+#
+# ```julia
+# sys = QuantumSystem(H_drift, H_drives, bounds; global_params = (δ = 0.15,))
+# ```
 
 # ### 2. Use Reasonable Bounds
 #
 # Don't make bounds too wide — ~50% variation is usually sufficient:
-
-global_bounds = Dict(:δ => (0.1, 0.2))  # Not 10x variation
+#
+# ```julia
+# global_bounds = Dict(:δ => (0.1, 0.2))  # Not 10x variation
+# ```
 
 # ### 3. Consider Sensitivity
 #
@@ -141,9 +185,6 @@ global_bounds = Dict(:δ => (0.1, 0.2))  # Not 10x variation
 # ### 4. Verify Physical Meaning
 #
 # After optimization, check that global values are physically reasonable:
-
-optimized_δ = traj[:δ][1]
-@assert 0.05 < optimized_δ < 0.25 "Detuning outside expected range"
 
 # ## Comparison with SamplingProblem
 #
@@ -158,7 +199,10 @@ optimized_δ = traj[:δ][1]
 
 # ## Limitations
 #
-# - Requires custom integrator support (e.g., Piccolissimo)
+# - Full global optimization requires a custom integrator from Piccolissimo that
+#   provides global-aware Jacobians and Hessians
+# - Piccolo's built-in `BilinearIntegrator` stores globals in the trajectory but
+#   does not couple them to the dynamics
 # - More complex optimization landscape
 # - Convergence can be slower
 

@@ -143,10 +143,10 @@ sys_transmon.levels, sys_transmon.n_drives
 #
 # ```julia
 # # Trapped ions
-sys = IonChainSystem(n_ions = 2, ω_motional = 1.0, η = 0.1)
+sys = IonChainSystem(N_ions = 2, ωq = 1.0, η = 0.1)
 #
 # # Rydberg atoms
-sys = RydbergChainSystem(n_atoms = 3, Ω_max = 1.0)
+sys = RydbergChainSystem(N = 3, drive_bounds = [1.0])
 # ```
 #
 # See [System Templates](@ref system-templates) in the How-To Guides for detailed usage.
