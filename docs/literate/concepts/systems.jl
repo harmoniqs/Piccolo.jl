@@ -136,17 +136,17 @@ n_op
 #
 # ### Transmon Qubits
 
-sys_transmon = TransmonSystem(levels=3, δ=0.2, drive_bounds=[0.2, 0.2])
+sys_transmon = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
 sys_transmon.levels, sys_transmon.n_drives
 
 # ### Other Templates
 #
 # ```julia
 # # Trapped ions
-sys = IonChainSystem(N_ions=2, ωq=1.0, η=0.1)
+sys = IonChainSystem(N_ions = 2, ωq = 1.0, η = 0.1)
 #
 # # Rydberg atoms
-sys = RydbergChainSystem(N=3, drive_bounds=[1.0])
+sys = RydbergChainSystem(N = 3, drive_bounds = [1.0])
 # ```
 #
 # See [System Templates](@ref system-templates) in the How-To Guides for detailed usage.
@@ -175,11 +175,11 @@ sys = RydbergChainSystem(N=3, drive_bounds=[1.0])
 # subspace to capture leakage:
 
 ## Good: 3 levels for qubit (captures leakage to |2⟩)
-sys_3level = TransmonSystem(levels=3, δ=0.2)
+sys_3level = TransmonSystem(levels = 3, δ = 0.2)
 sys_3level.levels
 
 ## Better for high-fidelity: 4+ levels
-sys_4level = TransmonSystem(levels=4, δ=0.2)
+sys_4level = TransmonSystem(levels = 4, δ = 0.2)
 sys_4level.levels
 
 # ## See Also
