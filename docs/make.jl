@@ -11,7 +11,7 @@ draft_mode_pages = [
     # "visualizations.jl",
     # "control.jl",
     # "custom_objectives.jl",
-    "global_variables.jl",  ## this errors due to global variable support not being well documented yet and this version of the docs havings lots of issues
+    # "global_variables.jl",
     # "leakage_suppression.jl",
     # "system_templates.jl",
     # "visualization.jl",
