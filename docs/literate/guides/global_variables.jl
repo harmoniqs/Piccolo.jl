@@ -140,7 +140,7 @@ qcp_multi = SmoothPulseProblem(
     N;
     Q = 100.0,
     R = 1e-2,
-    global_bounds = Dict{Symbol,Union{Float64,Tuple{Float64,Float64}}}(:ω => (0.9, 1.1), :J => 0.02),
+    global_bounds = Dict(:ω => (0.9, 1.1), :J => (0.02, 0.1)),
 )
 
 cached_solve!(qcp_multi, "global_variables_multi"; max_iter = 100, verbose = false, print_level = 1)
