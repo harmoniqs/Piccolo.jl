@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Multilevel Transmon · Piccolo.jl</title><meta name="title" content="Multilevel Transmon · Piccolo.jl"/><meta property="og:title" content="Multilevel Transmon · Piccolo.jl"/><meta property="twitter:title" content="Multilevel Transmon · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/multilevel_transmon/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/multilevel_transmon/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/multilevel_transmon/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../quickstart/">Quickstart</a></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>Multilevel Transmon</a><ul class="internal"><li><a class="tocitem" href="#Setting-up-the-problem"><span>Setting up the problem</span></a></li><li><a class="tocitem" href="#Leakage-suppresion"><span>Leakage suppresion</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../contribution_guide/">Contribution Guide</a></li><li><a class="tocitem" href="../../release_notes/">Release Notes</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Multilevel Transmon</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multilevel Transmon</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/multilevel_transmon.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Multilevel-Transmon"><a class="docs-heading-anchor" href="#Multilevel-Transmon">Multilevel Transmon</a><a id="Multilevel-Transmon-1"></a><a class="docs-heading-anchor-permalink" href="#Multilevel-Transmon" title="Permalink"></a></h1><p>In this example we will look at a multilevel transmon qubit with a Hamiltonian given by</p><p class="math-container">\[\hat{H}(t) = -\frac{\delta}{2} \hat{n}(\hat{n} - 1) + u_1(t) (\hat{a} + \hat{a}^\dagger) + u_2(t) i (\hat{a} - \hat{a}^\dagger)\]</p><p>where <span>$\hat{n} = \hat{a}^\dagger \hat{a}$</span> is the number operator, <span>$\hat{a}$</span> is the annihilation operator, <span>$\delta$</span> is the anharmonicity, and <span>$u_1(t)$</span> and <span>$u_2(t)$</span> are control fields.</p><p>We will use the following parameter values:</p><p class="math-container">\[\begin{aligned}
+\delta &amp;= 0.2 \text{ GHz}\\
+\abs{u_i(t)} &amp;\leq 0.2 \text{ GHz}\\
+T_0 &amp;= 10 \text{ ns}\\
+\end{aligned}\]</p><p>For convenience, we have defined the <code>TransmonSystem</code> function in the <code>QuantumSystemTemplates</code> module, which returns a <code>QuantumSystem</code> object for a transmon qubit. We will use this function to define the system.</p><h2 id="Setting-up-the-problem"><a class="docs-heading-anchor" href="#Setting-up-the-problem">Setting up the problem</a><a id="Setting-up-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-up-the-problem" title="Permalink"></a></h2><p>To begin, let&#39;s load the necessary packages, define the system parameters, and create a a <code>QuantumSystem</code> object using the <code>TransmonSystem</code> function.</p><pre><code class="language-julia hljs">using Piccolo
+using SparseArrays
+using Random;
+Random.seed!(123);
+
+# define the time parameters
+
+T₀ = 10     # total time in ns
+T = 50      # number of time steps
+Δt = T₀ / T # time step
+
+# define the system parameters
+levels = 5
+δ = 0.2
+
+# add a bound to the controls
+a_bound = 0.2
+dda_bound = 1.0
+
+# create the system
+sys = TransmonSystem(levels = levels, δ = δ)
+
+# let&#39;s look at the parameters of the system
+sys.params</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Dict{Symbol, Any} with 8 entries:
+  :lab_frame_type =&gt; :duffing
+  :ω              =&gt; 4.0
+  :lab_frame      =&gt; false
+  :δ              =&gt; 0.2
+  :mutiply_by_2π  =&gt; true
+  :drives         =&gt; true
+  :levels         =&gt; 5
+  :frame_ω        =&gt; 4.0</code></pre><p>Since this is a multilevel transmon and we want to implement an, let&#39;s say, <span>$X$</span> gate on the qubit subspace, i.e., the first two levels we can utilize the <code>EmbeddedOperator</code> type to define the target operator.</p><pre><code class="language-julia hljs"># define the target operator
+op = EmbeddedOperator(:X, sys)
+
+# show the full operator
+op.operator |&gt; sparse</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5×5 SparseArrays.SparseMatrixCSC{ComplexF64, Int64} with 2 stored entries:
+     ⋅      1.0+0.0im      ⋅          ⋅          ⋅    
+ 1.0+0.0im      ⋅          ⋅          ⋅          ⋅    
+     ⋅          ⋅          ⋅          ⋅          ⋅    
+     ⋅          ⋅          ⋅          ⋅          ⋅    
+     ⋅          ⋅          ⋅          ⋅          ⋅    </code></pre><p>We can then pass this embedded operator to the <code>UnitarySmoothPulseProblem</code> template to create</p><pre><code class="language-julia hljs"># create the problem
+prob = UnitarySmoothPulseProblem(sys, op, T, Δt; a_bound = a_bound, dda_bound = dda_bound)
+
+# solve the problem
+solve!(prob; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">NamedTrajectory{Float64}([1.0 1.0 … 0.021897302515653586 -0.0017476851737855835; 0.0 2.5554144657811052e-28 … -0.3364289449946504 -0.33710127536741225; … ; 0.3068267858982144 0.11491018159375335 … 0.24495551167047447 -0.04293904354305721; 0.19925080655969615 0.19925080655969615 … 0.19925080655969615 0.19925080655969615], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  -0.6117509942212244, 0.22801797440917773, 0.033730274996948216, 0.0, 0.0, 0.0, 0.0, -0.06118035544619745, -0.04293904354305721, 0.19925080655969615], 50, :Δt, 57, (Ũ⃗ = 50, a = 2, da = 2, dda = 2, Δt = 1, states = 54, controls = 3), (a = ([-0.2, -0.2], [0.2, 0.2]), da = ([-Inf, -Inf], [Inf, Inf]), dda = ([-1.0, -1.0], [1.0, 1.0]), Δt = ([0.1], [0.30000000000000004])), (Ũ⃗ = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], a = [0.0, 0.0], da = [0.0, 0.0]), (a = [0.0, 0.0], da = [0.0, 0.0]), (Ũ⃗ = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],), (Ũ⃗ = 1:50, a = 51:52, da = 53:54, dda = 55:56, Δt = 57:57, states = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10  …  45, 46, 47, 48, 49, 50, 51, 52, 53, 54], controls = [55, 56, 57]), NamedTuple(), 0, NamedTuple(), NamedTuple(), (:Ũ⃗, :a, :da, :dda, :Δt), (:Ũ⃗, :a, :da), (:dda, :Δt))</code></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language-julia hljs">println(
+    &quot;Fidelity: &quot;,
+    unitary_rollout_fidelity(prob.trajectory, sys; subspace = op.subspace),
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.997072053022002</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function.</p><pre><code class="language- hljs">plot_unitary_populations(prob.trajectory)</code></pre><h2 id="Leakage-suppresion"><a class="docs-heading-anchor" href="#Leakage-suppresion">Leakage suppresion</a><a id="Leakage-suppresion-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppresion" title="Permalink"></a></h2><p>As can be seen from the above plot, there is a substantial amount of leakage into the higher levels during the evolution. To mitigate this, we have implemented the ability to add a cost to populating the leakage levels, in particular this is an <span>$L_1$</span> norm cost, which is implemented via slack variables and should ideally drive those leakage populations down to zero. To implement this, pass <code>leakage_suppresion=true</code> and <code>R_leakage={value}</code> to the <code>UnitarySmoothPulseProblem</code> template.</p><pre><code class="language- hljs"># create the a leakage suppression problem, initializing with the previous solution
+
+prob_leakage = UnitarySmoothPulseProblem(
+    sys,
+    op,
+    T,
+    Δt;
+    a_bound = a_bound,
+    dda_bound = dda_bound,
+    leakage_suppression = true,
+    R_leakage = 1e-1,
+    a_guess = prob.trajectory.a,
+)
+
+# solve the problem
+
+solve!(prob_leakage; max_iter = 50)</code></pre><p>Let&#39;s look at the fidelity in the subspace</p><pre><code class="language- hljs">println(
+    &quot;Fidelity: &quot;,
+    unitary_rollout_fidelity(prob_leakage.trajectory, sys; subspace = op.subspace),
+)</code></pre><p>and plot the result using the <code>plot_unitary_populations</code> function from PiccoloPlots.jl</p><pre><code class="language- hljs">plot_unitary_populations(prob_leakage.trajectory)</code></pre><p>Here we can see that the leakage populations have been driven substantially down.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../quickstart/">« Quickstart</a><a class="docs-footer-nextpage" href="../../contribution_guide/">Contribution Guide »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Friday 13 February 2026 10:55">Friday 13 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
