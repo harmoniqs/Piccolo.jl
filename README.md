@@ -1,7 +1,7 @@
 <!--```@raw html-->
 <div align="center">
   <a href="https://github.com/harmoniqs/Piccolo.jl">
-    <img src="assets/piccolo_logo.svg" alt="Piccolo.jl" width="25%"/>
+    <img src="assets/piccolo_logo_high_contrast.svg" alt="Piccolo.jl" width="45%"/>
   </a> 
 </div>
 
