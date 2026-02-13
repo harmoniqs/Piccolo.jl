@@ -1,6 +1,6 @@
 # Developer Documentation
 
-Much of these developer docs are based on and reference the SciML ecosystem and their standards.
+Much of these developer docs are based on and reference the SciML ecosystem and [their standards](https://github.com/SciML/SciMLDocs/blob/main/docs/src/highlevels/developer_documentation.md?plain=1).
 As much as possible, we want to encourage an open and collaborative atmosphere while also
 maintaining standards of quality and support through our tooling. We use this tooling and a set
 of well-defined standards and practicies to support users and developers alike. As stated by SciML:
@@ -13,11 +13,11 @@ of well-defined standards and practicies to support users and developers alike. 
 > one knows everything. These rules and styles are designed for iterative contributions.
 > Open pull requests and contribute what you can with what you know, and the maintainers
 > will help you learn and do the rest!**
-> 
-> If you need any help contributing, please feel welcome by opening and PR/issue and we can invite you
-> to our *#community* channel in slack!
-> 
-> We welcome everybody.
+
+If you need any help contributing, please feel welcome by opening and PR/issue and we can invite you
+to our *#community* channel in slack!
+
+**We welcome everybody.**
 
 ## Getting Started With Contributing to Piccolo
 
