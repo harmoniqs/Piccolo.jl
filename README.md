@@ -52,6 +52,8 @@
 
 - [NamedTrajectories.jl](https://github.com/harmoniqs/NamedTrajectories.jl)
 - [TrajectoryIndexingUtils.jl](https://github.com/harmoniqs/TrajectoryIndexingUtils.jl)
+- [DirectTrajOpt.jl](https://github.com/harmoniqs/DirectTrajOpt.jl)
+
 
 For documentation please see the individual packages.
 
