@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>SmoothPulseProblem · Piccolo.jl</title><meta name="title" content="SmoothPulseProblem · Piccolo.jl"/><meta property="og:title" content="SmoothPulseProblem · Piccolo.jl"/><meta property="twitter:title" content="SmoothPulseProblem · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/smooth_pulse/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/smooth_pulse/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/smooth_pulse/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li><li><a class="tocitem" href="../../getting-started/concepts/">Core Concepts</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li class="is-active"><a class="tocitem" href>SmoothPulseProblem</a><ul class="internal"><li><a class="tocitem" href="#When-to-Use"><span>When to Use</span></a></li><li><a class="tocitem" href="#Pulse-Requirement"><span>Pulse Requirement</span></a></li><li><a class="tocitem" href="#Constructor"><span>Constructor</span></a></li><li><a class="tocitem" href="#Parameter-Reference"><span>Parameter Reference</span></a></li><li><a class="tocitem" href="#Examples"><span>Examples</span></a></li><li><a class="tocitem" href="#How-It-Works"><span>How It Works</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../spline_pulse/">SplinePulseProblem</a></li><li><a class="tocitem" href="../minimum_time/">MinimumTimeProblem</a></li><li><a class="tocitem" href="../sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li><a class="tocitem" href="../../concepts/systems/">Quantum Systems</a></li><li><a class="tocitem" href="../../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li><a class="tocitem" href="../../guides/system_templates/">System Templates</a></li><li><a class="tocitem" href="../../guides/leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../../guides/global_variables/">Global Variables</a></li><li><a class="tocitem" href="../../guides/visualization/">Visualization</a></li><li><a class="tocitem" href="../../guides/custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Problem Templates</a></li><li class="is-active"><a href>SmoothPulseProblem</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>SmoothPulseProblem</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/problem-templates/smooth_pulse.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="smooth-pulse"><a class="docs-heading-anchor" href="#smooth-pulse">SmoothPulseProblem</a><a id="smooth-pulse-1"></a><a class="docs-heading-anchor-permalink" href="#smooth-pulse" title="Permalink"></a></h1><p><code>SmoothPulseProblem</code> is the most commonly used problem template in Piccolo.jl. It sets up trajectory optimization with piecewise constant controls (<code>ZeroOrderPulse</code>) where control smoothness is enforced through discrete derivative variables.</p><h2 id="When-to-Use"><a class="docs-heading-anchor" href="#When-to-Use">When to Use</a><a id="When-to-Use-1"></a><a class="docs-heading-anchor-permalink" href="#When-to-Use" title="Permalink"></a></h2><p>Use <code>SmoothPulseProblem</code> when:</p><ul><li>You want piecewise constant control pulses</li><li>You need smooth transitions between control values</li><li>You&#39;re starting a new optimization (not warm-starting from a previous solution)</li><li>You want fine control over derivative bounds</li></ul><h2 id="Pulse-Requirement"><a class="docs-heading-anchor" href="#Pulse-Requirement">Pulse Requirement</a><a id="Pulse-Requirement-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Requirement" title="Permalink"></a></h2><p><code>SmoothPulseProblem</code> requires a trajectory with a <code>ZeroOrderPulse</code>:</p><pre><code class="language-julia hljs">pulse = ZeroOrderPulse(controls, times)
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+qcp = SmoothPulseProblem(qtraj, N)  # Works</code></pre><p>Using a spline pulse will result in an error directing you to <code>SplinePulseProblem</code>.</p><h2 id="Constructor"><a class="docs-heading-anchor" href="#Constructor">Constructor</a><a id="Constructor-1"></a><a class="docs-heading-anchor-permalink" href="#Constructor" title="Permalink"></a></h2><pre><code class="language-julia hljs">SmoothPulseProblem(
+    qtraj::AbstractQuantumTrajectory{&lt;:ZeroOrderPulse},
+    N::Int;
+    kwargs...
+)</code></pre><h2 id="Parameter-Reference"><a class="docs-heading-anchor" href="#Parameter-Reference">Parameter Reference</a><a id="Parameter-Reference-1"></a><a class="docs-heading-anchor-permalink" href="#Parameter-Reference" title="Permalink"></a></h2><h3 id="Required-Parameters"><a class="docs-heading-anchor" href="#Required-Parameters">Required Parameters</a><a id="Required-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Required-Parameters" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>qtraj</code></td><td style="text-align: right"><code>AbstractQuantumTrajectory{ZeroOrderPulse}</code></td><td style="text-align: right">Quantum trajectory containing system, pulse, and goal</td></tr><tr><td style="text-align: right"><code>N</code></td><td style="text-align: right"><code>Int</code></td><td style="text-align: right">Number of discretization timesteps</td></tr></table><h3 id="Objective-Weights"><a class="docs-heading-anchor" href="#Objective-Weights">Objective Weights</a><a id="Objective-Weights-1"></a><a class="docs-heading-anchor-permalink" href="#Objective-Weights" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>Q</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>100.0</code></td><td style="text-align: right">Weight on infidelity objective. Higher values prioritize achieving target fidelity.</td></tr><tr><td style="text-align: right"><code>R</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>1e-2</code></td><td style="text-align: right">Base regularization weight applied to all derivative terms.</td></tr><tr><td style="text-align: right"><code>R_u</code></td><td style="text-align: right"><code>Float64</code> or <code>Vector{Float64}</code></td><td style="text-align: right"><code>R</code></td><td style="text-align: right">Regularization on control values. Can be per-drive.</td></tr><tr><td style="text-align: right"><code>R_du</code></td><td style="text-align: right"><code>Float64</code> or <code>Vector{Float64}</code></td><td style="text-align: right"><code>R</code></td><td style="text-align: right">Regularization on first derivative (control jumps).</td></tr><tr><td style="text-align: right"><code>R_ddu</code></td><td style="text-align: right"><code>Float64</code> or <code>Vector{Float64}</code></td><td style="text-align: right"><code>R</code></td><td style="text-align: right">Regularization on second derivative (control acceleration).</td></tr></table><h3 id="Bounds"><a class="docs-heading-anchor" href="#Bounds">Bounds</a><a id="Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#Bounds" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>du_bound</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>Inf</code></td><td style="text-align: right">Maximum allowed control jump between timesteps.</td></tr><tr><td style="text-align: right"><code>ddu_bound</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>1.0</code></td><td style="text-align: right">Maximum allowed control acceleration.</td></tr><tr><td style="text-align: right"><code>Δt_bounds</code></td><td style="text-align: right"><code>Tuple{Float64, Float64}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Time-step bounds <code>(min, max)</code> for free-time optimization. Required for <code>MinimumTimeProblem</code>.</td></tr></table><h3 id="Advanced-Options"><a class="docs-heading-anchor" href="#Advanced-Options">Advanced Options</a><a id="Advanced-Options-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Options" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>integrator</code></td><td style="text-align: right"><code>AbstractIntegrator</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Custom integrator. If <code>nothing</code>, uses <code>BilinearIntegrator</code>.</td></tr><tr><td style="text-align: right"><code>global_names</code></td><td style="text-align: right"><code>Vector{Symbol}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Names of global parameters to optimize (requires custom integrator).</td></tr><tr><td style="text-align: right"><code>global_bounds</code></td><td style="text-align: right"><code>Dict{Symbol, ...}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Bounds on global variables. Values can be <code>Float64</code> (symmetric ±) or <code>Tuple{Float64, Float64}</code>.</td></tr><tr><td style="text-align: right"><code>constraints</code></td><td style="text-align: right"><code>Vector{AbstractConstraint}</code></td><td style="text-align: right"><code>[]</code></td><td style="text-align: right">Additional constraints to add to the problem.</td></tr><tr><td style="text-align: right"><code>piccolo_options</code></td><td style="text-align: right"><code>PiccoloOptions</code></td><td style="text-align: right"><code>PiccoloOptions()</code></td><td style="text-align: right">Solver and leakage options.</td></tr></table><h2 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h2><h3 id="Basic-Gate-Synthesis"><a class="docs-heading-anchor" href="#Basic-Gate-Synthesis">Basic Gate Synthesis</a><a id="Basic-Gate-Synthesis-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Gate-Synthesis" title="Permalink"></a></h3><pre><code class="language-julia hljs">using Piccolo
+
+# Define system
+H_drift = PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+# Create trajectory
+T, N = 10.0, 100
+times = collect(range(0, T, length = N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+
+# Solve
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+cached_solve!(qcp, &quot;smooth_pulse_basic&quot;; max_iter = 100)
+
+fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999340163030153</code></pre><h3 id="With-Derivative-Bounds"><a class="docs-heading-anchor" href="#With-Derivative-Bounds">With Derivative Bounds</a><a id="With-Derivative-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#With-Derivative-Bounds" title="Permalink"></a></h3><p>Constrain how fast controls can change:</p><pre><code class="language-julia hljs">qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    du_bound = 0.5,    ## Limit control jumps
+    ddu_bound = 0.1,    ## Limit control acceleration
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}, saveat::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusGL4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusGL4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}, Matrix{ComplexF64}}}
+  System: QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}
+  Goal: Matrix{ComplexF64}
+  Trajectory: 100 knots
+  State: Ũ⃗
+  Controls: u</code></pre><h3 id="Enabling-Free-Time-for-MinimumTimeProblem"><a class="docs-heading-anchor" href="#Enabling-Free-Time-for-MinimumTimeProblem">Enabling Free Time for MinimumTimeProblem</a><a id="Enabling-Free-Time-for-MinimumTimeProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Enabling-Free-Time-for-MinimumTimeProblem" title="Permalink"></a></h3><p>To later use <code>MinimumTimeProblem</code>, give bounds on variable timesteps:</p><pre><code class="language-julia hljs">qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    Δt_bounds = (0.01, 0.5),  ## Timesteps can vary from 0.01 to 0.5
+)
+cached_solve!(qcp, &quot;smooth_pulse_free_time&quot;; max_iter = 100)
+
+# Now can minimize time
+qcp_mintime = MinimumTimeProblem(qcp; final_fidelity = 0.99)
+cached_solve!(qcp_mintime, &quot;smooth_pulse_mintime&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SmoothPulseProblem for UnitaryTrajectory...
+	applying timesteps_all_equal constraint: Δt
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:    38354
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:    38584
+
+Total number of variables............................:     1587
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:     1288
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     1386
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.9935660e+00 1.37e-01 3.91e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  3.0686251e+00 4.12e-04 7.01e-01  -1.2 1.33e-01    -  9.16e-01 1.00e+00h  1
+   2  3.4425026e-02 2.02e-04 2.06e-01  -2.9 5.06e-02    -  9.71e-01 9.73e-01f  1
+   3  3.8221340e-03 5.25e-06 3.11e-02  -3.8 7.84e-02  -2.0 1.00e+00 9.75e-01h  1
+   4  3.4109603e-03 1.79e-05 9.88e-01  -4.0 2.12e-01  -2.5 1.00e+00 1.00e+00h  1
+⋮
+  96  3.1344359e-03 2.46e-05 1.55e+02  -3.7 4.91e-03   0.5 1.00e+00 3.34e-01h  1
+  97  3.6207417e-03 2.82e-08 1.83e+02  -4.0 8.27e-04   0.0 1.43e-01 1.00e+00f  1
+  98  3.5014467e-03 2.56e-05 6.59e+01  -3.8 7.66e-02    -  1.00e+00 4.13e-01h  2
+  99  3.6043272e-03 2.71e-09 1.94e-03  -3.8 2.62e-04  -0.5 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  3.6008210e-03 1.48e-08 6.48e-04  -3.8 5.33e-04  -0.9 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.6008209952797005e-03    3.6008209952797005e-03
+Dual infeasibility......:   6.4842964282854371e-04    6.4842964282854371e-04
+Constraint violation....:   1.4831264688597301e-08    1.4831264688597301e-08
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.6350900156167264e-04    1.6350900156167264e-04
+Overall NLP error.......:   6.4842964282854371e-04    6.4842964282854371e-04
+
+
+Number of objective function evaluations             = 225
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 225
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 20.816
+
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on Δt
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from smooth_pulse_free_time_573ffb2.jld2
+    constructing MinimumTimeProblem from QuantumControlProblem{UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}, saveat::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusGL4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusGL4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}, Matrix{ComplexF64}}}...
+	final fidelity constraint: 0.99
+	minimum-time weight D: 100.0
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:    38354
+Number of nonzeros in inequality constraint Jacobian.:        8
+Number of nonzeros in Lagrangian Hessian.............:    38584
+
+Total number of variables............................:     1587
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:     1288
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     1386
+Total number of inequality constraints...............:        1
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        1
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.8784727e+03 1.00e-02 1.87e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.8746751e+03 9.50e-05 1.85e+00  -2.1 1.85e-02   2.0 9.87e-01 9.90e-01f  1
+   2  1.8691722e+03 6.02e-05 1.84e+00  -3.0 5.52e-02   1.5 1.00e+00 1.00e+00f  1
+   3  1.8530806e+03 6.64e-04 1.82e+00  -1.9 1.64e-01   1.0 1.00e+00 1.00e+00f  1
+   4  1.8472034e+03 6.29e-05 1.85e+00  -2.1 6.25e-02   1.5 1.00e+00 1.00e+00f  1
+⋮
+  96  1.0925341e+03 1.55e-05 5.72e+00  -3.2 1.57e+00    -  1.77e-01 2.45e-01f  1
+  97  1.0925026e+03 1.70e-05 2.06e+01  -3.2 2.11e+00    -  4.33e-01 2.24e-01f  1
+  98  1.0924628e+03 1.32e-05 1.92e+01  -4.0 6.95e-01  -1.7 4.75e-01 2.69e-01f  1
+  99  1.0924595e+03 1.26e-05 2.29e+01  -3.6 2.93e-01    -  1.00e+00 4.53e-02h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  1.0924243e+03 7.84e-06 4.18e+00  -4.0 2.56e-02    -  1.00e+00 3.78e-01f  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.0924128553821258e+03    1.0924243302993173e+03
+Dual infeasibility......:   4.1842001571365017e+00    4.1842441087891018e+00
+Constraint violation....:   7.8426719529733901e-06    7.8426719529733901e-06
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.9949974748657987e-03    1.9950184307074557e-03
+Overall NLP error.......:   4.1842001571365017e+00    4.1842441087891018e+00
+
+
+Number of objective function evaluations             = 101
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 101
+Number of inequality constraint evaluations          = 101
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 101
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 20.586
+
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on Δt
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from smooth_pulse_mintime_573ffb2.jld2</code></pre><h3 id="Per-Drive-Regularization"><a class="docs-heading-anchor" href="#Per-Drive-Regularization">Per-Drive Regularization</a><a id="Per-Drive-Regularization-1"></a><a class="docs-heading-anchor-permalink" href="#Per-Drive-Regularization" title="Permalink"></a></h3><p>Apply different regularization to different control channels:</p><pre><code class="language-julia hljs">qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    R_u = [1e-3, 1e-2],     ## Less regularization on drive 1
+    R_du = [1e-2, 1e-1],    ## Different smoothness weights
+    R_ddu = [1e-2, 1e-1],
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}, saveat::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusGL4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusGL4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}, Matrix{ComplexF64}}}
+  System: QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}
+  Goal: Matrix{ComplexF64}
+  Trajectory: 100 knots
+  State: Ũ⃗
+  Controls: u</code></pre><h3 id="With-Leakage-Suppression"><a class="docs-heading-anchor" href="#With-Leakage-Suppression">With Leakage Suppression</a><a id="With-Leakage-Suppression-1"></a><a class="docs-heading-anchor-permalink" href="#With-Leakage-Suppression" title="Permalink"></a></h3><p>For multilevel systems, use <code>PiccoloOptions</code> to enable leakage handling, in this example a 3-level transmon system:</p><pre><code class="language-julia hljs">sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
+
+# Embedded X gate (only affects computational subspace)
+U_goal = EmbeddedOperator(:X, sys)
+
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+# Enable leakage suppression
+opts = PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 1e-3)
+
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
+cached_solve!(qcp, &quot;smooth_pulse_leakage&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SmoothPulseProblem for UnitaryTrajectory...
+	applying leakage suppression: Ũ⃗ &lt; 0.001
+	applying timesteps_all_equal constraint: Δt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/4TeZc/src/problems.jl:65</span>
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:   113244
+Number of nonzeros in inequality constraint Jacobian.:     9598
+Number of nonzeros in Lagrangian Hessian.............:   101039
+
+Total number of variables............................:     2577
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     2178
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     2376
+Total number of inequality constraints...............:      800
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:      800
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  4.6506424e+01 5.78e+00 2.35e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  4.0342378e+01 5.20e+00 1.38e+01  -0.8 3.26e+00    -  4.55e-02 1.01e-01f  1
+   2  3.9661117e+01 5.11e+00 1.64e+01  -1.2 2.92e+00    -  1.00e-01 1.60e-02h  1
+   3  3.8454794e+01 4.97e+00 2.00e+02  -0.9 2.88e+00    -  9.04e-02 2.72e-02f  1
+   4  3.8179168e+01 4.91e+00 5.39e+02  -1.3 2.83e+00    -  4.31e-02 1.23e-02h  1
+⋮
+  96  6.3507075e+01 1.22e+00 8.32e+04   0.4 3.04e+01    -  4.82e-03 1.40e-02f  1
+  97  6.3466042e+01 1.22e+00 8.15e+04   0.5 1.20e+02   0.9 1.51e-03 7.86e-04f  1
+  98  6.3433892e+01 1.21e+00 7.51e+04  -1.5 5.46e+00   2.3 1.49e-02 6.44e-03h  1
+  99  6.3247786e+01 1.20e+00 7.54e+04   0.9 8.01e+00   2.7 1.21e-02 1.31e-02f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  6.3240072e+01 1.18e+00 6.12e+04  -0.4 1.17e+00   3.1 5.30e-02 1.45e-02h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   6.3240071511482711e+01    6.3240071511482711e+01
+Dual infeasibility......:   6.1193617937769312e+04    6.1193617937769312e+04
+Constraint violation....:   1.1808700636995419e+00    1.1808700636995419e+00
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   6.0281175158191864e+00    6.0281175158191864e+00
+Overall NLP error.......:   1.6110732330078197e+03    6.1193617937769312e+04
+
+
+Number of objective function evaluations             = 106
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 106
+Number of inequality constraint evaluations          = 106
+Number of equality constraint Jacobian evaluations   = 102
+Number of inequality constraint Jacobian evaluations = 102
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 95.125
+
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from smooth_pulse_leakage_573ffb2.jld2</code></pre><h3 id="State-Transfer"><a class="docs-heading-anchor" href="#State-Transfer">State Transfer</a><a id="State-Transfer-1"></a><a class="docs-heading-anchor-permalink" href="#State-Transfer" title="Permalink"></a></h3><p>Works with <code>KetTrajectory</code> for state preparation. Here we go back to the 2-level system:</p><pre><code class="language-julia hljs">sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+ψ_init = ComplexF64[1, 0]  ## |0⟩
+ψ_goal = ComplexF64[0, 1]  ## |1⟩
+
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+cached_solve!(qcp, &quot;smooth_pulse_state_transfer&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SmoothPulseProblem for KetTrajectory...
+	applying timesteps_all_equal constraint: Δt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/4TeZc/src/problems.jl:65</span>
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:    19430
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:    21862
+
+Total number of variables............................:     1191
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:      792
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      990
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  9.9799936e+01 6.27e+00 2.02e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.9636265e+01 2.76e+00 2.43e+01  -0.3 3.76e+00    -  2.65e-01 5.59e-01f  1
+   2  9.8041976e+01 7.04e-04 2.31e+02  -0.7 1.68e+00   2.0 9.61e-01 1.00e+00f  1
+   3  9.8216263e+01 1.42e-06 4.45e+02  -4.0 5.84e-03   2.4 6.84e-01 1.00e+00h  1
+   4  9.7428169e+01 7.71e-04 4.47e+02   0.6 4.06e+01    -  4.98e-02 1.97e-02f  1
+⋮
+  96  3.4068479e-03 4.90e-09 3.47e+02  -4.1 9.09e-04  -0.2 1.00e+00 1.00e+00h  1
+  97  3.3625349e-03 4.43e-09 5.37e-02  -4.1 3.23e-04   1.1 1.00e+00 1.00e+00h  1
+  98  3.3510194e-03 2.06e-09 9.35e-04  -4.1 2.08e-04   0.7 1.00e+00 1.00e+00h  1
+  99  3.3525189e-03 1.85e-09 3.47e+02  -4.1 2.30e-04   0.2 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  3.3487504e-03 8.66e-10 3.47e+02  -4.1 9.47e-04  -0.3 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.3487504378023137e-03    3.3487504378023137e-03
+Dual infeasibility......:   3.4703911823096945e+02    3.4703911823096945e+02
+Constraint violation....:   8.6591400716429234e-10    8.6591400716429234e-10
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   7.9999989709547719e-05    7.9999989709547719e-05
+Overall NLP error.......:   3.4703911823096945e+02    3.4703911823096945e+02
+
+
+Number of objective function evaluations             = 175
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 175
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 7.260
+
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of ψ̃
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on ψ̃
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from smooth_pulse_state_transfer_573ffb2.jld2</code></pre><h3 id="Multiple-State-Transfers"><a class="docs-heading-anchor" href="#Multiple-State-Transfers">Multiple State Transfers</a><a id="Multiple-State-Transfers-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-State-Transfers" title="Permalink"></a></h3><p>Use <code>MultiKetTrajectory</code> for gates defined by state mappings:</p><pre><code class="language-julia hljs">ψ0, ψ1 = ComplexF64[1, 0], ComplexF64[0, 1]
+
+# X gate: |0⟩ → |1⟩ and |1⟩ → |0⟩
+qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+cached_solve!(qcp, &quot;smooth_pulse_multi_ket&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SmoothPulseProblem for MultiKetTrajectory (2 states)...
+	applying timesteps_all_equal constraint: Δt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/4TeZc/src/problems.jl:65</span>
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:    38354
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:    38584
+
+Total number of variables............................:     1587
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     1188
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     1386
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  9.9984809e+01 6.27e+00 6.28e-02   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.9642622e+01 2.62e+00 3.50e+01  -0.3 3.75e+00    -  2.90e-01 5.82e-01f  1
+   2  9.8853658e+01 6.52e-04 2.21e+02  -0.7 1.59e+00   2.0 9.74e-01 1.00e+00f  1
+   3  9.9019463e+01 4.23e-06 4.23e+02  -4.0 8.44e-03   2.4 7.26e-01 1.00e+00h  1
+   4  9.7820646e+01 4.98e-04 4.00e+02  -0.1 1.00e+01    -  1.91e-01 7.37e-02f  1
+⋮
+  96  2.7046004e-03 5.54e-04 2.00e+02  -6.6 1.11e-01    -  8.09e-01 1.00e+00h  1
+  97  5.0601758e-03 2.05e-03 9.59e+01  -3.1 2.32e-01  -2.4 4.79e-01 1.00e+00f  1
+  98  3.4377805e-03 2.02e-03 2.01e+02  -3.5 5.19e-02  -1.9 1.00e+00 1.68e-02h  1
+  99  4.2549974e-03 4.35e-04 1.14e+03  -3.5 6.64e-02  -2.4 6.89e-02 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  4.3639865e-03 1.13e-04 4.94e+00  -3.5 4.36e-02  -2.9 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   4.3639865058668834e-03    4.3639865058668834e-03
+Dual infeasibility......:   4.9360555880880685e+00    4.9360555880880685e+00
+Constraint violation....:   1.1285948842998383e-04    1.1285948842998383e-04
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   3.1087072410498060e-04    3.1087072410498060e-04
+Overall NLP error.......:   4.9360555880880685e+00    4.9360555880880685e+00
+
+
+Number of objective function evaluations             = 221
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 221
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 22.134
+
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of ψ̃1
+        applying constraint: initial value of ψ̃2
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on ψ̃1
+        applying constraint: bounds on ψ̃2
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from smooth_pulse_multi_ket_573ffb2.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>SmoothPulseProblem</code> internally:</p><ol><li><p><strong>Adds derivative variables</strong>: Creates <code>:du</code> (first derivative) and <code>:ddu</code> (second derivative) variables alongside controls <code>:u</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce consistency:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li><li><code>ddu[k] = (du[k+1] - du[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic regularization on <code>u</code>, <code>du</code>, <code>ddu</code> with weights <code>R_u</code>, <code>R_du</code>, <code>R_ddu</code></li></ul></li><li><p><strong>Applies bounds</strong>: Enforces <code>du_bound</code> and <code>ddu_bound</code> as hard constraints</p></li></ol><p>The derivative variables act as auxiliary optimization variables that encourage smooth control transitions without requiring explicit smoothness constraints on the original controls.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Robust optimization</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../../problem-templates/">« Overview</a><a class="docs-footer-nextpage" href="../spline_pulse/">SplinePulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Friday 13 February 2026 10:59">Friday 13 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
