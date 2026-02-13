@@ -1,6 +1,8 @@
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+DirectTrajOpt = "c823fa1f-8872-4af5-b810-2b9b72bbbf56"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
 Piccolo = "c4671d76-df94-11ed-2057-43d4fd632fad"

@@ -20,22 +20,22 @@ using ..Quantum
 using ExponentialAction
 using TestItems
 
-include("piccolo_options.jl")
+include("options.jl")
 @reexport using .Options
 
-include("quantum_control_problem.jl")
+include("problems.jl")
 @reexport using .QuantumControlProblems
 
-include("quantum_objectives.jl")
+include("objectives.jl")
 @reexport using .QuantumObjectives
 
-include("quantum_constraints.jl")
+include("constraints.jl")
 @reexport using .QuantumConstraints
 
-include("quantum_integrators.jl")
+include("integrators.jl")
 @reexport using .QuantumIntegrators
 
-include("problem_templates/_problem_templates.jl")
+include("templates/_problem_templates.jl")
 @reexport using .ProblemTemplates
 
 end
