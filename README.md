@@ -1,8 +1,7 @@
-<!--![Piccolo Logo](assets/logo.svg)-->
 <!--```@raw html-->
 <div align="center">
   <a href="https://github.com/harmoniqs/Piccolo.jl">
-    <img src="assets/piccolo_logo_high_contrast.svg" alt="Piccolo.jl" width="50%"/> <!---->
+    <img src="assets/piccolo_logo_high_contrast.svg" alt="Piccolo.jl" width="45%"/>
   </a> 
 </div>
 
