@@ -50,11 +50,8 @@
 ### Description
 **Piccolo.jl** is a meta-package for quantum optimal control using the Pade Integrator Collocation (Piccolo) method. This package reexports the following packages
 
-- [QuantumCollocation.jl](https://github.com/harmoniqs/QuantumCollocation.jl)
 - [NamedTrajectories.jl](https://github.com/harmoniqs/NamedTrajectories.jl)
 - [TrajectoryIndexingUtils.jl](https://github.com/harmoniqs/TrajectoryIndexingUtils.jl)
-- [PiccoloQuantumObjects.jl](https://github.com/harmoniqs/PiccoloQuantumObjects.jl)
-- [PiccoloPlots.jl](https://github.com/harmoniqs/PiccoloPlots.jl)
 
 For documentation please see the individual packages.
 
