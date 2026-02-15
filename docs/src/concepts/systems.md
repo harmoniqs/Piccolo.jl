@@ -119,6 +119,16 @@ The dynamics follow the Lindblad master equation:
 \dot{\rho} = -i[H, \rho] + \sum_k \left( L_k \rho L_k^\dagger - \frac{1}{2}\{L_k^\dagger L_k, \rho\} \right)
 ```
 
+### Compact Lindbladian Generators
+
+For optimization with the compact density isomorphism (`d²` real parameters instead of `2d²`), use:
+
+```julia
+𝒢c_drift, 𝒢c_drives = compact_lindbladian_generators(open_sys)
+```
+
+These `d² × d²` generators satisfy `ẋ = (𝒢c_drift + Σ uᵢ 𝒢c_drives[i]) * x` where `x = density_to_compact_iso(ρ)`. This is used internally by `BilinearIntegrator` when constructing dynamics for `DensityTrajectory`.
+
 ## CompositeQuantumSystem
 
 For multi-qubit or multi-subsystem setups:

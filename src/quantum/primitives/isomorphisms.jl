@@ -6,6 +6,10 @@ export ket_to_iso
 export iso_to_ket
 export density_to_iso_vec
 export iso_vec_to_density
+export density_to_compact_iso
+export compact_iso_to_density
+export density_lift_matrix
+export density_projection_matrix
 export iso_vec_to_operator
 export iso_vec_to_iso_operator
 export operator_to_iso_vec
@@ -151,6 +155,167 @@ density_to_iso_vec(ρ::AbstractMatrix{<:Number}) = ket_to_iso(vec(ρ))
 Returns the density matrix `ρ` from its isomorphism `ρ⃗̃`
 """
 iso_vec_to_density(ρ⃗̃::AbstractVector{<:Real}) = mat(iso_to_ket(ρ⃗̃))
+
+@doc raw"""
+    density_to_compact_iso(ρ::AbstractMatrix{<:Number})
+
+Returns a compact real isomorphism vector of length ``n^2`` for a Hermitian density matrix
+``ρ`` of size ``n \times n``. Exploits Hermiticity (``ρ = ρ^\dagger``) to halve the
+representation size compared to [`density_to_iso_vec`](@ref).
+
+The compact vector is ordered as:
+1. ``\text{Re}(ρ_{jk})`` for ``j \leq k`` (upper triangle, column-major): ``n(n+1)/2`` entries
+2. ``\text{Im}(ρ_{jk})`` for ``j < k`` (strict upper triangle, column-major): ``n(n-1)/2`` entries
+
+See also [`compact_iso_to_density`](@ref), [`density_lift_matrix`](@ref),
+[`density_projection_matrix`](@ref).
+"""
+function density_to_compact_iso(ρ::AbstractMatrix{<:Number})
+    n = size(ρ, 1)
+    x = Vector{Float64}(undef, n^2)
+    idx = 0
+    # Re upper triangle (column-major)
+    @inbounds for k = 1:n, j = 1:k
+        idx += 1
+        x[idx] = real(ρ[j, k])
+    end
+    # Im strict upper triangle (column-major)
+    @inbounds for k = 2:n, j = 1:k-1
+        idx += 1
+        x[idx] = imag(ρ[j, k])
+    end
+    return x
+end
+
+@doc raw"""
+    compact_iso_to_density(x::AbstractVector{<:Real})
+
+Reconstructs a Hermitian density matrix ``ρ`` from its compact real isomorphism vector ``x``
+of length ``n^2``.
+
+See also [`density_to_compact_iso`](@ref).
+"""
+function compact_iso_to_density(x::AbstractVector{<:Real})
+    n = isqrt(length(x))
+    T = complex(eltype(x))
+    ρ = Matrix{T}(undef, n, n)
+    idx = 0
+    # Re upper triangle (column-major)
+    @inbounds for k = 1:n, j = 1:k
+        idx += 1
+        ρ[j, k] = x[idx]
+        if j != k
+            ρ[k, j] = x[idx]
+        end
+    end
+    # Im strict upper triangle (column-major)
+    @inbounds for k = 2:n, j = 1:k-1
+        idx += 1
+        ρ[j, k] += im * x[idx]
+        ρ[k, j] -= im * x[idx]
+    end
+    return ρ
+end
+
+@doc raw"""
+    density_lift_matrix(n::Int)
+
+Returns the sparse lift matrix ``L \in \mathbb{R}^{2n^2 \times n^2}`` that maps the compact
+density isomorphism to the full ``\text{iso\_vec}`` representation.
+
+Given a compact vector ``x = \text{density\_to\_compact\_iso}(ρ)``, the full representation
+is recovered as ``L x = \text{density\_to\_iso\_vec}(ρ)``.
+
+The matrix has ``n(2n-1)`` nonzero entries.
+
+See also [`density_projection_matrix`](@ref), [`density_to_compact_iso`](@ref).
+"""
+function density_lift_matrix(n::Int)
+    n² = n^2
+    rows = Int[]
+    cols = Int[]
+    vals = Float64[]
+
+    col_idx = 0
+
+    # Re upper triangle (column-major)
+    @inbounds for k = 1:n, j = 1:k
+        col_idx += 1
+        # Re(ρ[j,k]) position in iso_vec: (k-1)*n + j
+        re_jk = (k - 1) * n + j
+        push!(rows, re_jk)
+        push!(cols, col_idx)
+        push!(vals, 1.0)
+        if j != k
+            # Re(ρ[k,j]) = Re(ρ[j,k]) — symmetric
+            re_kj = (j - 1) * n + k
+            push!(rows, re_kj)
+            push!(cols, col_idx)
+            push!(vals, 1.0)
+        end
+    end
+
+    # Im strict upper triangle (column-major)
+    @inbounds for k = 2:n, j = 1:k-1
+        col_idx += 1
+        # Im(ρ[j,k]) position in iso_vec: n² + (k-1)*n + j
+        im_jk = n² + (k - 1) * n + j
+        push!(rows, im_jk)
+        push!(cols, col_idx)
+        push!(vals, 1.0)
+        # Im(ρ[k,j]) = -Im(ρ[j,k]) — antisymmetric
+        im_kj = n² + (j - 1) * n + k
+        push!(rows, im_kj)
+        push!(cols, col_idx)
+        push!(vals, -1.0)
+    end
+
+    return sparse(rows, cols, vals, 2n², n²)
+end
+
+@doc raw"""
+    density_projection_matrix(n::Int)
+
+Returns the sparse projection matrix ``P \in \mathbb{R}^{n^2 \times 2n^2}`` that maps the
+full ``\text{iso\_vec}`` representation to the compact density isomorphism.
+
+Given a full vector ``v = \text{density\_to\_iso\_vec}(ρ)`` for Hermitian ``ρ``, the compact
+representation is ``P v = \text{density\_to\_compact\_iso}(ρ)``.
+
+Satisfies ``PL = I_{n^2}`` where ``L`` = [`density_lift_matrix`](@ref).
+
+See also [`density_lift_matrix`](@ref), [`density_to_compact_iso`](@ref).
+"""
+function density_projection_matrix(n::Int)
+    n² = n^2
+    rows = Int[]
+    cols = Int[]
+    vals = Float64[]
+
+    row_idx = 0
+
+    # Re upper triangle (column-major)
+    @inbounds for k = 1:n, j = 1:k
+        row_idx += 1
+        # Re(ρ[j,k]) position in iso_vec: (k-1)*n + j
+        re_jk = (k - 1) * n + j
+        push!(rows, row_idx)
+        push!(cols, re_jk)
+        push!(vals, 1.0)
+    end
+
+    # Im strict upper triangle (column-major)
+    @inbounds for k = 2:n, j = 1:k-1
+        row_idx += 1
+        # Im(ρ[j,k]) position in iso_vec: n² + (k-1)*n + j
+        im_jk = n² + (k - 1) * n + j
+        push!(rows, row_idx)
+        push!(cols, im_jk)
+        push!(vals, 1.0)
+    end
+
+    return sparse(rows, cols, vals, n², 2n²)
+end
 
 # ----------------------------------------------------------------------------- #
 #                             Hamiltonians                                      #
@@ -366,6 +531,87 @@ end
     ρ = (U1*ρ1*U1' + U2*ρ2*U2') / 2
     @test iso_vec_to_density(density_to_iso_vec(ρ)) ≈ ρ
     @test iso_vec_to_density(density_to_iso_vec(ρ)) ≈ ρ
+end
+
+@testitem "Test compact density isomorphisms" begin
+    using LinearAlgebra
+    using SparseArrays
+
+    # --- Round-trip for 2×2 ---
+    ρ2 = ComplexF64[0.7 0.3-0.1im; 0.3+0.1im 0.3]
+    x2 = density_to_compact_iso(ρ2)
+    @test length(x2) == 4
+    @test compact_iso_to_density(x2) ≈ ρ2
+
+    # --- Round-trip for 3×3 ---
+    A = randn(ComplexF64, 3, 3)
+    ρ3 = (A + A') / 2
+    x3 = density_to_compact_iso(ρ3)
+    @test length(x3) == 9
+    @test compact_iso_to_density(x3) ≈ ρ3
+
+    # --- Round-trip for 4×4 ---
+    A = randn(ComplexF64, 4, 4)
+    ρ4 = (A + A') / 2
+    x4 = density_to_compact_iso(ρ4)
+    @test length(x4) == 16
+    @test compact_iso_to_density(x4) ≈ ρ4
+
+    # --- L and P dimensions ---
+    for n in [2, 3, 4, 7]
+        L = density_lift_matrix(n)
+        P = density_projection_matrix(n)
+
+        @test size(L) == (2n^2, n^2)
+        @test size(P) == (n^2, 2n^2)
+
+        # nnz counts
+        @test nnz(L) == n * (2n - 1)
+        @test nnz(P) == n^2
+
+        # P * L = I
+        @test sparse(P * L) ≈ sparse(I, n^2, n^2)
+    end
+
+    # --- L * P projects onto Hermitian subspace ---
+    for n in [2, 3, 4]
+        L = density_lift_matrix(n)
+        P = density_projection_matrix(n)
+        LP = L * P
+
+        # Idempotent
+        @test LP * LP ≈ LP
+
+        # Preserves valid Hermitian iso_vecs
+        A = randn(ComplexF64, n, n)
+        ρ = (A + A') / 2
+        v = density_to_iso_vec(ρ)
+        @test LP * v ≈ v
+    end
+
+    # --- Compatibility: iso_vec = L * compact ---
+    for n in [2, 3, 5]
+        L = density_lift_matrix(n)
+        P = density_projection_matrix(n)
+
+        A = randn(ComplexF64, n, n)
+        ρ = (A + A') / 2
+
+        v_full = density_to_iso_vec(ρ)
+        v_compact = density_to_compact_iso(ρ)
+
+        @test L * v_compact ≈ v_full
+        @test P * v_full ≈ v_compact
+    end
+
+    # --- Explicit 2×2 ordering check ---
+    # ρ = [a  c+di; c-di  b] with a,b,c,d real (Hermitian: ρ[1,2] = c+di, ρ[2,1] = c-di)
+    a, b, c, d = 0.6, 0.4, 0.2, 0.1
+    ρ = ComplexF64[a c+d*im; c-d*im b]
+    x = density_to_compact_iso(ρ)
+    # Re upper triangle (col-major): Re(ρ[1,1]), Re(ρ[1,2]), Re(ρ[2,2])
+    # Im strict upper triangle (col-major): Im(ρ[1,2])
+    @test x ≈ [a, c, b, d]
 end
 
 @testitem "Test Hamiltonian isomorphisms" begin

@@ -142,7 +142,7 @@ function sync_trajectory!(qcp::QuantumControlProblem)
     # Update global parameters in the system if present
     # Use get_system() to work with all trajectory types (including SamplingTrajectory)
     sys = get_system(qcp.qtraj)
-    if !isempty(sys.global_params) && qcp.prob.trajectory.global_dim > 0
+    if hasproperty(sys, :global_params) && !isempty(sys.global_params) && qcp.prob.trajectory.global_dim > 0
         update_global_params!(qcp.qtraj, qcp.prob.trajectory)
     end
 

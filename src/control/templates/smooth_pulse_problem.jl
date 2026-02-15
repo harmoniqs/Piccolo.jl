@@ -79,14 +79,18 @@ function SmoothPulseProblem(
     control_sym = drive_name(qtraj)
 
     # Build global_data from system's global_params if present
-    global_data = if !isempty(sys.global_params)
+    global_data = if hasproperty(sys, :global_params) && !isempty(sys.global_params)
         Dict(name => [val] for (name, val) in pairs(sys.global_params))
     else
         nothing
     end
 
     # Convert quantum trajectory to NamedTrajectory
-    base_traj = NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = if isnothing(global_data)
+        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+    else
+        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+    end
 
     # Add control derivatives to trajectory (always 2 derivatives for smooth pulses)
     du_bounds = fill(du_bound, sys.n_drives)
@@ -366,15 +370,15 @@ function _state_objective(
     return KetInfidelityObjective(state_sym, traj; Q = Q)
 end
 
-# Density trajectory: no fidelity objective yet (TODO)
+# Density trajectory: general mixed state fidelity via compact isomorphism
 function _state_objective(
     qtraj::DensityTrajectory,
     traj::NamedTrajectory,
     state_sym::Symbol,
     Q::Float64,
 )
-    # TODO: Add fidelity objective when we support general mixed state fidelity
-    return NullObjective(traj)
+    ρ_goal = Matrix{ComplexF64}(qtraj.goal)
+    return DensityMatrixInfidelityObjective(state_sym, ρ_goal, traj; Q = Q)
 end
 
 # Apply Piccolo options with trajectory-type-specific logic
@@ -600,8 +604,56 @@ end
     @test norm(δ, Inf) < 1e-3
 end
 
-@testitem "SmoothPulseProblem with DensityTrajectory" tags=[:density, :skip] begin
-    @test_skip "DensityTrajectory optimization not yet implemented"
+@testitem "SmoothPulseProblem with DensityTrajectory" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Simple 2-level open system with weak dissipation
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0];
+        dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    T = 10.0
+    N = 50
+
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+
+    @test qcp isa QuantumControlProblem
+    @test qcp.qtraj isa DensityTrajectory
+
+    # Check trajectory components
+    @test haskey(qcp.prob.trajectory.components, :ρ⃗̃)
+    @test haskey(qcp.prob.trajectory.components, :du)
+    @test haskey(qcp.prob.trajectory.components, :ddu)
+
+    # Compact iso: state dim should be n² (not 2n²)
+    n = sys.levels
+    @test qcp.prob.trajectory.dims[:ρ⃗̃] == n^2
+
+    # Integrators: 1 dynamics + 2 derivatives = 3
+    @test length(qcp.prob.integrators) == 3
+
+    # Solve and verify
+    solve!(qcp; max_iter = 150, print_level = 1, verbose = false)
+
+    # Check fidelity via compact iso
+    traj = get_trajectory(qcp)
+    ρ̃_final = traj[end][:ρ⃗̃]
+    ρ_final = compact_iso_to_density(ρ̃_final)
+    fid = real(tr(ρ_final * ρg))
+    @test fid > 0.9
+
+    # Dynamics constraints should be satisfied
+    dynamics_integrator = qcp.prob.integrators[1]
+    δ = zeros(dynamics_integrator.dim)
+    DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
+    @test norm(δ, Inf) < 1e-3
 end
 
 @testitem "SmoothPulseProblem with MultiKetTrajectory" tags=[:experimental] begin
@@ -927,10 +979,6 @@ end
             @test norm(δ, Inf) < 1e-3
         end
     end
-end
-
-@testitem "SmoothPulseProblem with time-dependent DensityTrajectory" tags=[:density, :skip] begin
-    @test_skip "DensityTrajectory optimization not yet implemented"
 end
 
 @testitem "SmoothPulseProblem with time-dependent MultiKetTrajectory" begin

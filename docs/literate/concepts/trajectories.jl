@@ -108,23 +108,35 @@ fidelity(qcp_multi)
 
 # ## DensityTrajectory
 #
-# For open quantum systems with dissipation.
+# For open quantum systems with dissipation (Lindblad master equation).
 #
-# ```julia
-# # Open system with collapse operators
-# open_sys = OpenQuantumSystem(H_drift, H_drives, bounds, c_ops)
-#
-# # Initial density matrix
-# ρ_init = [1.0 0.0; 0.0 0.0]  # Pure |0⟩
-# ρ_goal = [0.0 0.0; 0.0 1.0]  # Pure |1⟩
-#
-# qtraj = DensityTrajectory(open_sys, pulse, ρ_init, ρ_goal)
-# ```
-#
-# !!! note
-#     `DensityTrajectory` support for fidelity objectives is still in
-#     development. For most open-system problems, consider using `KetTrajectory`
-#     with an effective Hamiltonian.
+# ### Construction
+
+## Open system with a weak dissipation operator
+L = ComplexF64[0.1 0.0; 0.0 0.0]
+open_sys = OpenQuantumSystem(
+    PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0];
+    dissipation_operators=[L]
+)
+
+## Initial and goal density matrices
+ρ_init = ComplexF64[1.0 0.0; 0.0 0.0]  # |0⟩⟨0|
+ρ_goal = ComplexF64[0.0 0.0; 0.0 1.0]  # |1⟩⟨1|
+
+T_density, N_density = 10.0, 50
+times_density = collect(range(0, T_density, length=N_density))
+pulse_density = ZeroOrderPulse(0.1 * randn(2, N_density), times_density)
+qtraj_density = DensityTrajectory(open_sys, pulse_density, ρ_init, ρ_goal)
+
+# ### Solve and Analyze
+
+qcp_density = SmoothPulseProblem(qtraj_density, N_density; Q=100.0, R=1e-2)
+cached_solve!(qcp_density, "trajectories_density"; max_iter=150)
+fidelity(qcp_density)
+
+# `DensityTrajectory` uses a compact isomorphism that exploits Hermiticity,
+# storing `d²` real parameters instead of `2d²`.
+# See [Isomorphisms](@ref isomorphisms-concept) for details.
 #
 # ## SamplingTrajectory
 #

@@ -39,18 +39,37 @@ The isomorphism stacks real parts followed by imaginary parts.
 
 ### Density Matrices
 
-For density matrices (used in open systems):
+For density matrices (used in open systems), Piccolo.jl provides two representations:
+
+**Full isomorphism** (`2d²` real parameters) — treats `ρ` as a general complex matrix:
 
 ```julia
-# Complex density matrix
-ρ = [1.0 0.0; 0.0 0.0]  # |0⟩⟨0|
+ρ = ComplexF64[0.7 0.3-0.1im; 0.3+0.1im 0.3]
 
-# Convert to isomorphic form
-ρ̃ = density_to_iso(ρ)
-
-# Convert back
-ρ_recovered = iso_to_density(ρ̃)
+ρ̃ = density_to_iso_vec(ρ)   # length 2d² = 8
+ρ_recovered = iso_vec_to_density(ρ̃)
 ```
+
+**Compact isomorphism** (`d²` real parameters) — exploits Hermiticity (`ρ = ρ†`) to halve the state dimension:
+
+```julia
+x = density_to_compact_iso(ρ)   # length d² = 4
+ρ_recovered = compact_iso_to_density(x)
+```
+
+The compact vector stores the real parts of the upper triangle followed by the imaginary parts of the strict upper triangle (both column-major). For a `2×2` matrix `ρ = [a c+di; c-di b]`, this gives `x = [a, c, b, d]`.
+
+**Lift and projection matrices** convert between the two representations:
+
+```julia
+L = density_lift_matrix(d)       # 2d² × d²: compact → full
+P = density_projection_matrix(d) # d² × 2d²: full → compact
+
+# Satisfies P * L = I
+density_to_iso_vec(ρ) ≈ L * density_to_compact_iso(ρ)
+```
+
+The compact isomorphism is used internally by `DensityTrajectory` and `DensityMatrixInfidelityObjective` for efficient open-system optimization.
 
 ## Operator Isomorphisms
 
@@ -180,8 +199,12 @@ end
 
 | Function | Description |
 |----------|-------------|
-| `density_to_iso(ρ)` | Complex density matrix → real vector |
-| `iso_to_density(ρ̃)` | Real vector → complex density matrix |
+| `density_to_iso_vec(ρ)` | Complex density matrix → real vector (length `2d²`) |
+| `iso_vec_to_density(ρ̃)` | Real vector → complex density matrix |
+| `density_to_compact_iso(ρ)` | Hermitian density matrix → compact real vector (length `d²`) |
+| `compact_iso_to_density(x)` | Compact real vector → Hermitian density matrix |
+| `density_lift_matrix(d)` | Sparse `2d² × d²` matrix: compact → full iso_vec |
+| `density_projection_matrix(d)` | Sparse `d² × 2d²` matrix: full iso_vec → compact |
 
 ### Hamiltonian Conversions
 
@@ -202,7 +225,7 @@ Piccolo.jl uses a tilde notation to distinguish isomorphic variables:
 In trajectories:
 - `:ψ̃` - Isomorphic ket state
 - `:Ũ⃗` - Isomorphic vectorized unitary
-- `:ρ̃` - Isomorphic vectorized density matrix
+- `:ρ⃗̃` - Compact isomorphic density vector
 
 ## Dimension Reference
 
@@ -212,7 +235,8 @@ For a system with `d` levels:
 |--------|-------------------|---------------------|
 | Ket `\|ψ⟩` | `d` complex | `2d` real |
 | Unitary `U` | `d×d` complex | `2d²` real |
-| Density `ρ` | `d×d` complex | `2d²` real |
+| Density `ρ` (full) | `d×d` complex | `2d²` real |
+| Density `ρ` (compact) | `d×d` Hermitian | `d²` real |
 
 ## See Also
 

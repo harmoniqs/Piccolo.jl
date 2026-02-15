@@ -9,6 +9,7 @@ export CompositeQuantumSystem
 export get_drift
 export get_drives
 export get_c_ops
+export compact_lindbladian_generators
 
 using ..Isomorphisms
 using ..QuantumObjectUtils

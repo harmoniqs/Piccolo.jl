@@ -60,6 +60,22 @@ This ensures both:
 1. Each state reaches its target
 2. Relative phases between states are preserved
 
+### DensityMatrixInfidelityObjective
+
+For open-system optimization with density matrices:
+
+```julia
+ρ_goal = ComplexF64[0.0 0.0; 0.0 1.0]
+obj = DensityMatrixInfidelityObjective(:ρ⃗̃, ρ_goal, traj; Q=100.0)
+```
+
+**Fidelity metric:**
+```math
+F = \text{tr}(\rho \cdot \rho_{\text{goal}})
+```
+
+Uses the compact density isomorphism (`density_to_compact_iso`) internally, so the state dimension is `d²` rather than `2d²`.
+
 ### UnitaryFreePhaseInfidelityObjective
 
 When global phase doesn't matter:
@@ -184,7 +200,7 @@ The objective type is chosen based on the trajectory:
 | `UnitaryTrajectory` | `UnitaryInfidelityObjective` |
 | `KetTrajectory` | `KetInfidelityObjective` |
 | `MultiKetTrajectory` | `CoherentKetInfidelityObjective` |
-| `DensityTrajectory` | None (manual setup) |
+| `DensityTrajectory` | `DensityMatrixInfidelityObjective` |
 
 ### Custom Objectives
 

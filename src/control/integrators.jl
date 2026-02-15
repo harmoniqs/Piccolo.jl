@@ -47,12 +47,22 @@ end
 """
     BilinearIntegrator(qtraj::DensityTrajectory, N::Int)
 
-Create a BilinearIntegrator for density matrix evolution.
+Create a BilinearIntegrator for density matrix evolution using the compact
+Lindbladian generators (n² × n²) matching the compact density isomorphism.
 """
 function BilinearIntegrator(qtraj::DensityTrajectory, N::Int)
     sys = get_system(qtraj)
     traj = NamedTrajectory(qtraj, N)
-    return BilinearIntegrator(sys.𝒢, state_name(qtraj), drive_name(qtraj), traj)
+
+    # Build compact generator function: u -> 𝒢c_drift + Σ uᵢ 𝒢c_drives[i]
+    𝒢c_drift, 𝒢c_drives = compact_lindbladian_generators(sys)
+    if isempty(𝒢c_drives)
+        𝒢c = u -> 𝒢c_drift
+    else
+        𝒢c = u -> 𝒢c_drift + sum(u .* 𝒢c_drives)
+    end
+
+    return BilinearIntegrator(𝒢c, state_name(qtraj), drive_name(qtraj), traj)
 end
 
 """
@@ -215,8 +225,35 @@ end
     test_integrator(integrator, traj; atol = 1e-3)
 end
 
-@testitem "BilinearIntegrator dispatch on DensityTrajectory" tags=[:density, :skip] begin
-    @test_skip "DensityTrajectory optimization not yet implemented"
+@testitem "BilinearIntegrator dispatch on DensityTrajectory" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # Create open system with dissipation
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    controls = zeros(1, N)
+    pulse = ZeroOrderPulse(controls, times)
+
+    qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
+    traj = NamedTrajectory(qtraj, N)
+
+    integrator = BilinearIntegrator(qtraj, N)
+
+    @test integrator isa BilinearIntegrator
+
+    # State dimension should be n² (compact iso)
+    n = sys.levels
+    @test integrator.x_dim == n^2
+
+    test_integrator(integrator, traj; atol = 1e-3)
 end
 
 @testitem "BilinearIntegrator dispatch on SamplingTrajectory (Unitary)" begin

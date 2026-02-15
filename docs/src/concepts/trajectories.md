@@ -127,24 +127,42 @@ This is important for gates where phase relationships matter (unlike `UnitaryTra
 
 ## DensityTrajectory
 
-For open quantum systems with dissipation.
+For open quantum systems with dissipation (Lindblad master equation).
 
 ### Construction
 
 ```julia
 # Open system with collapse operators
-open_sys = OpenQuantumSystem(H_drift, H_drives, bounds, c_ops)
+L = ComplexF64[0.1 0.0; 0.0 0.0]  # Dissipation operator
+open_sys = OpenQuantumSystem(
+    PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0];
+    dissipation_operators=[L]
+)
 
-# Initial density matrix
-ρ_init = [1.0 0.0; 0.0 0.0]  # Pure |0⟩
-ρ_goal = [0.0 0.0; 0.0 1.0]  # Pure |1⟩
+# Initial and goal density matrices
+ρ_init = ComplexF64[1.0 0.0; 0.0 0.0]  # Pure |0⟩
+ρ_goal = ComplexF64[0.0 0.0; 0.0 1.0]  # Pure |1⟩
 
+# Create pulse and trajectory
+T, N = 10.0, 50
+times = collect(range(0, T, length=N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = DensityTrajectory(open_sys, pulse, ρ_init, ρ_goal)
 ```
 
-### Note
+### Optimization
 
-`DensityTrajectory` support for fidelity objectives is still in development. For most open-system problems, consider using `KetTrajectory` with an effective Hamiltonian or using the `Rollouts` module directly.
+`DensityTrajectory` works with `SmoothPulseProblem`, which automatically uses `DensityMatrixInfidelityObjective`:
+
+```julia
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
+solve!(qcp; max_iter=150)
+fidelity(qcp)
+```
+
+### Compact Isomorphism
+
+Internally, `DensityTrajectory` uses a compact real isomorphism that exploits the Hermiticity of density matrices, storing `d²` real parameters instead of `2d²`. See [Isomorphisms](@ref isomorphisms-concept) for details.
 
 ## SamplingTrajectory
 

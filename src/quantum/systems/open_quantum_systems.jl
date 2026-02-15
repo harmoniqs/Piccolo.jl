@@ -215,6 +215,44 @@ function OpenQuantumSystem(
     )
 end
 
+# ----------------------------------------------------------------------------- #
+# Compact Lindbladian generators
+# ----------------------------------------------------------------------------- #
+
+"""
+    compact_lindbladian_generators(sys::OpenQuantumSystem)
+
+Compute the compact Lindbladian generators for use with the compact density
+isomorphism. Returns `(𝒢c_drift, 𝒢c_drives)` where:
+
+- `𝒢c_drift = P * (𝒢_drift + 𝒟) * L` — compact drift + dissipation generator (n² × n²)
+- `𝒢c_drives[i] = P * 𝒢_drives[i] * L` — compact drive generators (each n² × n²)
+
+These satisfy `ẋ = (𝒢c_drift + Σ uᵢ 𝒢c_drives[i]) * x` where `x` is the compact
+iso vector from `density_to_compact_iso`.
+"""
+function compact_lindbladian_generators(sys::OpenQuantumSystem)
+    n = sys.levels
+
+    # Reconstruct full Lindbladian components from stored fields
+    𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(sys.H_drift))
+    𝒢_drives = [Isomorphisms.G(Isomorphisms.ad_vec(H_d)) for H_d in sys.H_drives]
+
+    if isempty(sys.dissipation_operators)
+        𝒟 = spzeros(size(𝒢_drift))
+    else
+        𝒟 = sum(Isomorphisms.iso_D(L) for L in sys.dissipation_operators)
+    end
+
+    L = Isomorphisms.density_lift_matrix(n)
+    P = Isomorphisms.density_projection_matrix(n)
+
+    𝒢c_drift = P * (𝒢_drift + 𝒟) * L
+    𝒢c_drives = [P * 𝒢d * L for 𝒢d in 𝒢_drives]
+
+    return 𝒢c_drift, 𝒢c_drives
+end
+
 # ******************************************************************************* #
 
 @testitem "Open system creation" begin
