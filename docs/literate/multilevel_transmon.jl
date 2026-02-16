@@ -74,9 +74,6 @@ qcp = SmoothPulseProblem(qtraj, N; ddu_bound = ddu_bound, Q = 100.0, R = 1e-2)
 
 # ## Solving the problem
 
-## We solve the problem using `cached_solve!`, which transparently caches the
-## optimized trajectory and solver output for docs purposes. In practice, you can use `solve!` directly.
-
 cached_solve!(qcp, "multilevel_transmon"; max_iter = 50)
 
 # After optimization, we can check the fidelity in the subspace:
