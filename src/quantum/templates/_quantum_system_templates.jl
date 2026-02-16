@@ -18,7 +18,7 @@ Organized by physical platform:
 - **MultiTransmonSystem**: Coupled transmon systems
 - **TransmonCavitySystem**: Transmons coupled to cavities
 
-## Cavities
+## Cats
 - **CatSystem**: Quantum cat states in cavities
 """
 
@@ -47,7 +47,7 @@ include("atoms/rydberg_chain.jl")
 # Transmon systems
 include("transmons/transmon_system.jl")
 
-# Cavity systems
-include("cavities/cat_system.jl")
+# Cat systems
+include("cats/cat_system.jl")
 
 end  # module QuantumSystemTemplates
