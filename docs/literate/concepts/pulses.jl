@@ -1,23 +1,31 @@
 # # [Pulses](@id pulses-concept)
 #
-# Pulses in Piccolo.jl parameterize how control signals vary over time. The
-# choice of pulse type affects both the optimization problem structure and the
-# resulting control smoothness.
+# Pulses parameterize how control amplitudes ``\boldsymbol{u}(t)`` vary over
+# time.  The choice of pulse type determines both the NLP structure and the
+# smoothness class of the resulting controls.
 #
 # ## Overview
 #
-# | Pulse Type | Description | Use With |
-# |------------|-------------|----------|
-# | `ZeroOrderPulse` | Piecewise constant | `SmoothPulseProblem` |
-# | `LinearSplinePulse` | Linear interpolation | `SplinePulseProblem` |
-# | `CubicSplinePulse` | Cubic Hermite splines | `SplinePulseProblem` |
-# | `GaussianPulse` | Parametric Gaussian | Analytical evaluation |
-# | `CompositePulse` | Combination of pulses | Various |
+# | Pulse Type | Continuity | Decision Variables | Use With |
+# |------------|------------|-------------------|----------|
+# | `ZeroOrderPulse` | ``C^{-1}`` (piecewise constant) | ``\boldsymbol{u}_k`` | `SmoothPulseProblem` |
+# | `LinearSplinePulse` | ``C^0`` | ``\boldsymbol{u}_k`` (knot values) | `SplinePulseProblem` |
+# | `CubicSplinePulse` | ``C^1`` | ``\boldsymbol{u}_k,\, \dot{\boldsymbol{u}}_k`` (values + tangents) | `SplinePulseProblem` |
+# | `GaussianPulse` | ``C^\infty`` | ``A_i, \sigma_i, \mu_i`` (parametric) | Analytical |
+# | `CompositePulse` | varies | union of sub-pulse variables | Various |
 #
 # ## ZeroOrderPulse
 #
-# Piecewise constant (zero-order hold) controls. The most common choice for
-# initial optimization.
+# Piecewise constant (zero-order hold) controls — the most common choice.
+# On the interval ``[t_k, t_{k+1})``, the control is constant:
+#
+# ```math
+# \boldsymbol{u}(t) = \boldsymbol{u}_k, \qquad t \in [t_k,\, t_{k+1})
+# ```
+#
+# Smoothness is enforced indirectly via regularization of the discrete
+# differences ``\Delta\boldsymbol{u}_k`` and ``\Delta^2\boldsymbol{u}_k``
+# (see [Objectives](@ref objectives-concept)).
 #
 # ### Construction
 
@@ -47,72 +55,60 @@ duration(pulse_zop)
 ## Number of drives
 n_drives(pulse_zop)
 
-# ### Visualization
-#
-# ```
-# Control Value
-#     │    ┌──┐
-#     │    │  │  ┌──┐
-#     │────┘  │  │  └───
-#     │       └──┘
-#     └─────────────────── Time
-# ```
-#
-# ### Use Case
-#
-# - **Primary use**: `SmoothPulseProblem`
-# - **Characteristics**: Simple structure, smoothness via derivative regularization
-# - **Best for**: Initial optimization, most quantum control problems
-#
 # ## LinearSplinePulse
 #
-# Linear interpolation between control knots.
+# Linear interpolation between knot values.  On ``[t_k, t_{k+1}]``:
+#
+# ```math
+# \boldsymbol{u}(t) = \boldsymbol{u}_k + \frac{t - t_k}{t_{k+1} - t_k}\,(\boldsymbol{u}_{k+1} - \boldsymbol{u}_k)
+# ```
+#
+# This gives ``C^0`` continuity (continuous values, discontinuous first
+# derivative at knots).
 #
 # ### Construction
 
 pulse_linear = LinearSplinePulse(controls, times)
 
-# ### Properties
-#
-# - Continuous control values
-# - Discontinuous first derivative (at knots)
-# - Derivative = slope between knots
-
 u_linear = pulse_linear(T / 2)
 u_linear
 
-# ### Visualization
-#
-# ```
-# Control Value
-#     │      /\
-#     │     /  \    /
-#     │    /    \  /
-#     │───/      \/
-#     └─────────────────── Time
-# ```
-#
 # ## CubicSplinePulse
 #
-# Cubic Hermite spline interpolation with independent tangents at each knot.
+# Cubic Hermite spline interpolation with independent tangents
+# ``\dot{\boldsymbol{u}}_k`` at each knot.  The Hermite basis gives ``C^1``
+# continuity (continuous values and first derivatives).
+#
+# On ``[t_k, t_{k+1}]`` with ``s = (t - t_k) / (t_{k+1} - t_k) \in [0, 1]``
+# and ``h = t_{k+1} - t_k``:
+#
+# ```math
+# \boldsymbol{u}(t) = (2s^3 - 3s^2 + 1)\,\boldsymbol{u}_k
+# + (s^3 - 2s^2 + s)\,h\,\dot{\boldsymbol{u}}_k
+# + (-2s^3 + 3s^2)\,\boldsymbol{u}_{k+1}
+# + (s^3 - s^2)\,h\,\dot{\boldsymbol{u}}_{k+1}
+# ```
+#
+# Both ``\boldsymbol{u}_k`` and ``\dot{\boldsymbol{u}}_k`` are decision
+# variables in `SplinePulseProblem`.
 #
 # ### Construction
 
 tangents = zeros(n_dr, N)  # Initial tangents (slopes)
 pulse_cubic = CubicSplinePulse(controls, tangents, times)
 
-# ### Properties
-#
-# - Continuous control values AND first derivatives
-# - Tangents are independent optimization variables
-# - Smooth C¹ continuous curves
-
 u_cubic = pulse_cubic(T / 2)
 u_cubic
 
 # ## GaussianPulse
 #
-# Parametric Gaussian envelope with analytical form.
+# Parametric Gaussian envelope:
+#
+# ```math
+# u_i(t) = A_i \exp\!\left(-\frac{(t - \mu_i)^2}{2\sigma_i^2}\right)
+# ```
+#
+# Useful for analytical pulse design and warm-starting.
 #
 # ### Construction
 
@@ -122,60 +118,28 @@ centers = [5.0, 5.0]
 
 pulse_gauss = GaussianPulse(amplitudes, sigmas, centers, T)
 
-# ### Mathematical Form
-#
-# ```math
-# u_i(t) = A_i \exp\left(-\frac{(t - \mu_i)^2}{2\sigma_i^2}\right)
-# ```
-
 u_gauss = pulse_gauss(5.0)
 u_gauss
 
 # ## CompositePulse
 #
-# Combine multiple pulses.
-#
-# ### Construction
+# Combine multiple pulses (e.g., different drives from different sources):
 
 pulse1 = GaussianPulse([0.5], [0.5], [2.0], T)
 pulse2 = GaussianPulse([0.3], [0.5], [8.0], T)
 
-## Interleave the pulses (each pulse contributes different drives)
 composite = CompositePulse([pulse1, pulse2])
 n_drives(composite)
 
 # ## Choosing a Pulse Type
 #
-# ### Decision Guide
-#
-# ```
-# Start
-#   │
-#   ▼
-# Is this your first optimization attempt?
-#   │
-#   ├── Yes → ZeroOrderPulse + SmoothPulseProblem
-#   │
-#   └── No → Do you have a previous solution?
-#               │
-#               ├── Yes → CubicSplinePulse + SplinePulseProblem (warm-start)
-#               │
-#               └── No → Do you need smooth pulses?
-#                           │
-#                           ├── Yes → CubicSplinePulse
-#                           │
-#                           └── No → ZeroOrderPulse
-# ```
-#
-# ### Practical Recommendations
-#
-# | Scenario | Recommended Pulse |
-# |----------|-------------------|
-# | Starting fresh | `ZeroOrderPulse` |
-# | Refining a solution | `CubicSplinePulse` |
-# | Hardware requires smooth pulses | `CubicSplinePulse` |
-# | Simple continuous pulses | `LinearSplinePulse` |
-# | Analytical pulse design | `GaussianPulse` |
+# | Scenario | Recommended Pulse | Smoothness |
+# |----------|-------------------|------------|
+# | Starting fresh | `ZeroOrderPulse` + `SmoothPulseProblem` | ``C^{-1}`` (regularized) |
+# | Refining a solution | `CubicSplinePulse` + `SplinePulseProblem` | ``C^1`` |
+# | Hardware requires smooth pulses | `CubicSplinePulse` | ``C^1`` |
+# | Simple continuous pulses | `LinearSplinePulse` | ``C^0`` |
+# | Analytical pulse design | `GaussianPulse` | ``C^\infty`` |
 #
 # ## Converting Between Pulse Types
 #
@@ -208,7 +172,6 @@ length(new_times)
 # ### 1. Initialize Appropriately
 #
 # ```julia
-# # Scale by drive bounds
 # max_amp = 0.1 * maximum(drive_bounds)
 # controls = max_amp * randn(n_drives, N)
 # ```

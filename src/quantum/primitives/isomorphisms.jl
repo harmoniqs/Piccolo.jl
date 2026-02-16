@@ -18,6 +18,10 @@ export iso_operator_to_operator
 export operator_to_iso_operator
 export ket_to_bloch
 export bloch_to_ket
+export density_to_compact_iso
+export compact_iso_to_density
+export density_lift_matrix
+export density_projection_matrix
 
 # Do not export Hamiltonian isomorphisms
 

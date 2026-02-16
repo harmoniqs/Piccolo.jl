@@ -212,6 +212,6 @@ fig = plot_unitary_populations(traj)
 # ## See Also
 #
 # - [Operators](@ref operators-concept) - EmbeddedOperator details
-# - [System Templates](@ref system-templates) - Creating multilevel systems
+# - [Quantum Systems](@ref systems-overview) - Creating multilevel systems
 # - [Objectives](@ref objectives-concept) - LeakageObjective documentation
 # - [Constraints](@ref constraints-concept) - LeakageConstraint documentation

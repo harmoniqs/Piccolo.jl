@@ -1,30 +1,32 @@
 # # [Trajectories](@id trajectories-concept)
 #
-# Trajectories in Piccolo.jl represent a complete quantum control scenario: a
-# system, a control pulse, and a goal. They are the central object passed to
-# problem templates.
+# A trajectory bundles a quantum system, a control pulse, and a goal into the
+# central object that problem templates consume.
 #
 # ## Overview
 #
-# A trajectory encapsulates:
-# - **Quantum system**: The hardware being controlled
-# - **Pulse**: How controls vary over time
-# - **Goal**: The desired outcome (gate, state, etc.)
-# - **State evolution**: The quantum state over time
+# Every trajectory type defines:
+# - The **state** ``x_k`` and its dynamics ``x_{k+1} = \exp(\Delta t_k\, G(\boldsymbol{u}_k))\, x_k``
+# - The **initial condition** ``x_1 = x_{\text{init}}``
+# - The **goal** ``x_{\text{goal}}`` and associated fidelity metric
 #
 # ## Trajectory Types
 #
-# | Type | Use Case | State Variable |
-# |------|----------|----------------|
-# | `UnitaryTrajectory` | Gate synthesis | Unitary matrix `U(t)` |
-# | `KetTrajectory` | State preparation | State vector `\|ψ(t)⟩` |
-# | `DensityTrajectory` | Open systems | Density matrix `ρ(t)` |
-# | `MultiKetTrajectory` | Multiple state transfers | Multiple `\|ψᵢ(t)⟩` |
-# | `SamplingTrajectory` | Robust optimization | States for multiple systems |
+# | Type | Dynamics | State ``x_k`` | Fidelity ``F`` | ``\dim(x_k)`` |
+# |------|----------|---------------|----------------|---------------|
+# | `UnitaryTrajectory` | ``\dot{U} = -iH\,U`` | ``\tilde{U} \in \mathbb{R}^{2d^2}`` | ``\lvert\operatorname{tr}(U_g^\dagger U)\rvert^2 / d^2`` | ``2d^2`` |
+# | `KetTrajectory` | ``\dot{\psi} = -iH\,\psi`` | ``\tilde{\psi} \in \mathbb{R}^{2d}`` | ``\lvert\langle\psi_g\mid\psi\rangle\rvert^2`` | ``2d`` |
+# | `DensityTrajectory` | ``\dot{\rho} = \mathcal{G}\,\text{vec}(\rho)`` | ``\tilde{\rho} \in \mathbb{R}^{d^2}`` (compact) | ``\operatorname{tr}(\rho_g\,\rho)`` | ``d^2`` |
+# | `MultiKetTrajectory` | ``\dot{\psi}_j = -iH\,\psi_j`` | multiple ``\tilde{\psi}_j`` | coherent (see below) | ``2d \times n_{\text{states}}`` |
+# | `SamplingTrajectory` | per-system dynamics | per-system states | average fidelity | varies |
+#
+# The isomorphic state ``x_k`` is always a **real** vector; see
+# [Isomorphisms](@ref isomorphisms-concept) for the conversions.
 #
 # ## UnitaryTrajectory
 #
-# For synthesizing quantum gates.
+# For synthesizing quantum gates.  The propagator satisfies
+# ``\dot{U} = G(\boldsymbol{u})\,U`` with ``U(0) = I``.
 #
 # ### Construction
 
@@ -57,7 +59,10 @@ duration(optimized_pulse)
 
 # ## KetTrajectory
 #
-# For state preparation (state-to-state transfer).
+# For state preparation: find controls that map
+# ``|\psi_{\text{init}}\rangle \to |\psi_{\text{goal}}\rangle`` (up to
+# global phase).  The fidelity is
+# ``F = |\langle\psi_{\text{goal}}|\psi(T)\rangle|^2``.
 #
 # ### Construction
 
@@ -67,12 +72,7 @@ duration(optimized_pulse)
 
 qtraj_ket = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 
-# ### When to Use
-#
-# Use `KetTrajectory` when:
-# - Preparing a specific quantum state
-# - Global phase doesn't matter
-# - Single state transfer
+# ### Solve
 
 qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0)
 cached_solve!(qcp_ket, "trajectories_ket"; max_iter = 50)
@@ -80,7 +80,15 @@ fidelity(qcp_ket)
 
 # ## MultiKetTrajectory
 #
-# For gates defined by multiple state mappings with coherent phases.
+# For gates defined by multiple state mappings with coherent phases.  The
+# fidelity enforces phase alignment across all state pairs:
+#
+# ```math
+# F = \left| \frac{1}{n} \sum_{j=1}^{n} \langle \psi_{\text{goal},j} | \psi_j(T) \rangle \right|^2
+# ```
+#
+# This is strictly harder than per-state fidelity because relative phases must
+# be correct for the mapping to represent a valid gate.
 #
 # ### Construction
 
@@ -93,14 +101,7 @@ goal_states = [ψ1, ψ0]
 
 qtraj_multi = MultiKetTrajectory(sys, pulse, initial_states, goal_states)
 
-# ### Coherent Fidelity
-#
-# `MultiKetTrajectory` uses `CoherentKetInfidelityObjective`, which ensures:
-# - Each state reaches its target
-# - Relative phases between states are preserved
-#
-# This is important for gates where phase relationships matter (unlike
-# `UnitaryTrajectory` which tracks the full unitary).
+# ### Solve
 
 qcp_multi = SmoothPulseProblem(qtraj_multi, N; Q = 100.0)
 cached_solve!(qcp_multi, "trajectories_multi"; max_iter = 50)
@@ -108,7 +109,16 @@ fidelity(qcp_multi)
 
 # ## DensityTrajectory
 #
-# For open quantum systems with dissipation (Lindblad master equation).
+# For open quantum systems governed by the Lindblad master equation.  The
+# state ``\rho(t)`` evolves as ``\dot{\vec\rho} = \mathcal{G}(\boldsymbol{u})\,\vec\rho``
+# where ``\mathcal{G}`` is the Lindbladian superoperator (see [Systems](@ref systems-overview)).
+#
+# Internally the state is stored in the **compact isomorphism**: a real vector
+# of dimension ``d^2`` (not ``2d^2``) that exploits Hermiticity.
+# The Lindbladian generators are also compacted via
+# ``\mathcal{G}_c = P\,\mathcal{G}\,L`` (size ``d^2 \times d^2`` instead of
+# ``2d^2 \times 2d^2``), giving roughly a 4× speedup in integration.
+# See [Isomorphisms](@ref isomorphisms-concept) for details.
 #
 # ### Construction
 
@@ -129,40 +139,34 @@ pulse_density = ZeroOrderPulse(0.1 * randn(2, N_density), times_density)
 qtraj_density = DensityTrajectory(open_sys, pulse_density, ρ_init, ρ_goal)
 
 # ### Solve and Analyze
+#
+# The fidelity for density matrices is ``F = \operatorname{tr}(\rho_{\text{goal}}\,\rho(T))``.
 
 qcp_density = SmoothPulseProblem(qtraj_density, N_density; Q=100.0, R=1e-2)
 cached_solve!(qcp_density, "trajectories_density"; max_iter=150)
 fidelity(qcp_density)
-
-# `DensityTrajectory` uses a compact isomorphism that exploits Hermiticity,
-# storing `d²` real parameters instead of `2d²`.
-# See [Isomorphisms](@ref isomorphisms-concept) for details.
-#
 # ## SamplingTrajectory
 #
-# For robust optimization over parameter variations. This is created internally
-# by `SamplingProblem`.
+# For robust optimization over parameter variations.  Created internally by
+# `SamplingProblem`, this trajectory type stores multiple system variants
+# sharing a single control pulse.  The objective averages fidelity across all
+# samples:
 #
-# ### How It Works
-#
-# `SamplingTrajectory` wraps multiple system variants:
-#
-# ```julia
-# # Created internally by SamplingProblem
-# systems = [sys_nominal, sys_high, sys_low]
-# qcp_robust = SamplingProblem(qcp_base, systems)
-# # This creates a SamplingTrajectory internally
+# ```math
+# \bar{\ell} = \frac{1}{S}\sum_{s=1}^{S} \ell\!\bigl(x_N^{(s)},\, x_{\text{goal}}\bigr)
 # ```
 #
-# The resulting trajectory has:
-# - Single shared control pulse
-# - Multiple state trajectories (one per system)
+# ```julia
+# systems = [sys_nominal, sys_high, sys_low]
+# qcp_robust = SamplingProblem(qcp_base, systems)
+# ```
 #
 # ## Common Operations
 #
 # ### Named Trajectory Integration
 #
-# After solving, the `NamedTrajectory` stores discrete time points:
+# After solving, the `NamedTrajectory` stores the NLP decision vector at
+# each of the ``N`` knot points:
 
 traj = get_trajectory(qcp)
 
@@ -176,17 +180,13 @@ length(Δts)
 
 # ### Internal Representation
 #
-# Piccolo.jl uses real isomorphisms internally for optimization. Complex states
-# are converted to real vectors:
+# States in the trajectory are real isomorphic vectors.  Convert back to
+# complex form with:
 #
 # ```julia
-# # Complex ket |ψ⟩ → real vector ψ̃
-# ψ = ComplexF64[1, im] / √2
-# ψ̃ = ket_to_iso(ψ)  # [Re(ψ); Im(ψ)]
-#
-# # Unitary U → real vector Ũ⃗
-# U = GATES[:H]
-# Ũ = operator_to_iso_vec(U)
+# U = iso_vec_to_operator(traj[:Ũ⃗][:, end])     # unitary
+# ψ = iso_to_ket(traj[:ψ̃][:, end])               # ket
+# ρ = compact_iso_to_density(traj[:ρ⃗̃][:, end])   # density matrix
 # ```
 #
 # See [Isomorphisms](@ref isomorphisms-concept) for details.
@@ -216,6 +216,6 @@ extrema(initial_controls)
 
 # ## See Also
 #
-# - [Quantum Systems](@ref quantum-systems) - System definitions
+# - [Quantum Systems](@ref systems-overview) - System definitions
 # - [Pulses](@ref pulses-concept) - Control parameterizations
 # - [Problem Templates](@ref problem-templates-overview) - Using trajectories in optimization

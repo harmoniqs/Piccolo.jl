@@ -6,7 +6,6 @@ This section contains task-oriented guides for specific problems in quantum opti
 
 | Guide | Description |
 |-------|-------------|
-| [System Templates](@ref system-templates) | Using pre-built systems for transmons, ions, and atoms |
 | [Leakage Suppression](@ref leakage-suppression) | Controlling population leakage in multilevel systems |
 | [Global Variables](@ref global-variables) | Optimizing system parameters alongside controls |
 | [Visualization](@ref visualization) | Plotting trajectories and analyzing results |
@@ -22,12 +21,6 @@ Each guide follows a consistent format:
 5. **Variations**: Common modifications
 
 ## Quick Links by Task
-
-### Setting Up Systems
-
-- [Using TransmonSystem for superconducting qubits](@ref system-templates)
-- [Using IonChainSystem for trapped ions](@ref system-templates)
-- [Using RydbergChainSystem for neutral atoms](@ref system-templates)
 
 ### Handling Multilevel Systems
 
@@ -47,6 +40,7 @@ Each guide follows a consistent format:
 
 ## See Also
 
+- [Quantum Systems](@ref systems-overview) - Platform-specific system templates
 - [Problem Templates](@ref problem-templates-overview) - Main optimization API
 - [Concepts](@ref concepts-overview) - Detailed type documentation
 - [Tutorials](@ref tutorials-overview) - Step-by-step learning examples

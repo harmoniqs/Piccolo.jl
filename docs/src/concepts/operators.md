@@ -230,5 +230,5 @@ H_ZZ = Z1 * Z2  # Equivalent
 ## See Also
 
 - [Leakage Suppression](@ref leakage-suppression) - Using EmbeddedOperator for leakage control
-- [Quantum Systems](@ref quantum-systems) - Building Hamiltonians with operators
+- [Quantum Systems](@ref systems-overview) - Building Hamiltonians with operators
 - [Isomorphisms](@ref isomorphisms-concept) - Converting operators to optimization-friendly forms

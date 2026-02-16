@@ -548,15 +548,24 @@ the full [vec(Re(ρ)); vec(Im(ρ))] representation.
 # Keyword Arguments
 - `Δt_bounds`: Optional tuple `(lower, upper)` for timestep bounds. If provided,
   enables free-time optimization (minimum-time problems). Default: `nothing` (no bounds).
+- `global_data`: Optional Dict mapping global variable names to initial values (as vectors).
+  Note: global variables are optimization variables without explicit box constraints.
 """
 function NamedTrajectory(
     qtraj::DensityTrajectory,
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    global_data::Union{Nothing,Dict{Symbol,<:AbstractVector}} = nothing,
 )
     times = _sample_times(qtraj, N_or_times)
     T = length(times)
     sname = state_name(qtraj)
+
+    # Auto-populate global_data from system if not provided
+    if isnothing(global_data) && !isempty(qtraj.system.global_params)
+        global_data =
+            Dict(name => [val] for (name, val) in pairs(qtraj.system.global_params))
+    end
 
     # Sample density matrices and convert to compact isomorphism (n² real params)
     states = [qtraj(t) for t in times]
@@ -588,14 +597,18 @@ function NamedTrajectory(
     initial = _named_tuple(sname => density_to_compact_iso(qtraj.initial))
     goal_nt = _named_tuple(sname => density_to_compact_iso(qtraj.goal))
 
-    return NamedTrajectory(
-        data;
+    nt_kwargs = (
         timestep = :Δt,
         controls = (:Δt, control_names...),
         bounds = bounds,
         initial = initial,
         goal = goal_nt,
     )
+
+    # Add global variables if provided
+    nt_kwargs = _add_global_data_to_kwargs(nt_kwargs, global_data)
+
+    return NamedTrajectory(data; nt_kwargs...)
 end
 
 # ============================================================================ #

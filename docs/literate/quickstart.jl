@@ -151,8 +151,35 @@ fidelity(qcp_mintime)
 
 fig_mintime = plot_unitary_populations(get_trajectory(qcp_mintime))
 
+# ## State Preparation
+#
+# Instead of synthesizing a full unitary gate, you can prepare a specific
+# quantum state using `KetTrajectory`:
+
+ψ_init = ComplexF64[1.0, 0.0]  # |0⟩
+ψ_goal = ComplexF64[0.0, 1.0]  # |1⟩
+qcp_state = SmoothPulseProblem(KetTrajectory(sys, pulse, ψ_init, ψ_goal), N)
+cached_solve!(qcp_state, "quickstart_state"; max_iter = 20, verbose = false, print_level = 1)
+fidelity(qcp_state)
+
+# ## Robust Control
+#
+# To optimize a pulse that works across parameter variations (e.g., uncertain
+# qubit frequency), use `SamplingProblem`:
+
+## Perturbed systems: ±10% drift Hamiltonian
+sys_low = QuantumSystem(0.9 * H_drift, H_drives, drive_bounds)
+sys_high = QuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
+
+## Start from a nominal solution, then add robustness
+qcp_robust = SamplingProblem(qcp, [sys_low, sys, sys_high])
+cached_solve!(
+    qcp_robust, "quickstart_robust"; max_iter = 20, verbose = false, print_level = 1
+)
+fidelity(qcp_robust)
+
 # ## Next Steps
 #
-# - Learn about different [Problem Templates](@ref problem-templates-overview) for various optimization scenarios
+# - See [Concepts](@ref concepts-overview) for the mathematical formulation
+# - Learn about different [Problem Templates](@ref problem-templates-overview)
 # - Explore [Tutorials](@ref tutorials-overview) for more complex examples
-# - See [Concepts](@ref concepts-overview) for detailed documentation of types and functions

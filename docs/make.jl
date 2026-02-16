@@ -36,7 +36,6 @@ pages = [
     "Getting Started" => [
         "Installation" => "generated/getting-started/installation.md",
         "Quickstart" => "generated/quickstart.md",
-        "Core Concepts" => "generated/getting-started/concepts.md",
     ],
     "Tutorials" => [
         "Overview" => "tutorials/index.md",
@@ -53,9 +52,16 @@ pages = [
         "SamplingProblem" => "generated/problem-templates/sampling.md",
         "Composing Templates" => "generated/problem-templates/composition.md",
     ],
+    "Quantum Systems" => [
+        "Overview" => "systems/index.md",
+        "Transmon Qubits" => "generated/systems/transmons.md",
+        "Trapped Ions" => "generated/systems/trapped_ions.md",
+        "Rydberg Atoms" => "generated/systems/rydberg_atoms.md",
+        "Cat Qubits" => "generated/systems/cat_qubits.md",
+        "Silicon Spins" => "generated/systems/silicon_spins.md",
+    ],
     "Concepts" => [
         "Overview" => "concepts/index.md",
-        "Quantum Systems" => "generated/concepts/systems.md",
         "Trajectories" => "generated/concepts/trajectories.md",
         "Pulses" => "generated/concepts/pulses.md",
         "Objectives" => "generated/concepts/objectives.md",
@@ -65,7 +71,6 @@ pages = [
     ],
     "How-To Guides" => [
         "Overview" => "guides/index.md",
-        "System Templates" => "generated/guides/system_templates.md",
         "Leakage Suppression" => "generated/guides/leakage_suppression.md",
         "Global Variables" => "generated/guides/global_variables.md",
         "Visualization" => "generated/guides/visualization.md",

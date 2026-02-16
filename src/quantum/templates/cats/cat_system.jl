@@ -63,6 +63,18 @@ function CatSystem(;
     prefactor::Real = 1,
     drive_bounds::Vector{<:Real} = [1.0, 1.0],
 )
+    global_params = (
+        g2 = prefactor * g2,
+        χ_aa = prefactor * χ_aa,
+        χ_bb = prefactor * χ_bb,
+        χ_ab = prefactor * χ_ab,
+        κa = prefactor * κa,
+        κb = prefactor * κb,
+        cat_levels = cat_levels,
+        buffer_levels = buffer_levels,
+        prefactor = prefactor,
+    )
+
     # Apply prefactor
     g2 *= prefactor
     χ_aa *= prefactor
@@ -92,29 +104,32 @@ function CatSystem(;
     return OpenQuantumSystem(
         H_drift,
         H_drives,
-        drive_bounds,
+        drive_bounds;
         dissipation_operators = L_dissipators,
+        global_params = global_params,
     )
 end
 
 """
-    get_cat_controls(g2, χ_aa, α, N)
+    get_cat_controls(sys::AbstractQuantumSystem, α, N)
 
-Compute static cat qubit controls for `N` time steps at coherent amplitude `α`.
+Compute static cat qubit controls for `N` time steps at coherent amplitude `α`,
+reading `g2` and `χ_aa` from `sys.global_params`.
 
 Returns a `2 × N` matrix where row 1 is the buffer drive and row 2 is the
 Kerr correction drive. These are the steady-state controls that maintain a
 coherent state ``|α⟩`` in the cat mode.
 
 # Arguments
-- `g2`: Two-photon exchange coupling (before 2π scaling)
-- `χ_aa`: Cat self-Kerr (before 2π scaling)
+- `sys`: A quantum system with `g2` and `χ_aa` in its `global_params`
 - `α`: Coherent state amplitude
 - `N`: Number of time steps
 """
-function get_cat_controls(g2::Real, χ_aa::Real, α::Real, N::Int)
-    buffer_drive = abs2(α) * g2
-    cat_kerr_correction = (2.0 * abs2(α) + 1.0) * χ_aa
+function get_cat_controls(sys::AbstractQuantumSystem, α::Real, N::Int)
+    @assert haskey(sys.global_params, :g2) "Requires g2 in system global_params"
+    @assert haskey(sys.global_params, :χ_aa) "Requires χ_aa in system global_params"
+    buffer_drive = abs2(α) * sys.global_params.g2
+    cat_kerr_correction = (2.0 * abs2(α) + 1.0) * sys.global_params.χ_aa
     return stack([fill(buffer_drive, N), fill(cat_kerr_correction, N)], dims = 1)
 end
 
@@ -161,17 +176,16 @@ end
 end
 
 @testitem "get_cat_controls" begin
-    g2 = 0.36
-    χ_aa = -7e-3
+    sys = CatSystem(cat_levels = 4, buffer_levels = 2)
     α = 2.0
     N = 10
 
-    u = get_cat_controls(g2, χ_aa, α, N)
+    u = get_cat_controls(sys, α, N)
     @test size(u) == (2, N)
 
-    # Check values
-    @test all(u[1, :] .≈ abs2(α) * g2)
-    @test all(u[2, :] .≈ (2.0 * abs2(α) + 1.0) * χ_aa)
+    # Check values against global_params
+    @test all(u[1, :] .≈ abs2(α) * sys.global_params.g2)
+    @test all(u[2, :] .≈ (2.0 * abs2(α) + 1.0) * sys.global_params.χ_aa)
 end
 
 @testitem "CatSystem: compact Lindbladian generators" begin
@@ -202,8 +216,6 @@ end
     # Small cat system for fast testing
     cat_levels = 6
     buffer_levels = 2
-    g2 = 0.36
-    χ_aa = -7e-3
 
     sys = CatSystem(cat_levels = cat_levels, buffer_levels = buffer_levels)
     n = sys.levels  # 12
@@ -223,7 +235,7 @@ end
     T = 0.5
     N = 51
     times = collect(range(0.0, T, length = N))
-    u = get_cat_controls(g2, χ_aa, α, N)
+    u = get_cat_controls(sys, α, N)
     pulse = ZeroOrderPulse(u, times)
 
     # Solve Lindblad master equation
@@ -271,9 +283,7 @@ end
     N = 11
 
     # Initialize with cat controls
-    g2 = 0.36
-    χ_aa = -7e-3
-    u_init = get_cat_controls(g2, χ_aa, α, N) + 0.01 * randn(2, N)
+    u_init = get_cat_controls(sys, α, N) + 0.01 * randn(2, N)
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
 
