@@ -133,9 +133,9 @@ end
     @test sys.levels == 4 * 2
     @test sys.n_drives == 2
 
-    # prefactor scales system
+    # prefactor does not change Hilbert space dimension
     sys2 = CatSystem(cat_levels = 4, buffer_levels = 2, prefactor = 2.0)
-    @test sys2.levels == 8
+    @test sys2.levels == 4 * 2
 end
 
 @testitem "CatSystem: drive bounds" begin
