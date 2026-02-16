@@ -24,7 +24,7 @@
 #md #     save("output.png", fig)
 #md #     ```
 #md #     For animations, use `GLMakie` instead of `CairoMakie` for `:inline` mode.
-#md #     See [VISUALIZATION_CONTEXT.md](https://github.com/aarontrowbridge/Piccolo.jl/blob/main/VISUALIZATION_CONTEXT.md) for comprehensive AI-friendly API documentation.
+#md #     See [CONTEXT.md](https://github.com/harmoniqs/Piccolo.jl/blob/main/src/visualizations/CONTEXT.md) for comprehensive AI-friendly API documentation.
 
 # ## Setup
 #
@@ -108,26 +108,18 @@ fig = plot_state_populations(traj_ket)
 #
 # Requires QuantumToolbox.jl extension. Visualize qubit trajectories on the Bloch sphere:
 
-#nb # Uncomment if QuantumToolbox is available:
-#nb # using QuantumToolbox
-#nb # fig = plot_bloch(traj_ket)
+using QuantumToolbox
+fig = plot_bloch(traj_ket)
 
-#md using QuantumToolbox
-#md fig = plot_bloch(traj_ket)
-
-#md # Show vector arrow at specific timestep:
-#md fig = plot_bloch(traj_ket; index=50)
+# Show vector arrow at specific timestep:
+fig = plot_bloch(traj_ket; index=50)
 
 # ### Wigner Function Visualization
 #
 # For cavity/oscillator systems, plot the Wigner quasi-probability distribution:
 
-#nb # Uncomment if QuantumToolbox is available:
-#nb # fig = plot_wigner(traj, 1)  # Plot at first timestep
-
-#md using QuantumToolbox
-#md # Example with coherent state (requires cavity system)
-#md # fig = plot_wigner(traj_cavity, traj_cavity.N)  # Final state
+# Example with coherent state (requires cavity system)
+# fig = plot_wigner(traj_ket, 1)  # Plot at first timestep
 
 # ## Custom Plotting
 #
@@ -199,57 +191,31 @@ fig
 #
 # Show controls appearing progressively over time:
 
-#nb # Uncomment to run with GLMakie:
-#nb # using GLMakie
-#nb # fig = animate_name(traj, :u; fps=30)
-
-#md using GLMakie
-#md fig = animate_name(traj, :u; fps=30)
+using GLMakie
+fig = animate_name(traj, :u; fps=30)
 
 # To save animation to file instead:
 
-#nb # using CairoMakie
-#nb # fig = animate_name(traj, :u; mode=:record, filename="controls.mp4", fps=24)
+# using CairoMakie
+# fig = animate_name(traj, :u; mode=:record, filename="controls.mp4", fps=24)
 
 # ### Animate Bloch Sphere
 #
 # Requires QuantumToolbox.jl. Shows state evolution with moving vector:
 
-#nb # Uncomment if QuantumToolbox and GLMakie are available:
-#nb # using GLMakie, QuantumToolbox
-#nb # fig = animate_bloch(traj_ket; fps=30)
-
-#md using GLMakie, QuantumToolbox
-#md fig = animate_bloch(traj_ket; fps=30)
+using GLMakie, QuantumToolbox
+fig = animate_bloch(traj_ket; fps=30)
 
 # ### Animate Wigner Function
 #
 # For cavity systems, animate phase space evolution:
 
-#nb # Uncomment if QuantumToolbox available:
-#nb # fig = animate_wigner(traj_cavity; fps=24, xvec=-4:0.1:4, yvec=-4:0.1:4)
-
-#md # Example (requires cavity trajectory):
-#md # fig = animate_wigner(traj_cavity; fps=24, xvec=-4:0.1:4, yvec=-4:0.1:4)
+# Example (requires cavity trajectory):
+# fig = animate_wigner(traj_cavity; fps=24, xvec=-4:0.1:4, yvec=-4:0.1:4)
 
 # ### Custom Animation
 #
-# Use `animate_figure` for complete control:
-
-#nb # Uncomment to run:
-#nb # using GLMakie
-#nb # fig = Figure()
-#nb # ax = Axis(fig[1, 1], xlabel="Time", ylabel="Fidelity")
-#nb # lines!(ax, Float64[], Float64[])
-#nb #
-#nb # fidelities = [compute_fidelity(traj, k) for k in 1:traj.N]
-#nb #
-#nb # function update_frame!(k)
-#nb #     empty!(ax)
-#nb #     lines!(ax, 1:k, fidelities[1:k])
-#nb # end
-#nb #
-#nb # animate_figure(fig, 1:traj.N, update_frame!; fps=30)
+# Use `animate_figure` for complete control. See the fidelity evolution example below.
 
 # ## Fidelity Evolution
 #
