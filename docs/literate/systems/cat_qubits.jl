@@ -115,7 +115,7 @@ u_steady[:, 1]
 using LinearAlgebra
 
 ## Small system for demonstration
-cat_levels, buffer_levels = 6, 2
+cat_levels, buffer_levels = 3, 2
 sys = CatSystem(cat_levels = cat_levels, buffer_levels = buffer_levels)
 n = sys.levels
 
@@ -124,13 +124,13 @@ n = sys.levels
 ρ0[1, 1] = 1.0
 
 ## Goal: coherent state |α⟩ ⊗ |0⟩
-α = 1.0
+α = 0.5
 ψ_cat = coherent_ket(α, cat_levels)
 ψ_buf = ComplexF64[1, 0]
 ψ_goal = kron(ψ_cat, ψ_buf)
 ρg = ψ_goal * ψ_goal'
 
-T, N_steps = 1.0, 51
+T, N_steps = 1.0, 11
 times = collect(range(0, T, length = N_steps))
 
 ## Initialize with steady-state controls + small perturbation
@@ -141,7 +141,7 @@ pulse = ZeroOrderPulse(u_init, times)
 qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
 
 qcp = SmoothPulseProblem(qtraj, N_steps; Q = 100.0, R = 1e-2)
-cached_solve!(qcp, "systems_cat_density"; max_iter = 100, print_level = 1)
+cached_solve!(qcp, "systems_cat_density"; max_iter = 50, print_level = 1)
 fidelity(qcp)
 
 # ## Compact Representation

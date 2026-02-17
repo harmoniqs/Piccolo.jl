@@ -83,6 +83,8 @@ pages = [
     ],
 ]
 
+draft = get(ENV, "DOCS_DRAFT", "false") == "true"
+
 generate_docs(
     @__DIR__,
     "Piccolo",
@@ -97,4 +99,5 @@ generate_docs(
         canonical = "https://docs.harmoniqs.co/Piccolo.jl",
         size_threshold = 400 * 2^10,  # 400 KiB for lib.md
     ),
+    makedocs_kwargs = (draft = draft,),
 )
