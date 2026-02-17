@@ -4,7 +4,7 @@ function generate_pattern(N::Int, i::Int)
     # Create an array filled with 'I'
     qubits = fill('I', N)
     # Insert 'n' at position i and i+1, ensuring it doesn't exceed the array bounds
-    if i <= N && i+1 <= N
+    if i <= N && i + 1 <= N
         qubits[i] = 'n'
         qubits[i+1] = 'n'
     end
@@ -15,7 +15,7 @@ function generate_pattern_with_gap(N::Int, i::Int, gap::Int)
     # Create an array filled with 'I'
     qubits = fill('I', N)
     # Insert 'n' at position i and i+gap+1, ensuring it doesn't exceed the array bounds
-    if i <= N && i+gap+1 <= N
+    if i <= N && i + gap + 1 <= N
         qubits[i] = 'n'
         qubits[i+gap+1] = 'n'
     end
@@ -65,7 +65,7 @@ H = \sum_i 0.5*\Omega_i(t)\cos(\phi_i(t)) \sigma_i^x - 0.5*\Omega_i(t)\sin(\phi_
 """
 function RydbergChainSystem(;
     N::Int = 3, # number of atoms
-    C::Float64 = 862690*2π,
+    C::Float64 = 862690 * 2π,
     distance::Float64 = 8.7, # μm
     cutoff_order::Int = 1, # 1 is nearest neighbor, 2 is next-nearest neighbor, etc.
     local_detune::Bool = false,
@@ -98,23 +98,19 @@ function RydbergChainSystem(;
     else
         if cutoff_order == 1
             H_drift = sum([
-                C*operator_from_string(
-                    generate_pattern(N, i),
-                    lookup = PAULIS,
-                )/(distance^6) for i = 1:(N-1)
+                C * operator_from_string(generate_pattern(N, i), lookup = PAULIS) /
+                (distance^6) for i = 1:(N-1)
             ])
         elseif cutoff_order == 2
             H_drift = sum([
-                C*operator_from_string(
-                    generate_pattern(N, i),
-                    lookup = PAULIS,
-                )/(distance^6) for i = 1:(N-1)
+                C * operator_from_string(generate_pattern(N, i), lookup = PAULIS) /
+                (distance^6) for i = 1:(N-1)
             ])
             H_drift += sum([
-                C*operator_from_string(
+                C * operator_from_string(
                     generate_pattern_with_gap(N, i, 1),
                     lookup = PAULIS,
-                )/((2*distance)^6) for i = 1:(N-2)
+                ) / ((2 * distance)^6) for i = 1:(N-2)
             ])
         else
             error("Higher cutoff order not supported")
@@ -124,12 +120,12 @@ function RydbergChainSystem(;
     H_drives = Matrix{ComplexF64}[]
 
     # Add global X drive
-    Hx = sum([0.5*operator_from_string(lift('X', i, N), lookup = PAULIS) for i = 1:N])
+    Hx = sum([0.5 * operator_from_string(lift('X', i, N), lookup = PAULIS) for i = 1:N])
     push!(H_drives, Hx)
 
     if !ignore_Y_drive
         # Add global Y drive
-        Hy = sum([0.5*operator_from_string(lift('Y', i, N), lookup = PAULIS) for i = 1:N])
+        Hy = sum([0.5 * operator_from_string(lift('Y', i, N), lookup = PAULIS) for i = 1:N])
         push!(H_drives, Hy)
     end
 

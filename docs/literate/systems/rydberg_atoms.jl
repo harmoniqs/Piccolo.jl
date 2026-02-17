@@ -74,7 +74,12 @@ sys_rydberg.levels, sys_rydberg.n_drives
 sys_all = RydbergChainSystem(N = 4, all2all = true, drive_bounds = [1.0, 1.0, 1.0])
 
 ## Nearest-neighbor only
-sys_nn = RydbergChainSystem(N = 4, all2all = false, cutoff_order = 1, drive_bounds = [1.0, 1.0, 1.0])
+sys_nn = RydbergChainSystem(
+    N = 4,
+    all2all = false,
+    cutoff_order = 1,
+    drive_bounds = [1.0, 1.0, 1.0],
+)
 
 sys_all.levels, sys_nn.levels
 

@@ -178,7 +178,7 @@ end
     ψ2_init = ComplexF64[0, 1]
 
     # Create dummy evolution (just rotate slightly each step)
-    θs = range(0, π/4, length = N)
+    θs = range(0, π / 4, length = N)
     ψ1s = [ComplexF64[cos(θ), sin(θ)] for θ in θs]
     ψ2s = [ComplexF64[sin(θ), cos(θ)] for θ in θs]
 
@@ -276,10 +276,10 @@ end
     # Verify normalization at each knot point
     for k = 1:N
         ψ = iso_to_ket(traj[:ψ̃1_system_1][:, k])
-        @test norm(ψ) ≈ 1.0 atol=1e-10
+        @test norm(ψ) ≈ 1.0 atol = 1e-10
 
         pops = abs2.(ψ)
-        @test sum(pops) ≈ 1.0 atol=1e-10
+        @test sum(pops) ≈ 1.0 atol = 1e-10
     end
 
     # Plot still works

@@ -92,7 +92,7 @@ function QuantumSystem(
     @assert is_hermitian(H_drift) "Drift Hamiltonian H(u=0, t=0) is not Hermitian"
 
     # Check that Hamiltonian is Hermitian for sample control values
-    u_test_controls = [b isa Tuple ? (b[1] + b[2])/2 : 0.0 for b in drive_bounds]
+    u_test_controls = [b isa Tuple ? (b[1] + b[2]) / 2 : 0.0 for b in drive_bounds]
     u_test =
         n_globals > 0 ? vcat(u_test_controls, collect(values(global_params))) :
         u_test_controls

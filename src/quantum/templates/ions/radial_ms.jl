@@ -463,7 +463,7 @@ end
 
     # Non-uniform Lamb-Dicke matrix
     η_mat = [
-        0.10 0.10 0.05 0.05;  # Ion 1 couples more to modes 1,2
+        0.10 0.10 0.05 0.05  # Ion 1 couples more to modes 1,2
         0.05 0.05 0.10 0.10   # Ion 2 couples more to modes 3,4
     ]
     sys2 = RadialMSGateSystem(
@@ -485,7 +485,7 @@ end
 
     sys = RadialMSGateSystem(
         N_ions = N_ions,
-        mode_levels = n_max+1,
+        mode_levels = n_max + 1,
         ωm_radial = [0.005, 0.005, 0.0051, 0.0051],  # GHz
         δ = 0.0002,  # 200 kHz detuning
         η = 0.1,
@@ -501,7 +501,7 @@ end
 
     # Target MS(π/2) gate applied to initial state
     MS(θ) = exp(-im * θ / 2 * kron([0 1; 1 0], [0 1; 1 0]))
-    U_goal_2q = MS(π/2)
+    U_goal_2q = MS(π / 2)
     ψ0_qubit = [1.0, 0.0, 0.0, 0.0]  # |00⟩
     ψ_goal_qubit = U_goal_2q * ψ0_qubit  # (|00⟩ - i|11⟩)/√2
 
@@ -515,7 +515,7 @@ end
     σ_paper = 0.133 * T  # Width from paper
     Ω_max = 2π * 0.055  # 55 kHz (optimal from sweep)
 
-    pulse = GaussianPulse([Ω_max, Ω_max], [σ_paper, σ_paper], [T/2, T/2], T)
+    pulse = GaussianPulse([Ω_max, Ω_max], [σ_paper, σ_paper], [T / 2, T / 2], T)
     qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
     F = fidelity(qtraj)
 
@@ -535,7 +535,7 @@ end
 
     sys = RadialMSGateSystemWithPhase(
         N_ions = N_ions,
-        mode_levels = n_max+1,
+        mode_levels = n_max + 1,
         ωm_radial = [0.005, 0.005, 0.0051, 0.0051],
         δ = 0.0002,
         η = 0.1,
@@ -555,7 +555,7 @@ end
     @test ishermitian(H_t0)
 
     # Test with non-zero phases
-    u_test2 = [0.05, π/4, 0.05, -π/4]
+    u_test2 = [0.05, π / 4, 0.05, -π / 4]
     H_t1 = sys.H(u_test2, 1.0)
     @test ishermitian(H_t1)
     @test H_t0 != H_t1  # Different phases give different Hamiltonians
@@ -573,7 +573,7 @@ end
 
     sys = RadialMSGateSystemWithPhase(
         N_ions = N_ions,
-        mode_levels = n_max+1,
+        mode_levels = n_max + 1,
         ωm_radial = [0.005, 0.005, 0.0051, 0.0051],
         δ = 0.0002,
         η = 0.1,
@@ -589,7 +589,7 @@ end
     ψ_init[1] = 1.0
 
     MS(θ) = exp(-im * θ / 2 * kron([0 1; 1 0], [0 1; 1 0]))
-    U_goal_2q = MS(π/2)
+    U_goal_2q = MS(π / 2)
     ψ0_qubit = [1.0, 0.0, 0.0, 0.0]
     ψ_goal_qubit = U_goal_2q * ψ0_qubit
 
@@ -603,7 +603,7 @@ end
 
     # Create composite pulse with phase compensation using erf profile
     # Amplitude: Gaussian for both ions
-    amplitude_pulse = GaussianPulse([Ω_max, Ω_max], [σ_paper, σ_paper], [T/2, T/2], T)
+    amplitude_pulse = GaussianPulse([Ω_max, Ω_max], [σ_paper, σ_paper], [T / 2, T / 2], T)
 
     # Phase: MS phase compensation profile φ(t) = φ_max × erf(√2 t/σ)
     # φ(t) ranges from 0 to φ_max, following paper Figure 7b
@@ -612,7 +612,7 @@ end
     # For Gaussian Ω(t), integral ∫Ω²dt ~ Ω_max² × σ × √(π/2)
     δ_eff = 2π * 0.0002  # Effective detuning in rad/μs
     η_eff = 0.1
-    φ_max = (η_eff^2 * Ω_max^2 / δ_eff) * σ_paper * √(π/2)  # Integrated AC Stark phase
+    φ_max = (η_eff^2 * Ω_max^2 / δ_eff) * σ_paper * √(π / 2)  # Integrated AC Stark phase
 
     # Use ErfPulse centered at t=0 to get φ(0)=0, φ(T)≈φ_max
     phase_pulse = ErfPulse([φ_max, φ_max], [σ_paper, σ_paper], [0.0, 0.0], T)

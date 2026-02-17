@@ -76,8 +76,7 @@ function iso_vec_to_operator(Ũ⃗::AbstractVector{ℝ}) where {ℝ<:Real}
     N = Int(sqrt(Ũ⃗_dim))
     U = Matrix{complex(ℝ)}(undef, N, N)
     for i = 0:(N-1)
-        U[:, i+1] .=
-            @view(Ũ⃗[i*2N .+ (1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N .+ ((N+1):2N)])
+        U[:, i+1] .= @view(Ũ⃗[i*2N.+(1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N.+((N+1):2N)])
     end
     return U
 end
@@ -93,8 +92,8 @@ function iso_vec_to_iso_operator(Ũ⃗::AbstractVector{ℝ}) where {ℝ<:Real}
     U_real = Matrix{ℝ}(undef, N, N)
     U_imag = Matrix{ℝ}(undef, N, N)
     for i = 0:(N-1)
-        U_real[:, i+1] .= @view(Ũ⃗[i*2N .+ (1:N)])
-        U_imag[:, i+1] .= @view(Ũ⃗[i*2N .+ ((N+1):2N)])
+        U_real[:, i+1] .= @view(Ũ⃗[i*2N.+(1:N)])
+        U_imag[:, i+1] .= @view(Ũ⃗[i*2N.+((N+1):2N)])
     end
     Ũ[1:N, 1:N] .= U_real
     Ũ[1:N, (N+1):end] .= -U_imag
@@ -112,8 +111,8 @@ function operator_to_iso_vec(U::AbstractMatrix{ℂ}) where {ℂ<:Number}
     N = size(U, 1)
     Ũ⃗ = Vector{real(ℂ)}(undef, N^2 * 2)
     for i = 0:(N-1)
-        Ũ⃗[i*2N .+ (1:N)] .= real(@view(U[:, i+1]))
-        Ũ⃗[i*2N .+ ((N+1):2N)] .= imag(@view(U[:, i+1]))
+        Ũ⃗[i*2N.+(1:N)] .= real(@view(U[:, i+1]))
+        Ũ⃗[i*2N.+((N+1):2N)] .= imag(@view(U[:, i+1]))
     end
     return Ũ⃗
 end
@@ -127,7 +126,7 @@ function iso_operator_to_iso_vec(Ũ::AbstractMatrix{ℝ}) where {ℝ<:Real}
     N = size(Ũ, 1) ÷ 2
     Ũ⃗ = Vector{ℝ}(undef, N^2 * 2)
     for i = 0:(N-1)
-        Ũ⃗[i*2N .+ (1:2N)] .= @view Ũ[:, i+1]
+        Ũ⃗[i*2N.+(1:2N)] .= @view Ũ[:, i+1]
     end
     return Ũ⃗
 end
@@ -326,7 +325,7 @@ end
 # ----------------------------------------------------------------------------- #
 
 const Im2 = [
-    0 -1;
+    0 -1
     1 0
 ]
 
@@ -452,7 +451,7 @@ function bloch_to_ket(bloch::AbstractVector{R}; digits::Integer = 6) where {R<:R
     θ = acos(z)
     φ = atan(y, x)
 
-    return Complex{R}[cos(θ/2), exp(im*φ)*sin(θ/2)]
+    return Complex{R}[cos(θ / 2), exp(im * φ)*sin(θ / 2)]
 
 end
 
@@ -464,7 +463,7 @@ end
 
 function bloch_to_density(v::AbstractVector{<:Real})
     @assert length(v) == 3
-    return 0.5 * (I(2) + v[1]*PAULIS.X + v[2]*PAULIS.Y + v[3]*PAULIS.Z)
+    return 0.5 * (I(2) + v[1] * PAULIS.X + v[2] * PAULIS.Y + v[3] * PAULIS.Z)
 end
 
 # *************************************************************************** #
@@ -479,17 +478,17 @@ end
 @testitem "Test operator isomorphisms" begin
     iso_vec_I = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     @test mat([1.0, 2.0, 3.0, 4.0]) ≈ [
-        1.0 3.0;
+        1.0 3.0
         2.0 4.0
     ]
     @test iso_vec_to_operator(iso_vec_I) ≈ [
-        1.0 0.0;
+        1.0 0.0
         0.0 1.0
     ]
     @test iso_vec_to_iso_operator(iso_vec_I) ≈ [
-        1.0 0.0 0.0 0.0;
-        0.0 1.0 0.0 0.0;
-        0.0 0.0 1.0 0.0;
+        1.0 0.0 0.0 0.0
+        0.0 1.0 0.0 0.0
+        0.0 0.0 1.0 0.0
         0.0 0.0 0.0 1.0
     ]
     @test operator_to_iso_vec(Complex[1.0 0.0; 0.0 1.0]) ≈ iso_vec_I
@@ -497,13 +496,13 @@ end
 
     iso_vec_XY = [0, 1, 0, 1, 1, 0, -1, 0]
     @test iso_vec_to_operator(iso_vec_XY) ≈ [
-        0 1-im;
+        0 1-im
         1+im 0
     ]
     @test iso_vec_to_iso_operator(iso_vec_XY) ≈ [
-        0 1 0 1;
-        1 0 -1 0;
-        0 -1 0 1;
+        0 1 0 1
+        1 0 -1 0
+        0 -1 0 1
         1 0 1 0
     ]
     @test operator_to_iso_vec(Complex[0.0 1-im; 1+im 0.0]) ≈ iso_vec_XY
@@ -524,7 +523,7 @@ end
     # Random
     ρ1 = [1.0 1.0; 1.0 1.0] / 2
     U1 = [
-        -0.831976-0.101652im -0.422559-0.344857im;
+        -0.831976-0.101652im -0.422559-0.344857im
         -0.527557+0.138444im 0.799158+0.252713im
     ]
     ρ2 = [1.0 0.0; 0.0 0.0]
@@ -532,7 +531,7 @@ end
         -0.784966-0.163279im -0.597246-0.0215881im
         0.597536+0.0109124im -0.792681+0.120364im
     ]
-    ρ = (U1*ρ1*U1' + U2*ρ2*U2') / 2
+    ρ = (U1 * ρ1 * U1' + U2 * ρ2 * U2') / 2
     @test iso_vec_to_density(density_to_iso_vec(ρ)) ≈ ρ
     @test iso_vec_to_density(density_to_iso_vec(ρ)) ≈ ρ
 end
@@ -653,20 +652,20 @@ end
     G_vars = [G_var1]
     Ĝ = Isomorphisms.var_G(G, G_vars)
     @test Ĝ ≈ [
-        1.0 2.0 0.0 0.0;
-        3.0 4.0 0.0 0.0;
-        0.0 1.0 1.0 2.0;
+        1.0 2.0 0.0 0.0
+        3.0 4.0 0.0 0.0
+        0.0 1.0 1.0 2.0
         1.0 0.0 3.0 4.0
     ]
 
     G_vars = [G_var1, G_var2]
     Ĝ = Isomorphisms.var_G(G, G_vars)
     @test Ĝ ≈ [
-        1.0 2.0 0.0 0.0 0.0 0.0;
-        3.0 4.0 0.0 0.0 0.0 0.0;
-        0.0 1.0 1.0 2.0 0.0 0.0;
-        1.0 0.0 3.0 4.0 0.0 0.0;
-        0.0 0.0 0.0 0.0 1.0 2.0;
+        1.0 2.0 0.0 0.0 0.0 0.0
+        3.0 4.0 0.0 0.0 0.0 0.0
+        0.0 1.0 1.0 2.0 0.0 0.0
+        1.0 0.0 3.0 4.0 0.0 0.0
+        0.0 0.0 0.0 0.0 1.0 2.0
         1.0 1.0 0.0 0.0 3.0 4.0
     ]
 end
@@ -682,7 +681,7 @@ end
     for ψ in (ψ₁, ψ₂, ψ₃, ψ₄)
         bloch = ket_to_bloch(ψ)
         ψ′ = bloch_to_ket(bloch)
-        @test abs2(dot(ψ′, ψ)) ≈ 1.0 atol=1e-10
+        @test abs2(dot(ψ′, ψ)) ≈ 1.0 atol = 1e-10
     end
 end
 

@@ -134,11 +134,11 @@ end
     ρ_mid = qtraj(0.5)
     @test ρ_mid isa Matrix{ComplexF64}
     @test size(ρ_mid) == (2, 2)
-    @test real(tr(ρ_mid)) ≈ 1.0 atol=1e-6  # Trace should be preserved
+    @test real(tr(ρ_mid)) ≈ 1.0 atol = 1e-6  # Trace should be preserved
 
     # Test at final time
     ρ_final = qtraj(T)
-    @test real(tr(ρ_final)) ≈ 1.0 atol=1e-6
+    @test real(tr(ρ_final)) ≈ 1.0 atol = 1e-6
 end
 
 @testitem "DensityTrajectory fidelity" begin

@@ -125,8 +125,10 @@ fidelity(qcp_multi)
 ## Open system with a weak dissipation operator
 L = ComplexF64[0.1 0.0; 0.0 0.0]
 open_sys = OpenQuantumSystem(
-    PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0];
-    dissipation_operators=[L]
+    PAULIS[:Z],
+    [PAULIS[:X], PAULIS[:Y]],
+    [1.0, 1.0];
+    dissipation_operators = [L],
 )
 
 ## Initial and goal density matrices
@@ -134,7 +136,7 @@ open_sys = OpenQuantumSystem(
 ρ_goal = ComplexF64[0.0 0.0; 0.0 1.0]  # |1⟩⟨1|
 
 T_density, N_density = 10.0, 50
-times_density = collect(range(0, T_density, length=N_density))
+times_density = collect(range(0, T_density, length = N_density))
 pulse_density = ZeroOrderPulse(0.1 * randn(2, N_density), times_density)
 qtraj_density = DensityTrajectory(open_sys, pulse_density, ρ_init, ρ_goal)
 
@@ -142,8 +144,8 @@ qtraj_density = DensityTrajectory(open_sys, pulse_density, ρ_init, ρ_goal)
 #
 # The fidelity for density matrices is ``F = \operatorname{tr}(\rho_{\text{goal}}\,\rho(T))``.
 
-qcp_density = SmoothPulseProblem(qtraj_density, N_density; Q=100.0, R=1e-2)
-cached_solve!(qcp_density, "trajectories_density"; max_iter=150)
+qcp_density = SmoothPulseProblem(qtraj_density, N_density; Q = 100.0, R = 1e-2)
+cached_solve!(qcp_density, "trajectories_density"; max_iter = 150)
 fidelity(qcp_density)
 # ## SamplingTrajectory
 #

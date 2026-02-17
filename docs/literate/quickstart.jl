@@ -159,7 +159,13 @@ fig_mintime = plot_unitary_populations(get_trajectory(qcp_mintime))
 ψ_init = ComplexF64[1.0, 0.0]  # |0⟩
 ψ_goal = ComplexF64[0.0, 1.0]  # |1⟩
 qcp_state = SmoothPulseProblem(KetTrajectory(sys, pulse, ψ_init, ψ_goal), N)
-cached_solve!(qcp_state, "quickstart_state"; max_iter = 20, verbose = false, print_level = 1)
+cached_solve!(
+    qcp_state,
+    "quickstart_state";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 fidelity(qcp_state)
 
 # ## Robust Control
@@ -174,7 +180,11 @@ sys_high = QuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
 ## Start from a nominal solution, then add robustness
 qcp_robust = SamplingProblem(qcp, [sys_low, sys, sys_high])
 cached_solve!(
-    qcp_robust, "quickstart_robust"; max_iter = 20, verbose = false, print_level = 1
+    qcp_robust,
+    "quickstart_robust";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
 )
 fidelity(qcp_robust)
 

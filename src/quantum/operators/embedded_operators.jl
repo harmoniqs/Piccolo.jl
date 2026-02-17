@@ -479,14 +479,14 @@ get_iso_vec_leakage_indices(op::EmbeddedOperator; kwargs...) =
     # Embed X twice
     op2 = kron(op, op)
     embedded_op2 = [
-        0 0 0 0 1 0 0 0 0;
-        0 0 0 1 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0;
-        0 1 0 0 0 0 0 0 0;
-        1 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0;
+        0 0 0 0 1 0 0 0 0
+        0 0 0 1 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0
+        0 1 0 0 0 0 0 0 0
+        1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0
         0 0 0 0 0 0 0 0 0
     ]
     subspace = get_subspace_indices([1:2, 1:2], [3, 3])
@@ -501,7 +501,7 @@ end
     CZ = GATES[:CZ]
     a = annihilate(3)
     σ_x = a + a'
-    σ_y = -1im*(a - a')
+    σ_y = -1im * (a - a')
     u_bounds = ones(2)
     system = QuantumSystem([kron(σ_x, σ_x), kron(σ_y, σ_y)], u_bounds)
 

@@ -89,9 +89,9 @@ using SparseArrays  #hide
 
 ## Example: compact isomorphism for a 3-level density matrix
 ρ = ComplexF64[
-    0.5  0.1+0.2im  0.0+0.1im;
-    0.1-0.2im  0.3  0.05+0.0im;
-    0.0-0.1im  0.05  0.2
+    0.5 0.1+0.2im 0.0+0.1im
+    0.1-0.2im 0.3 0.05+0.0im
+    0.0-0.1im 0.05 0.2
 ]
 
 x = density_to_compact_iso(ρ)

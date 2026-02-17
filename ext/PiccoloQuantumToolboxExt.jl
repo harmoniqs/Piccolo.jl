@@ -295,7 +295,7 @@ end
     using CairoMakie
 
     T = 20
-    ts = range(0, π/2; length = T)
+    ts = range(0, π / 2; length = T)
 
     kets = [
         QuantumObject(cos(θ) * [1.0 + 0im, 0.0 + 0im] + sin(θ) * [0.0 + 0im, 1.0 + 0im]) for θ in ts

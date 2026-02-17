@@ -67,8 +67,8 @@ function TransmonSystem(;
             ω₀ = ω + δ
             E_C = δ
             E_J = ω₀^2 / 8E_C
-            n̂ = im / 2 * (E_J / 2E_C)^(1/4) * (a - a')
-            φ̂ = (2E_C / E_J)^(1/4) * (a + a')
+            n̂ = im / 2 * (E_J / 2E_C)^(1 / 4) * (a - a')
+            φ̂ = (2E_C / E_J)^(1 / 4) * (a + a')
             H_drift = 4 * E_C * n̂^2 - E_J * cos(φ̂)
             # H_drift = 4 * E_C * n̂^2 - E_J * (I - φ̂^2 / 2 + φ̂^4 / 24)
         end
@@ -473,7 +473,7 @@ end
         qubit_levels = 3,
         cavity_levels = 10,
         χ = 2π * 50e-6,
-        K_q = 2π * 200e-3/2,
+        K_q = 2π * 200e-3 / 2,
         drive_bounds = [0.5, 0.5, 1.0, 1.0],
     )
     @test sys.levels == 3 * 10

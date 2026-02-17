@@ -805,8 +805,8 @@ end
     ρT = ρ_sol.u[end]
 
     @test ψT ≈ UT * ψ0
-    @test ρT ≈ ψT * ψT' atol=1e-5
-    @test ρT ≈ UT * ρ0 * UT' atol=1e-5
+    @test ρT ≈ ψT * ψT' atol = 1e-5
+    @test ρT ≈ UT * ρ0 * UT' atol = 1e-5
 end
 
 @testitem "Rollouts with all Pulse types" begin
@@ -859,7 +859,7 @@ end
         # Note: different solvers (Tsit5 vs MagnusGL4) have different accuracy
         ψT = ket_sol.u[end]
         UT = U_sol.u[end]
-        @test ψT ≈ UT * ψ0 atol=1e-2
+        @test ψT ≈ UT * ψ0 atol = 1e-2
     end
 end
 
@@ -877,21 +877,21 @@ end
     # Create GaussianPulse with 2 drives
     # Constructor: GaussianPulse(amplitudes, sigmas, centers, duration)
     amplitudes = [1.0, 0.5]
-    sigmas = [T/4, T/4]
-    centers = [T/2, T/2]
+    sigmas = [T / 4, T / 4]
+    centers = [T / 2, T / 2]
     pulse = GaussianPulse(amplitudes, sigmas, centers, T)
 
     # Verify pulse properties
     @test duration(pulse) == T
     @test n_drives(pulse) == 2
-    @test length(pulse(T/2)) == 2
+    @test length(pulse(T / 2)) == 2
 
     # Peak should be at t = center (T/2)
-    @test pulse(T/2)[1] ≈ 1.0 atol=1e-10
-    @test pulse(T/2)[2] ≈ 0.5 atol=1e-10
+    @test pulse(T / 2)[1] ≈ 1.0 atol = 1e-10
+    @test pulse(T / 2)[2] ≈ 0.5 atol = 1e-10
 
     # Should be symmetric around center
-    @test pulse(0.25)[1] ≈ pulse(0.75)[1] atol=1e-10
+    @test pulse(0.25)[1] ≈ pulse(0.75)[1] atol = 1e-10
 
     # KetODEProblem
     ket_prob = KetODEProblem(sys, pulse, ψ0, times)
@@ -907,7 +907,7 @@ end
     # Note: different solvers (Tsit5 vs MagnusGL4) have different accuracy
     ψT = ket_sol.u[end]
     UT = U_sol.u[end]
-    @test ψT ≈ UT * ψ0 atol=1e-2
+    @test ψT ≈ UT * ψ0 atol = 1e-2
 end
 
 @testitem "Two ways to check fidelity" begin
@@ -930,7 +930,7 @@ end
     # This is useful when you have discrete trajectory and want to test interpolation
     I_matrix = ComplexF64[1 0; 0 1]
     traj = NamedTrajectory(
-        (Ũ⃗ = randn(8, 11), u = randn(2, 11), Δt = fill(T/10, 11));
+        (Ũ⃗ = randn(8, 11), u = randn(2, 11), Δt = fill(T / 10, 11));
         controls = :u,
         timestep = :Δt,
         initial = (Ũ⃗ = operator_to_iso_vec(I_matrix),),

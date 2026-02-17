@@ -610,8 +610,12 @@ end
 
     # Simple 2-level open system with weak dissipation
     L = ComplexF64[0.1 0.0; 0.0 0.0]
-    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0];
-        dissipation_operators = [L])
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X, PAULIS.Y],
+        [1.0, 1.0];
+        dissipation_operators = [L],
+    )
 
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρg = ComplexF64[0.0 0.0; 0.0 1.0]
@@ -656,7 +660,7 @@ end
     @test norm(δ, Inf) < 1e-3
 end
 
-@testitem "SmoothPulseProblem with MultiKetTrajectory" tags=[:experimental] begin
+@testitem "SmoothPulseProblem with MultiKetTrajectory" tags = [:experimental] begin
     using DirectTrajOpt
     using LinearAlgebra
 
