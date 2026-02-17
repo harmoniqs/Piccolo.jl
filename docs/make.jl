@@ -37,6 +37,15 @@ pages = [
         "Installation" => "generated/getting-started/installation.md",
         "Quickstart" => "generated/quickstart.md",
     ],
+    "Concepts" => [
+        "Overview" => "concepts/index.md",
+        "Trajectories" => "generated/concepts/trajectories.md",
+        "Pulses" => "generated/concepts/pulses.md",
+        "Objectives" => "generated/concepts/objectives.md",
+        "Constraints" => "generated/concepts/constraints.md",
+        "Operators" => "generated/concepts/operators.md",
+        "Isomorphisms" => "generated/concepts/isomorphisms.md",
+    ],
     "Tutorials" => [
         "Overview" => "tutorials/index.md",
         "Your First Gate" => "generated/first_gate.md",
@@ -60,15 +69,6 @@ pages = [
         "Cat Qubits" => "generated/systems/cat_qubits.md",
         "Silicon Spins" => "generated/systems/silicon_spins.md",
     ],
-    "Concepts" => [
-        "Overview" => "concepts/index.md",
-        "Trajectories" => "generated/concepts/trajectories.md",
-        "Pulses" => "generated/concepts/pulses.md",
-        "Objectives" => "generated/concepts/objectives.md",
-        "Constraints" => "generated/concepts/constraints.md",
-        "Operators" => "generated/concepts/operators.md",
-        "Isomorphisms" => "generated/concepts/isomorphisms.md",
-    ],
     "How-To Guides" => [
         "Overview" => "guides/index.md",
         "Leakage Suppression" => "generated/guides/leakage_suppression.md",
@@ -90,14 +90,14 @@ generate_docs(
     "Piccolo",
     Piccolo,
     pages;
-    make_index = true,
-    make_literate = true,
-    make_assets = true,
-    literate_draft_pages = draft_mode_pages,
-    literate_kwargs = (execute = false,),
-    format_kwargs = (
-        canonical = "https://docs.harmoniqs.co/Piccolo.jl",
-        size_threshold = 400 * 2^10,  # 400 KiB for lib.md
+    make_index=true,
+    make_literate=true,
+    make_assets=true,
+    literate_draft_pages=draft_mode_pages,
+    literate_kwargs=(execute=false,),
+    format_kwargs=(
+        canonical="https://docs.harmoniqs.co/Piccolo.jl",
+        size_threshold=400 * 2^10,  # 400 KiB for lib.md
     ),
-    makedocs_kwargs = (draft = draft,),
+    makedocs_kwargs=(draft=draft,),
 )
