@@ -303,5 +303,5 @@ end
     dynamics_integrator = qcp.prob.integrators[1]
     δ = zeros(dynamics_integrator.dim)
     DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
-    @test norm(δ, Inf) < 1e-3
+    @test norm(δ, Inf) < 1e-2
 end

@@ -126,14 +126,17 @@ function update_global_params!(qtraj, traj)
     sys = qtraj.system
     new_global_params = NamedTuple(global_dict)
 
-    # Choose reconstruction strategy based on how the system was originally constructed
-    # For function-based systems, H_drives is empty. We cannot reconstruct from the 
-    # original H function, but we can update the stored global_params field.
+    new_sys = _reconstruct_system(sys, new_global_params)
+
+    # Update the quantum trajectory's system field (using internal method)
+    _update_system!(qtraj, new_sys)
+
+    return nothing
+end
+
+function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
     if isempty(sys.H_drives)
-        # Function-based system: directly update global_params field
-        # Note: The H function won't automatically see these new values unless it
-        # was designed to read from sys.global_params (e.g., via a reference)
-        new_sys = QuantumSystem(
+        return QuantumSystem(
             sys.H,
             sys.G,
             sys.H_drift,
@@ -145,8 +148,7 @@ function update_global_params!(qtraj, traj)
             new_global_params,
         )
     else
-        # Matrix-based system: reconstruct from drift and drives
-        new_sys = QuantumSystem(
+        return QuantumSystem(
             sys.H_drift,
             sys.H_drives,
             sys.drive_bounds;
@@ -154,11 +156,32 @@ function update_global_params!(qtraj, traj)
             global_params = new_global_params,
         )
     end
+end
 
-    # Update the quantum trajectory's system field (using internal method)
-    _update_system!(qtraj, new_sys)
-
-    return nothing
+function _reconstruct_system(sys::OpenQuantumSystem, new_global_params::NamedTuple)
+    if isempty(sys.H_drives)
+        return OpenQuantumSystem(
+            sys.H,
+            sys.𝒢,
+            sys.H_drift,
+            sys.H_drives,
+            sys.drive_bounds,
+            sys.n_drives,
+            sys.levels,
+            sys.dissipation_operators,
+            sys.time_dependent,
+            new_global_params,
+        )
+    else
+        return OpenQuantumSystem(
+            sys.H_drift,
+            sys.H_drives,
+            sys.drive_bounds;
+            dissipation_operators = sys.dissipation_operators,
+            time_dependent = sys.time_dependent,
+            global_params = new_global_params,
+        )
+    end
 end
 
 """
