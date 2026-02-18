@@ -230,8 +230,8 @@ end
     using NamedTrajectories
     using LinearAlgebra
 
-    # Create open system with dissipation
-    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    # Create open system with dissipation (σ₋ decay operator)
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
     sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
 
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
