@@ -56,6 +56,7 @@ pages = [
     "Problem Templates" => [
         "Overview" => "problem-templates/index.md",
         "SmoothPulseProblem" => "generated/problem-templates/smooth_pulse.md",
+        "BangBangPulseProblem" => "generated/problem-templates/bang_bang_pulse.md",
         "SplinePulseProblem" => "generated/problem-templates/spline_pulse.md",
         "MinimumTimeProblem" => "generated/problem-templates/minimum_time.md",
         "SamplingProblem" => "generated/problem-templates/sampling.md",
