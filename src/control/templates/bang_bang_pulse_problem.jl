@@ -109,7 +109,10 @@ function BangBangPulseProblem(
     # Add slack variable: s_du ≥ 0, initialized at |du|
     n_drives = sys.n_drives
     s_du_data = abs.(traj_bb[du_sym])
-    traj_bb = add_component(traj_bb, s_du_sym, s_du_data;
+    traj_bb = add_component(
+        traj_bb,
+        s_du_sym,
+        s_du_data;
         type = :control,
         bounds = NamedTuple{(s_du_sym,)}(((zeros(n_drives), fill(Inf, n_drives)),)),
     )
@@ -151,10 +154,7 @@ function BangBangPulseProblem(
 
     # Build integrators: dynamics + 1 derivative integrator (not 2)
     integrators = copy(dynamics_integrators)
-    push!(
-        integrators,
-        DerivativeIntegrator(control_names[1], control_names[2], traj_bb),
-    )
+    push!(integrators, DerivativeIntegrator(control_names[1], control_names[2], traj_bb))
 
     # Build constraints: L1 slack constraint ties |du| ≤ s_du
     all_constraints = copy(constraints)
@@ -246,7 +246,10 @@ function BangBangPulseProblem(
     # Add slack variable
     n_drives = sys.n_drives
     s_du_data = abs.(traj_bb[du_sym])
-    traj_bb = add_component(traj_bb, s_du_sym, s_du_data;
+    traj_bb = add_component(
+        traj_bb,
+        s_du_sym,
+        s_du_data;
         type = :control,
         bounds = NamedTuple{(s_du_sym,)}(((zeros(n_drives), fill(Inf, n_drives)),)),
     )
@@ -284,10 +287,7 @@ function BangBangPulseProblem(
     integrators = AbstractIntegrator[dynamics_integrators...]
 
     # 1 derivative integrator (not 2)
-    push!(
-        integrators,
-        DerivativeIntegrator(control_names[1], control_names[2], traj_bb),
-    )
+    push!(integrators, DerivativeIntegrator(control_names[1], control_names[2], traj_bb))
 
     # Build constraints
     all_constraints = copy(constraints)
@@ -366,7 +366,7 @@ end
     @test fid > 0.9
 
     # Verify slack constraint: s_du >= |du|
-    for t in 1:N
+    for t = 1:N
         du = traj[t][:du]
         s = traj[t][:s_du]
         @test all(s .>= abs.(du) .- 1e-6)
