@@ -219,6 +219,35 @@ fidelity(qcp_high_R)
 # | `R_du` | same as R | R |
 # | `R_ddu` | same as R | R |
 #
+# ## Best Practices
+#
+# ### 1. Start with Defaults
+#
+# Problem templates have sensible defaults. Start there:
+#
+# ```julia
+# qcp = SmoothPulseProblem(qtraj, N)  # Uses Q=100, R=1e-2
+# ```
+#
+# ### 2. Tune Q First
+#
+# If fidelity is too low, increase Q.
+#
+# ### 3. Tune R if Controls are Problematic
+#
+# If controls are too noisy or large, increase R.
+#
+# ### 4. Use Per-Derivative Tuning for Fine Control
+#
+# ```julia
+# qcp = SmoothPulseProblem(
+#     qtraj, N;
+#     R_u=1e-4,    # Allow larger control values
+#     R_du=1e-2,   # Penalize jumps moderately
+#     R_ddu=0.1    # Strongly penalize acceleration
+# )
+# ```
+#
 # ## See Also
 #
 # - [Constraints](@ref constraints-concept) - Hard constraints on solutions
