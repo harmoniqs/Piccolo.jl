@@ -205,14 +205,18 @@ fig = animate_name(traj, :u; fps=30)
 
 using GLMakie, QuantumToolbox
 fig = animate_bloch(traj_ket; fps=30)
-fig
+save("assets/bloch_animation.gif", fig)
+
+#md # ![Bloch Sphere Animation](../../../assets/bloch_animation.gif)
 
 # ### Animate Wigner Function
 #
 # For cavity systems, animate phase space evolution:
 
-# Example (requires cavity trajectory):
 fig = animate_wigner(traj_ket; fps=24, xvec=-4:0.1:4, yvec=-4:0.1:4)
+save("assets/wigner_animation.gif", fig)
+
+#md # ![Wigner Function Animation](../../../assets/wigner_animation.gif)
 
 # ### Custom Animation
 #
