@@ -76,14 +76,18 @@ function BangBangPulseProblem(
     control_sym = drive_name(qtraj)
 
     # Build global_data from system's global_params if present
-    global_data = if !isempty(sys.global_params)
+    global_data = if hasproperty(sys, :global_params) && !isempty(sys.global_params)
         Dict(name => [val] for (name, val) in pairs(sys.global_params))
     else
         nothing
     end
 
     # Convert quantum trajectory to NamedTrajectory
-    base_traj = NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = if isnothing(global_data)
+        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+    else
+        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+    end
 
     # Add 1 control derivative (not 2 like SmoothPulseProblem)
     du_bounds = fill(du_bound, sys.n_drives)
@@ -209,14 +213,18 @@ function BangBangPulseProblem(
     goals = qtraj.goals
 
     # Build global_data from system's global_params if present
-    global_data = if !isempty(sys.global_params)
+    global_data = if hasproperty(sys, :global_params) && !isempty(sys.global_params)
         Dict(name => [val] for (name, val) in pairs(sys.global_params))
     else
         nothing
     end
 
     # Convert quantum trajectory to NamedTrajectory
-    base_traj = NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = if isnothing(global_data)
+        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+    else
+        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+    end
 
     # Add 1 control derivative
     du_bounds = fill(du_bound, sys.n_drives)
