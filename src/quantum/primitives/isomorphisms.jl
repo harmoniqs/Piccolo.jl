@@ -76,7 +76,8 @@ function iso_vec_to_operator(Ũ⃗::AbstractVector{ℝ}) where {ℝ<:Real}
     N = Int(sqrt(Ũ⃗_dim))
     U = Matrix{complex(ℝ)}(undef, N, N)
     for i = 0:(N-1)
-        U[:, i+1] .= @view(Ũ⃗[i*2N.+(1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N.+((N+1):2N)])
+        U[:, i+1] .=
+            @view(Ũ⃗[i*2N .+ (1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N .+ ((N+1):2N)])
     end
     return U
 end
@@ -92,8 +93,8 @@ function iso_vec_to_iso_operator(Ũ⃗::AbstractVector{ℝ}) where {ℝ<:Real}
     U_real = Matrix{ℝ}(undef, N, N)
     U_imag = Matrix{ℝ}(undef, N, N)
     for i = 0:(N-1)
-        U_real[:, i+1] .= @view(Ũ⃗[i*2N.+(1:N)])
-        U_imag[:, i+1] .= @view(Ũ⃗[i*2N.+((N+1):2N)])
+        U_real[:, i+1] .= @view(Ũ⃗[i*2N .+ (1:N)])
+        U_imag[:, i+1] .= @view(Ũ⃗[i*2N .+ ((N+1):2N)])
     end
     Ũ[1:N, 1:N] .= U_real
     Ũ[1:N, (N+1):end] .= -U_imag
@@ -111,8 +112,8 @@ function operator_to_iso_vec(U::AbstractMatrix{ℂ}) where {ℂ<:Number}
     N = size(U, 1)
     Ũ⃗ = Vector{real(ℂ)}(undef, N^2 * 2)
     for i = 0:(N-1)
-        Ũ⃗[i*2N.+(1:N)] .= real(@view(U[:, i+1]))
-        Ũ⃗[i*2N.+((N+1):2N)] .= imag(@view(U[:, i+1]))
+        Ũ⃗[i*2N .+ (1:N)] .= real(@view(U[:, i+1]))
+        Ũ⃗[i*2N .+ ((N+1):2N)] .= imag(@view(U[:, i+1]))
     end
     return Ũ⃗
 end
@@ -126,7 +127,7 @@ function iso_operator_to_iso_vec(Ũ::AbstractMatrix{ℝ}) where {ℝ<:Real}
     N = size(Ũ, 1) ÷ 2
     Ũ⃗ = Vector{ℝ}(undef, N^2 * 2)
     for i = 0:(N-1)
-        Ũ⃗[i*2N.+(1:2N)] .= @view Ũ[:, i+1]
+        Ũ⃗[i*2N .+ (1:2N)] .= @view Ũ[:, i+1]
     end
     return Ũ⃗
 end
@@ -183,7 +184,7 @@ function density_to_compact_iso(ρ::AbstractMatrix{<:Number})
         x[idx] = real(ρ[j, k])
     end
     # Im strict upper triangle (column-major)
-    @inbounds for k = 2:n, j = 1:k-1
+    @inbounds for k = 2:n, j = 1:(k-1)
         idx += 1
         x[idx] = imag(ρ[j, k])
     end
@@ -212,7 +213,7 @@ function compact_iso_to_density(x::AbstractVector{<:Real})
         end
     end
     # Im strict upper triangle (column-major)
-    @inbounds for k = 2:n, j = 1:k-1
+    @inbounds for k = 2:n, j = 1:(k-1)
         idx += 1
         ρ[j, k] += im * x[idx]
         ρ[k, j] -= im * x[idx]
@@ -259,7 +260,7 @@ function density_lift_matrix(n::Int)
     end
 
     # Im strict upper triangle (column-major)
-    @inbounds for k = 2:n, j = 1:k-1
+    @inbounds for k = 2:n, j = 1:(k-1)
         col_idx += 1
         # Im(ρ[j,k]) position in iso_vec: n² + (k-1)*n + j
         im_jk = n² + (k - 1) * n + j
@@ -308,7 +309,7 @@ function density_projection_matrix(n::Int)
     end
 
     # Im strict upper triangle (column-major)
-    @inbounds for k = 2:n, j = 1:k-1
+    @inbounds for k = 2:n, j = 1:(k-1)
         row_idx += 1
         # Im(ρ[j,k]) position in iso_vec: n² + (k-1)*n + j
         im_jk = n² + (k - 1) * n + j
@@ -451,7 +452,7 @@ function bloch_to_ket(bloch::AbstractVector{R}; digits::Integer = 6) where {R<:R
     θ = acos(z)
     φ = atan(y, x)
 
-    return Complex{R}[cos(θ / 2), exp(im * φ)*sin(θ / 2)]
+    return Complex{R}[cos(θ / 2), exp(im*φ)*sin(θ/2)]
 
 end
 
