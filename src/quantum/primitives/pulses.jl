@@ -548,7 +548,7 @@ function GaussianPulse(
     amplitudes::AbstractVector{<:Real},
     sigma::Real,
     duration::Real;
-    center::Real = duration/2,
+    center::Real = duration / 2,
 )
     n = length(amplitudes)
     return GaussianPulse(
@@ -658,7 +658,7 @@ function ErfPulse(
     amplitudes::AbstractVector{<:Real},
     sigma::Real,
     duration::Real;
-    center::Real = duration/2,
+    center::Real = duration / 2,
 )
     n = length(amplitudes)
     return ErfPulse(amplitudes, fill(Float64(sigma), n), fill(Float64(center), n), duration)
@@ -1027,11 +1027,11 @@ end
     @test pulse3(0.3)[1] ≈ 0.0  # Zero at center
 
     # Test phase compensation use case
-    φ_max = π/4
+    φ_max = π / 4
     T = 50.0
-    σ = T/4
-    phase_pulse = ErfPulse([φ_max], [σ], [T/2], T)
-    @test phase_pulse(T/2)[1] ≈ 0.0
+    σ = T / 4
+    phase_pulse = ErfPulse([φ_max], [σ], [T / 2], T)
+    @test phase_pulse(T / 2)[1] ≈ 0.0
     @test phase_pulse(0.0)[1] < -0.8 * φ_max
     @test phase_pulse(T)[1] > 0.8 * φ_max
 end
@@ -1107,7 +1107,7 @@ end
     # Check that sampled values match original at knot points
     times = range(0, T, length = 20)
     for t in times
-        @test linear(t) ≈ gaussian(t) atol=1e-10
+        @test linear(t) ≈ gaussian(t) atol = 1e-10
     end
 
     # Test with custom times
@@ -1115,7 +1115,7 @@ end
     linear2 = LinearSplinePulse(gaussian, custom_times)
     @test duration(linear2) == T
     for t in custom_times
-        @test linear2(t) ≈ gaussian(t) atol=1e-10
+        @test linear2(t) ≈ gaussian(t) atol = 1e-10
     end
 
     # Test CubicSplinePulse conversion with derivatives
@@ -1126,7 +1126,7 @@ end
 
     # Cubic spline should be very close to original at sample points
     for t in times
-        @test cubic(t) ≈ gaussian(t) atol=1e-10
+        @test cubic(t) ≈ gaussian(t) atol = 1e-10
     end
 
     # Test with CompositePulse
@@ -1145,8 +1145,8 @@ end
         orig = composite(t)
         linear_val = composite_linear(t)
         cubic_val = composite_cubic(t)
-        @test linear_val ≈ orig atol=1e-1
-        @test cubic_val ≈ orig atol=1e-1
+        @test linear_val ≈ orig atol = 1e-1
+        @test cubic_val ≈ orig atol = 1e-1
     end
 end
 
@@ -1189,20 +1189,20 @@ end
     zop = ZeroOrderPulse(traj)
     @test duration(zop) ≈ 1.0
     @test n_drives(zop) == 1
-    @test zop(0.0) ≈ [0.0] atol=1e-10
+    @test zop(0.0) ≈ [0.0] atol = 1e-10
 
     # Test LinearSplinePulse from NamedTrajectory
     lp = LinearSplinePulse(traj)
     @test duration(lp) ≈ 1.0
     @test n_drives(lp) == 1
-    @test lp(0.5) ≈ [1.0] atol=1e-10
+    @test lp(0.5) ≈ [1.0] atol = 1e-10
 
     # Test CubicSplinePulse from NamedTrajectory (uses both u and du)
     csp = CubicSplinePulse(traj)
     @test duration(csp) ≈ 1.0
     @test n_drives(csp) == 1
-    @test csp(0.5) ≈ [1.0] atol=1e-10
-    @test csp(0.0) ≈ [0.0] atol=1e-10
+    @test csp(0.5) ≈ [1.0] atol = 1e-10
+    @test csp(0.0) ≈ [0.0] atol = 1e-10
 end
 
 @testitem "Pulse Boundary Conditions" begin

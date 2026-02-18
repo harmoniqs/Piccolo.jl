@@ -189,26 +189,26 @@ end
 @testitem "Test ket_from_string" begin
     @test ket_from_string("g", [2]) ≈ [1, 0]
     @test ket_from_string("gg", [2, 2]) ≈ [1, 0, 0, 0]
-    @test ket_from_string("(g+e)g", [2, 2]) ≈ [1/√2, 0, 1/√2, 0]
+    @test ket_from_string("(g+e)g", [2, 2]) ≈ [1 / √2, 0, 1 / √2, 0]
 end
 
 @testitem "Test Haar random" begin
     using LinearAlgebra: I
     U = haar_random(2)
     @test size(U) == (2, 2)
-    @test U'U ≈ I atol=1e-10
+    @test U'U ≈ I atol = 1e-10
 
     U = haar_random(3)
     @test size(U) == (3, 3)
-    @test U'U ≈ I atol=1e-10
+    @test U'U ≈ I atol = 1e-10
 
     U = haar_identity(2, 0.1)
     @test size(U) == (2, 2)
-    @test U'U ≈ I atol=1e-10
+    @test U'U ≈ I atol = 1e-10
 
     Id = haar_identity(3, 0.0)
     @test size(Id) == (3, 3)
-    @test Id ≈ I atol=1e-10
+    @test Id ≈ I atol = 1e-10
 end
 
 end
