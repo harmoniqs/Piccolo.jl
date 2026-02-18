@@ -118,8 +118,8 @@ fig = plot_bloch(traj_ket; index=50)
 #
 # For cavity/oscillator systems, plot the Wigner quasi-probability distribution:
 
-# Example with coherent state (requires cavity system)
-# fig = plot_wigner(traj_ket, 1)  # Plot at first timestep
+using GLMakie, QuantumToolbox
+fig = plot_wigner(traj_ket, 1)  # Plot at first timestep
 
 # ## Custom Plotting
 #
@@ -205,13 +205,14 @@ fig = animate_name(traj, :u; fps=30)
 
 using GLMakie, QuantumToolbox
 fig = animate_bloch(traj_ket; fps=30)
+fig
 
 # ### Animate Wigner Function
 #
 # For cavity systems, animate phase space evolution:
 
 # Example (requires cavity trajectory):
-# fig = animate_wigner(traj_cavity; fps=24, xvec=-4:0.1:4, yvec=-4:0.1:4)
+fig = animate_wigner(traj_ket; fps=24, xvec=-4:0.1:4, yvec=-4:0.1:4)
 
 # ### Custom Animation
 #
