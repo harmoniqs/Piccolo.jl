@@ -529,8 +529,12 @@ end
 
 Convert a DensityTrajectory to a NamedTrajectory for optimization.
 
+Uses the compact density isomorphism (n² real parameters) which exploits the
+Hermiticity of density matrices. This halves the state dimension compared to
+the full [vec(Re(ρ)); vec(Im(ρ))] representation.
+
 # Stored Variables
-- `ρ⃗̃`: Vectorized isomorphism of the density matrix
+- `ρ⃗̃`: Compact isomorphism of the density matrix (n² real parameters)
 - `u` (or custom drive_name): Control values sampled at times
 - `du`: Control derivatives (only for CubicSplinePulse)
 - `t`: Times
@@ -544,20 +548,28 @@ Convert a DensityTrajectory to a NamedTrajectory for optimization.
 # Keyword Arguments
 - `Δt_bounds`: Optional tuple `(lower, upper)` for timestep bounds. If provided,
   enables free-time optimization (minimum-time problems). Default: `nothing` (no bounds).
+- `global_data`: Optional Dict mapping global variable names to initial values (as vectors).
+  Note: global variables are optimization variables without explicit box constraints.
 """
 function NamedTrajectory(
     qtraj::DensityTrajectory,
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    global_data::Union{Nothing,Dict{Symbol,<:AbstractVector}} = nothing,
 )
     times = _sample_times(qtraj, N_or_times)
     T = length(times)
     sname = state_name(qtraj)
 
-    # Sample density matrices and convert to isomorphism (vectorized)
-    # Use real-valued representation: [vec(Re(ρ)); vec(Im(ρ))]
+    # Auto-populate global_data from system if not provided
+    if isnothing(global_data) && !isempty(qtraj.system.global_params)
+        global_data =
+            Dict(name => [val] for (name, val) in pairs(qtraj.system.global_params))
+    end
+
+    # Sample density matrices and convert to compact isomorphism (n² real params)
     states = [qtraj(t) for t in times]
-    ρ̃ = hcat([_density_to_iso(ρ) for ρ in states]...)
+    ρ̃ = hcat([density_to_compact_iso(ρ) for ρ in states]...)
     state_dim = size(ρ̃, 1)
 
     # Get control data
@@ -571,8 +583,8 @@ function NamedTrajectory(
     # Build data with Δt as timestep and t for reference
     data = merge(_named_tuple(sname => ρ̃), (; Δt = Δt, t = collect(times)), control_data)
 
-    # Note: Density matrix bounds are trickier (trace=1, positive semidefinite)
-    # For now, use generous bounds on the vectorized representation
+    # Bounds on compact iso components: diagonal Re entries in [0,1],
+    # off-diagonal Re/Im entries in [-1,1]. Use generous [-1,1] for all.
     bounds =
         merge(_named_tuple(sname => (-ones(state_dim), ones(state_dim))), control_bounds)
 
@@ -581,31 +593,22 @@ function NamedTrajectory(
         bounds = merge(bounds, (Δt = ([Δt_bounds[1]], [Δt_bounds[2]]),))
     end
 
-    # Initial and goal in isomorphism
-    initial = _named_tuple(sname => _density_to_iso(qtraj.initial))
-    goal_nt = _named_tuple(sname => _density_to_iso(qtraj.goal))
+    # Initial and goal in compact isomorphism
+    initial = _named_tuple(sname => density_to_compact_iso(qtraj.initial))
+    goal_nt = _named_tuple(sname => density_to_compact_iso(qtraj.goal))
 
-    return NamedTrajectory(
-        data;
+    nt_kwargs = (
         timestep = :Δt,
         controls = (:Δt, control_names...),
         bounds = bounds,
         initial = initial,
         goal = goal_nt,
     )
-end
 
-# Helper: convert density matrix to real-valued isomorphism vector
-function _density_to_iso(ρ::AbstractMatrix)
-    return vcat(vec(real(ρ)), vec(imag(ρ)))
-end
+    # Add global variables if provided
+    nt_kwargs = _add_global_data_to_kwargs(nt_kwargs, global_data)
 
-# Helper: convert isomorphism vector back to density matrix
-function _iso_to_density(ρ̃::AbstractVector, n::Int)
-    len = n^2
-    re = reshape(ρ̃[1:len], n, n)
-    im = reshape(ρ̃[(len+1):end], n, n)
-    return complex.(re, im)
+    return NamedTrajectory(data; nt_kwargs...)
 end
 
 # ============================================================================ #
@@ -756,6 +759,20 @@ end
     N = 11
     traj = NamedTrajectory(qtraj, N)
     @test haskey(traj.components, :ρ⃗̃)
+
+    # Compact isomorphism: state dim should be n² (not 2n²)
+    n = system.levels
+    @test traj.dims[:ρ⃗̃] == n^2
+
+    # Round-trip: compact iso → density → compact iso should be consistent
+    ρ̃_init = traj[:ρ⃗̃][:, 1]
+    ρ_reconstructed = compact_iso_to_density(ρ̃_init)
+    @test ρ_reconstructed ≈ ρ0
+
+    # Goal should also round-trip
+    ρ̃_goal = traj.goal[:ρ⃗̃]
+    ρg_reconstructed = compact_iso_to_density(ρ̃_goal)
+    @test ρg_reconstructed ≈ ρg
 end
 
 @testitem "NamedTrajectory conversion with specific times" begin

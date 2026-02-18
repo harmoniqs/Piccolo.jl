@@ -130,7 +130,7 @@ end
     UU = kron(U, U)
     UUU = kron(UU, U)
     I2 = [1 0; 0 1]
-    I3 = [1 0 0; 0 1 0; 0 0 1];
+    I3 = [1 0 0; 0 1 0; 0 0 1]
 
     @test lift_operator(UU, [1, 2], [2, 2, 2]) ≈ kron(U, U, I2)
     @test lift_operator(UU, [2, 3], [2, 2, 2]) ≈ kron(I2, U, U)

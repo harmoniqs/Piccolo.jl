@@ -30,6 +30,7 @@ using ..Rollouts:
 using ..Rollouts: unitary_fidelity
 using ..EmbeddedOperators: AbstractPiccoloOperator, EmbeddedOperator
 using ..Isomorphisms: operator_to_iso_vec, ket_to_iso, iso_to_ket, iso_vec_to_operator
+using ..Isomorphisms: density_to_compact_iso, compact_iso_to_density
 
 import NamedTrajectories: NamedTrajectory, get_times
 

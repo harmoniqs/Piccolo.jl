@@ -90,7 +90,7 @@ function IonChainSystem(;
     lab_frame::Bool = false,
     frame_ω::Float64 = lab_frame ? 0.0 : (ωq isa Vector ? ωq[1] : ωq),
     multiply_by_2π::Bool = true,
-    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}} = fill(1.0, 2*N_ions),
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}} = fill(1.0, 2 * N_ions),
 )
     # Convert scalar parameters to vectors
     ωq_vec = ωq isa Vector ? ωq : fill(ωq, N_ions)
@@ -98,7 +98,7 @@ function IonChainSystem(;
 
     @assert length(ωq_vec) == N_ions "ωq must be scalar or vector of length N_ions"
     @assert length(ωm_vec) == N_modes "ωm must be scalar or vector of length N_modes"
-    @assert length(drive_bounds) == 2*N_ions "drive_bounds must have length 2*N_ions"
+    @assert length(drive_bounds) == 2 * N_ions "drive_bounds must have length 2*N_ions"
 
     # Convert η to matrix
     if η isa Float64

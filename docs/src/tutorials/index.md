@@ -41,8 +41,6 @@ Test your setup:
 ```julia
 using Piccolo
 using CairoMakie
-
-println("Setup complete!")
 ```
 
 ## What You'll Learn

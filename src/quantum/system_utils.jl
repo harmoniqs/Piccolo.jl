@@ -294,11 +294,11 @@ is_reachable(gate::EmbeddedOperator, args...; kwargs...) =
     # Check 1 qubit with complete basis
     gen = operator_from_string.(["X", "Y"])
     basis = operator_algebra(gen, return_layers = false, verbose = false)
-    @test length(basis) == size(first(gen), 1)^2-1
+    @test length(basis) == size(first(gen), 1)^2 - 1
 
     # Check 1 qubit with complete basis and layers
     basis, layers = operator_algebra(gen, return_layers = true, verbose = false)
-    @test length(basis) == size(first(gen), 1)^2-1
+    @test length(basis) == size(first(gen), 1)^2 - 1
 
     # Check 1 qubit with subspace
     gen = operator_from_string.(["X"])
@@ -308,7 +308,7 @@ is_reachable(gate::EmbeddedOperator, args...; kwargs...) =
     # Check 2 qubit with complete basis
     gen = operator_from_string.(["XX", "YY", "XI", "YI", "IY", "IX"])
     basis = operator_algebra(gen, verbose = false)
-    @test length(basis) == size(first(gen), 1)^2-1
+    @test length(basis) == size(first(gen), 1)^2 - 1
 
     # Check 2 qubit linearly dependent
     res = ["XX", "XI"]
@@ -363,7 +363,7 @@ end
     IZ = PAULIS[:I] ⊗ PAULIS[:Z]
     ZZ = PAULIS[:Z] ⊗ PAULIS[:Z]
 
-    complete_gen = [XX+YY, XI, YI, IX, IY]
+    complete_gen = [XX + YY, XI, YI, IX, IY]
     incomplete_gen = [XI, ZZ]
     r = [0, 1, 2, 3, 4]
     r /= norm(r)

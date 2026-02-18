@@ -1,32 +1,48 @@
 # # [Quantum Systems](@id quantum-systems)
 #
-# Quantum systems in Piccolo.jl represent the physical hardware you're
-# controlling. They encapsulate the Hamiltonian structure and control bounds.
+# A quantum system in Piccolo.jl specifies the Hamiltonian and the hardware
+# constraints. It is the first ingredient of every optimization problem.
 #
 # ## The Hamiltonian Model
 #
-# Piccolo.jl uses the standard quantum control Hamiltonian:
+# Piccolo.jl uses the standard bilinear control Hamiltonian:
 #
 # ```math
-# H(u, t) = H_{\text{drift}} + \sum_{i=1}^{n} u_i(t) H_{\text{drive},i}
+# H(\boldsymbol{u}, t) = H_{\text{drift}} + \sum_{i=1}^{m} u_i(t)\, H_{\text{drive},i}
 # ```
 #
-# Where:
-# - `H_drift`: The always-on system Hamiltonian (e.g., qubit frequencies, couplings)
-# - `H_drive,i`: The i-th controllable interaction (e.g., microwave drives)
-# - `u_i(t)`: The control amplitude for drive `i` at time `t`
+# where ``H_{\text{drift}} \in \mathbb{C}^{d \times d}`` is the always-on
+# (free-evolution) Hamiltonian, ``\{H_{\text{drive},i}\}_{i=1}^{m}`` are the
+# controllable interactions, and ``\boldsymbol{u}(t) \in \mathbb{R}^m`` are the
+# time-dependent control amplitudes.
+#
+# For optimization the Hamiltonian is converted to a **generator** of the
+# Schrödinger equation:
+#
+# ```math
+# G(\boldsymbol{u}) = -i\!\left( H_{\text{drift}} + \sum_{i=1}^{m} u_i\, H_{\text{drive},i} \right)
+# ```
+#
+# so that ``\dot{\psi} = G\,\psi`` (ket evolution) or ``\dot{U} = G\,U``
+# (unitary propagator).  The generator inherits the bilinear control structure:
+#
+# ```math
+# G(\boldsymbol{u}) = G_{\text{drift}} + \sum_{i=1}^{m} u_i\, G_{\text{drive},i}
+# ```
+#
+# and is stored internally in isomorphic (real) form.
+# See [Isomorphisms](@ref isomorphisms-concept) for how complex matrices become
+# real generators.
 #
 # ## QuantumSystem
 #
 # `QuantumSystem` is the primary type for closed quantum systems.
 #
-# ### Matrix-Based Construction
-#
-# The most common way to create a system:
+# ### Construction
 
 using Piccolo
 
-## Single qubit with X and Y drives
+## Single qubit: H(u) = σ_z + u₁ σ_x + u₂ σ_y
 H_drift = PAULIS[:Z]                    # ωq/2 σz
 H_drives = [PAULIS[:X], PAULIS[:Y]]     # Controllable terms
 drive_bounds = [1.0, 1.0]               # Maximum amplitude for each drive
@@ -48,7 +64,8 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 #
 # ## Drive Bounds
 #
-# Drive bounds specify the maximum control amplitude for each drive channel:
+# Drive bounds set the box constraints ``u_{\min} \leq u_i \leq u_{\max}``
+# for each channel:
 ## Vector: per-drive bounds
 sys_vector = QuantumSystem(H_drift, H_drives, [0.5, 1.0])
 
@@ -67,27 +84,47 @@ H_d
 
 # ## OpenQuantumSystem
 #
-# For systems with dissipation, use `OpenQuantumSystem`:
+# For systems with dissipation the dynamics follow the Lindblad master equation:
+#
+# ```math
+# \dot{\rho} = \underbrace{-i[H,\,\rho]}_{\text{unitary}} + \underbrace{\sum_k \left( L_k \rho L_k^\dagger - \tfrac{1}{2}\{L_k^\dagger L_k,\, \rho\} \right)}_{\text{dissipation}}
+# ```
+#
+# Vectorizing ``\rho`` turns this into a linear ODE ``\dot{\vec\rho} = \mathcal{G}\,\vec\rho``
+# with the Lindbladian superoperator
+#
+# ```math
+# \mathcal{G}(\boldsymbol{u}) = \mathcal{G}_{\text{drift}} + \sum_{i=1}^{m} u_i\, \mathcal{G}_{\text{drive},i}
+# ```
+#
+# which has the same bilinear control structure as the closed-system generator.
 #
 # ```julia
-# # Collapse operators (Lindblad form)
-# c_ops = [
+# L_ops = [
 #     sqrt(γ1) * annihilate(levels),  # Energy relaxation (T1)
 #     sqrt(γ2) * PAULIS[:Z]           # Pure dephasing (T2)
 # ]
 #
-# open_sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds, c_ops)
+# open_sys = OpenQuantumSystem(
+#     H_drift, H_drives, drive_bounds;
+#     dissipation_operators=L_ops
+# )
 # ```
 #
-# The dynamics follow the Lindblad master equation:
+# ### Compact Lindbladian Generators
 #
-# ```math
-# \dot{\rho} = -i[H, \rho] + \sum_k \left( L_k \rho L_k^\dagger - \frac{1}{2}\{L_k^\dagger L_k, \rho\} \right)
-# ```
+# Since density matrices are Hermitian (``\rho = \rho^\dagger``), only
+# ``d^2`` real parameters are independent — not ``2d^2``. The function
+# `compact_lindbladian_generators(sys)` returns generators
+# ``\mathcal{G}_c = P\,\mathcal{G}\,L`` of size ``d^2 \times d^2`` (instead
+# of ``2d^2 \times 2d^2``), where ``L`` and ``P`` are the lift and projection
+# matrices from the compact isomorphism.
+# See [Isomorphisms](@ref isomorphisms-concept) for the full construction.
 #
 # ## CompositeQuantumSystem
 #
-# For multi-qubit or multi-subsystem setups:
+# For multi-qubit or multi-subsystem setups the total Hilbert space is a
+# tensor product ``\mathcal{H} = \mathcal{H}_1 \otimes \mathcal{H}_2``:
 #
 # ```julia
 # sys1 = QuantumSystem(H1_drift, H1_drives, bounds1)
@@ -98,8 +135,6 @@ H_d
 # ```
 #
 # ## Common Gates and Operators
-#
-# Piccolo.jl provides standard quantum operators:
 #
 # ### Pauli Matrices
 
@@ -121,6 +156,9 @@ PAULIS[:Z]  ## Pauli-Z
 (:I, :X, :Y, :Z, :H, :T, :S, :CX, :CZ)
 
 # ### Creation/Annihilation Operators
+#
+# For a ``d``-level system the annihilation operator is
+# ``a = \sum_{n=1}^{d-1} \sqrt{n}\,|n{-}1\rangle\langle n|``:
 
 levels = 5
 a = annihilate(levels)
@@ -132,9 +170,17 @@ n_op
 
 # ## System Templates
 #
-# Piccolo.jl provides pre-built templates for common physical systems:
+# Pre-built templates for common physical platforms.
 #
 # ### Transmon Qubits
+#
+# The transmon Hamiltonian (in the rotating frame, truncated to ``d`` levels):
+#
+# ```math
+# H_{\text{transmon}} = \sum_{n=0}^{d-1} \left(n\omega_q + \tfrac{n(n-1)}{2}\,\delta\right)|n\rangle\langle n|
+# ```
+#
+# where ``\delta`` is the anharmonicity.
 
 sys_transmon = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.2, 0.2])
 sys_transmon.levels, sys_transmon.n_drives
@@ -155,17 +201,13 @@ sys = RydbergChainSystem(N = 3, drive_bounds = [1.0])
 #
 # ### 1. Check Hermiticity
 #
-# Hamiltonians should be Hermitian. Piccolo.jl validates this:
-#
-# ```julia
-# # This will warn if H is not Hermitian
-# sys = QuantumSystem(H_drift, H_drives, bounds)
-# ```
+# All Hamiltonians must be Hermitian (``H = H^\dagger``). Piccolo.jl
+# validates this at construction.
 #
 # ### 2. Normalize Units
 #
 # Use consistent units throughout. A common choice:
-# - Energy/frequency: GHz (or 2π × GHz)
+# - Energy/frequency: GHz (or ``2\pi \times`` GHz)
 # - Time: nanoseconds
 # - Control amplitudes: GHz
 #
