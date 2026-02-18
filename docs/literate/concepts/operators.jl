@@ -67,7 +67,7 @@ U_goal.subspace
 # ```
 #
 # The gate acts as X on the first two levels and as identity on the third.
-U_goal.operator
+U_goal.operator |> sparse
 
 # ### Use with Trajectories
 

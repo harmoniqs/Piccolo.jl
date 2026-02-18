@@ -55,6 +55,24 @@ duration(pulse_zop)
 ## Number of drives
 n_drives(pulse_zop)
 
+# ### Visualization
+#
+# ```
+# Control Value
+#     │    ┌──┐
+#     │    │  │  ┌──┐
+#     │────┘  │  │  └───
+#     │       └──┘
+#     └─────────────────── Time
+# ```
+#
+# ### Use Case
+#
+# - **Primary use**: `SmoothPulseProblem`
+# - **Characteristics**: Simple structure, smoothness via derivative regularization
+# - **Best for**: Initial optimization, most quantum control problems
+#
+# 
 # ## LinearSplinePulse
 #
 # Linear interpolation between knot values.  On ``[t_k, t_{k+1}]``:
@@ -70,9 +88,26 @@ n_drives(pulse_zop)
 
 pulse_linear = LinearSplinePulse(controls, times)
 
+# ### Properties
+#
+# - Continuous control values
+# - Discontinuous first derivative (at knots)
+# - Derivative = slope between knots
+
 u_linear = pulse_linear(T / 2)
 u_linear
 
+# ### Visualization
+#
+# ```
+# Control Value
+#     │      /\
+#     │     /  \    /
+#     │    /    \  /
+#     │───/      \/
+#     └─────────────────── Time
+# ```
+#
 # ## CubicSplinePulse
 #
 # Cubic Hermite spline interpolation with independent tangents
@@ -96,6 +131,12 @@ u_linear
 
 tangents = zeros(n_dr, N)  # Initial tangents (slopes)
 pulse_cubic = CubicSplinePulse(controls, tangents, times)
+
+# ### Properties
+#
+# - Continuous control values AND first derivatives
+# - Tangents are independent optimization variables
+# - Smooth C¹ continuous curves
 
 u_cubic = pulse_cubic(T / 2)
 u_cubic

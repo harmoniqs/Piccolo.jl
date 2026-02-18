@@ -134,6 +134,7 @@ The state dimension ``n_x`` depends on the trajectory type and the system dimens
 | `DensityTrajectory` | ``\tilde{\rho} \in \mathbb{R}^{d^2}`` | ``d^2`` (compact) |
 
 ## Workflow
+A typical Piccolo.jl workflow follows these steps:
 
 ```julia
 using Piccolo
@@ -160,13 +161,35 @@ optimized_pulse = get_pulse(qcp.qtraj)
 
 ## Concept Pages
 
-- [Quantum Systems](@ref systems-overview) — Hamiltonian structure and system templates
+- [Quantum Systems](@ref systems-overview) — Hamiltonian structure, hardware constraints, and system templates
 - [Trajectories](@ref trajectories-concept) — State types, goals, and generators
-- [Pulses](@ref pulses-concept) — Control parameterizations
+- [Pulses](@ref pulses-concept) — Control parameterizations, how controls vary in time
 - [Objectives](@ref objectives-concept) — Fidelity and regularization
-- [Constraints](@ref constraints-concept) — Bounds and equality constraints
+- [Constraints](@ref constraints-concept) — Bounds and equality constraints, leakage, fidelity
 - [Operators](@ref operators-concept) — Subspace embeddings and lifted operators
 - [Isomorphisms](@ref isomorphisms-concept) — Real vector representations
+
+## Architecture
+
+```
+Piccolo.jl
+├── Quantum          # Quantum mechanical building blocks
+│   ├── Systems      # Hamiltonian representations
+│   ├── Trajectories # Time evolution containers
+│   ├── Pulses       # Control parameterizations
+│   ├── Operators    # Embedded and lifted operators
+│   └── Isomorphisms # Real vector representations
+│
+├── Control          # Optimal control framework
+│   ├── Problems     # QuantumControlProblem wrapper
+│   ├── Objectives   # Fidelity and regularization
+│   ├── Constraints  # Bounds and equality constraints
+│   └── Templates    # High-level problem constructors
+│
+└── Visualizations   # Plotting and analysis
+    ├── Trajectories # State and control plots
+    └── Populations  # Population dynamics
+```
 
 ## Reexported Packages
 

@@ -163,7 +163,7 @@ fidelity(qcp)
 # | ``\chi_{ab} / 2\pi`` | 0.5–2.0 | MHz |
 # | ``\kappa_a / 2\pi`` | 10–100 | kHz |
 # | ``\kappa_b / 2\pi`` | 5–20 | MHz |
-# | Coherent amplitude ``|\alpha|`` | 1–3 | — |
+# | Coherent amplitude |``\alpha``| | 1–3 | — |
 # | Cat levels | 10–20 | — |
 # | Buffer levels | 2–4 | — |
 #
