@@ -223,8 +223,17 @@ function QuantumToolbox.plot_wigner(
         x_marg = vec(sum(W, dims=2)) .* Δp
         p_marg = vec(sum(W, dims=1)) .* Δx
 
-        line_top   = lines!(ax_top,   xvec,   x_marg)
-        line_right = lines!(ax_right, p_marg, yvec)
+        fill_color = (:slateblue, 0.4)
+        line_color = :slateblue
+
+        band!(ax_top, xvec, zeros(length(xvec)), x_marg; color = fill_color)
+        line_top = lines!(ax_top, xvec, x_marg; color = line_color)
+
+        poly!(ax_right,
+            vcat(Point2f.(p_marg, yvec), [Point2f(0, yvec[end]), Point2f(0, yvec[1])]);
+            color = fill_color,
+        )
+        line_right = lines!(ax_right, p_marg, yvec; color = line_color)
 
         fig.attributes[:line_top]   = line_top
         fig.attributes[:line_right] = line_right
