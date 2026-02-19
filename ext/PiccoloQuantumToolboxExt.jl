@@ -168,6 +168,7 @@ function QuantumToolbox.plot_wigner(
     idx::Int;
     state_name::Symbol = :ψ̃,
     state_type::Symbol = :ket,
+    show_marginals::Bool = false,
     kwargs...,
 )
     @assert 1 ≤ idx ≤ traj.N "Invalid knot point index."
@@ -189,6 +190,24 @@ function QuantumToolbox.plot_wigner(
     fig.attributes[:ax] = ax
     fig.attributes[:hm] = hm
     fig.attributes[:label] = Label(fig[0, 1], "Timestep $idx", tellwidth = false)
+    fig.attributes[:show_marginals] = show_marginals
+
+    if show_marginals
+        lyt = ax.layoutobservables.gridcontent[].parent
+        ncols = size(lyt)[2]
+
+        ax_top   = Axis(lyt[0, 1])
+        ax_right = Axis(lyt[1, ncols + 1])
+
+        linkxaxes!(ax_top, ax)
+        linkyaxes!(ax_right, ax)
+
+        hidedecorations!(ax_top,   grid = false)
+        hidedecorations!(ax_right, grid = false)
+
+        rowsize!(lyt, 0,         Relative(0.2))
+        colsize!(lyt, ncols + 1, Relative(0.2))
+    end
 
     return fig
 end
