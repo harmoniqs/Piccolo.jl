@@ -135,18 +135,17 @@ pulse = get_pulse(qcp.qtraj)  # Get the optimized pulse
 ```
 """
 function sync_trajectory!(qcp::QuantumControlProblem)
-    # Extract the optimized pulse from the discrete trajectory and roll it out in-place
-    pulse = extract_pulse(qcp.qtraj, qcp.prob.trajectory)
-    rollout!(qcp.qtraj, pulse)
-
-    # Update global parameters in the system if present
-    # Use get_system() to work with all trajectory types (including SamplingTrajectory)
+    # Update global parameters in the system BEFORE rollout so the ODE uses optimized values
     sys = get_system(qcp.qtraj)
     if hasproperty(sys, :global_params) &&
        !isempty(sys.global_params) &&
        qcp.prob.trajectory.global_dim > 0
         update_global_params!(qcp.qtraj, qcp.prob.trajectory)
     end
+
+    # Extract the optimized pulse from the discrete trajectory and roll it out in-place
+    pulse = extract_pulse(qcp.qtraj, qcp.prob.trajectory)
+    rollout!(qcp.qtraj, pulse)
 
     return nothing
 end
