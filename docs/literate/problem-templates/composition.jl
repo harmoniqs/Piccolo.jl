@@ -9,6 +9,7 @@
 # ```
 # Base Problems (create from trajectory):
 # ├── SmoothPulseProblem
+# ├── BangBangPulseProblem
 # └── SplinePulseProblem
 #         │
 #         ▼
@@ -231,6 +232,7 @@ end
 # ## See Also
 #
 # - [SmoothPulseProblem](@ref smooth-pulse) - Base problem template
+# - [BangBangPulseProblem](@ref bang-bang-pulse) - Bang-bang base problem
 # - [SplinePulseProblem](@ref spline-pulse) - Spline-based base problem
 # - [MinimumTimeProblem](@ref minimum-time) - Time optimization wrapper
 # - [SamplingProblem](@ref sampling) - Robustness wrapper

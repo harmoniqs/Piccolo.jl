@@ -182,5 +182,6 @@ cached_solve!(qcp_dense, "sampling_dense"; max_iter = 100)
 # ## See Also
 #
 # - [SmoothPulseProblem](@ref smooth-pulse) - Base problem for piecewise constant controls
+# - [BangBangPulseProblem](@ref bang-bang-pulse) - Base problem for bang-bang controls
 # - [MinimumTimeProblem](@ref minimum-time) - Minimize duration of robust pulses
 # - [Composing Templates](@ref composition) - Advanced composition patterns
