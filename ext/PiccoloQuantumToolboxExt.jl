@@ -207,6 +207,14 @@ function QuantumToolbox.plot_wigner(
 
         rowsize!(lyt, 0,         Relative(0.2))
         colsize!(lyt, ncols + 1, Relative(0.2))
+
+        W = hm[3][]
+        n, m = size(W)
+        xvec = hm[1][][1:n]
+        yvec = hm[2][][1:m]
+
+        lines!(ax_top,   xvec, vec(sum(W, dims=2)))
+        lines!(ax_right, vec(sum(W, dims=1)), yvec)
     end
 
     return fig
