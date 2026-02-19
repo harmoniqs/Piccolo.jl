@@ -65,7 +65,6 @@ under the same control protocol.
 ```julia
 using NamedTrajectories
 using Piccolo
-using Piccolo
 
 # Example: Two initial states evolving under the same controls
 N = 100

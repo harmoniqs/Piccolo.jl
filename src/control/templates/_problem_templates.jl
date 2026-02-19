@@ -29,6 +29,7 @@ using TestItems
 const ⊗ = kron
 
 include("smooth_pulse_problem.jl")
+include("bang_bang_pulse_problem.jl")
 include("spline_pulse_problem.jl")
 include("minimum_time_problem.jl")
 include("sampling_problem.jl")

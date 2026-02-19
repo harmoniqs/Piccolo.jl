@@ -161,5 +161,6 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic)
 # ## See Also
 #
 # - [SmoothPulseProblem](@ref smooth-pulse) - For piecewise constant controls
+# - [BangBangPulseProblem](@ref bang-bang-pulse) - For L1-regularized bang-bang controls
 # - [MinimumTimeProblem](@ref minimum-time) - Time-optimal control
 # - [Pulses](@ref pulses-concept) - Detailed pulse type documentation

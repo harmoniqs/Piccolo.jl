@@ -197,6 +197,7 @@ cached_solve!(qcp, "smooth_pulse_multi_ket"; max_iter = 100)
 #
 # ## See Also
 #
+# - [BangBangPulseProblem](@ref bang-bang-pulse) - For L1-regularized bang-bang controls
 # - [SplinePulseProblem](@ref spline-pulse) - For inherently smooth spline-based controls
 # - [MinimumTimeProblem](@ref minimum-time) - Time-optimal control
 # - [SamplingProblem](@ref sampling) - Robust optimization

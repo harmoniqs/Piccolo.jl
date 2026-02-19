@@ -80,11 +80,12 @@ The dynamics constraint ``x_{k+1} = \exp(\Delta t_k \cdot G(\boldsymbol{u}_k))\,
                  │
                  ▼
        Problem Template                    ← assembles the NLP
-     ┌───────────────────┐
-     │ SmoothPulseProblem│
-     │ SplinePulseProblem│
-     │ MinimumTimeProblem│
-     └──────┬────────────┘
+     ┌──────────────────────┐
+     │ SmoothPulseProblem   │
+     │ BangBangPulseProblem │
+     │ SplinePulseProblem   │
+     │ MinimumTimeProblem   │
+     └──────┬───────────────┘
             │
             ▼
      QuantumControlProblem                 ← the NLP
