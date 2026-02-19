@@ -138,6 +138,13 @@ function Piccolo.animate_bloch(
 end
 
 
+# Makie stores heatmap grid coordinates as cell edges (n+1 points) rather than
+# cell centers (n points). Convert back to centers when needed.
+function _hm_centers(coords::AbstractVector, n::Int)
+    length(coords) == n && return coords
+    return (coords[1:end-1] .+ coords[2:end]) ./ 2
+end
+
 """
     plot_wigner(
         traj::NamedTrajectory,
@@ -208,13 +215,21 @@ function QuantumToolbox.plot_wigner(
         rowsize!(lyt, 0,         Relative(0.2))
         colsize!(lyt, ncols + 1, Relative(0.2))
 
-        W = hm[3][]
-        n, m = size(W)
-        xvec = hm[1][][1:n]
-        yvec = hm[2][][1:m]
+        W    = hm[3][]
+        xvec = _hm_centers(hm[1][], size(W, 1))
+        yvec = _hm_centers(hm[2][], size(W, 2))
+        Δx   = (xvec[end] - xvec[1]) / (length(xvec) - 1)
+        Δp   = (yvec[end] - yvec[1]) / (length(yvec) - 1)
+        x_marg = vec(sum(W, dims=2)) .* Δp
+        p_marg = vec(sum(W, dims=1)) .* Δx
 
-        lines!(ax_top,   xvec, vec(sum(W, dims=2)))
-        lines!(ax_right, vec(sum(W, dims=1)), yvec)
+        line_top   = lines!(ax_top,   xvec,   x_marg)
+        line_right = lines!(ax_right, p_marg, yvec)
+
+        fig.attributes[:line_top]   = line_top
+        fig.attributes[:line_right] = line_right
+        fig.attributes[:xvec_marg]  = xvec
+        fig.attributes[:yvec_marg]  = yvec
     end
 
     return fig
@@ -237,9 +252,23 @@ function Piccolo.plot_wigner!(fig::Figure, traj::NamedTrajectory, idx::Int)
     else
         raise(ArgumentError("State type must be :ket or :density."))
     end
-    W = transpose(wigner(state, hm[1][], hm[2][]))
+    xvec = _hm_centers(hm[1][], size(hm[3][], 1))
+    yvec = _hm_centers(hm[2][], size(hm[3][], 2))
+    W = transpose(wigner(state, xvec, yvec))
     hm[3][] = W
     label.text[] = "Timestep $idx"
+
+    if fig.attributes[:show_marginals][]
+        line_top   = fig.attributes[:line_top][]
+        line_right = fig.attributes[:line_right][]
+        xvec_m = fig.attributes[:xvec_marg][]
+        yvec_m = fig.attributes[:yvec_marg][]
+        Δx = (xvec_m[end] - xvec_m[1]) / (length(xvec_m) - 1)
+        Δp = (yvec_m[end] - yvec_m[1]) / (length(yvec_m) - 1)
+        line_top[1][]   = Point2f.(xvec_m, vec(sum(W, dims=2)) .* Δp)
+        line_right[1][] = Point2f.(vec(sum(W, dims=1)) .* Δx, yvec_m)
+    end
+
     return fig
 end
 
