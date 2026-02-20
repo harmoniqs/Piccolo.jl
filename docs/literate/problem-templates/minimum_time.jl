@@ -122,7 +122,7 @@ for target_fidelity in [0.999, 0.99, 0.95, 0.90]
 end
 
 println("Fidelity-Time Trade-off")
-println("─" ^ 50)
+println("─"^50)
 for r in results
     @printf(
         "  Target: %.3f  │  Duration: %.3f  │  Achieved: %.4f\n",

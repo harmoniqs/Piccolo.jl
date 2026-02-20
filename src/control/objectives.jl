@@ -3,6 +3,7 @@ module QuantumObjectives
 export KetInfidelityObjective
 export CoherentKetInfidelityObjective
 export UnitaryInfidelityObjective
+export DensityMatrixInfidelityObjective
 export DensityMatrixPureStateInfidelityObjective
 export UnitarySensitivityObjective
 export UnitaryFreePhaseInfidelityObjective
@@ -213,11 +214,38 @@ end
 #                       Density Matrices
 # ---------------------------------------------------------
 
+function density_matrix_infidelity_loss(
+    ρ̃::AbstractVector,
+    ρ_goal::AbstractMatrix{<:Complex{Float64}},
+)
+    ρ = compact_iso_to_density(ρ̃)
+    ℱ = real(tr(ρ * ρ_goal))
+    return abs(1 - ℱ)
+end
+
+"""
+    DensityMatrixInfidelityObjective(ρ̃_name, ρ_goal, traj; Q=100.0)
+
+Terminal objective for density matrix fidelity using the compact isomorphism.
+
+Minimizes `|1 - tr(ρ * ρ_goal)|` where `ρ` is reconstructed from the compact
+iso vector via `compact_iso_to_density`.
+"""
+function DensityMatrixInfidelityObjective(
+    ρ̃_name::Symbol,
+    ρ_goal::AbstractMatrix{<:Complex{Float64}},
+    traj::NamedTrajectory;
+    Q = 100.0,
+)
+    ℓ = ρ̃ -> density_matrix_infidelity_loss(ρ̃, ρ_goal)
+    return TerminalObjective(ℓ, ρ̃_name, traj; Q = Q)
+end
+
 function density_matrix_pure_state_infidelity_loss(
     ρ̃::AbstractVector,
     ψ::AbstractVector{<:Complex{Float64}},
 )
-    ρ = iso_vec_to_density(ρ̃)
+    ρ = compact_iso_to_density(ρ̃)
     ℱ = real(ψ' * ρ * ψ)
     return abs(1 - ℱ)
 end

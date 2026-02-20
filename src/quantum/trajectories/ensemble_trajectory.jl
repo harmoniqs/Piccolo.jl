@@ -49,7 +49,7 @@ function MultiKetTrajectory(
     pulse::AbstractPulse,
     initials::Vector{<:AbstractVector{<:Number}},
     goals::Vector{<:AbstractVector{<:Number}};
-    weights::AbstractVector{<:Real} = fill(1.0/length(initials), length(initials)),
+    weights::AbstractVector{<:Real} = fill(1.0 / length(initials), length(initials)),
     algorithm = MagnusGL4(),
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
@@ -92,7 +92,7 @@ function MultiKetTrajectory(
     initials::Vector{<:AbstractVector{<:Number}},
     goals::Vector{<:AbstractVector{<:Number}},
     T::Real;
-    weights::AbstractVector{<:Real} = fill(1.0/length(initials), length(initials)),
+    weights::AbstractVector{<:Real} = fill(1.0 / length(initials), length(initials)),
     drive_name::Symbol = :u,
     algorithm = MagnusGL4(),
 )
@@ -203,8 +203,8 @@ end
 
     system = QuantumSystem([PAULIS.X], [1.0])
 
-    initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0], ComplexF64[1.0, 1.0]/√2]
-    goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0], ComplexF64[1.0, -1.0]/√2]
+    initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0], ComplexF64[1.0, 1.0] / √2]
+    goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0], ComplexF64[1.0, -1.0] / √2]
 
     qtraj = MultiKetTrajectory(system, initials, goals, 1.0)
 

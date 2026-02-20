@@ -342,7 +342,7 @@ end
     # Test type and accessors
     @test sampling isa SamplingTrajectory{<:AbstractPulse,<:KetTrajectory}
     @test length(sampling) == 3
-    @test get_weights(sampling) ≈ [1/3, 1/3, 1/3]  # Default equal weights
+    @test get_weights(sampling) ≈ [1 / 3, 1 / 3, 1 / 3]  # Default equal weights
     @test state_names(sampling) == [:ψ̃1, :ψ̃2, :ψ̃3]
     @test state_name(sampling) == :ψ̃
 

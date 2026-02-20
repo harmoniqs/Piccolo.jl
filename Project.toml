@@ -1,6 +1,6 @@
 name = "Piccolo"
 uuid = "c4671d76-df94-11ed-2057-43d4fd632fad"
-version = "1.1.1"
+version = "1.2.0"
 authors = ["Aaron Trowbridge <aaron@harmoniqs.co> and contributors"]
 
 [deps]
@@ -52,9 +52,9 @@ ProgressMeter = "1.11"
 QuantumToolbox = "0.42, 0.43"
 Random = "1.10, 1.11, 1.12"
 Reexport = "1.2"
-SciMLBase = "2.134"
+SciMLBase = "2.138"
 SparseArrays = "1.10, 1.11, 1.12"
-SpecialFunctions = "2.6"
+SpecialFunctions = "2.7"
 SymbolicIndexingInterface = "0.3"
 TestItemRunner = "1.1"
 TestItems = "1.0"

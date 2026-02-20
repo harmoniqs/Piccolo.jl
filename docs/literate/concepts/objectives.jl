@@ -1,96 +1,111 @@
 # # [Objectives](@id objectives-concept)
 #
-# Objectives define what the optimization minimizes. Piccolo.jl provides
-# objectives for fidelity, regularization, and leakage suppression.
-#
-# ## Overview
-#
-# The total objective is a weighted sum:
+# Objectives define what the optimization minimizes.  The total cost function
+# evaluated at the ``N``-point trajectory is a weighted sum of a terminal
+# infidelity and running regularization penalties:
 #
 # ```math
-# J = Q \cdot J_{\text{fidelity}} + R_u \cdot J_u + R_{du} \cdot J_{du} + R_{ddu} \cdot J_{ddu} + \cdots
+# J(\boldsymbol{z}) = Q \cdot \ell(x_N,\, x_{\text{goal}})
+# \;+\; \sum_{k=1}^{N}\!\left(
+#     R_u \lVert \boldsymbol{u}_k \rVert^2
+#   + R_{du} \lVert \Delta\boldsymbol{u}_k \rVert^2
+#   + R_{ddu} \lVert \Delta^2\boldsymbol{u}_k \rVert^2
+# \right)
 # ```
 #
-# Where:
-# - `J_fidelity`: Infidelity (1 - F)
-# - `J_u`, `J_du`, `J_ddu`: Control regularization terms
+# where ``\boldsymbol{z}`` is the full NLP decision vector (see
+# [Concepts Overview](@ref concepts-overview)).
 #
 # ## Fidelity Objectives
 #
+# The terminal cost ``\ell = 1 - F`` for a trajectory-dependent fidelity
+# ``F``.  Gradients are computed via `ForwardDiff` automatic differentiation
+# through the isomorphic state representation.
+#
 # ### UnitaryInfidelityObjective
 #
-# For unitary gate synthesis:
+# Gate synthesis fidelity for a ``d``-level system:
+#
+# ```math
+# F_U = \frac{1}{d^2} \left| \operatorname{tr}(U_{\text{goal}}^\dagger\, U_N) \right|^2
+# ```
 #
 # ```julia
 # obj = UnitaryInfidelityObjective(:Ũ⃗, U_goal; Q=100.0)
 # ```
 #
-# **Fidelity metric:**
-# ```math
-# F = \frac{1}{d^2} \left| \text{Tr}(U_{\text{goal}}^\dagger U) \right|^2
-# ```
-#
-# Where `d` is the Hilbert space dimension.
-#
 # ### KetInfidelityObjective
 #
-# For single state transfer:
+# State-transfer fidelity:
+#
+# ```math
+# F_\psi = \left| \langle \psi_{\text{goal}} | \psi_N \rangle \right|^2
+# ```
 #
 # ```julia
 # obj = KetInfidelityObjective(:ψ̃, ψ_goal; Q=100.0)
 # ```
 #
-# **Fidelity metric:**
-# ```math
-# F = \left| \langle \psi_{\text{goal}} | \psi \rangle \right|^2
-# ```
-#
 # ### CoherentKetInfidelityObjective
 #
-# For multiple state transfers with phase coherence (used by `MultiKetTrajectory`):
+# For ``n`` state pairs with phase coherence (used by `MultiKetTrajectory`):
 #
-# ```julia
-# obj = CoherentKetInfidelityObjective(
-#     [:ψ̃1, :ψ̃2],
-#     [ψ_goal1, ψ_goal2];
-#     Q=100.0
-# )
+# ```math
+# F_{\text{coh}} = \left| \frac{1}{n} \sum_{j=1}^{n} \langle \psi_{\text{goal},j} | \psi_{j,N} \rangle \right|^2
 # ```
 #
-# This ensures both:
-# 1. Each state reaches its target
-# 2. Relative phases between states are preserved
+# This is strictly harder than per-state fidelity because relative phases
+# must be correct.
+#
+# ```julia
+# obj = CoherentKetInfidelityObjective([:ψ̃1, :ψ̃2], [ψ_goal1, ψ_goal2]; Q=100.0)
+# ```
+#
+# ### DensityMatrixInfidelityObjective
+#
+# For open-system optimization with the compact density isomorphism:
+#
+# ```math
+# F_\rho = \operatorname{tr}(\rho_{\text{goal}}\, \rho_N)
+# ```
+#
+# The state ``\tilde{\rho}_N \in \mathbb{R}^{d^2}`` is converted back to a
+# Hermitian matrix via `compact_iso_to_density` before computing the trace.
+#
+# ```julia
+# obj = DensityMatrixInfidelityObjective(:ρ⃗̃, ρ_goal, traj; Q=100.0)
+# ```
 #
 # ### UnitaryFreePhaseInfidelityObjective
 #
-# When global phase doesn't matter:
+# When global phase doesn't matter, optimizes over ``\phi``:
+#
+# ```math
+# F = \max_{\phi} \frac{1}{d^2} \left| \operatorname{tr}(e^{i\phi} U_{\text{goal}}^\dagger\, U_N) \right|^2
+# ```
 #
 # ```julia
 # obj = UnitaryFreePhaseInfidelityObjective(:Ũ⃗, U_goal; Q=100.0)
 # ```
 #
-# Optimizes over the global phase to find the best match.
-#
 # ## Regularization Objectives
 #
-# Regularization penalizes large or rapidly-varying controls.
+# Regularization penalizes large or rapidly-varying controls via quadratic
+# running costs:
 #
-# ### QuadraticRegularizer
-#
-# The standard regularization form:
-#
-# ```julia
-# # Penalize control magnitude
-# reg_u = QuadraticRegularizer(:u, traj, R)
-#
-# # Penalize control derivatives
-# reg_du = QuadraticRegularizer(:du, traj, R)
-# reg_ddu = QuadraticRegularizer(:ddu, traj, R)
+# ```math
+# J_u = \sum_{k=1}^{N} \lVert \boldsymbol{u}_k \rVert^2, \qquad
+# J_{du} = \sum_{k=1}^{N} \lVert \Delta\boldsymbol{u}_k \rVert^2, \qquad
+# J_{ddu} = \sum_{k=1}^{N} \lVert \Delta^2\boldsymbol{u}_k \rVert^2
 # ```
 #
-# **Mathematical form:**
-# ```math
-# J_x = \sum_k \| x_k \|^2
+# where ``\Delta\boldsymbol{u}_k = \boldsymbol{u}_k - \boldsymbol{u}_{k-1}``
+# are discrete differences.
+#
+# ```julia
+# reg_u   = QuadraticRegularizer(:u, traj, R)
+# reg_du  = QuadraticRegularizer(:du, traj, R)
+# reg_ddu = QuadraticRegularizer(:ddu, traj, R)
 # ```
 #
 # ### Why Regularize?
@@ -98,7 +113,7 @@
 # 1. **Smoothness**: Derivative regularization encourages smooth pulses
 # 2. **Robustness**: Prevents exploiting numerical precision
 # 3. **Hardware-friendliness**: Bounded, smooth controls are easier to implement
-# 4. **Convergence**: Regularization improves optimization landscape
+# 4. **Convergence**: Regularization improves the optimization landscape
 #
 # ## Leakage Objectives
 #
@@ -107,17 +122,13 @@
 # ### LeakageObjective
 #
 # ```julia
-# # For EmbeddedOperator with defined subspace
 # op = EmbeddedOperator(:X, sys)  # X gate in computational subspace
 # obj = LeakageObjective(:Ũ⃗, op; Q=10.0)
 # ```
 #
-# **Mathematical form:**
 # Penalizes population outside the computational subspace at the final time.
 #
 # ### Via PiccoloOptions
-#
-# The easier way is through `PiccoloOptions`:
 #
 # ```julia
 # opts = PiccoloOptions(
@@ -131,12 +142,17 @@
 #
 # ## Using Objectives in Problem Templates
 #
-# Problem templates automatically set up objectives. You typically don't create
-# them manually.
+# Problem templates automatically set up objectives.  The fidelity objective
+# is selected based on the trajectory type:
 #
-# ### Automatic Setup
+# | Trajectory Type | Default Objective |
+# |-----------------|-------------------|
+# | `UnitaryTrajectory` | `UnitaryInfidelityObjective` |
+# | `KetTrajectory` | `KetInfidelityObjective` |
+# | `MultiKetTrajectory` | `CoherentKetInfidelityObjective` |
+# | `DensityTrajectory` | `DensityMatrixInfidelityObjective` |
 #
-# Let's see how the key parameters affect optimization:
+# ### Example
 
 using Piccolo
 
@@ -165,33 +181,21 @@ qcp = SmoothPulseProblem(
 cached_solve!(qcp, "objectives_example"; max_iter = 50)
 fidelity(qcp)
 
-# ### Trajectory-Dependent Objectives
-#
-# The objective type is chosen based on the trajectory:
-#
-# | Trajectory Type | Default Objective |
-# |-----------------|-------------------|
-# | `UnitaryTrajectory` | `UnitaryInfidelityObjective` |
-# | `KetTrajectory` | `KetInfidelityObjective` |
-# | `MultiKetTrajectory` | `CoherentKetInfidelityObjective` |
-#
 # ## Objective Weights
 #
-# ### The Q Parameter
+# ### The ``Q`` Parameter
 #
-# `Q` weights the fidelity objective:
+# ``Q`` scales the infidelity term ``Q \cdot (1 - F)``:
 # - **Higher Q** (e.g., 1000): Prioritize fidelity over smoothness
 # - **Lower Q** (e.g., 10): Allow more flexibility in controls
 #
-# ### The R Parameters
+# ### The ``R`` Parameters
 #
-# `R`, `R_u`, `R_du`, `R_ddu` weight regularization:
+# ``R_u``, ``R_{du}``, ``R_{ddu}`` scale the regularization terms:
 # - **Higher R**: Smoother, smaller controls
 # - **Lower R**: More aggressive controls allowed
 #
 # ### Balancing Trade-offs
-#
-# Let's compare different weight settings:
 
 ## High fidelity weight
 qcp_high_Q =
