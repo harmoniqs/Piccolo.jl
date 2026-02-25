@@ -6,6 +6,10 @@ export OpenQuantumSystem
 export VariationalQuantumSystem
 export CompositeQuantumSystem
 
+export AbstractDrive, LinearDrive, NonlinearDrive
+export drive_coeff, drive_coeff_jac
+export has_nonlinear_drives
+
 export get_drift
 export get_drives
 export get_c_ops
@@ -129,6 +133,7 @@ _float_params(nt::NamedTuple{K}) where {K} = NamedTuple{K}(float.(values(nt)))
 # Quantum System Types
 # ----------------------------------------------------------------------------- #
 
+include("drives.jl")
 include("quantum_systems.jl")
 include("open_quantum_systems.jl")
 include("variational_quantum_systems.jl")
