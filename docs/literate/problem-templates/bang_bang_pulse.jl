@@ -105,8 +105,9 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve with L1 regularization on du
 qcp = BangBangPulseProblem(qtraj, N; Q=100.0, R_du=1.0)
-cached_solve!(qcp, "bang_bang_basic"; max_iter=100)
+cached_solve!(qcp, "bang_bang_basic"; max_iter=200)
 
+#- 
 fidelity(qcp)
 
 # ## Visualize unitary populations
@@ -115,11 +116,11 @@ fig = plot_unitary_populations(traj)
 
 # ## Minimum Time
 qcp_min = MinimumTimeProblem(qcp, final_fidelity=0.99)
-cached_solve!(qcp_min, "bang_bang_min_time"; max_iter=100)
+cached_solve!(qcp_min, "bang_bang_min_time"; max_iter=300)
 
-before = duration(get_pulse(qcp.qtraj))
+#-
+before = get_duration(traj)
 after = duration(get_pulse(qcp_min.qtraj))
-
 before - after
 
 #-
