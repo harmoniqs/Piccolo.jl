@@ -111,20 +111,24 @@ function update_global_params!(qtraj, traj)
         return nothing
     end
 
-    # Extract optimized global values from trajectory
-    global_dict = Dict{Symbol,Any}()
-    for (name, indices) in pairs(traj.global_components)
+    # Extract optimized global values preserving original key order from the system.
+    # Using the original key order is critical: NamedTuples with different key orders are
+    # different types in Julia, so reordering keys would cause type mismatches when rollout!
+    # tries to assign the new solution back to the parametrically-typed trajectory.
+    sys = qtraj.system
+    original_keys = keys(sys.global_params)
+
+    new_values = map(original_keys) do name
+        indices = traj.global_components[name]
         if length(indices) == 1
-            global_dict[name] = traj.global_data[indices[1]]
+            traj.global_data[indices[1]]
         else
             # Multi-dimensional globals (future support)
-            global_dict[name] = traj.global_data[indices]
+            traj.global_data[indices]
         end
     end
 
-    # Reconstruct system with updated global_params
-    sys = qtraj.system
-    new_global_params = NamedTuple(global_dict)
+    new_global_params = NamedTuple{original_keys}(new_values)
 
     new_sys = _reconstruct_system(sys, new_global_params)
 

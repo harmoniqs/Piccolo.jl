@@ -108,7 +108,7 @@ function QuantumSystem(
         n_drives,
         levels,
         time_dependent,
-        global_params,
+        _float_params(global_params),
     )
 end
 
@@ -190,7 +190,7 @@ function QuantumSystem(
         n_drives,
         levels,
         time_dependent,
-        global_params,
+        _float_params(global_params),
     )
 end
 
