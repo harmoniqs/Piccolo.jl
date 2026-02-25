@@ -99,13 +99,13 @@ sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 ## Create trajectory
 T, N = 10.0, 100
-times = collect(range(0, T, length=N))
+times = collect(range(0, T, length = N))
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve with L1 regularization on du
-qcp = BangBangPulseProblem(qtraj, N; Q=100.0, R_du=1.0)
-cached_solve!(qcp, "bang_bang_basic"; max_iter=200)
+qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0)
+cached_solve!(qcp, "bang_bang_basic"; max_iter = 200)
 
 #- 
 fidelity(qcp)
@@ -115,8 +115,8 @@ traj = get_trajectory(qcp)
 fig = plot_unitary_populations(traj)
 
 # ## Minimum Time
-qcp_min = MinimumTimeProblem(qcp, final_fidelity=0.99)
-cached_solve!(qcp_min, "bang_bang_min_time"; max_iter=300)
+qcp_min = MinimumTimeProblem(qcp, final_fidelity = 0.99)
+cached_solve!(qcp_min, "bang_bang_min_time"; max_iter = 300)
 
 #-
 before = get_duration(traj)
@@ -133,8 +133,8 @@ fig = plot_unitary_populations(get_trajectory(qcp_min))
 qcp = BangBangPulseProblem(
     qtraj,
     N;
-    Q=100.0,
-    R_du=1.0,    ## Strong L1 penalty → fewer switches
+    Q = 100.0,
+    R_du = 1.0,    ## Strong L1 penalty → fewer switches
 )
 
 # ### With Derivative Bounds
@@ -144,9 +144,9 @@ qcp = BangBangPulseProblem(
 qcp = BangBangPulseProblem(
     qtraj,
     N;
-    Q=100.0,
-    R_du=1e-1,
-    du_bound=0.5,    ## Limit control jumps
+    Q = 100.0,
+    R_du = 1e-1,
+    du_bound = 0.5,    ## Limit control jumps
 )
 
 # ### Per-Drive Regularization
@@ -156,9 +156,9 @@ qcp = BangBangPulseProblem(
 qcp = BangBangPulseProblem(
     qtraj,
     N;
-    Q=100.0,
-    R_u=[1e-3, 1e-2],     ## Less L2 regularization on drive 1
-    R_du=[1e-1, 1.0],     ## Stronger L1 on drive 2
+    Q = 100.0,
+    R_u = [1e-3, 1e-2],     ## Less L2 regularization on drive 1
+    R_du = [1e-1, 1.0],     ## Stronger L1 on drive 2
 )
 
 # ### State Transfer
@@ -169,8 +169,8 @@ qcp = BangBangPulseProblem(
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 
-qcp = BangBangPulseProblem(qtraj, N; Q=100.0, R_du=1.0)
-cached_solve!(qcp, "bang_bang_state_transfer"; max_iter=100)
+qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0)
+cached_solve!(qcp, "bang_bang_state_transfer"; max_iter = 100)
 
 # ### Multiple State Transfers
 #
@@ -182,8 +182,8 @@ cached_solve!(qcp, "bang_bang_state_transfer"; max_iter=100)
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
-qcp = BangBangPulseProblem(qtraj, N; Q=100.0, R_du=1.0)
-cached_solve!(qcp, "bang_bang_multi_ket"; max_iter=100)
+qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0)
+cached_solve!(qcp, "bang_bang_multi_ket"; max_iter = 100)
 
 # ## How It Works
 #

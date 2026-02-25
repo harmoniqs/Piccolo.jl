@@ -97,14 +97,14 @@ generate_docs(
     "Piccolo",
     Piccolo,
     pages;
-    make_index=true,
-    make_literate=true,
-    make_assets=true,
-    literate_draft_pages=draft_mode_pages,
-    literate_kwargs=(execute=false,),
-    format_kwargs=(
-        canonical="https://docs.harmoniqs.co/Piccolo.jl",
-        size_threshold=400 * 2^10,  # 400 KiB for lib.md
+    make_index = true,
+    make_literate = true,
+    make_assets = true,
+    literate_draft_pages = draft_mode_pages,
+    literate_kwargs = (execute = false,),
+    format_kwargs = (
+        canonical = "https://docs.harmoniqs.co/Piccolo.jl",
+        size_threshold = 400 * 2^10,  # 400 KiB for lib.md
     ),
-    makedocs_kwargs=(draft=draft,),
+    makedocs_kwargs = (draft = draft,),
 )
