@@ -31,7 +31,7 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 - `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Timestep bounds
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Default regularization weight
-- `R_u::Union{Float64, Vector{Float64}}=R`: L2 weight on control amplitude
+- `R_u::Union{Float64, Vector{Float64}}=0.0`: L2 weight on control amplitude (defaults to 0 — bang-bang needs no amplitude regularization)
 - `R_du::Union{Float64, Vector{Float64}}=R`: L1 weight on `du` (applied to slacks)
 - `constraints::Vector{<:AbstractConstraint}=AbstractConstraint[]`: Additional constraints
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
@@ -60,7 +60,7 @@ function BangBangPulseProblem(
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
-    R_u::Union{Float64,Vector{Float64}} = R,
+    R_u::Union{Float64,Vector{Float64}} = 0.0,
     R_du::Union{Float64,Vector{Float64}} = R,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
@@ -194,7 +194,7 @@ function BangBangPulseProblem(
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
-    R_u::Union{Float64,Vector{Float64}} = R,
+    R_u::Union{Float64,Vector{Float64}} = 0.0,
     R_du::Union{Float64,Vector{Float64}} = R,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
