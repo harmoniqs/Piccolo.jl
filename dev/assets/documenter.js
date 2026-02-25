@@ -26,8 +26,7 @@ requirejs.config({
       "highlight"
     ]
   }
-}
-});
+}});
 ////////////////////////////////////////////////////////////////////////////////
 require([], function() {
 window.MathJax = {
@@ -65,8 +64,7 @@ window.MathJax = {
     "ignoreHtmlClass": "tex2jax_ignore",
     "processHtmlClass": "tex2jax_process"
   }
-}
-;
+};
 
 (function () {
     var script = document.createElement('script');
