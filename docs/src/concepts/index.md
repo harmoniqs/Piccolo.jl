@@ -7,10 +7,10 @@ Piccolo.jl solves **quantum optimal control problems** via direct trajectory opt
 Given a quantum system with Hamiltonian
 
 ```math
-H(\boldsymbol{u}, t) = H_{\text{drift}} + \sum_{i=1}^{m} u_i(t)\, H_{\text{drive},i}
+H(\boldsymbol{u}, t) = H_{\text{drift}} + \sum_{d} c_d(\boldsymbol{u})\, H_d
 ```
 
-we seek piecewise-constant controls ``\boldsymbol{u}_1, \dots, \boldsymbol{u}_N`` that steer the system from an initial state ``x_1`` toward a goal, subject to hardware constraints. Piccolo.jl discretizes this into a finite-dimensional nonlinear program (NLP):
+where each ``c_d(\boldsymbol{u})`` is a scalar coefficient — typically linear (``c_d = u_i``) but also supporting nonlinear functions (e.g., ``c_d = u_1^2 + u_2^2``) for displaced-frame and cross-Kerr terms — we seek piecewise-constant controls ``\boldsymbol{u}_1, \dots, \boldsymbol{u}_N`` that steer the system from an initial state ``x_1`` toward a goal, subject to hardware constraints. Piccolo.jl discretizes this into a finite-dimensional nonlinear program (NLP):
 
 ```math
 \begin{aligned}
