@@ -114,7 +114,10 @@ function BangBangPulseProblem(
         s_du_sym,
         s_du_data;
         type = :control,
-        bounds = NamedTuple{(s_du_sym,)}(((zeros(n_drives), fill(Inf, n_drives)),)),
+        bounds = merge(
+            traj_bb.bounds,
+            NamedTuple{(s_du_sym,)}(((zeros(n_drives), fill(Inf, n_drives)),)),
+        ),
     )
 
     # Initialize dynamics integrators
@@ -251,7 +254,10 @@ function BangBangPulseProblem(
         s_du_sym,
         s_du_data;
         type = :control,
-        bounds = NamedTuple{(s_du_sym,)}(((zeros(n_drives), fill(Inf, n_drives)),)),
+        bounds = merge(
+            traj_bb.bounds,
+            NamedTuple{(s_du_sym,)}(((zeros(n_drives), fill(Inf, n_drives)),)),
+        ),
     )
 
     # Build objective: weighted sum of infidelities for each state
