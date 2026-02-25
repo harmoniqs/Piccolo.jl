@@ -196,6 +196,7 @@ cached_solve!(qcp_y, "mintime_y_gate"; max_iter = 100)
 # ## See Also
 #
 # - [SmoothPulseProblem](@ref smooth-pulse) - Base problem for piecewise constant controls
+# - [BangBangPulseProblem](@ref bang-bang-pulse) - Base problem for bang-bang controls
 # - [SplinePulseProblem](@ref spline-pulse) - Base problem for spline controls
 # - [SamplingProblem](@ref sampling) - Add robustness before minimizing time
 # - [Composing Templates](@ref composition) - Advanced composition patterns

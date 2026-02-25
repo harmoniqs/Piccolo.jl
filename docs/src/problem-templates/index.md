@@ -4,11 +4,12 @@ Problem templates are the primary user-facing API in Piccolo.jl. They provide hi
 
 ## Overview
 
-Piccolo.jl provides four main problem templates:
+Piccolo.jl provides five main problem templates:
 
 | Template | Purpose | Pulse Type |
 |----------|---------|------------|
 | [`SmoothPulseProblem`](@ref smooth-pulse) | Piecewise constant controls with smoothness regularization | `ZeroOrderPulse` |
+| [`BangBangPulseProblem`](@ref bang-bang-pulse) | Piecewise constant controls with L1 (bang-bang) regularization | `ZeroOrderPulse` |
 | [`SplinePulseProblem`](@ref spline-pulse) | Spline-based controls for smooth pulses | `LinearSplinePulse`, `CubicSplinePulse` |
 | [`MinimumTimeProblem`](@ref minimum-time) | Time-optimal control (wraps another problem) | Any |
 | [`SamplingProblem`](@ref sampling) | Robust optimization over parameter variations | Any |
@@ -26,12 +27,22 @@ Use this decision flowchart to select the right template for your task:
     ZeroOrderPulse    SplinePulse
            │               │
            ▼               ▼
-  ┌─────────────────┐ ┌─────────────────┐
-  │ SmoothPulse     │ │ SplinePulse     │
-  │ Problem         │ │ Problem         │
-  └────────┬────────┘ └────────┬────────┘
-           └─────────┬─────────┘
-                     ▼
+  ┌────────────────┐ ┌─────────────────┐
+  │ Smooth or      │ │ SplinePulse     │
+  │ bang-bang?      │ │ Problem         │
+  └───┬────────┬───┘ └────────┬────────┘
+      │        │              │
+   Smooth   Bang-bang         │
+      │        │              │
+      ▼        ▼              │
+  ┌────────┐ ┌─────────┐     │
+  │ Smooth │ │ BangBang │     │
+  │ Pulse  │ │ Pulse    │     │
+  │ Problem│ │ Problem  │     │
+  └───┬────┘ └────┬─────┘     │
+      └──────┬────┘           │
+             └────────┬───────┘
+                      ▼
            ┌──────────────────┐
            │ Need robustness? │
            └───┬──────────┬───┘
@@ -63,6 +74,7 @@ Use this decision flowchart to select the right template for your task:
 
 **Choose your base problem:**
 - **`SmoothPulseProblem`**: Start here for most problems. Uses piecewise constant pulses with derivative regularization for smoothness.
+- **`BangBangPulseProblem`**: Use when you want piecewise constant pulses with minimal switching (L1 regularization promotes bang-bang controls).
 - **`SplinePulseProblem`**: Use when you need inherently smooth pulses or want to warm-start from a previous solution.
 
 **Add robustness (optional):**
@@ -123,6 +135,7 @@ Each base problem template requires a specific pulse type:
 | Problem Template | Required Pulse Type |
 |-----------------|---------------------|
 | `SmoothPulseProblem` | `ZeroOrderPulse` |
+| `BangBangPulseProblem` | `ZeroOrderPulse` |
 | `SplinePulseProblem` | `LinearSplinePulse` or `CubicSplinePulse` |
 
 Using the wrong pulse type will result in a helpful error message.
@@ -157,6 +170,7 @@ qcp = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))
 ## Detailed Documentation
 
 - [SmoothPulseProblem](@ref smooth-pulse) - Full parameter reference and examples
+- [BangBangPulseProblem](@ref bang-bang-pulse) - L1-regularized bang-bang controls
 - [SplinePulseProblem](@ref spline-pulse) - Spline-based optimization
 - [MinimumTimeProblem](@ref minimum-time) - Time-optimal control
 - [SamplingProblem](@ref sampling) - Robust optimization
