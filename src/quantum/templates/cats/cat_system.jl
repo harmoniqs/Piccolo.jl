@@ -8,7 +8,7 @@ export get_cat_controls
 Construct a coherent state ``|α⟩`` in the Fock basis truncated to `levels`.
 """
 function coherent_ket(α::Union{Real,Complex}, levels::Int)::Vector{ComplexF64}
-    return [exp(-0.5 * abs2(α)) * α^n / sqrt(factorial(n)) for n = 0:(levels-1)]
+    return [exp(-0.5 * abs2(α)) * α^n / sqrt(factorial(big(n))) for n = 0:(levels-1)]
 end
 
 @doc raw"""
