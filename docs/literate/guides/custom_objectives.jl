@@ -9,7 +9,6 @@
 # We'll work with a simple single-qubit X gate problem:
 
 using Piccolo
-using DirectTrajOpt
 using LinearAlgebra
 using Random
 Random.seed!(42)
