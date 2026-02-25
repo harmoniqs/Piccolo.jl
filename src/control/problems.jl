@@ -190,53 +190,12 @@ end
 # ============================================================================= #
 
 function Base.show(io::IO, qcp::QuantumControlProblem{QT}) where {QT}
-    # Header
-    println(io, "QuantumControlProblem{$(nameof(QT))}")
-
-    # Quantum system section
-    sys = get_system(qcp)
-    traj = qcp.prob.trajectory
-
-    println(io, "  Quantum system")
-    println(io, "    ", sys)
-
-    # State info
-    sname = state_name(qcp)
-    sdim = traj.dims[sname]
-    println(io, "    State: ", sname, "  (dim = ", sdim, ")")
-
-    # Goal info
-    goal = get_goal(qcp)
-    goal_str = if goal isa AbstractMatrix
-        "$(size(goal, 1))x$(size(goal, 2)) $(nameof(typeof(goal)))"
-    elseif goal isa AbstractVector
-        "$(length(goal))-element $(nameof(typeof(goal)))"
-    else
-        string(nameof(typeof(goal)))
-    end
-    println(io, "    Goal:  ", goal_str)
-
-    # Drive info with bounds
-    dname = drive_name(qcp)
-    ddim = traj.dims[dname]
-    drive_line = "    Drive: $dname  (dim = $ddim"
-    if hasproperty(sys, :drive_bounds) && !isempty(sys.drive_bounds)
-        bounds = sys.drive_bounds
-        if length(bounds) <= 4
-            b_str = join(
-                ["($(round(lo, sigdigits=4)), $(round(hi, sigdigits=4)))" for (lo, hi) in bounds],
-                ", ",
-            )
-            drive_line *= ", bounds = [$b_str]"
-        else
-            drive_line *= ", $(length(bounds)) drives bounded"
-        end
-    end
-    drive_line *= ")"
-    println(io, drive_line)
-
-    # Delegate to shared helper for trajectory, objective, dynamics, constraints
-    show_problem_details(io, qcp.prob)
+    println(io, "QuantumControlProblem{$QT}")
+    println(io, "  System: $(typeof(get_system(qcp)))")
+    println(io, "  Goal: $(typeof(get_goal(qcp)))")
+    println(io, "  Trajectory: $(qcp.prob.trajectory.N) knots")
+    println(io, "  State: $(state_name(qcp))")
+    print(io, "  Controls: $(drive_name(qcp))")
 end
 
 # ============================================================================= #
