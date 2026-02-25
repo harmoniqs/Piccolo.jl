@@ -25,7 +25,84 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 # Solve using native knot times
 qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0)
-cached_solve!(qcp, &quot;spline_pulse_basic&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><h3 id="Warm-Starting-from-Previous-Solution"><a class="docs-heading-anchor" href="#Warm-Starting-from-Previous-Solution">Warm-Starting from Previous Solution</a><a id="Warm-Starting-from-Previous-Solution-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-Previous-Solution" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Load previously optimized pulse
+cached_solve!(qcp, &quot;spline_pulse_basic&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SplinePulseProblem with CubicSplinePulse{DataInterpolations.CubicHermiteSpline{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Matrix{Float64}, Vector{Vector{Float64}}, Float64}}...
+    set du bounds to ±10.0 for CubicSplinePulse
+	applying timesteps_all_equal constraint: Δt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/gTLhf/src/problems.jl:66</span>
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:    11084
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:    14462
+
+Total number of variables............................:      683
+                     variables with only lower bounds:       50
+                variables with lower and upper bounds:      584
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      490
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  9.6779821e+01 2.97e-02 4.96e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.3671979e+01 7.56e-04 7.21e+00  -1.1 7.21e-02   2.0 9.98e-01 1.00e+00f  1
+   2  4.0042059e+01 4.90e-02 3.71e+01  -0.8 5.97e-01   1.5 9.84e-01 1.00e+00f  1
+   3  4.5152731e-01 4.62e-02 1.99e+01  -0.2 1.20e+00   1.0 1.00e+00 2.16e-01f  1
+   4  1.3139207e+01 4.38e-03 1.92e+01  -0.4 1.61e-01   0.6 8.05e-01 1.00e+00h  1
+⋮
+  96  1.0670902e-01 4.37e-03 8.47e-03  -3.2 3.22e-01    -  1.00e+00 1.00e+00h  1
+  97  2.6934635e-03 1.33e-02 3.25e-02  -3.2 4.95e-01  -3.9 1.00e+00 1.00e+00h  1
+  98  2.5343115e-03 1.31e-04 2.23e-03  -3.2 5.33e-02  -1.7 1.00e+00 1.00e+00h  1
+  99  1.1065953e-03 5.56e-04 2.07e-03  -4.8 5.61e-02    -  9.30e-01 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  7.1298679e-04 4.02e-03 7.43e-03  -4.8 2.99e-01    -  9.11e-01 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   7.1298679183760415e-04    7.1298679183760415e-04
+Dual infeasibility......:   7.4348989089005665e-03    7.4348989089005665e-03
+Constraint violation....:   4.0216221689757248e-03    4.0216221689757248e-03
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   3.7686388961381778e-05    3.7686388961381778e-05
+Overall NLP error.......:   7.4348989089005665e-03    7.4348989089005665e-03
+
+
+Number of objective function evaluations             = 189
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 189
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 12.718
+
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: initial value of du
+        applying constraint: final value of u
+        applying constraint: final value of du
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from spline_pulse_basic_573ffb2.jld2</code></pre><h3 id="Warm-Starting-from-Previous-Solution"><a class="docs-heading-anchor" href="#Warm-Starting-from-Previous-Solution">Warm-Starting from Previous Solution</a><a id="Warm-Starting-from-Previous-Solution-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-Previous-Solution" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Load previously optimized pulse
 using JLD2
 @load &quot;optimized_pulse.jld2&quot; saved_pulse
 
@@ -35,10 +112,96 @@ qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
 # Use native knot times (no resampling)
 qcp = SplinePulseProblem(qtraj)
 solve!(qcp; max_iter=50)  # Converges quickly from good initial guess</code></pre><h3 id="Resampling-to-Different-Resolution"><a class="docs-heading-anchor" href="#Resampling-to-Different-Resolution">Resampling to Different Resolution</a><a id="Resampling-to-Different-Resolution-1"></a><a class="docs-heading-anchor-permalink" href="#Resampling-to-Different-Resolution" title="Permalink"></a></h3><p>The original pulse above has 50 knots. We can resample to 100 for finer control:</p><pre><code class="language-julia hljs">qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
-cached_solve!(qcp_resampled, &quot;spline_pulse_resampled&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><h3 id="Linear-vs-Cubic-Splines"><a class="docs-heading-anchor" href="#Linear-vs-Cubic-Splines">Linear vs Cubic Splines</a><a id="Linear-vs-Cubic-Splines-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-vs-Cubic-Splines" title="Permalink"></a></h3><p><strong>Linear Splines</strong>: The derivative <code>:du</code> represents the slope between knots. A <code>DerivativeIntegrator</code> constraint enforces <code>du[k] = (u[k+1] - u[k]) / Δt</code>.</p><pre><code class="language-julia hljs">pulse_linear = LinearSplinePulse(controls, times)
+cached_solve!(qcp_resampled, &quot;spline_pulse_resampled&quot;; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SplinePulseProblem with CubicSplinePulse{DataInterpolations.CubicHermiteSpline{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Matrix{Float64}, Vector{Vector{Float64}}, Float64}}...
+	applying timesteps_all_equal constraint: Δt
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/gTLhf/src/problems.jl:66</span>
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:    22534
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:    29512
+
+Total number of variables............................:     1383
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:      988
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      990
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  6.5506788e+00 1.51e-02 1.27e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.6487213e+00 6.08e-03 1.37e+00  -1.4 2.68e+00    -  6.63e-01 6.54e-01f  1
+   2  1.7509838e-02 8.96e-03 3.34e+00  -1.8 9.18e-01  -2.0 5.05e-01 7.10e-01f  1
+   3  1.1172286e-03 6.28e-03 9.10e+00  -4.0 3.84e-01  -0.7 6.45e-01 2.92e-01h  1
+   4  1.4567926e-01 5.12e-04 2.69e-01  -2.2 1.24e-01  -0.2 9.79e-01 1.00e+00h  1
+⋮
+  96  5.0443213e-04 3.93e-06 2.57e-03  -4.0 7.99e-03  -0.6 1.00e+00 1.00e+00h  1
+  97  4.6384257e-04 5.44e-07 7.67e-04  -4.1 3.77e-03  -1.1 1.00e+00 1.00e+00h  1
+  98  3.0384707e-04 1.96e-07 2.00e+02  -6.1 1.53e-03  -1.6 1.00e+00 1.00e+00h  1
+  99  5.1067072e-04 1.09e-05 9.93e+01  -4.0 1.69e-02  -2.1 4.50e-01 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  3.1280147e-04 9.51e-06 2.29e+02  -4.4 1.72e-02  -2.5 1.00e+00 1.43e-01h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.1280147078015762e-04    3.1280147078015762e-04
+Dual infeasibility......:   2.2870804922710613e+02    2.2870804922710613e+02
+Constraint violation....:   9.5142374039181021e-06    9.5142374039181021e-06
+Variable bound violation:   9.9631387584508957e-09    9.9631387584508957e-09
+Complementarity.........:   3.7916079980831969e-05    3.7916079980831969e-05
+Overall NLP error.......:   2.2870804922710613e+02    2.2870804922710613e+02
+
+
+Number of objective function evaluations             = 141
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 141
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 14.907
+
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: initial value of du
+        applying constraint: final value of u
+        applying constraint: final value of du
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from spline_pulse_resampled_573ffb2.jld2</code></pre><h3 id="Linear-vs-Cubic-Splines"><a class="docs-heading-anchor" href="#Linear-vs-Cubic-Splines">Linear vs Cubic Splines</a><a id="Linear-vs-Cubic-Splines-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-vs-Cubic-Splines" title="Permalink"></a></h3><p><strong>Linear Splines</strong>: The derivative <code>:du</code> represents the slope between knots. A <code>DerivativeIntegrator</code> constraint enforces <code>du[k] = (u[k+1] - u[k]) / Δt</code>.</p><pre><code class="language-julia hljs">pulse_linear = LinearSplinePulse(controls, times)
 qtraj_linear = UnitaryTrajectory(sys, pulse_linear, GATES[:X])
 qcp_linear = SplinePulseProblem(qtraj_linear)
-# du is constrained to be consistent with u</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><p><strong>Cubic Splines (Hermite)</strong>: The derivative <code>:du</code> represents independent Hermite tangents at each knot. These are free optimization variables with no inter-knot constraint.</p><pre><code class="language-julia hljs">pulse_cubic = CubicSplinePulse(controls, tangents, times)
+# du is constrained to be consistent with u</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{LinearSplinePulse{DataInterpolations.LinearInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Vector{Vector{Float64}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}, saveat::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusGL4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusGL4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}, Matrix{ComplexF64}}}
+  System: QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}
+  Goal: Matrix{ComplexF64}
+  Trajectory: 50 knots
+  State: Ũ⃗
+  Controls: u</code></pre><p><strong>Cubic Splines (Hermite)</strong>: The derivative <code>:du</code> represents independent Hermite tangents at each knot. These are free optimization variables with no inter-knot constraint.</p><pre><code class="language-julia hljs">pulse_cubic = CubicSplinePulse(controls, tangents, times)
 qtraj_cubic = UnitaryTrajectory(sys, pulse_cubic, GATES[:X])
 qcp_cubic = SplinePulseProblem(qtraj_cubic)
-# du (tangents) are independent variables</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&lt;&lt; @example-block not executed in draft mode &gt;&gt;</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bang_bang_pulse/">« BangBangPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 25 February 2026 19:16">Wednesday 25 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# du (tangents) are independent variables</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{CubicSplinePulse{DataInterpolations.CubicHermiteSpline{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Matrix{Float64}, Vector{Vector{Float64}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}, saveat::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusGL4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.FullSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusGL4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}, Matrix{ComplexF64}}}
+  System: QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#26#27&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#28#29&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}}
+  Goal: Matrix{ComplexF64}
+  Trajectory: 50 knots
+  State: Ũ⃗
+  Controls: u</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bang_bang_pulse/">« BangBangPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 25 February 2026 20:39">Wednesday 25 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
