@@ -1,19 +1,23 @@
 # [Quantum Systems](@id systems-overview)
 
-Piccolo.jl models quantum control using the **bilinear control Hamiltonian**:
+Piccolo.jl models quantum control using **drive-based Hamiltonians**:
 
 ```math
-H(\boldsymbol{u}, t) = H_{\text{drift}} + \sum_{i=1}^{m} u_i(t)\, H_{\text{drive},i}
+H(\boldsymbol{u}, t) = H_{\text{drift}} + \sum_{d} c_d(\boldsymbol{u})\, H_d
 ```
 
 where ``H_{\text{drift}}`` is the always-on Hamiltonian,
-``\{H_{\text{drive},i}\}`` are the controllable interactions, and
-``\boldsymbol{u}(t) \in \mathbb{R}^m`` are the control amplitudes.
+``\{H_d\}`` are the drive operators, and
+``c_d(\boldsymbol{u})`` is a scalar coefficient for each drive.
+For standard bilinear control, ``c_d = u_i`` (`LinearDrive`);
+Piccolo.jl also supports `NonlinearDrive` terms
+(e.g., ``c_d = u_1^2 + u_2^2``) for displaced-frame and cross-Kerr physics.
+See the [Quantum Systems concept page](generated/concepts/systems.md) for details.
 
 For optimization, the Hamiltonian is converted to a **generator**:
 
 ```math
-G(\boldsymbol{u}) = -i\!\left( H_{\text{drift}} + \sum_{i=1}^{m} u_i\, H_{\text{drive},i} \right)
+G(\boldsymbol{u}) = -i\!\left( H_{\text{drift}} + \sum_{d} c_d(\boldsymbol{u})\, H_d \right)
 ```
 
 so that ``\dot{\psi} = G\,\psi`` (ket) or ``\dot{U} = G\,U`` (unitary propagator).
@@ -61,12 +65,32 @@ solve!(qcp)
 For platforms not covered by a template, build directly from matrices:
 
 ```julia
+# Standard linear drives: H(u) = H_drift + u₁ H₁ + u₂ H₂
 H_drift = my_drift_matrix
 H_drives = [my_drive_1, my_drive_2]
 drive_bounds = [1.0, 1.0]
 
 sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 ```
+
+For systems with **nonlinear drive coefficients**, use typed drive terms:
+
+```julia
+using SparseArrays
+
+# H(u) = u₁ σx + u₂ σy + (u₁² + u₂²) σz
+drives = AbstractDrive[
+    LinearDrive(sparse(ComplexF64.(σx)), 1),
+    LinearDrive(sparse(ComplexF64.(σy)), 2),
+    NonlinearDrive(σz,
+        u -> u[1]^2 + u[2]^2,             # coefficient c(u)
+        (u, j) -> j == 1 ? 2u[1] : 2u[2]  # Jacobian ∂c/∂uⱼ
+    ),
+]
+sys = QuantumSystem(H_drift, drives, [1.0, 1.0])
+```
+
+See the [Quantum Systems concept page](../generated/concepts/systems.md) for the full drives API.
 
 All Hamiltonians must be Hermitian (``H = H^\dagger``); Piccolo.jl validates this
 at construction.
