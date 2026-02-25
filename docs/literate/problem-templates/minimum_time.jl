@@ -15,10 +15,10 @@
 #
 # ```julia
 # # This does NOT work
-# qcp_mintime = MinimumTimeProblem(qtraj, N)  # Error!
+# qcp_mintime = MinimumTimeProblem(qtraj)  # Error!
 #
 # # This works
-# qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))
+# qcp_base = SmoothPulseProblem(qtraj; Δt_bounds=(0.01, 0.5))
 # solve!(qcp_base)
 # qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity=0.99)
 # ```
@@ -29,7 +29,7 @@
 #
 # ```julia
 # # Enable free-time optimization in the base problem
-# qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))
+# qcp_base = SmoothPulseProblem(qtraj; Δt_bounds=(0.01, 0.5))
 # ```
 #
 # ## Constructor
