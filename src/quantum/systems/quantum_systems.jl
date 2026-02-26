@@ -329,6 +329,13 @@ function QuantumSystem(
         end
     end
 
+    # Validate NonlinearDrive Jacobians against ForwardDiff
+    for d in drives
+        if d isa NonlinearDrive
+            validate_drive_jacobian(d, n_drives)
+        end
+    end
+
     # Build H(u,t) and G(u,t) from drives
     G_drift = sparse(Isomorphisms.G(H_drift))
     G_drive_mats = [sparse(Isomorphisms.G(d.H)) for d in drives]

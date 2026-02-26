@@ -139,20 +139,20 @@ function update_global_params!(qtraj, traj)
 end
 
 function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
-    if !isempty(sys.drives)
-        # Drives-based system — reconstruct from drives (handles both linear and nonlinear)
+    if !isempty(sys.H_drives)
+        # Matrix-based system — prefer H_drives to preserve closure types
         return QuantumSystem(
             sys.H_drift,
-            sys.drives,
+            sys.H_drives,
             sys.drive_bounds;
             time_dependent = sys.time_dependent,
             global_params = new_global_params,
         )
-    elseif !isempty(sys.H_drives)
-        # Legacy matrix-based system without drives field populated
+    elseif !isempty(sys.drives)
+        # Drives-based system with nonlinear drives (H_drives is empty)
         return QuantumSystem(
             sys.H_drift,
-            sys.H_drives,
+            sys.drives,
             sys.drive_bounds;
             time_dependent = sys.time_dependent,
             global_params = new_global_params,
@@ -175,20 +175,8 @@ function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
 end
 
 function _reconstruct_system(sys::OpenQuantumSystem, new_global_params::NamedTuple)
-    if isempty(sys.H_drives)
-        return OpenQuantumSystem(
-            sys.H,
-            sys.𝒢,
-            sys.H_drift,
-            sys.H_drives,
-            sys.drive_bounds,
-            sys.n_drives,
-            sys.levels,
-            sys.dissipation_operators,
-            sys.time_dependent,
-            new_global_params,
-        )
-    else
+    if !isempty(sys.H_drives)
+        # Matrix-based system — prefer H_drives to preserve closure types
         return OpenQuantumSystem(
             sys.H_drift,
             sys.H_drives,
@@ -196,6 +184,31 @@ function _reconstruct_system(sys::OpenQuantumSystem, new_global_params::NamedTup
             dissipation_operators = sys.dissipation_operators,
             time_dependent = sys.time_dependent,
             global_params = new_global_params,
+        )
+    elseif !isempty(sys.drives)
+        # Drives-based system with nonlinear drives (H_drives is empty)
+        return OpenQuantumSystem(
+            sys.H_drift,
+            sys.drives,
+            sys.drive_bounds;
+            dissipation_operators = sys.dissipation_operators,
+            time_dependent = sys.time_dependent,
+            global_params = new_global_params,
+        )
+    else
+        # Function-based system — just update global_params via inner constructor
+        return OpenQuantumSystem(
+            sys.H,
+            sys.𝒢,
+            sys.H_drift,
+            sys.drives,
+            sys.H_drives,
+            sys.drive_bounds,
+            sys.n_drives,
+            sys.levels,
+            sys.dissipation_operators,
+            sys.time_dependent,
+            new_global_params,
         )
     end
 end

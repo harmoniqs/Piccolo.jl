@@ -105,11 +105,49 @@ H_d
 # | Type | Coefficient | Use case |
 # |------|-------------|----------|
 # | `LinearDrive(H, i)` | ``u_i`` | Standard bilinear control |
-# | `NonlinearDrive(H, f, ∂f)` | ``f(\boldsymbol{u})`` | Displaced frames, cross-Kerr, products |
+# | `NonlinearDrive(H, f)` | ``f(\boldsymbol{u})`` | Displaced frames, cross-Kerr, products |
+# | `NonlinearDrive(H, f, ∂f)` | ``f(\boldsymbol{u})`` | Same, with hand-written Jacobian |
 #
-# A `NonlinearDrive` requires both the coefficient function `f(u)` and its
-# Jacobian `∂f(u, j) = ∂f/∂u_j`. The Jacobian enables analytical sensitivity
-# equations (no finite differences).
+# The **2-argument** `NonlinearDrive(H, f)` constructor is recommended — it
+# auto-generates the Jacobian via ForwardDiff:
+
+using SparseArrays
+
+## Auto-Jacobian (recommended):
+d_auto = NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2)
+
+## Check: ∂(u₁² + u₂²)/∂u₁ at u = [3, 4] should be 6
+drive_coeff_jac(d_auto, [3.0, 4.0, 0.0], 1)
+
+# The **3-argument** form `NonlinearDrive(H, f, ∂f)` is available when you want
+# full control over the Jacobian (e.g., for performance-critical inner loops):
+#
+# ```julia
+# NonlinearDrive(
+#     PAULIS[:Z],
+#     u -> u[1]^2 + u[2]^2,                             # coefficient
+#     (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0  # hand-written Jacobian
+# )
+# ```
+#
+# Hand-written Jacobians are **validated against ForwardDiff** during
+# `QuantumSystem` construction — sign errors or off-by-one bugs are caught
+# immediately.
+#
+# ### Structural Sparsity
+#
+# When a nonlinear drive depends on only a few control indices (e.g., ``u_3^2 + u_4^2``
+# in a 10-control system), you can declare `active_controls` to skip unnecessary
+# Jacobian evaluations in the sensitivity equations:
+
+d_sparse = NonlinearDrive(
+    PAULIS[:Z],
+    u -> u[1]^2 + u[2]^2;
+    active_controls = [1, 2]   ## only u₁ and u₂ affect this drive
+)
+active_controls(d_sparse)
+
+# For `LinearDrive`, `active_controls` is automatically `[index]`.
 #
 # ### Example: Mixed Linear and Nonlinear Drives
 #
@@ -120,16 +158,10 @@ H_d
 # H(\boldsymbol{u}) = u_1\,\sigma_x + u_2\,\sigma_y + (u_1^2 + u_2^2)\,\sigma_z
 # ```
 
-using SparseArrays
-
 drives = AbstractDrive[
     LinearDrive(sparse(ComplexF64.(PAULIS[:X])), 1),     ## u₁ σx
     LinearDrive(sparse(ComplexF64.(PAULIS[:Y])), 2),     ## u₂ σy
-    NonlinearDrive(                                       ## (u₁² + u₂²) σz
-        PAULIS[:Z],
-        u -> u[1]^2 + u[2]^2,                            ## coefficient
-        (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0 ## Jacobian ∂c/∂uⱼ
-    ),
+    NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2),   ## (u₁² + u₂²) σz
 ]
 
 sys_nl = QuantumSystem(zeros(ComplexF64, 2, 2), drives, [1.0, 1.0])
@@ -150,6 +182,17 @@ has_nonlinear_drives(sys_nl.drives)
 # which may differ from the number of drive terms when nonlinear drives combine
 # multiple control channels.
 #
+# ### Accessing Drive Terms
+#
+# Use `get_drive_terms(sys)` to access the full `AbstractDrive` objects with
+# coefficient functions, Jacobians, and active control indices:
+
+get_drive_terms(sys_nl)
+
+# Use `get_drives(sys)` for just the Hamiltonian matrices (one per drive term):
+
+get_drives(sys_nl)
+
 # ### Backward Compatibility
 #
 # The standard matrix-based constructor `QuantumSystem(H_drift, H_drives, bounds)`
@@ -171,10 +214,10 @@ sys_linear.drives  ## auto-populated LinearDrives
 # with the Lindbladian superoperator
 #
 # ```math
-# \mathcal{G}(\boldsymbol{u}) = \mathcal{G}_{\text{drift}} + \sum_{i=1}^{m} u_i\, \mathcal{G}_{\text{drive},i}
+# \mathcal{G}(\boldsymbol{u}) = \mathcal{G}_{\text{drift}} + \sum_{d} c_d(\boldsymbol{u})\, \mathcal{G}_{d}
 # ```
 #
-# which has the same bilinear control structure as the closed-system generator.
+# which has the same generalized drive structure as the closed-system generator.
 #
 # ```julia
 # L_ops = [
@@ -182,10 +225,20 @@ sys_linear.drives  ## auto-populated LinearDrives
 #     sqrt(γ2) * PAULIS[:Z]           # Pure dephasing (T2)
 # ]
 #
+# # Matrix-based (linear drives only)
 # open_sys = OpenQuantumSystem(
 #     H_drift, H_drives, drive_bounds;
 #     dissipation_operators=L_ops
 # )
+#
+# # Typed drives (supports nonlinear coefficients)
+# open_sys = OpenQuantumSystem(
+#     H_drift, drives, drive_bounds;
+#     dissipation_operators=L_ops
+# )
+#
+# # From an existing QuantumSystem (preserves nonlinear drives)
+# open_sys = OpenQuantumSystem(qsys; dissipation_operators=L_ops)
 # ```
 #
 # ### Compact Lindbladian Generators
