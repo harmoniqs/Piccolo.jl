@@ -348,13 +348,11 @@ function QuantumSystem(
         H_drives_compat = SparseMatrixCSC{ComplexF64,Int}[d.H for d in drives]
     end
 
-    drives_stored = AbstractDrive[d for d in drives]
-
     return QuantumSystem(
         H_fn,
         G_fn,
         H_drift,
-        drives_stored,
+        collect(AbstractDrive, drives),
         H_drives_compat,
         drive_bounds,
         n_drives,
