@@ -12,7 +12,6 @@ where ``H_{\text{drift}}`` is the always-on Hamiltonian,
 For standard bilinear control, ``c_d = u_i`` (`LinearDrive`);
 Piccolo.jl also supports `NonlinearDrive` terms
 (e.g., ``c_d = u_1^2 + u_2^2``) for displaced-frame and cross-Kerr physics.
-See the [Quantum Systems concept page](generated/concepts/systems.md) for details.
 
 For optimization, the Hamiltonian is converted to a **generator**:
 
@@ -89,8 +88,6 @@ drives = AbstractDrive[
 ]
 sys = QuantumSystem(H_drift, drives, [1.0, 1.0])
 ```
-
-See the [Quantum Systems concept page](../generated/concepts/systems.md) for the full drives API.
 
 All Hamiltonians must be Hermitian (``H = H^\dagger``); Piccolo.jl validates this
 at construction.
