@@ -1,5 +1,6 @@
 module QuantumTrajectories
 
+using Distributions: Uniform
 using LinearAlgebra
 using OrdinaryDiffEqLinear
 using OrdinaryDiffEqTsit5

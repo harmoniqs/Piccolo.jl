@@ -74,20 +74,19 @@ H_drift = PAULIS[:X]
 H_drives = [PAULIS[:Z], PAULIS[:Y]]
 
 # Generate control trajectory
-N = 100
-Δt = 0.1
-ts = collect(0:Δt:Δt*(N-1))
-u = 0.1 * randn(2, length(ts))
+N, T = 100, 10.0
+times = collect(range(0, T, length = N))
+u = 0.1 * randn(2, N)
 
 # Generate unitaries
-Us = exp.(-im * [(H_drift + sum(u[:, k] .* H_drives)) * ts[k] for k = 1:N])
+Us = exp.(-im * [(H_drift + sum(u[:, k] .* H_drives)) * times[k] for k = 1:N])
 
 # Create trajectory
 traj = NamedTrajectory(
     (
         Ũ⃗ = hcat(operator_to_iso_vec.(Us)...),
         u = u,
-        Δt = ts,
+        Δt = fill(T / N, N),
     );
     controls = :u,
     timestep = :Δt,
@@ -138,16 +137,15 @@ end
     H_drift = PAULIS[:X]
     H_drives = [PAULIS[:Z], PAULIS[:Y]]
 
-    N = 50
-    Δt = 0.1
-    ts = collect(0:Δt:(Δt*(N-1)))
-    u = 0.1 * randn(length(H_drives), length(ts))
+    N, T = 50, 5.0
+    times = collect(range(0, T, length = N))
+    u = 0.1 * randn(length(H_drives), N)
 
     # Generate unitaries via time evolution
-    Us = exp.(-im * [(H_drift + sum(u[:, k] .* H_drives)) * ts[k] for k = 1:N])
+    Us = exp.(-im * [(H_drift + sum(u[:, k] .* H_drives)) * times[k] for k = 1:N])
 
     traj = NamedTrajectory(
-        (Ũ⃗ = hcat(operator_to_iso_vec.(Us)...), u = u, Δt = ts);
+        (Ũ⃗ = hcat(operator_to_iso_vec.(Us)...), u = u, Δt = fill(T / N, N));
         controls = :u,
         timestep = :Δt,
     )

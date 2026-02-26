@@ -72,7 +72,7 @@ function DensityTrajectory(
     algorithm = Tsit5(),
 )
     times = [0.0, T]
-    controls = zeros(system.n_drives, 2)
+    controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
     return DensityTrajectory(system, pulse, initial, goal; algorithm)
 end
