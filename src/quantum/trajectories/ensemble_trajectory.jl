@@ -97,7 +97,7 @@ function MultiKetTrajectory(
     algorithm = MagnusGL4(),
 )
     times = [0.0, T]
-    controls = randn(system.n_drives, 2)
+    controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
     return MultiKetTrajectory(system, pulse, initials, goals; weights, algorithm)
 end
