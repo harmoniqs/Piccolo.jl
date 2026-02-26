@@ -82,8 +82,8 @@ drives = AbstractDrive[
     LinearDrive(sparse(ComplexF64.(σx)), 1),
     LinearDrive(sparse(ComplexF64.(σy)), 2),
     NonlinearDrive(σz,
-        u -> u[1]^2 + u[2]^2,             # coefficient c(u)
-        (u, j) -> j == 1 ? 2u[1] : 2u[2]  # Jacobian ∂c/∂uⱼ
+        u -> u[1]^2 + u[2]^2,                         # coefficient c(u)
+        (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0  # Jacobian ∂c/∂uⱼ
     ),
 ]
 sys = QuantumSystem(H_drift, drives, [1.0, 1.0])
