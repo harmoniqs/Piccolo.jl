@@ -82,7 +82,8 @@ function KetTrajectory(
     algorithm = MagnusGL4(),
 )
     times = [0.0, T]
-    controls = randn(system.n_drives, 2)
+    bounds_scale = [max(abs(b[1]), abs(b[2])) for b in system.drive_bounds]
+    controls = 0.1 .* bounds_scale .* randn(system.n_drives, 2)
     pulse = ZeroOrderPulse(controls, times; drive_name)
     return KetTrajectory(system, pulse, initial, goal; algorithm)
 end
@@ -101,7 +102,8 @@ end
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create with duration
-    T = 1.0
+    N, T = 11, 10.0
+    times = collect(range(0, T, length = N))
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(system, ψ0, ψg, T)
@@ -110,15 +112,15 @@ end
     @test qtraj.system === system
     @test qtraj.initial ≈ ψ0
     @test qtraj.goal ≈ ψg
+    @test duration(qtraj) ≈ T
 
     # Create with explicit pulse
-    times = [0.0, 0.5, 1.0]
-    controls = 0.1 * randn(1, 3)
+    controls = 0.1 * randn(1, N)
     pulse = ZeroOrderPulse(controls, times)
     qtraj2 = KetTrajectory(system, pulse, ψ0, ψg)
 
     @test qtraj2 isa KetTrajectory
-    @test duration(qtraj2) ≈ 1.0
+    @test duration(qtraj2) ≈ T
 end
 
 @testitem "KetTrajectory callable" begin
@@ -126,7 +128,8 @@ end
 
     system = QuantumSystem([PAULIS.X], [1.0])
 
-    T = 1.0
+    N, T = 11, 10.0
+    times = collect(range(0, T, length = N))
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(system, ψ0, ψg, T)
@@ -136,7 +139,7 @@ end
     @test ψ_init ≈ ψ0
 
     # Test at intermediate time
-    ψ_mid = qtraj(0.5)
+    ψ_mid = qtraj(T / 2)
     @test ψ_mid isa Vector{ComplexF64}
     @test length(ψ_mid) == 2
     @test norm(ψ_mid) ≈ 1.0  # Should preserve normalization

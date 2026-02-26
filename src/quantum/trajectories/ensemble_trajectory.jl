@@ -97,7 +97,8 @@ function MultiKetTrajectory(
     algorithm = MagnusGL4(),
 )
     times = [0.0, T]
-    controls = randn(system.n_drives, 2)
+    bounds_scale = [max(abs(b[1]), abs(b[2])) for b in system.drive_bounds]
+    controls = 0.1 .* bounds_scale .* randn(system.n_drives, 2)
     pulse = ZeroOrderPulse(controls, times; drive_name)
     return MultiKetTrajectory(system, pulse, initials, goals; weights, algorithm)
 end
@@ -120,7 +121,8 @@ Base.length(traj::MultiKetTrajectory) = length(traj.initials)
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create with duration
-    T = 1.0
+    N, T = 11, 10.0
+    times = collect(range(0, T, length = N))
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]]
     goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
 
@@ -132,10 +134,10 @@ Base.length(traj::MultiKetTrajectory) = length(traj.initials)
     @test length(qtraj.goals) == 2
     @test length(qtraj.weights) == 2
     @test sum(qtraj.weights) ≈ 1.0  # Default uniform weights
+    @test duration(qtraj) ≈ T
 
     # Create with explicit pulse and weights
-    times = [0.0, 0.5, 1.0]
-    controls = 0.1 * randn(1, 3)
+    controls = 0.1 * randn(1, N)
     pulse = ZeroOrderPulse(controls, times)
     weights = [0.7, 0.3]
 
@@ -151,7 +153,8 @@ end
 
     system = QuantumSystem([PAULIS.X], [1.0])
 
-    T = 1.0
+    N, T = 11, 10.0
+    times = collect(range(0, T, length = N))
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]]
     goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
 
@@ -203,10 +206,11 @@ end
 
     system = QuantumSystem([PAULIS.X], [1.0])
 
+    N, T = 11, 10.0
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0], ComplexF64[1.0, 1.0] / √2]
     goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0], ComplexF64[1.0, -1.0] / √2]
 
-    qtraj = MultiKetTrajectory(system, initials, goals, 1.0)
+    qtraj = MultiKetTrajectory(system, initials, goals, T)
 
     @test state_name(qtraj) == :ψ̃
     @test state_names(qtraj) == [:ψ̃1, :ψ̃2, :ψ̃3]
