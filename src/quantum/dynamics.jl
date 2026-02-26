@@ -139,8 +139,8 @@ function update_global_params!(qtraj, traj)
 end
 
 function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
-    if !isempty(sys.drives) && isempty(sys.H_drives)
-        # Drives-based system (has nonlinear drives) — reconstruct from drives
+    if !isempty(sys.drives)
+        # Drives-based system — reconstruct from drives (handles both linear and nonlinear)
         return QuantumSystem(
             sys.H_drift,
             sys.drives,
@@ -149,7 +149,7 @@ function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
             global_params = new_global_params,
         )
     elseif !isempty(sys.H_drives)
-        # Matrix-based linear system — reconstruct from H_drives
+        # Legacy matrix-based system without drives field populated
         return QuantumSystem(
             sys.H_drift,
             sys.H_drives,
