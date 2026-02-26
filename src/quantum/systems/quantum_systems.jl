@@ -21,9 +21,10 @@ A struct for storing quantum dynamics.
 - `H::Function`: The Hamiltonian function: (u, t) -> H(u, t), where u is the control vector and t is time
 - `G::Function`: The isomorphic generator function: (u, t) -> G(u, t), including the Hamiltonian mapped to superoperator space
 - `H_drift::SparseMatrixCSC{ComplexF64, Int}`: The drift Hamiltonian (time-independent component)
-- `H_drives::Vector{SparseMatrixCSC{ComplexF64, Int}}`: The drive Hamiltonians (control-dependent components)
+- `drives::Vector{AbstractDrive}`: Typed drive terms pairing operators with coefficient functions. For matrix-based constructors, auto-populated as `LinearDrive` objects. For function-based systems, empty.
+- `H_drives::Vector{SparseMatrixCSC{ComplexF64, Int}}`: The drive Hamiltonians (backward compat). Populated for linear-only systems; empty when nonlinear drives are present or for function-based systems.
 - `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds for each control (lower, upper)
-- `n_drives::Int`: The number of control drives in the system
+- `n_drives::Int`: The number of control channels (length of the control vector `u`)
 - `levels::Int`: The number of levels (dimension) in the system
 - `time_dependent::Bool`: Whether the Hamiltonian has explicit time dependence beyond control modulation
 - `global_params::NamedTuple`: Global parameters that the Hamiltonian may depend on (e.g., (δ=0.5, Ω=1.0))
@@ -320,6 +321,13 @@ function QuantumSystem(
     H_drift = sparse(ComplexF64.(H_drift))
     n_drives = length(drive_bounds)
     levels = size(H_drift, 1)
+
+    # Validate LinearDrive indices are within the control dimension
+    for (i, d) in enumerate(drives)
+        if d isa LinearDrive
+            @assert 1 <= d.index <= n_drives "LinearDrive at drives[$i] has index $(d.index) but control dimension is $n_drives (length of drive_bounds)"
+        end
+    end
 
     # Build H(u,t) and G(u,t) from drives
     G_drift = sparse(Isomorphisms.G(H_drift))
