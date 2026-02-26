@@ -82,8 +82,7 @@ function UnitaryTrajectory(
     algorithm = MagnusGL4(),
 ) where {G}
     times = [0.0, T]
-    bounds_scale = [max(abs(b[1]), abs(b[2])) for b in system.drive_bounds]
-    controls = 0.1 .* bounds_scale .* randn(system.n_drives, 2)
+    controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
     return UnitaryTrajectory(system, pulse, goal; algorithm)
 end
