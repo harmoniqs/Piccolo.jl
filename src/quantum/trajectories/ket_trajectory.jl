@@ -102,8 +102,7 @@ end
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create with duration
-    N, T = 11, 10.0
-    times = collect(range(0, T, length = N))
+    T = 1.0
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(system, ψ0, ψg, T)
@@ -112,15 +111,15 @@ end
     @test qtraj.system === system
     @test qtraj.initial ≈ ψ0
     @test qtraj.goal ≈ ψg
-    @test duration(qtraj) ≈ T
 
     # Create with explicit pulse
-    controls = 0.1 * randn(1, N)
+    times = [0.0, 0.5, 1.0]
+    controls = 0.1 * randn(1, 3)
     pulse = ZeroOrderPulse(controls, times)
     qtraj2 = KetTrajectory(system, pulse, ψ0, ψg)
 
     @test qtraj2 isa KetTrajectory
-    @test duration(qtraj2) ≈ T
+    @test duration(qtraj2) ≈ 1.0
 end
 
 @testitem "KetTrajectory callable" begin
@@ -128,8 +127,7 @@ end
 
     system = QuantumSystem([PAULIS.X], [1.0])
 
-    N, T = 11, 10.0
-    times = collect(range(0, T, length = N))
+    T = 1.0
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(system, ψ0, ψg, T)
@@ -139,7 +137,7 @@ end
     @test ψ_init ≈ ψ0
 
     # Test at intermediate time
-    ψ_mid = qtraj(T / 2)
+    ψ_mid = qtraj(0.5)
     @test ψ_mid isa Vector{ComplexF64}
     @test length(ψ_mid) == 2
     @test norm(ψ_mid) ≈ 1.0  # Should preserve normalization

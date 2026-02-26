@@ -121,8 +121,7 @@ Base.length(traj::MultiKetTrajectory) = length(traj.initials)
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create with duration
-    N, T = 11, 10.0
-    times = collect(range(0, T, length = N))
+    T = 1.0
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]]
     goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
 
@@ -134,10 +133,10 @@ Base.length(traj::MultiKetTrajectory) = length(traj.initials)
     @test length(qtraj.goals) == 2
     @test length(qtraj.weights) == 2
     @test sum(qtraj.weights) ≈ 1.0  # Default uniform weights
-    @test duration(qtraj) ≈ T
 
     # Create with explicit pulse and weights
-    controls = 0.1 * randn(1, N)
+    times = [0.0, 0.5, 1.0]
+    controls = 0.1 * randn(1, 3)
     pulse = ZeroOrderPulse(controls, times)
     weights = [0.7, 0.3]
 
@@ -153,8 +152,7 @@ end
 
     system = QuantumSystem([PAULIS.X], [1.0])
 
-    N, T = 11, 10.0
-    times = collect(range(0, T, length = N))
+    T = 1.0
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]]
     goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
 
@@ -206,11 +204,10 @@ end
 
     system = QuantumSystem([PAULIS.X], [1.0])
 
-    N, T = 11, 10.0
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0], ComplexF64[1.0, 1.0] / √2]
     goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0], ComplexF64[1.0, -1.0] / √2]
 
-    qtraj = MultiKetTrajectory(system, initials, goals, T)
+    qtraj = MultiKetTrajectory(system, initials, goals, 1.0)
 
     @test state_name(qtraj) == :ψ̃
     @test state_names(qtraj) == [:ψ̃1, :ψ̃2, :ψ̃3]

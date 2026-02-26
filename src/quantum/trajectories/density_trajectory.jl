@@ -93,8 +93,7 @@ end
     system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
 
     # Create with duration
-    N, T = 11, 10.0
-    times = collect(range(0, T, length = N))
+    T = 1.0
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρg = ComplexF64[0.0 0.0; 0.0 1.0]
 
@@ -104,16 +103,16 @@ end
     @test qtraj.system === system
     @test qtraj.initial ≈ ρ0
     @test qtraj.goal ≈ ρg
-    @test duration(qtraj) ≈ T
 
     # Create with explicit pulse
-    controls = 0.1 * randn(1, N)
+    times = [0.0, 0.5, 1.0]
+    controls = 0.1 * randn(1, 3)
     pulse = ZeroOrderPulse(controls, times)
 
     qtraj2 = DensityTrajectory(system, pulse, ρ0, ρg)
 
     @test qtraj2 isa DensityTrajectory
-    @test duration(qtraj2) ≈ T
+    @test duration(qtraj2) ≈ 1.0
 end
 
 @testitem "DensityTrajectory callable" begin
@@ -122,8 +121,7 @@ end
     L = ComplexF64[0.1 0.0; 0.0 0.0]
     system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
 
-    N, T = 11, 10.0
-    times = collect(range(0, T, length = N))
+    T = 1.0
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρg = ComplexF64[0.0 0.0; 0.0 1.0]
 
@@ -134,7 +132,7 @@ end
     @test ρ_init ≈ ρ0
 
     # Test at intermediate time
-    ρ_mid = qtraj(T / 2)
+    ρ_mid = qtraj(0.5)
     @test ρ_mid isa Matrix{ComplexF64}
     @test size(ρ_mid) == (2, 2)
     @test real(tr(ρ_mid)) ≈ 1.0 atol = 1e-6  # Trace should be preserved

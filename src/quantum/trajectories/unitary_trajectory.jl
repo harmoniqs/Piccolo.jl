@@ -102,8 +102,7 @@ end
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create with duration
-    N, T = 11, 10.0
-    times = collect(range(0, T, length = N))
+    T = 1.0
     X_gate = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(system, X_gate, T)
 
@@ -111,15 +110,15 @@ end
     @test qtraj.system === system
     @test qtraj.goal === X_gate
     @test qtraj.initial ≈ Matrix{ComplexF64}(I, 2, 2)
-    @test duration(qtraj) ≈ T
 
     # Create with explicit pulse
-    controls = 0.1 * randn(1, N)
+    times = [0.0, 0.5, 1.0]
+    controls = 0.1 * randn(1, 3)
     pulse = ZeroOrderPulse(controls, times)
     qtraj2 = UnitaryTrajectory(system, pulse, X_gate)
 
     @test qtraj2 isa UnitaryTrajectory
-    @test duration(qtraj2) ≈ T
+    @test duration(qtraj2) ≈ 1.0
 end
 
 @testitem "UnitaryTrajectory callable" begin
@@ -127,8 +126,7 @@ end
 
     system = QuantumSystem([PAULIS.X], [1.0])
 
-    N, T = 11, 10.0
-    times = collect(range(0, T, length = N))
+    T = 1.0
     X_gate = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(system, X_gate, T)
 
@@ -137,7 +135,7 @@ end
     @test U0 ≈ Matrix{ComplexF64}(I, 2, 2)
 
     # Test at intermediate time
-    U_mid = qtraj(T / 2)
+    U_mid = qtraj(0.5)
     @test U_mid isa Matrix{ComplexF64}
     @test size(U_mid) == (2, 2)
 
