@@ -17,10 +17,11 @@ A struct for storing open quantum dynamics.
 - `levels::Int`: The number of levels in the system
 - `dissipation_operators::Vector{SparseMatrixCSC{ComplexF64, Int}}`: The dissipation operators
 - `time_dependent::Bool`: Whether the Hamiltonian has explicit time dependence
+- `global_params::NamedTuple`: Global parameters stored with the system (e.g., physical constants)
 
 See also [`QuantumSystem`](@ref Piccolo.Quantum.QuantumSystems.QuantumSystem).
 """
-struct OpenQuantumSystem{F1<:Function,F2<:Function} <: AbstractQuantumSystem
+struct OpenQuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple} <: AbstractQuantumSystem
     H::F1
     𝒢::F2
     H_drift::SparseMatrixCSC{ComplexF64,Int}
@@ -30,6 +31,7 @@ struct OpenQuantumSystem{F1<:Function,F2<:Function} <: AbstractQuantumSystem
     levels::Int
     dissipation_operators::Vector{SparseMatrixCSC{ComplexF64,Int}}
     time_dependent::Bool
+    global_params::PT
 end
 
 """
@@ -37,29 +39,33 @@ end
         H_drift::AbstractMatrix{<:Number},
         H_drives::AbstractVector{<:AbstractMatrix{<:Number}},
         drive_bounds::DriveBounds;
-        dissipation_operators::AbstractVector{<:AbstractMatrix{<:Number}}=Matrix{ComplexF64}[],
-        time_dependent::Bool=false
+        dissipation_operators=Matrix{ComplexF64}[],
+        time_dependent::Bool=false,
+        global_params::NamedTuple=NamedTuple()
     )
     OpenQuantumSystem(
         H_drift::AbstractMatrix{<:Number};
-        dissipation_operators::AbstractVector{<:AbstractMatrix{<:Number}}=Matrix{ComplexF64}[],
-        time_dependent::Bool=false
+        dissipation_operators=Matrix{ComplexF64}[],
+        time_dependent::Bool=false,
+        global_params::NamedTuple=NamedTuple()
     )
     OpenQuantumSystem(
         H_drives::Vector{<:AbstractMatrix{<:Number}},
         drive_bounds::DriveBounds;
-        dissipation_operators::AbstractVector{<:AbstractMatrix{<:Number}}=Matrix{ComplexF64}[],
-        time_dependent::Bool=false
+        dissipation_operators=Matrix{ComplexF64}[],
+        time_dependent::Bool=false,
+        global_params::NamedTuple=NamedTuple()
     )
     OpenQuantumSystem(
-        H::Function, 
+        H::Function,
         drive_bounds::DriveBounds;
-        dissipation_operators::Vector{<:AbstractMatrix{<:Number}}=Matrix{ComplexF64}[],
-        time_dependent::Bool=false
+        dissipation_operators=Matrix{ComplexF64}[],
+        time_dependent::Bool=false,
+        global_params::NamedTuple=NamedTuple()
     )
     OpenQuantumSystem(
-        system::QuantumSystem; 
-        dissipation_operators::Vector{<:AbstractMatrix{<:Number}}=Matrix{ComplexF64}[]
+        system::QuantumSystem;
+        dissipation_operators=Matrix{ComplexF64}[]
     )
 
 Constructs an OpenQuantumSystem object from the drift and drive Hamiltonian terms and
@@ -76,6 +82,7 @@ function OpenQuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
     time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
@@ -113,6 +120,7 @@ function OpenQuantumSystem(
         levels,
         sparse.(dissipation_operators),
         time_dependent,
+        _float_params(global_params),
     )
 end
 
@@ -127,6 +135,7 @@ function OpenQuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
     time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
 ) where {ℂ<:Number}
     @assert !isempty(H_drives) "At least one drive is required"
     return OpenQuantumSystem(
@@ -135,6 +144,7 @@ function OpenQuantumSystem(
         drive_bounds;
         dissipation_operators = dissipation_operators,
         time_dependent = time_dependent,
+        global_params = global_params,
     )
 end
 
@@ -147,6 +157,7 @@ function OpenQuantumSystem(
     H_drift::AbstractMatrix{ℂ};
     dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
     time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
 ) where {ℂ<:Number}
     return OpenQuantumSystem(
         H_drift,
@@ -154,6 +165,7 @@ function OpenQuantumSystem(
         Float64[];
         dissipation_operators = dissipation_operators,
         time_dependent = time_dependent,
+        global_params = global_params,
     )
 end
 
@@ -167,6 +179,7 @@ function OpenQuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     dissipation_operators::Vector{<:AbstractMatrix{ℂ}} = Matrix{ComplexF64}[],
     time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
 ) where {F<:Function,ℂ<:Number}
 
     drive_bounds = normalize_drive_bounds(drive_bounds)
@@ -194,6 +207,7 @@ function OpenQuantumSystem(
         levels,
         sparse.(dissipation_operators),
         time_dependent,
+        _float_params(global_params),
     )
 end
 
@@ -212,7 +226,46 @@ function OpenQuantumSystem(
         system.drive_bounds;
         dissipation_operators = dissipation_operators,
         time_dependent = system.time_dependent,
+        global_params = system.global_params,
     )
+end
+
+# ----------------------------------------------------------------------------- #
+# Compact Lindbladian generators
+# ----------------------------------------------------------------------------- #
+
+"""
+    compact_lindbladian_generators(sys::OpenQuantumSystem)
+
+Compute the compact Lindbladian generators for use with the compact density
+isomorphism. Returns `(𝒢c_drift, 𝒢c_drives)` where:
+
+- `𝒢c_drift = P * (𝒢_drift + 𝒟) * L` — compact drift + dissipation generator (n² × n²)
+- `𝒢c_drives[i] = P * 𝒢_drives[i] * L` — compact drive generators (each n² × n²)
+
+These satisfy `ẋ = (𝒢c_drift + Σ uᵢ 𝒢c_drives[i]) * x` where `x` is the compact
+iso vector from `density_to_compact_iso`.
+"""
+function compact_lindbladian_generators(sys::OpenQuantumSystem)
+    n = sys.levels
+
+    # Reconstruct full Lindbladian components from stored fields
+    𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(sys.H_drift))
+    𝒢_drives = [Isomorphisms.G(Isomorphisms.ad_vec(H_d)) for H_d in sys.H_drives]
+
+    if isempty(sys.dissipation_operators)
+        𝒟 = spzeros(size(𝒢_drift))
+    else
+        𝒟 = sum(Isomorphisms.iso_D(L) for L in sys.dissipation_operators)
+    end
+
+    L = Isomorphisms.density_lift_matrix(n)
+    P = Isomorphisms.density_projection_matrix(n)
+
+    𝒢c_drift = P * (𝒢_drift + 𝒟) * L
+    𝒢c_drives = [P * 𝒢d * L for 𝒢d in 𝒢_drives]
+
+    return 𝒢c_drift, 𝒢c_drives
 end
 
 # ******************************************************************************* #

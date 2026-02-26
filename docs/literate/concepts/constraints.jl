@@ -1,24 +1,26 @@
 # # [Constraints](@id constraints-concept)
 #
-# Constraints define hard requirements that optimized solutions must satisfy.
-# Unlike objectives (which are minimized), constraints are enforced exactly.
+# Constraints are hard requirements enforced exactly by the NLP solver (Ipopt).
+# Unlike objectives (which are minimized), constraints must be satisfied at
+# every feasible solution.
 #
 # ## Overview
 #
-# Piccolo.jl supports several constraint types:
+# The full NLP (see [Concepts Overview](@ref concepts-overview)) has three
+# classes of constraints:
 #
-# | Constraint Type | Description |
-# |-----------------|-------------|
-# | Bound constraints | Limits on variable values |
-# | Fidelity constraints | Minimum fidelity requirements |
-# | Leakage constraints | Maximum allowed leakage |
-# | Equality constraints | Custom equality requirements |
+# | Class | Mathematical Form | Piccolo Source |
+# |-------|-------------------|----------------|
+# | **Dynamics** (equality) | ``x_{k+1} = \exp(\Delta t_k\, G(\boldsymbol{u}_k))\, x_k`` | `BilinearIntegrator` |
+# | **Box bounds** (inequality) | ``\boldsymbol{u}_{\min} \leq \boldsymbol{u}_k \leq \boldsymbol{u}_{\max}`` | `QuantumSystem.drive_bounds` |
+# | **Custom** (equality / inequality) | fidelity floors, leakage ceilings, … | `PiccoloOptions`, manual |
 #
 # ## Bound Constraints
 #
 # ### Control Bounds
 #
-# Control bounds are specified in the `QuantumSystem` and automatically enforced:
+# Control bounds ``u_i^{\min} \leq u_{i,k} \leq u_i^{\max}`` are inherited
+# from the `QuantumSystem` and enforced at every knot point:
 
 using Piccolo
 
@@ -30,7 +32,14 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 
 # ### Derivative Bounds
 #
-# Derivative bounds limit how fast controls can change:
+# Derivative bounds limit how fast controls can change.  For
+# `SmoothPulseProblem` the discrete differences
+# ``\Delta\boldsymbol{u}_k = \boldsymbol{u}_k - \boldsymbol{u}_{k-1}`` and
+# ``\Delta^2\boldsymbol{u}_k`` are bounded element-wise:
+#
+# ```math
+# |\Delta u_{i,k}| \leq b_{du}, \qquad |\Delta^2 u_{i,k}| \leq b_{ddu}
+# ```
 
 T, N = 10.0, 100
 times = collect(range(0, T, length = N))
@@ -49,33 +58,28 @@ fidelity(qcp)
 
 # ### Timestep Bounds
 #
-# For free-time optimization:
+# For free-time optimization the timestep ``\Delta t_k`` becomes a decision
+# variable with box constraints:
+#
+# ```math
+# \Delta t_{\min} \leq \Delta t_k \leq \Delta t_{\max}
+# ```
 #
 # ```julia
-# qcp = SmoothPulseProblem(
-#     qtraj, N;
-#     Δt_bounds=(0.01, 0.5)  # Min and max timestep
-# )
+# qcp = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))
 # ```
 #
 # ## Fidelity Constraints
 #
-# Used with `MinimumTimeProblem` to enforce minimum gate quality.
+# Used with `MinimumTimeProblem` to enforce a minimum gate quality while
+# minimizing total time ``T = \sum_k \Delta t_k``:
 #
-# ### FinalUnitaryFidelityConstraint
-#
-# ```julia
-# constraint = FinalUnitaryFidelityConstraint(
-#     :Ũ⃗,        # State variable name
-#     U_goal,    # Target unitary
-#     0.99       # Minimum fidelity
-# )
+# ```math
+# \min_{\boldsymbol{u},\,\Delta t} \;\sum_{k=1}^{N} \Delta t_k
+# \quad \text{s.t.} \quad F(x_N) \geq F_{\min}
 # ```
 #
 # ### Automatic Setup in MinimumTimeProblem
-#
-# You typically don't create fidelity constraints manually.
-# `MinimumTimeProblem` adds them automatically:
 
 ## First solve a base problem with variable timesteps
 qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds = (0.01, 0.5))
@@ -89,9 +93,12 @@ fidelity(qcp_mintime)
 
 # ## Leakage Constraints
 #
-# ### Via PiccoloOptions
+# For multilevel systems where ``d > d_{\text{comp}}``, leakage to
+# non-computational states can be bounded:
 #
-# The easiest approach to handle leakage:
+# ```math
+# 1 - \sum_{j \in \mathcal{S}_{\text{comp}}} \langle j | \rho_N | j \rangle \;\leq\; \epsilon_{\text{leak}}
+# ```
 
 opts = PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 1e-3)
 
@@ -108,77 +115,39 @@ fidelity(qcp_leak)
 # ## PiccoloOptions
 #
 # `PiccoloOptions` provides a convenient way to configure common constraint
-# settings:
-#
-# ```julia
-# opts = PiccoloOptions(
-#     # Leakage handling
-#     leakage_constraint=true,
-#     leakage_constraint_value=1e-3,
-#     leakage_cost=10.0,  # Also adds objective
-#
-#     # Timestep handling
-#     timesteps_all_equal=false,
-#
-#     # Verbosity
-#     verbose=true
-# )
-# ```
-#
-# ### Key Options
+# and objective settings:
 #
 # | Option | Type | Default | Description |
 # |--------|------|---------|-------------|
 # | `leakage_constraint` | `Bool` | `false` | Enable leakage constraint |
-# | `leakage_constraint_value` | `Float64` | `1e-3` | Maximum leakage |
+# | `leakage_constraint_value` | `Float64` | `1e-3` | Maximum leakage ``\epsilon_{\text{leak}}`` |
 # | `leakage_cost` | `Float64` | `0.0` | Leakage objective weight |
 # | `timesteps_all_equal` | `Bool` | `false` | Force uniform timesteps |
 # | `verbose` | `Bool` | `false` | Print solver progress |
 #
 # ## Constraints vs Objectives
 #
-# Understanding when to use each:
-#
 # | Use Case | Constraint | Objective |
 # |----------|------------|-----------|
-# | Must achieve F ≥ 0.99 | ✓ Fidelity constraint | |
-# | Prefer higher fidelity | | ✓ Infidelity objective |
-# | Control must be ≤ 1.0 | ✓ Bound constraint | |
-# | Prefer smaller controls | | ✓ Regularization |
-# | Leakage must be < 1e-3 | ✓ Leakage constraint | |
-# | Prefer less leakage | | ✓ Leakage objective |
+# | Must achieve ``F \geq 0.99`` | Fidelity constraint | |
+# | Prefer higher fidelity | | Infidelity objective |
+# | Control must be ``\leq 1.0`` | Bound constraint | |
+# | Prefer smaller controls | | Regularization |
+# | Leakage must be ``< 10^{-3}`` | Leakage constraint | |
+# | Prefer less leakage | | Leakage objective |
 #
-# ### Trade-offs
-#
-# **Constraints:**
-# - Guarantee satisfaction (if feasible)
-# - Can make problem harder to solve
-# - May be infeasible
-#
-# **Objectives:**
-# - More flexible
-# - Easier optimization
-# - No guarantees
-#
-# ### Recommendation
-#
-# Start with objectives, add constraints for hard requirements.
+# **Trade-off**: Constraints guarantee satisfaction (if feasible) but can make
+# the problem harder to solve.  Objectives are softer but offer no guarantees.
+# A practical strategy is to start with objectives alone, then add constraints
+# for hard requirements.
 #
 # ## Constraint Feasibility
 #
-# ### Common Causes of Infeasibility
-#
-# 1. **Fidelity too high**: Target fidelity may not be achievable
-# 2. **Time too short**: Insufficient time for the gate
-# 3. **Bounds too tight**: Controls can't reach required values
-# 4. **Conflicting constraints**: e.g., low leakage with high fidelity in short time
-#
-# ### Solutions
-#
-# 1. **Relax constraints**: Lower fidelity target, increase time
-# 2. **Better initialization**: Start from a working solution
-# 3. **Adjust bounds**: Allow larger controls or longer time
-# 4. **Use objectives first**: Find a good solution, then add constraints
+# Common causes of infeasibility:
+# 1. Target fidelity too high for the given gate time
+# 2. Insufficient time for the gate (quantum speed limit)
+# 3. Control bounds too tight
+# 4. Conflicting constraints (e.g., low leakage + high fidelity + short time)
 #
 # ## Best Practices
 #
@@ -192,7 +161,6 @@ fidelity(qcp_simple)
 # ### 2. Add Constraints Gradually
 #
 # ```julia
-# # Then add constraints if needed
 # if fidelity(qcp_simple) > 0.99
 #     qcp_constrained = MinimumTimeProblem(qcp_simple; final_fidelity=0.99)
 #     solve!(qcp_constrained)

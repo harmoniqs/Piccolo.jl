@@ -15,10 +15,10 @@
 #
 # ```julia
 # # This does NOT work
-# qcp_mintime = MinimumTimeProblem(qtraj, N)  # Error!
+# qcp_mintime = MinimumTimeProblem(qtraj)  # Error!
 #
 # # This works
-# qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))
+# qcp_base = SmoothPulseProblem(qtraj; Δt_bounds=(0.01, 0.5))
 # solve!(qcp_base)
 # qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity=0.99)
 # ```
@@ -29,7 +29,7 @@
 #
 # ```julia
 # # Enable free-time optimization in the base problem
-# qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))
+# qcp_base = SmoothPulseProblem(qtraj; Δt_bounds=(0.01, 0.5))
 # ```
 #
 # ## Constructor
@@ -122,7 +122,7 @@ for target_fidelity in [0.999, 0.99, 0.95, 0.90]
 end
 
 println("Fidelity-Time Trade-off")
-println("─" ^ 50)
+println("─"^50)
 for r in results
     @printf(
         "  Target: %.3f  │  Duration: %.3f  │  Achieved: %.4f\n",
@@ -196,6 +196,7 @@ cached_solve!(qcp_y, "mintime_y_gate"; max_iter = 100)
 # ## See Also
 #
 # - [SmoothPulseProblem](@ref smooth-pulse) - Base problem for piecewise constant controls
+# - [BangBangPulseProblem](@ref bang-bang-pulse) - Base problem for bang-bang controls
 # - [SplinePulseProblem](@ref spline-pulse) - Base problem for spline controls
 # - [SamplingProblem](@ref sampling) - Add robustness before minimizing time
 # - [Composing Templates](@ref composition) - Advanced composition patterns

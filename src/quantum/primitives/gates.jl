@@ -10,19 +10,19 @@ The 2×2 Pauli matrics and identity.
 """
 const PAULIS = (
     I = ComplexF64[
-        1 0;
+        1 0
         0 1
     ],
     X = ComplexF64[
-        0 1;
+        0 1
         1 0
     ],
     Y = ComplexF64[
-        0 -im;
+        0 -im
         im 0
     ],
     Z = ComplexF64[
-        1 0;
+        1 0
         0 -1
     ],
 )
@@ -46,31 +46,31 @@ const GATES = (
     Y = PAULIS.Y,
     Z = PAULIS.Z,
     H = ComplexF64[
-        1 1;
+        1 1
         1 -1
-    ]/√2,
+    ] / √2,
     CX = ComplexF64[
-        1 0 0 0;
-        0 1 0 0;
-        0 0 0 1;
+        1 0 0 0
+        0 1 0 0
+        0 0 0 1
         0 0 1 0
     ],
     CZ = ComplexF64[
-        1 0 0 0;
-        0 1 0 0;
-        0 0 1 0;
+        1 0 0 0
+        0 1 0 0
+        0 0 1 0
         0 0 0 -1
     ],
     XI = ComplexF64[
-        0 0 -im 0;
-        0 0 0 -im;
-        -im 0 0 0;
+        0 0 -im 0
+        0 0 0 -im
+        -im 0 0 0
         0 -im 0 0
     ],
     sqrtiSWAP = ComplexF64[
-        1 0 0 0;
-        0 1/√2 1im/√2 0;
-        0 1im/√2 1/√2 0;
+        1 0 0 0
+        0 1/√2 1im/√2 0
+        0 1im/√2 1/√2 0
         0 0 0 1
     ],
 )

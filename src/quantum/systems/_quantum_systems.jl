@@ -9,6 +9,7 @@ export CompositeQuantumSystem
 export get_drift
 export get_drives
 export get_c_ops
+export compact_lindbladian_generators
 
 using ..Isomorphisms
 using ..QuantumObjectUtils
@@ -111,6 +112,18 @@ end
 # ----------------------------------------------------------------------------- #
 
 function get_c_ops end
+
+# ----------------------------------------------------------------------------- #
+# Global parameter utilities
+# ----------------------------------------------------------------------------- #
+
+"""
+    _float_params(nt::NamedTuple)
+
+Convert all values in a NamedTuple to their floating-point equivalents.
+Ensures type-stable ODE solutions when global parameters are updated during optimization.
+"""
+_float_params(nt::NamedTuple{K}) where {K} = NamedTuple{K}(float.(values(nt)))
 
 # ----------------------------------------------------------------------------- #
 # Quantum System Types

@@ -596,9 +596,8 @@ end
     @test duration_after <= duration_before * 1.1
 end
 
-@testitem "MinimumTimeProblem with time-dependent SamplingTrajectory (Unitary)" tags=[
-    :experimental,
-] begin
+@testitem "MinimumTimeProblem with time-dependent SamplingTrajectory (Unitary)" tags =
+    [:experimental] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra

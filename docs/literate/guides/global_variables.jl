@@ -209,5 +209,5 @@ optimized_global_data = traj_multi.global_data
 # ## See Also
 #
 # - [SamplingProblem](@ref sampling) - For parameter robustness
-# - [Quantum Systems](@ref quantum-systems) - System construction
+# - [Quantum Systems](@ref systems-overview) - System construction
 # - [Problem Templates](@ref problem-templates-overview) - Main optimization API

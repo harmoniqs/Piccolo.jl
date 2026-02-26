@@ -111,29 +111,36 @@ function update_global_params!(qtraj, traj)
         return nothing
     end
 
-    # Extract optimized global values from trajectory
-    global_dict = Dict{Symbol,Any}()
-    for (name, indices) in pairs(traj.global_components)
+    # Extract optimized global values preserving original key order from the system.
+    # Using the original key order is critical: NamedTuples with different key orders are
+    # different types in Julia, so reordering keys would cause type mismatches when rollout!
+    # tries to assign the new solution back to the parametrically-typed trajectory.
+    sys = qtraj.system
+    original_keys = keys(sys.global_params)
+
+    new_values = map(original_keys) do name
+        indices = traj.global_components[name]
         if length(indices) == 1
-            global_dict[name] = traj.global_data[indices[1]]
+            traj.global_data[indices[1]]
         else
             # Multi-dimensional globals (future support)
-            global_dict[name] = traj.global_data[indices]
+            traj.global_data[indices]
         end
     end
 
-    # Reconstruct system with updated global_params
-    sys = qtraj.system
-    new_global_params = NamedTuple(global_dict)
+    new_global_params = NamedTuple{original_keys}(new_values)
 
-    # Choose reconstruction strategy based on how the system was originally constructed
-    # For function-based systems, H_drives is empty. We cannot reconstruct from the 
-    # original H function, but we can update the stored global_params field.
+    new_sys = _reconstruct_system(sys, new_global_params)
+
+    # Update the quantum trajectory's system field (using internal method)
+    _update_system!(qtraj, new_sys)
+
+    return nothing
+end
+
+function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
     if isempty(sys.H_drives)
-        # Function-based system: directly update global_params field
-        # Note: The H function won't automatically see these new values unless it
-        # was designed to read from sys.global_params (e.g., via a reference)
-        new_sys = QuantumSystem(
+        return QuantumSystem(
             sys.H,
             sys.G,
             sys.H_drift,
@@ -145,8 +152,7 @@ function update_global_params!(qtraj, traj)
             new_global_params,
         )
     else
-        # Matrix-based system: reconstruct from drift and drives
-        new_sys = QuantumSystem(
+        return QuantumSystem(
             sys.H_drift,
             sys.H_drives,
             sys.drive_bounds;
@@ -154,11 +160,32 @@ function update_global_params!(qtraj, traj)
             global_params = new_global_params,
         )
     end
+end
 
-    # Update the quantum trajectory's system field (using internal method)
-    _update_system!(qtraj, new_sys)
-
-    return nothing
+function _reconstruct_system(sys::OpenQuantumSystem, new_global_params::NamedTuple)
+    if isempty(sys.H_drives)
+        return OpenQuantumSystem(
+            sys.H,
+            sys.𝒢,
+            sys.H_drift,
+            sys.H_drives,
+            sys.drive_bounds,
+            sys.n_drives,
+            sys.levels,
+            sys.dissipation_operators,
+            sys.time_dependent,
+            new_global_params,
+        )
+    else
+        return OpenQuantumSystem(
+            sys.H_drift,
+            sys.H_drives,
+            sys.drive_bounds;
+            dissipation_operators = sys.dissipation_operators,
+            time_dependent = sys.time_dependent,
+            global_params = new_global_params,
+        )
+    end
 end
 
 """
@@ -782,8 +809,8 @@ end
     ρT = ρ_sol.u[end]
 
     @test ψT ≈ UT * ψ0
-    @test ρT ≈ ψT * ψT' atol=1e-5
-    @test ρT ≈ UT * ρ0 * UT' atol=1e-5
+    @test ρT ≈ ψT * ψT' atol = 1e-5
+    @test ρT ≈ UT * ρ0 * UT' atol = 1e-5
 end
 
 @testitem "Rollouts with all Pulse types" begin
@@ -836,7 +863,7 @@ end
         # Note: different solvers (Tsit5 vs MagnusGL4) have different accuracy
         ψT = ket_sol.u[end]
         UT = U_sol.u[end]
-        @test ψT ≈ UT * ψ0 atol=1e-2
+        @test ψT ≈ UT * ψ0 atol = 1e-2
     end
 end
 
@@ -854,21 +881,21 @@ end
     # Create GaussianPulse with 2 drives
     # Constructor: GaussianPulse(amplitudes, sigmas, centers, duration)
     amplitudes = [1.0, 0.5]
-    sigmas = [T/4, T/4]
-    centers = [T/2, T/2]
+    sigmas = [T / 4, T / 4]
+    centers = [T / 2, T / 2]
     pulse = GaussianPulse(amplitudes, sigmas, centers, T)
 
     # Verify pulse properties
     @test duration(pulse) == T
     @test n_drives(pulse) == 2
-    @test length(pulse(T/2)) == 2
+    @test length(pulse(T / 2)) == 2
 
     # Peak should be at t = center (T/2)
-    @test pulse(T/2)[1] ≈ 1.0 atol=1e-10
-    @test pulse(T/2)[2] ≈ 0.5 atol=1e-10
+    @test pulse(T / 2)[1] ≈ 1.0 atol = 1e-10
+    @test pulse(T / 2)[2] ≈ 0.5 atol = 1e-10
 
     # Should be symmetric around center
-    @test pulse(0.25)[1] ≈ pulse(0.75)[1] atol=1e-10
+    @test pulse(0.25)[1] ≈ pulse(0.75)[1] atol = 1e-10
 
     # KetODEProblem
     ket_prob = KetODEProblem(sys, pulse, ψ0, times)
@@ -884,7 +911,7 @@ end
     # Note: different solvers (Tsit5 vs MagnusGL4) have different accuracy
     ψT = ket_sol.u[end]
     UT = U_sol.u[end]
-    @test ψT ≈ UT * ψ0 atol=1e-2
+    @test ψT ≈ UT * ψ0 atol = 1e-2
 end
 
 @testitem "Two ways to check fidelity" begin
@@ -907,7 +934,7 @@ end
     # This is useful when you have discrete trajectory and want to test interpolation
     I_matrix = ComplexF64[1 0; 0 1]
     traj = NamedTrajectory(
-        (Ũ⃗ = randn(8, 11), u = randn(2, 11), Δt = fill(T/10, 11));
+        (Ũ⃗ = randn(8, 11), u = randn(2, 11), Δt = fill(T / 10, 11));
         controls = :u,
         timestep = :Δt,
         initial = (Ũ⃗ = operator_to_iso_vec(I_matrix),),

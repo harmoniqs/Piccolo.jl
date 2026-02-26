@@ -7,7 +7,7 @@ draft_mode_pages = [
 # "quickstart.jl",
 # "robust_control.jl",
 # "state_transfer.jl",
-# # "quantum.jl",
+# "quantum.jl",
 # "visualizations.jl",
 # "control.jl",
 # "custom_objectives.jl",
@@ -15,6 +15,7 @@ draft_mode_pages = [
 # "leakage_suppression.jl",
 # "system_templates.jl",
 # "visualization.jl",
+# "bang_bang_pulse.jl",
 # "smooth_pulse.jl",
 # "spline_pulse.jl",
 # "minimum_time.jl",
@@ -22,13 +23,18 @@ draft_mode_pages = [
 # "composition.jl",
 # "concepts.jl",
 # "installation.jl",
-# # "systems.jl",
+# "systems.jl",
 # "trajectories.jl",
 # "pulses.jl",
 # "objectives.jl",
 # "constraints.jl",
 # "operators.jl",
 # "isomorphisms.jl",
+# "transmons.jl",
+# "trapped_ions.jl",
+# "rydberg_atoms.jl",
+# "cat_qubits.jl",
+# "silicon_spins.jl",
 ]
 
 pages = [
@@ -36,7 +42,15 @@ pages = [
     "Getting Started" => [
         "Installation" => "generated/getting-started/installation.md",
         "Quickstart" => "generated/quickstart.md",
-        "Core Concepts" => "generated/getting-started/concepts.md",
+    ],
+    "Concepts" => [
+        "Overview" => "concepts/index.md",
+        "Trajectories" => "generated/concepts/trajectories.md",
+        "Pulses" => "generated/concepts/pulses.md",
+        "Objectives" => "generated/concepts/objectives.md",
+        "Constraints" => "generated/concepts/constraints.md",
+        "Operators" => "generated/concepts/operators.md",
+        "Isomorphisms" => "generated/concepts/isomorphisms.md",
     ],
     "Tutorials" => [
         "Overview" => "tutorials/index.md",
@@ -48,24 +62,22 @@ pages = [
     "Problem Templates" => [
         "Overview" => "problem-templates/index.md",
         "SmoothPulseProblem" => "generated/problem-templates/smooth_pulse.md",
+        "BangBangPulseProblem" => "generated/problem-templates/bang_bang_pulse.md",
         "SplinePulseProblem" => "generated/problem-templates/spline_pulse.md",
         "MinimumTimeProblem" => "generated/problem-templates/minimum_time.md",
         "SamplingProblem" => "generated/problem-templates/sampling.md",
         "Composing Templates" => "generated/problem-templates/composition.md",
     ],
-    "Concepts" => [
-        "Overview" => "concepts/index.md",
-        "Quantum Systems" => "generated/concepts/systems.md",
-        "Trajectories" => "generated/concepts/trajectories.md",
-        "Pulses" => "generated/concepts/pulses.md",
-        "Objectives" => "generated/concepts/objectives.md",
-        "Constraints" => "generated/concepts/constraints.md",
-        "Operators" => "generated/concepts/operators.md",
-        "Isomorphisms" => "generated/concepts/isomorphisms.md",
+    "Quantum Systems" => [
+        "Overview" => "systems/index.md",
+        "Transmon Qubits" => "generated/systems/transmons.md",
+        "Trapped Ions" => "generated/systems/trapped_ions.md",
+        "Rydberg Atoms" => "generated/systems/rydberg_atoms.md",
+        "Cat Qubits" => "generated/systems/cat_qubits.md",
+        "Silicon Spins" => "generated/systems/silicon_spins.md",
     ],
     "How-To Guides" => [
         "Overview" => "guides/index.md",
-        "System Templates" => "generated/guides/system_templates.md",
         "Leakage Suppression" => "generated/guides/leakage_suppression.md",
         "Global Variables" => "generated/guides/global_variables.md",
         "Visualization" => "generated/guides/visualization.md",
@@ -77,6 +89,8 @@ pages = [
         "Release Notes" => "development/release-notes.md",
     ],
 ]
+
+draft = get(ENV, "DOCS_DRAFT", "false") == "true"
 
 generate_docs(
     @__DIR__,
@@ -93,4 +107,5 @@ generate_docs(
         size_threshold = 400 * 2^10,  # 400 KiB for lib.md
     ),
     mask_cached_solve = true,
+    makedocs_kwargs = (draft = draft,),
 )

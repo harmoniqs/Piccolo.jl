@@ -138,4 +138,4 @@ plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))
 # For more details on:
 # - Problem templates: See [SmoothPulseProblem](@ref smooth-pulse)
 # - Leakage suppression: See [Leakage Suppression](@ref leakage-suppression)
-# - System templates: See [System Templates](@ref system-templates)
+# - Quantum systems: See [Transmon Qubits](@ref transmon-systems)
