@@ -41,6 +41,9 @@ function plot_weyl_trajectory(traj::NamedTrajectory, output_mp4="weyl_trajectory
     
     fig = Figure()
     ax = Axis3(fig[1, 1],
+        xlabel = "c₁ / π",
+        ylabel = "c₂ / π",
+        zlabel = "c₃ / π",
         xgridvisible = false,
         ygridvisible = false,
         zgridvisible = false,
