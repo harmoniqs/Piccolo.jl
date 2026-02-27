@@ -11,8 +11,7 @@ A struct for storing open quantum dynamics.
 - `H::Function`: The Hamiltonian function: (u, t) -> H(u, t)
 - `𝒢::Function`: The Lindbladian generator function: u -> 𝒢(u)
 - `H_drift::SparseMatrixCSC{ComplexF64, Int}`: The drift Hamiltonian
-- `drives::Vector{AbstractDrive}`: Typed drive terms pairing operators with coefficient functions. For matrix-based constructors, auto-populated as `LinearDrive` objects. For function-based systems, empty.
-- `H_drives::Vector{SparseMatrixCSC{ComplexF64, Int}}`: The drive Hamiltonians (backward compat). Populated for linear-only systems; empty when nonlinear drives are present or for function-based systems.
+- `H_drives::Vector{AbstractDrive}`: The canonical drive terms, each pairing an operator with a coefficient function. Matrix-based constructors auto-populate this with `LinearDrive` objects; function-based systems leave it empty.
 - `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds
 - `n_drives::Int`: The number of control drives
 - `levels::Int`: The number of levels in the system
@@ -26,8 +25,7 @@ struct OpenQuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple} <: AbstractQu
     H::F1
     𝒢::F2
     H_drift::SparseMatrixCSC{ComplexF64,Int}
-    drives::Vector{AbstractDrive}
-    H_drives::Vector{SparseMatrixCSC{ComplexF64,Int}}
+    H_drives::Vector{AbstractDrive}
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
@@ -112,15 +110,14 @@ function OpenQuantumSystem(
 
     levels = size(H_drift, 1)
 
-    # Build LinearDrive objects from H_drives
-    drives = AbstractDrive[LinearDrive(H_drives_sparse[i], i) for i = 1:n_drives]
+    # Build LinearDrive objects from H_drives matrices
+    linear_drives = AbstractDrive[LinearDrive(H_drives_sparse[i], i) for i = 1:n_drives]
 
     return OpenQuantumSystem(
         H,
         𝒢,
         H_drift_sparse,
-        drives,
-        H_drives_sparse,
+        linear_drives,
         drive_bounds,
         n_drives,
         levels,
@@ -215,19 +212,11 @@ function OpenQuantumSystem(
                 𝒟
     end
 
-    # H_drives: populated only for purely linear systems (backward compat)
-    if has_nonlinear_drives(drives)
-        H_drives_compat = Vector{SparseMatrixCSC{ComplexF64,Int}}()
-    else
-        H_drives_compat = SparseMatrixCSC{ComplexF64,Int}[d.H for d in drives]
-    end
-
     return OpenQuantumSystem(
         H_fn,
         𝒢_fn,
         H_drift_sparse,
         collect(AbstractDrive, drives),
-        H_drives_compat,
         drive_bounds,
         n_drives,
         levels,
@@ -314,8 +303,7 @@ function OpenQuantumSystem(
         H,
         u -> Isomorphisms.G(Isomorphisms.ad_vec(sparse(H(u, 0.0)))) + 𝒟,
         sparse(H_drift),
-        AbstractDrive[],                                  # No drives for function-based systems
-        Vector{SparseMatrixCSC{ComplexF64,Int}}(),        # No H_drives for function-based systems
+        AbstractDrive[],
         drive_bounds,
         n_drives,
         levels,
@@ -337,17 +325,8 @@ function OpenQuantumSystem(
     system::QuantumSystem;
     dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
 )
-    if !isempty(system.drives)
+    if !isempty(system.H_drives)
         # Use drives-based constructor (handles both linear and nonlinear)
-        return OpenQuantumSystem(
-            system.H_drift,
-            system.drives,
-            system.drive_bounds;
-            dissipation_operators = dissipation_operators,
-            time_dependent = system.time_dependent,
-            global_params = system.global_params,
-        )
-    elseif !isempty(system.H_drives)
         return OpenQuantumSystem(
             system.H_drift,
             system.H_drives,
@@ -383,20 +362,14 @@ isomorphism. Returns `(𝒢c_drift, 𝒢c_drives)` where:
 
 For linear-only systems, `𝒢c_drives[i]` corresponds to control `u[i]`.
 For systems with nonlinear drives, `𝒢c_drives[i]` corresponds to drive term `i`,
-and must be weighted by `drive_coeff(sys.drives[i], u)` instead of `u[i]`.
+and must be weighted by `drive_coeff(sys.H_drives[i], u)` instead of `u[i]`.
 """
 function compact_lindbladian_generators(sys::OpenQuantumSystem)
     n = sys.levels
 
     # Reconstruct full Lindbladian components from stored fields
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(sys.H_drift))
-
-    # Use drives when available, fall back to H_drives
-    if !isempty(sys.drives)
-        𝒢_drive_terms = [Isomorphisms.G(Isomorphisms.ad_vec(d.H)) for d in sys.drives]
-    else
-        𝒢_drive_terms = [Isomorphisms.G(Isomorphisms.ad_vec(H_d)) for H_d in sys.H_drives]
-    end
+    𝒢_drive_terms = [Isomorphisms.G(Isomorphisms.ad_vec(d.H)) for d in sys.H_drives]
 
     if isempty(sys.dissipation_operators)
         𝒟 = spzeros(size(𝒢_drift))
@@ -434,10 +407,10 @@ end
     @test get_drives(system) == H_drives
     @test system.dissipation_operators == dissipation_operators
 
-    # drives field should be auto-populated with LinearDrives
-    @test length(system.drives) == 1
-    @test system.drives[1] isa LinearDrive
-    @test system.drives[1].index == 1
+    # H_drives field should be auto-populated with LinearDrives
+    @test length(system.H_drives) == 1
+    @test system.H_drives[1] isa LinearDrive
+    @test system.H_drives[1].index == 1
 
     # test dissipation
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(H_drift))
@@ -498,8 +471,8 @@ end
     @test get_drift(system) == H_drift
     @test get_drives(system) == H_drives
     @test system.dissipation_operators == dissipation_operators
-    @test length(system.drives) == 1
-    @test system.drives[1] isa LinearDrive
+    @test length(system.H_drives) == 1
+    @test system.H_drives[1] isa LinearDrive
 
 end
 
@@ -568,9 +541,8 @@ end
 
     @test sys isa OpenQuantumSystem
     @test sys.n_drives == 2
-    @test length(sys.drives) == 3
-    @test has_nonlinear_drives(sys.drives)
-    @test isempty(sys.H_drives)  # nonlinear → H_drives empty
+    @test length(sys.H_drives) == 3
+    @test has_nonlinear_drives(sys.H_drives)
 
     # H function should work correctly
     u_test = [0.3, 0.7]
@@ -587,6 +559,6 @@ end
     qsys = QuantumSystem(H_drift, drives, [1.0, 1.0])
     osys = OpenQuantumSystem(qsys; dissipation_operators = dissipation_operators)
     @test osys isa OpenQuantumSystem
-    @test length(osys.drives) == 3
-    @test has_nonlinear_drives(osys.drives)
+    @test length(osys.H_drives) == 3
+    @test has_nonlinear_drives(osys.H_drives)
 end

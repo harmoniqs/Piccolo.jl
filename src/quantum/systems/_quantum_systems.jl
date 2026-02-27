@@ -104,7 +104,7 @@ get_drift(sys::AbstractQuantumSystem) = sys.H(zeros(sys.n_drives), 0.0)
 
 Returns the drive Hamiltonian matrices of the system.
 
-For systems with typed drives (`sys.drives`), returns the `H` matrix from each
+For systems with typed drives (`sys.H_drives`), returns the `H` matrix from each
 drive term. For function-based systems without drives, extracts operators via
 basis vector evaluation.
 
@@ -116,8 +116,8 @@ basis vector evaluation.
     coefficient functions, Jacobians, and active control indices.
 """
 function get_drives(sys::AbstractQuantumSystem)
-    if hasproperty(sys, :drives) && !isempty(sys.drives)
-        return [d.H for d in sys.drives]
+    if hasproperty(sys, :H_drives) && !isempty(sys.H_drives)
+        return [d.H for d in sys.H_drives]
     end
     H_drift = get_drift(sys)
     # Basis vectors for controls will extract drive operators (linear systems only)
@@ -130,14 +130,14 @@ end
 Return the typed drive terms from the system. Each `AbstractDrive` pairs a
 Hamiltonian operator with a scalar coefficient function and Jacobian.
 
-Returns `sys.drives` directly when available, or an empty vector for
+Returns `sys.H_drives` directly when available, or an empty vector for
 function-based systems that don't use typed drives.
 
 See also [`get_drives`](@ref) for just the Hamiltonian matrices.
 """
 function get_drive_terms(sys::AbstractQuantumSystem)
-    if hasproperty(sys, :drives)
-        return sys.drives
+    if hasproperty(sys, :H_drives)
+        return sys.H_drives
     end
     return AbstractDrive[]
 end

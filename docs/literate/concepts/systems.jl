@@ -164,7 +164,7 @@ drives = AbstractDrive[
     NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2),   ## (u₁² + u₂²) σz
 ]
 
-sys_nl = QuantumSystem(zeros(ComplexF64, 2, 2), drives, [1.0, 1.0])
+sys_nl = QuantumSystem(drives, [1.0, 1.0])
 
 # The resulting system works with all the same trajectories and problem templates:
 

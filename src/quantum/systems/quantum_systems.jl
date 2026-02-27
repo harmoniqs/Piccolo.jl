@@ -21,8 +21,7 @@ A struct for storing quantum dynamics.
 - `H::Function`: The Hamiltonian function: (u, t) -> H(u, t), where u is the control vector and t is time
 - `G::Function`: The isomorphic generator function: (u, t) -> G(u, t), including the Hamiltonian mapped to superoperator space
 - `H_drift::SparseMatrixCSC{ComplexF64, Int}`: The drift Hamiltonian (time-independent component)
-- `drives::Vector{AbstractDrive}`: Typed drive terms pairing operators with coefficient functions. For matrix-based constructors, auto-populated as `LinearDrive` objects. For function-based systems, empty.
-- `H_drives::Vector{SparseMatrixCSC{ComplexF64, Int}}`: The drive Hamiltonians (backward compat). Populated for linear-only systems; empty when nonlinear drives are present or for function-based systems.
+- `H_drives::Vector{AbstractDrive}`: The canonical drive terms, each pairing an operator with a coefficient function. Matrix-based constructors auto-populate this with `LinearDrive` objects; function-based systems leave it empty.
 - `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds for each control (lower, upper)
 - `n_drives::Int`: The number of control channels (length of the control vector `u`)
 - `levels::Int`: The number of levels (dimension) in the system
@@ -35,8 +34,7 @@ struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple} <: AbstractQuantu
     H::F1
     G::F2
     H_drift::SparseMatrixCSC{ComplexF64,Int}
-    drives::Vector{AbstractDrive}
-    H_drives::Vector{SparseMatrixCSC{ComplexF64,Int}}
+    H_drives::Vector{AbstractDrive}
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
@@ -105,8 +103,7 @@ function QuantumSystem(
         (u, t) -> H(u, t),
         (u, t) -> Isomorphisms.G(H(u, t)),
         sparse(H_drift),
-        AbstractDrive[],                                  # No drives for function-based systems
-        Vector{SparseMatrixCSC{ComplexF64,Int}}(),        # No H_drives for function-based systems
+        AbstractDrive[],
         drive_bounds,
         n_drives,
         levels,
@@ -184,15 +181,14 @@ function QuantumSystem(
 
     levels = size(H_drift, 1)
 
-    # Build LinearDrive objects from H_drives
-    drives = AbstractDrive[LinearDrive(H_drives[i], i) for i = 1:n_drives]
+    # Build LinearDrive objects from H_drives matrices
+    linear_drives = AbstractDrive[LinearDrive(H_drives[i], i) for i = 1:n_drives]
 
     return QuantumSystem(
         H,
         G,
         H_drift,
-        drives,
-        H_drives,
+        linear_drives,
         drive_bounds,
         n_drives,
         levels,
@@ -230,6 +226,33 @@ function QuantumSystem(
     return QuantumSystem(
         spzeros(ℂ, size(H_drives[1])),
         H_drives,
+        drive_bounds;
+        time_dependent = time_dependent,
+        global_params = global_params,
+    )
+end
+
+"""
+    QuantumSystem(drives::Vector{<:AbstractDrive}, drive_bounds::Vector; time_dependent::Bool=false)
+
+Convenience constructor for a typed-drive system with no drift Hamiltonian (H_drift = 0).
+
+# Example
+```julia
+sys = QuantumSystem([LinearDrive(sparse(PAULIS[:X]), 1)], [1.0])
+```
+"""
+function QuantumSystem(
+    drives::Vector{<:AbstractDrive},
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
+    time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
+)
+    @assert !isempty(drives) "At least one drive is required"
+    levels = size(first(drives).H, 1)
+    return QuantumSystem(
+        spzeros(ComplexF64, levels, levels),
+        drives,
         drive_bounds;
         time_dependent = time_dependent,
         global_params = global_params,
@@ -351,19 +374,11 @@ function QuantumSystem(
                 sum(drive_coeff(d, u) * G_d for (d, G_d) in zip(drives, G_drive_mats))
     end
 
-    # H_drives: populated only for purely linear systems (backward compat)
-    if has_nonlinear_drives(drives)
-        H_drives_compat = Vector{SparseMatrixCSC{ComplexF64,Int}}()
-    else
-        H_drives_compat = SparseMatrixCSC{ComplexF64,Int}[d.H for d in drives]
-    end
-
     return QuantumSystem(
         H_fn,
         G_fn,
         H_drift,
         collect(AbstractDrive, drives),
-        H_drives_compat,
         drive_bounds,
         n_drives,
         levels,
@@ -493,11 +508,11 @@ end
     @test get_drives(sys) == H_drives
     @test sys.n_drives == 2
 
-    # drives field should be auto-populated with LinearDrives
-    @test length(sys.drives) == 2
-    @test all(d -> d isa LinearDrive, sys.drives)
-    @test sys.drives[1].index == 1
-    @test sys.drives[2].index == 2
+    # H_drives field should be auto-populated with LinearDrives
+    @test length(sys.H_drives) == 2
+    @test all(d -> d isa LinearDrive, sys.H_drives)
+    @test sys.H_drives[1].index == 1
+    @test sys.H_drives[2].index == 2
 
     # Test with drives only (no drift)
     sys2 = QuantumSystem(H_drives, u_bounds)
@@ -511,7 +526,7 @@ end
     @test get_drift(sys3) == H_drift
     @test isempty(get_drives(sys3))
     @test sys3.n_drives == 0
-    @test isempty(sys3.drives)
+    @test isempty(sys3.H_drives)
 end
 
 @testitem "Drives-based system creation" begin
@@ -527,14 +542,13 @@ end
     sys = QuantumSystem(H_drift, drives, [1.0, 1.0])
     @test sys isa QuantumSystem
     @test sys.n_drives == 2
-    @test length(sys.drives) == 2
-    @test !isempty(sys.H_drives)  # linear-only → H_drives populated
+    @test length(sys.H_drives) == 2
 
     u_test = [0.3, 0.7]
     H_expected = PAULIS.Z + 0.3 * PAULIS.X + 0.7 * PAULIS.Y
     @test norm(sys.H(u_test, 0.0) - H_expected) < 1e-10
 
-    # Mixed drives (linear + nonlinear) — H_drives should be empty
+    # Mixed drives (linear + nonlinear)
     nonlinear_drive = NonlinearDrive(
         sparse(ComplexF64.([1.0 0.0; 0.0 -1.0])),
         u -> u[1]^2 + u[2]^2,
@@ -545,8 +559,7 @@ end
 
     @test sys2 isa QuantumSystem
     @test sys2.n_drives == 2  # control dimension = 2
-    @test length(sys2.drives) == 3  # 3 drive terms
-    @test isempty(sys2.H_drives)  # nonlinear → H_drives empty
+    @test length(sys2.H_drives) == 3  # 3 drive terms
 
     # H function should work correctly
     H_result = sys2.H(u_test, 0.0)
@@ -556,8 +569,8 @@ end
     @test norm(H_result - H_expected2) < 1e-10
 
     # has_nonlinear_drives
-    @test !has_nonlinear_drives(sys.drives)
-    @test has_nonlinear_drives(sys2.drives)
+    @test !has_nonlinear_drives(sys.H_drives)
+    @test has_nonlinear_drives(sys2.H_drives)
 end
 
 @testitem "Global parameters" begin
