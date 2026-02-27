@@ -194,8 +194,7 @@ fig
 using GLMakie
 fig = animate_name(traj, :u; fps=30)
 
-# To save animation to file instead:
-
+# To save animation to file, use CairoMakie with mode=:record:
 # using CairoMakie
 # fig = animate_name(traj, :u; mode=:record, filename="controls.mp4", fps=24)
 
@@ -207,7 +206,7 @@ using GLMakie, QuantumToolbox
 fig = animate_bloch(traj_ket; fps=30)
 fig
 
-# To save animation to file:
+# To save animation to file, use CairoMakie with mode=:record:
 # using CairoMakie
 # fig = animate_bloch(traj_ket; mode=:record, filename="bloch_animation.mp4", fps=24)
 
