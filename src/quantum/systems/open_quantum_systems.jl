@@ -113,7 +113,7 @@ function OpenQuantumSystem(
     levels = size(H_drift, 1)
 
     # Build LinearDrive objects from H_drives
-    drives = AbstractDrive[LinearDrive(H_drives_sparse[i], i) for i in 1:n_drives]
+    drives = AbstractDrive[LinearDrive(H_drives_sparse[i], i) for i = 1:n_drives]
 
     return OpenQuantumSystem(
         H,
@@ -208,7 +208,11 @@ function OpenQuantumSystem(
         𝒢_fn = u -> 𝒢_drift + 𝒟
     else
         H_fn = (u, t) -> H_drift_sparse + sum(drive_coeff(d, u) * d.H for d in drives)
-        𝒢_fn = u -> 𝒢_drift + sum(drive_coeff(d, u) * 𝒢_d for (d, 𝒢_d) in zip(drives, 𝒢_drive_mats)) + 𝒟
+        𝒢_fn =
+            u ->
+                𝒢_drift +
+                sum(drive_coeff(d, u) * 𝒢_d for (d, 𝒢_d) in zip(drives, 𝒢_drive_mats)) +
+                𝒟
     end
 
     # H_drives: populated only for purely linear systems (backward compat)
@@ -556,7 +560,9 @@ end
     ]
 
     sys = OpenQuantumSystem(
-        H_drift, drives, [1.0, 1.0];
+        H_drift,
+        drives,
+        [1.0, 1.0];
         dissipation_operators = dissipation_operators,
     )
 

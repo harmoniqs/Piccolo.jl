@@ -97,8 +97,10 @@ Construct a `NonlinearDrive` with an explicit Jacobian function.
 `active_controls` lists which control indices have nonzero ∂coeff/∂u_j (empty = all).
 """
 function NonlinearDrive(
-    H::AbstractMatrix, coeff::F, coeff_jac::DF;
-    active_controls::Vector{Int} = Int[]
+    H::AbstractMatrix,
+    coeff::F,
+    coeff_jac::DF;
+    active_controls::Vector{Int} = Int[],
 ) where {F,DF}
     return NonlinearDrive(sparse(ComplexF64.(H)), coeff, coeff_jac, active_controls)
 end
@@ -118,8 +120,9 @@ drive = NonlinearDrive(σz / 2, u -> u[3]^2 + u[4]^2; active_controls = [3, 4])
 ```
 """
 function NonlinearDrive(
-    H::AbstractMatrix, coeff::F;
-    active_controls::Vector{Int} = Int[]
+    H::AbstractMatrix,
+    coeff::F;
+    active_controls::Vector{Int} = Int[],
 ) where {F}
     coeff_jac = _forwarddiff_jacobian(coeff)
     return NonlinearDrive(sparse(ComplexF64.(H)), coeff, coeff_jac, active_controls)
@@ -174,7 +177,8 @@ active_controls(d::NonlinearDrive) = d.active_controls
 
 Check if any drive terms are nonlinear.
 """
-has_nonlinear_drives(drives::AbstractVector{<:AbstractDrive}) = any(d -> d isa NonlinearDrive, drives)
+has_nonlinear_drives(drives::AbstractVector{<:AbstractDrive}) =
+    any(d -> d isa NonlinearDrive, drives)
 
 # ----------------------------------------------------------------------------- #
 # Jacobian Validation
@@ -190,13 +194,15 @@ This is called automatically during `QuantumSystem` construction for all `Nonlin
 terms, catching sign errors or off-by-one bugs early.
 """
 function validate_drive_jacobian(
-    d::NonlinearDrive, n_controls::Int;
-    atol::Float64 = 1e-6, n_samples::Int = 3
+    d::NonlinearDrive,
+    n_controls::Int;
+    atol::Float64 = 1e-6,
+    n_samples::Int = 3,
 )
-    for _ in 1:n_samples
+    for _ = 1:n_samples
         u = randn(n_controls)
         grad_ad = ForwardDiff.gradient(d.coeff, u)
-        for j in 1:n_controls
+        for j = 1:n_controls
             user_val = d.coeff_jac(u, j)
             @assert abs(user_val - grad_ad[j]) < atol (
                 "NonlinearDrive Jacobian mismatch at u=$u, j=$j: " *
@@ -238,7 +244,7 @@ end
     d = NonlinearDrive(
         H,
         u -> u[1]^2 + u[2]^2,
-        (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0
+        (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0,
     )
 
     u = [3.0, 4.0, 0.0]
@@ -250,11 +256,7 @@ end
     @test isempty(active_controls(d))  # default: empty = all controls
 
     # Product: u[1] * u[2]
-    d2 = NonlinearDrive(
-        H,
-        u -> u[1] * u[2],
-        (u, j) -> j == 1 ? u[2] : j == 2 ? u[1] : 0.0
-    )
+    d2 = NonlinearDrive(H, u -> u[1] * u[2], (u, j) -> j == 1 ? u[2] : j == 2 ? u[1] : 0.0)
 
     @test drive_coeff(d2, u) == 12.0
     @test drive_coeff_jac(d2, u, 1) == 4.0
@@ -265,7 +267,7 @@ end
         H,
         u -> u[1]^2 + u[2]^2,
         (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0;
-        active_controls = [1, 2]
+        active_controls = [1, 2],
     )
     @test active_controls(d3) == [1, 2]
 end
@@ -328,7 +330,7 @@ end
     d_correct = NonlinearDrive(
         H,
         u -> u[1]^2 + u[2]^2,
-        (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0
+        (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0,
     )
     validate_drive_jacobian(d_correct, 2)  # should not throw
 
@@ -336,7 +338,7 @@ end
     d_wrong = NonlinearDrive(
         H,
         u -> u[1]^2 + u[2]^2,
-        (u, j) -> j == 1 ? u[1] : j == 2 ? u[2] : 0.0  # missing factor of 2
+        (u, j) -> j == 1 ? u[1] : j == 2 ? u[2] : 0.0,  # missing factor of 2
     )
     @test_throws AssertionError validate_drive_jacobian(d_wrong, 2)
 

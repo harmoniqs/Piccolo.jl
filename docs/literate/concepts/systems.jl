@@ -143,7 +143,7 @@ drive_coeff_jac(d_auto, [3.0, 4.0, 0.0], 1)
 d_sparse = NonlinearDrive(
     PAULIS[:Z],
     u -> u[1]^2 + u[2]^2;
-    active_controls = [1, 2]   ## only u₁ and u₂ affect this drive
+    active_controls = [1, 2],   ## only u₁ and u₂ affect this drive
 )
 active_controls(d_sparse)
 

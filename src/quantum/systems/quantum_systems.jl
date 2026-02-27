@@ -185,7 +185,7 @@ function QuantumSystem(
     levels = size(H_drift, 1)
 
     # Build LinearDrive objects from H_drives
-    drives = AbstractDrive[LinearDrive(H_drives[i], i) for i in 1:n_drives]
+    drives = AbstractDrive[LinearDrive(H_drives[i], i) for i = 1:n_drives]
 
     return QuantumSystem(
         H,
@@ -345,7 +345,10 @@ function QuantumSystem(
         G_fn = (u, t) -> G_drift
     else
         H_fn = (u, t) -> H_drift + sum(drive_coeff(d, u) * d.H for d in drives)
-        G_fn = (u, t) -> G_drift + sum(drive_coeff(d, u) * G_d for (d, G_d) in zip(drives, G_drive_mats))
+        G_fn =
+            (u, t) ->
+                G_drift +
+                sum(drive_coeff(d, u) * G_d for (d, G_d) in zip(drives, G_drive_mats))
     end
 
     # H_drives: populated only for purely linear systems (backward compat)
@@ -535,7 +538,7 @@ end
     nonlinear_drive = NonlinearDrive(
         sparse(ComplexF64.([1.0 0.0; 0.0 -1.0])),
         u -> u[1]^2 + u[2]^2,
-        (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0
+        (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0,
     )
     mixed_drives = [drives..., nonlinear_drive]
     sys2 = QuantumSystem(H_drift, mixed_drives, [1.0, 1.0])
@@ -548,7 +551,8 @@ end
     # H function should work correctly
     H_result = sys2.H(u_test, 0.0)
     coeff_nonlinear = 0.3^2 + 0.7^2  # = 0.58
-    H_expected2 = PAULIS.Z + 0.3 * PAULIS.X + 0.7 * PAULIS.Y + coeff_nonlinear * [1.0 0.0; 0.0 -1.0]
+    H_expected2 =
+        PAULIS.Z + 0.3 * PAULIS.X + 0.7 * PAULIS.Y + coeff_nonlinear * [1.0 0.0; 0.0 -1.0]
     @test norm(H_result - H_expected2) < 1e-10
 
     # has_nonlinear_drives
