@@ -1,8 +1,9 @@
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
-MultiDocumenter = "87ed4bf0-c935-4a67-83c3-2a03bee4197c"
 Piccolo = "c4671d76-df94-11ed-2057-43d4fd632fad"
+PiccoloDocsTemplate = "a90a139f-c522-4b23-980b-4210ddb8d065"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"

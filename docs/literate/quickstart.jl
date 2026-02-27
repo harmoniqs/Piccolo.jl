@@ -1,109 +1,195 @@
-pretty_print(X::AbstractMatrix) = Base.show(stdout, "text/plain", X); # Helper function
-
-#=
-
-# Quickstart Guide
-
-To set up and solve a quantum optimal control problems we provide high level problem templates to quickly get started. For unitary gate problems, where we want to realize a gate $U_{\text{goal}}$, with a system Hamiltonian of the form,
-```math
-H(t) = H_0 + \sum_i a^i(t) H_i
-```
-there is the `UnitarySmoothPulseProblem` constructor which only requires
-- the drift Hamiltonian, $H_0$
-- the drive Hamiltonians, $\qty{H_i}$
-- the target unitary, $U_{\text{goal}}$
-- the number of timesteps, $T$
-- the (initial) time step size, $\Delta t$
-
-## Smooth Pulse Problems
-
-For example, to create a problem for a single qubit $X$ gate (with a bound on the drive of $|a^i| < a_{\text{bound}}$), i.e., with system hamiltonian
-```math
-H(t) = \frac{\omega}{2} \sigma_z + a^1(t) \sigma_x + a^2(t) \sigma_y
-```
-we can do the following:
-
-=#
+# # [Quickstart Guide](@id quickstart)
+#
+# This guide shows you how to set up and solve a quantum optimal control problem
+# in Piccolo.jl. We'll synthesize a single-qubit X gate.
+#
+# ## The Problem
+#
+# We want to find control pulses that implement an X gate on a single qubit
+# with system Hamiltonian:
+# ```math
+# H(t) = \frac{\omega}{2} \sigma_z + u_1(t) \sigma_x + u_2(t) \sigma_y
+# ```
 
 using Piccolo
 
-## set time parameters
-T = 50
-Δt = 0.2
+# ## Step 1: Define the Quantum System
+#
+# First, we define our quantum system by specifying the drift Hamiltonian (always-on),
+# the drive Hamiltonians (controllable), and the bounds on control amplitudes.
 
-## define drift and drive Hamiltonians
-H_drift = 0.2 * PAULIS.Z
-H_drives = [PAULIS.X, PAULIS.Y]
+## Drift Hamiltonian: qubit frequency term
+H_drift = 0.5 * PAULIS[:Z]
 
-## create a QuantumSystem from the Hamiltonians
-system = QuantumSystem(H_drift, H_drives)
+## Drive Hamiltonians: X and Y controls
+H_drives = [PAULIS[:X], PAULIS[:Y]]
 
-## define target unitary
-U_goal = GATES.X
+## Maximum control amplitudes
+drive_bounds = [1.0, 1.0]
 
-## set bounds on the drive
-a_bound = 0.2
-dda_bound = 0.1
+## Create the quantum system
+sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 
-## build the problem
-prob = UnitarySmoothPulseProblem(
-    system,
-    U_goal,
-    T,
-    Δt;
-    a_bound = a_bound,
-    dda_bound = dda_bound,
+# ## Step 2: Create an Initial Pulse
+#
+# We need an initial guess for the control pulse. `ZeroOrderPulse` represents
+# piecewise constant controls.
+
+## Time parameters
+T = 10.0   # Total gate duration
+N = 100    # Number of timesteps
+
+## Create time vector
+times = collect(range(0, T, length = N))
+
+## Random initial controls (scaled by drive bounds)
+initial_controls = 0.1 * randn(2, N)
+
+## Create the pulse
+pulse = ZeroOrderPulse(initial_controls, times)
+
+# ## Step 3: Define the Goal via a Trajectory
+#
+# A `UnitaryTrajectory` combines the system, pulse, and target gate.
+
+## Target: X gate
+U_goal = GATES[:X]
+
+## Create the trajectory
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+# ## Step 4: Set Up the Optimization Problem
+#
+# `SmoothPulseProblem` creates the optimization problem with:
+# - Fidelity objective (weight Q)
+# - Regularization for smooth controls (weight R)
+# - Derivative bounds for control smoothness
+
+qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,       # Fidelity weight
+    R = 1e-2,        # Regularization weight
+    ddu_bound = 1.0,  # Control acceleration bound
 )
 
-## solve the problem
-solve!(prob; max_iter = 50)
+# ## Step 5: Solve!
 
-#=
-The above output comes from the Ipopt.jl solver. The problem's trajectory has been updated with the solution. 
-We can see the final control amplitudes and the final unitary by accessing the `a` and `Ũ⃗` fields of the trajectory.
-=#
-size(prob.trajectory.a) |> println
-size(prob.trajectory.Ũ⃗) |> println
+cached_solve!(qcp, "quickstart"; max_iter = 20, verbose = false, print_level = 1)
 
-#=
-The `Ũ⃗` field is a vectorized representation of the unitary, which we can convert back to a 
-matrix using the `iso_vec_to_operator` function exported by PiccoloQuantumObjects.jl.
-=#
-iso_vec_to_operator(prob.trajectory.Ũ⃗[:, end]) |> pretty_print
+# ## Step 6: Analyze Results
+#
+# After solving, we can check the fidelity and examine the optimized controls.
 
-# To see the final fidelity we can use the `unitary_rollout_fidelity` function exported by QuantumCollocation.jl.
-println("Final fidelity: ", unitary_rollout_fidelity(prob.trajectory, system))
+## Check final fidelity
+fidelity(qcp)
 
-# We can also easily plot the solutions using the `plot` function exported by NamedTrajectories.jl.
-plot(prob.trajectory, [:Ũ⃗, :a])
+# Access the trajectory and check the final unitary:
 
-# ## Minimum Time Problems
+traj = get_trajectory(qcp)
+U_final = iso_vec_to_operator(traj[:Ũ⃗][:, end])
+round.(U_final, digits = 3)
 
-# We can also easily set up and solve a minimum time problem, where we enforce a constraint on the final fidelity:
-# ```math
-# \mathcal{F}(U_T, U_{\text{goal}}) \geq \mathcal{F}_{\text{min}}
-# ```
-# Using the problem we just solved we can do the following:
+# ## Visualization
+#
+# Piccolo provides specialized plotting functions for quantum trajectories:
 
-## final fidelity constraint
-final_fidelity = 0.99
+using CairoMakie
 
-min_time_prob = UnitaryMinimumTimeProblem(prob, system; final_fidelity = final_fidelity)
+## Plot the unitary evolution (state populations over time)
+fig = plot_unitary_populations(traj)
 
-solve!(min_time_prob; max_iter = 50)
+# ## Minimum Time Optimization
+#
+# Now let's find the shortest gate duration that achieves 99% fidelity.
+#
+# First, we need to create a new problem with variable timesteps enabled:
 
-# We can see that the final fidelity is indeed greater than the minimum fidelity we set.
+## Create problem with free-time optimization
+qcp_free = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    Δt_bounds = (0.01, 0.5),  # Enable variable timesteps
+)
+cached_solve!(
+    qcp_free,
+    "quickstart_free_time";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 
-println("Final fidelity:    ", unitary_rollout_fidelity(min_time_prob.trajectory, system))
+## Convert to minimum time problem
+qcp_mintime = MinimumTimeProblem(qcp_free; final_fidelity = 0.99)
+cached_solve!(
+    qcp_mintime,
+    "quickstart_mintime";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
 
-# and that the duration of the pulse has decreased.
+# Compare durations:
 
-initial_duration = get_times(prob.trajectory)[end]
-min_time_duration = get_times(min_time_prob.trajectory)[end]
+initial_duration = sum(get_timesteps(get_trajectory(qcp_free)))
+minimum_duration = sum(get_timesteps(get_trajectory(qcp_mintime)))
 
-println("Initial duration:  ", initial_duration)
-println("Minimum duration:  ", min_time_duration)
-println("Duration decrease: ", initial_duration - min_time_duration)
+initial_duration
 
-## We can also plot the solutions for the minimum time problem, and see that the control amplitudes saturate the bound.
-plot(min_time_prob.trajectory, [:Ũ⃗, :a])
+#-
+
+minimum_duration
+
+#-
+
+fidelity(qcp_mintime)
+
+# Plot the time-optimal solution:
+
+fig_mintime = plot_unitary_populations(get_trajectory(qcp_mintime))
+
+# ## State Preparation
+#
+# Instead of synthesizing a full unitary gate, you can prepare a specific
+# quantum state using `KetTrajectory`:
+
+ψ_init = ComplexF64[1.0, 0.0]  # |0⟩
+ψ_goal = ComplexF64[0.0, 1.0]  # |1⟩
+qcp_state = SmoothPulseProblem(KetTrajectory(sys, pulse, ψ_init, ψ_goal), N)
+cached_solve!(
+    qcp_state,
+    "quickstart_state";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
+fidelity(qcp_state)
+
+# ## Robust Control
+#
+# To optimize a pulse that works across parameter variations (e.g., uncertain
+# qubit frequency), use `SamplingProblem`:
+
+## Perturbed systems: ±10% drift Hamiltonian
+sys_low = QuantumSystem(0.9 * H_drift, H_drives, drive_bounds)
+sys_high = QuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
+
+## Start from a nominal solution, then add robustness
+qcp_robust = SamplingProblem(qcp, [sys_low, sys, sys_high])
+cached_solve!(
+    qcp_robust,
+    "quickstart_robust";
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
+fidelity(qcp_robust)
+
+# ## Next Steps
+#
+# - See [Concepts](@ref concepts-overview) for the mathematical formulation
+# - Learn about different [Problem Templates](@ref problem-templates-overview)
+# - Explore [Tutorials](@ref tutorials-overview) for more complex examples

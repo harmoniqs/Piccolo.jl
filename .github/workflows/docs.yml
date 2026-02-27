@@ -1,0 +1,72 @@
+name: Documentation
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags: ["*"]
+  repository_dispatch:
+    types: [tagbot-release-created]
+concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+jobs:
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
+    env:
+      DOC_TEMPLATE_VERSION: "v0.7.1" # Change this to the specific tag version you want
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+      - uses: julia-actions/cache@v2
+      - name: Use Documentation Template
+        run: |
+          ./docs/get_docs_utils.sh ${{ env.DOC_TEMPLATE_VERSION }}
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-docdeploy@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-build
+          path: docs/build/
+          retention-days: 1
+      - run: |
+          julia --project=docs -e '
+            using Documenter: DocMeta, doctest
+            using Piccolo
+            DocMeta.setdocmeta!(Piccolo, :DocTestSetup, :(using Piccolo); recursive=true)
+            doctest(Piccolo)'
+
+  tagbot-dispatch:
+    name: Dispatch on TagBot Release
+    runs-on: ubuntu-latest
+    needs: docs
+    if: github.event_name == 'repository_dispatch'
+    steps:
+      - name: Dispatch PiccoloMultiDocs workflow
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          repository: harmoniqs/PiccoloMultiDocs.jl
+          event-type: rebuild-docs
+
+  tag-push-dispatch:
+    name: Dispatch on Tag Push
+    runs-on: ubuntu-latest
+    needs: docs
+    if: github.ref_type == 'tag'
+    steps:
+      - name: Dispatch PiccoloMultiDocs workflow
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          repository: harmoniqs/PiccoloMultiDocs.jl
+          event-type: rebuild-docs

@@ -20,6 +20,8 @@ docs/clones/
 docs/out/
 docs/src/generated/
 
+docs/src/assets/
+
 # Build artifact for using README as index (probably shouldn't have this checked into version control)
 docs/src/index.md
 
@@ -46,3 +48,10 @@ build/
 # VS code
 *.code-workspace
 .vscode/settings.json
+
+# doc_template stuff
+# Temporary directory for doc_template cloning
+doc_template_temp/
+
+# This file is updated via script
+docs/utils.jl

@@ -1,4 +1,4 @@
-# # Multilevel Transmon
+# # [Multilevel Transmon](@id multilevel-transmon-tutorial)
 
 # In this example we will look at a multilevel transmon qubit with a Hamiltonian given by
 #
@@ -21,32 +21,35 @@
 
 # ## Setting up the problem
 
-# To begin, let's load the necessary packages, define the system parameters, and create a a `QuantumSystem` object using the `TransmonSystem` function.
+# To begin, let's load the necessary packages, define the system parameters, and create a `QuantumSystem` object using the `TransmonSystem` function.
 
 using Piccolo
 using SparseArrays
 using Random;
 Random.seed!(123);
 
+using CairoMakie
+
 ## define the time parameters
 
 T₀ = 10     # total time in ns
-T = 50      # number of time steps
-Δt = T₀ / T # time step
+N = 50      # number of time steps
+Δt = T₀ / N # time step
+times = collect(range(0, T₀, length = N))
 
 ## define the system parameters
 levels = 5
 δ = 0.2
 
 ## add a bound to the controls
-a_bound = 0.2
-dda_bound = 1.0
+u_bound = [0.2, 0.2]
+ddu_bound = 1.0
 
 ## create the system
-sys = TransmonSystem(levels = levels, δ = δ)
+sys = TransmonSystem(drive_bounds = u_bound, levels = levels, δ = δ)
 
-## let's look at the parameters of the system
-sys.params
+## let's look at the drives of the system
+get_drives(sys)[1] |> sparse
 
 
 # Since this is a multilevel transmon and we want to implement an, let's say, $X$ gate on the qubit subspace, i.e., the first two levels we can utilize the `EmbeddedOperator` type to define the target operator.
@@ -57,56 +60,85 @@ op = EmbeddedOperator(:X, sys)
 ## show the full operator
 op.operator |> sparse
 
-# We can then pass this embedded operator to the `UnitarySmoothPulseProblem` template to create
+# We can then create a pulse, trajectory, and optimization problem using the new API:
 
-## create the problem
-prob = UnitarySmoothPulseProblem(sys, op, T, Δt; a_bound = a_bound, dda_bound = dda_bound)
+## create a random initial pulse
+initial_controls = 0.1 * randn(2, N)
+pulse = ZeroOrderPulse(initial_controls, times)
+
+## create a unitary trajectory with the embedded operator as goal
+qtraj = UnitaryTrajectory(sys, pulse, op)
+
+## create the optimization problem
+qcp = SmoothPulseProblem(qtraj, N; ddu_bound = ddu_bound, Q = 100.0, R = 1e-2)
+
+# ## Solving the problem
+
+## We solve the problem using `cached_solve!`, which transparently caches the
+## optimized trajectory and solver output for docs purposes. In practice, you can use `solve!` directly.
+
+cached_solve!(qcp, "multilevel_transmon"; max_iter = 50)
+
+# After optimization, we can check the fidelity in the subspace:
+
+fid = fidelity(qcp)
+println("Fidelity: ", fid)
+
+# ## Leakage suppression
+
+# As can be seen from multilevel systems, there can be substantial leakage into higher energy levels
+# during the evolution. To mitigate this, Piccolo provides options to add leakage suppression
+# via the `PiccoloOptions` type.
+
+# To implement leakage suppression, pass `leakage_constraint=true` and configure the leakage
+# parameters:
+
+## create a leakage suppression problem
+qcp_leakage = SmoothPulseProblem(
+    qtraj,
+    N;
+    ddu_bound = ddu_bound,
+    Q = 100.0,
+    R = 1e-2,
+    piccolo_options = PiccoloOptions(
+        leakage_constraint = true,
+        leakage_constraint_value = 1e-2,
+        leakage_cost = 1e-2,
+    ),
+)
 
 ## solve the problem
-solve!(prob; max_iter = 50)
+cached_solve!(qcp_leakage, "multilevel_transmon_leakage"; max_iter = 50)
 
-# Let's look at the fidelity in the subspace
+# The leakage suppression adds:
+# - An L1-norm cost on populating leakage levels (drives populations toward zero)
+# - A constraint that keeps leakage below the specified threshold
 
-println(
-    "Fidelity: ",
-    unitary_rollout_fidelity(prob.trajectory, sys; subspace = op.subspace),
-)
+fid_leakage = fidelity(qcp_leakage)
+println("Fidelity with leakage suppression: ", fid_leakage)
 
-# and plot the result using the `plot_unitary_populations` function.
+# ## Visualizing Results
 
-plot_unitary_populations(prob.trajectory)
+# Piccolo provides plotting utilities to visualize the unitary evolution.
+# First, without leakage suppression:
 
-# ## Leakage suppresion
-# As can be seen from the above plot, there is a substantial amount of leakage into the higher levels during the evolution. To mitigate this, we have implemented the ability to add a cost to populating the leakage levels, in particular this is an $L_1$ norm cost, which is implemented via slack variables and should ideally drive those leakage populations down to zero.
-# To implement this, pass `leakage_suppresion=true` and `R_leakage={value}` to the `UnitarySmoothPulseProblem` template.
+plot_unitary_populations(get_trajectory(qcp); fig_size = (900, 700))
 
-## create the a leakage suppression problem, initializing with the previous solution
+# And with leakage suppression — you should see the population staying mostly
+# within the computational subspace (first two levels):
 
-prob_leakage = UnitarySmoothPulseProblem(
-    sys,
-    op,
-    T,
-    Δt;
-    a_bound = a_bound,
-    dda_bound = dda_bound,
-    leakage_suppression = true,
-    R_leakage = 1e-1,
-    a_guess = prob.trajectory.a,
-)
+plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))
 
-## solve the problem
+# ## Summary
 
-solve!(prob_leakage; max_iter = 50)
+# This tutorial demonstrated:
+# 1. Using `TransmonSystem` to create a realistic multilevel transmon system
+# 2. Using `EmbeddedOperator` to define gates on a subspace
+# 3. Creating `UnitaryTrajectory` with `ZeroOrderPulse`
+# 4. Using `SmoothPulseProblem` to set up the optimization
+# 5. Adding leakage suppression via `PiccoloOptions`
 
-# Let's look at the fidelity in the subspace
-
-println(
-    "Fidelity: ",
-    unitary_rollout_fidelity(prob_leakage.trajectory, sys; subspace = op.subspace),
-)
-
-# and plot the result using the `plot_unitary_populations` function from PiccoloPlots.jl
-
-plot_unitary_populations(prob_leakage.trajectory)
-
-# Here we can see that the leakage populations have been driven substantially down.
+# For more details on:
+# - Problem templates: See [SmoothPulseProblem](@ref smooth-pulse)
+# - Leakage suppression: See [Leakage Suppression](@ref leakage-suppression)
+# - Quantum systems: See [Transmon Qubits](@ref transmon-systems)
