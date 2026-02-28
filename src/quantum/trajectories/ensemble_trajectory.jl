@@ -72,7 +72,14 @@ function MultiKetTrajectory(
     base_prob = KetOperatorODEProblem(system, pulse, dummy, save_times)
     prob_func(prob, i, repeat) = remake(prob, u0 = ψ0s[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
-    sol = solve(ensemble_prob, algorithm; trajectories = length(initials), saveat = save_times, abstol = abstol, reltol = reltol)
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(initials),
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+    )
 
     return MultiKetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0s, ψgs, ws, sol)
 end
@@ -109,7 +116,16 @@ function MultiKetTrajectory(
     times = [0.0, T]
     controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
-    return MultiKetTrajectory(system, pulse, initials, goals; weights, algorithm, abstol, reltol)
+    return MultiKetTrajectory(
+        system,
+        pulse,
+        initials,
+        goals;
+        weights,
+        algorithm,
+        abstol,
+        reltol,
+    )
 end
 
 # Callable: sample all solutions at time t

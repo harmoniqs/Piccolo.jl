@@ -180,8 +180,16 @@ function Rollouts.rollout!(
     kwargs...,
 )
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
-    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, save_times; U0 = qtraj.initial)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol, kwargs...)
+    prob =
+        UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, save_times; U0 = qtraj.initial)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
 
     qtraj.solution = sol
     return nothing
@@ -226,7 +234,14 @@ function Rollouts.rollout!(
 )
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, save_times)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol, kwargs...)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
 
     qtraj.solution = sol
     return nothing
@@ -343,7 +358,14 @@ function Rollouts.rollout!(
 )
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, save_times)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol, kwargs...)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
 
     qtraj.solution = sol
     return nothing
@@ -363,7 +385,14 @@ function Rollouts.rollout!(
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
 )
-    rollout!(qtraj.base_trajectory, pulse; algorithm = algorithm, n_save = n_save, abstol = abstol, reltol = reltol)
+    rollout!(
+        qtraj.base_trajectory,
+        pulse;
+        algorithm = algorithm,
+        n_save = n_save,
+        abstol = abstol,
+        reltol = reltol,
+    )
     return nothing
 end
 
@@ -381,7 +410,14 @@ function Rollouts.rollout!(
     reltol::Real = 1e-8,
     kwargs...,
 )
-    rollout!(qtraj.base_trajectory; algorithm = algorithm, n_save = n_save, abstol = abstol, reltol = reltol, kwargs...)
+    rollout!(
+        qtraj.base_trajectory;
+        algorithm = algorithm,
+        n_save = n_save,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
     return nothing
 end
 
@@ -547,8 +583,16 @@ function Rollouts.rollout(
     kwargs...,
 )
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
-    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, save_times; U0 = qtraj.initial)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol, kwargs...)
+    prob =
+        UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, save_times; U0 = qtraj.initial)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
     return UnitaryTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -568,7 +612,14 @@ function Rollouts.rollout(
 )
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, save_times)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol, kwargs...)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
     return KetTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -630,7 +681,14 @@ function Rollouts.rollout(
 )
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, save_times)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol, kwargs...)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
     return DensityTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
