@@ -22,3 +22,4 @@ jobs:
           github-token: ${{ secrets.PROJECTS_TOKEN }}
           dry-run: ${{ github.event_name == 'pull_request' }}
           writeback-pr: 'true'
+          repo: ${{ github.repository }}
