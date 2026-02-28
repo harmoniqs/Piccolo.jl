@@ -9,11 +9,11 @@ function c1c2c3(U)
     ev = eigvals(U * Ũ / √complex(det(U)))
     two_S = angle.(ev) / π
     for i in eachindex(two_S)
-        if two_S[i] <= -.5
-            two_S[i] += 2.
+        if two_S[i] <= -0.5
+            two_S[i] += 2.0
         end
     end
-    S = sort(two_S / 2., rev=true)
+    S = sort(two_S / 2.0, rev = true)
     n = Int(round(sum(S)))
     S -= vcat(ones(n), zeros(4-n))
     S = circshift(S, -n)
@@ -28,19 +28,20 @@ end
 
 
 """plot the weyl chamber and record animated trajectory"""
-function plot_weyl_trajectory(traj::NamedTrajectory, output_mp4="weyl_trajectory.mp4")
+function plot_weyl_trajectory(traj::NamedTrajectory, output_mp4 = "weyl_trajectory.mp4")
     A1 = Point3f(1, 0, 0)
     A2 = Point3f(0.5, 0.5, 0)
     A3 = Point3f(0.5, 0.5, 0.5)
-    O  = Point3f(0, 0, 0)
-    L  = Point3f(0.5, 0, 0)
-    M  = Point3f(0.75, 0.25, 0)
-    N  = Point3f(0.75, 0.25, 0.25)
-    P  = Point3f(0.25, 0.25, 0.25)
-    Q  = Point3f(0.25, 0.25, 0)
-    
+    O = Point3f(0, 0, 0)
+    L = Point3f(0.5, 0, 0)
+    M = Point3f(0.75, 0.25, 0)
+    N = Point3f(0.75, 0.25, 0.25)
+    P = Point3f(0.25, 0.25, 0.25)
+    Q = Point3f(0.25, 0.25, 0)
+
     fig = Figure()
-    ax = Axis3(fig[1, 1],
+    ax = Axis3(
+        fig[1, 1],
         xlabel = "c₁ / π",
         ylabel = "c₂ / π",
         zlabel = "c₃ / π",
@@ -60,38 +61,36 @@ function plot_weyl_trajectory(traj::NamedTrajectory, output_mp4="weyl_trajectory
     ax.zspinecolor_4 = :transparent
 
     # background - weyl edges
-    lines!(ax, [O, A2], color=:black, linestyle=:dash)
+    lines!(ax, [O, A2], color = :black, linestyle = :dash)
 
     # background - PE edges
-    lines!(ax, [M, L], color=:black, linestyle=:dash)
-    lines!(ax, [Q, L], color=:black, linestyle=:dash)
-    lines!(ax, [P, Q], color=:black, linestyle=:dash)
-    lines!(ax, [P, A2], color=:black, linestyle=:dash)
+    lines!(ax, [M, L], color = :black, linestyle = :dash)
+    lines!(ax, [Q, L], color = :black, linestyle = :dash)
+    lines!(ax, [P, Q], color = :black, linestyle = :dash)
+    lines!(ax, [P, A2], color = :black, linestyle = :dash)
 
     # scatter plots
     points_obs = Observable(Point3f[])
-    scatter!(ax, points_obs, color=:red)
+    scatter!(ax, points_obs, color = :red)
 
     # foreground - weyl edges
-    lines!(ax, [O, A1], color=:black)
-    lines!(ax, [A1, A2], color=:black)
-    lines!(ax, [A2, A3], color=:black)
-    lines!(ax, [A3, A1], color=:black)
-    lines!(ax, [A3, O], color=:black)
+    lines!(ax, [O, A1], color = :black)
+    lines!(ax, [A1, A2], color = :black)
+    lines!(ax, [A2, A3], color = :black)
+    lines!(ax, [A3, A1], color = :black)
+    lines!(ax, [A3, O], color = :black)
 
     # foreground - PE edges
-    lines!(ax, [L, N], color=:black)
-    lines!(ax, [L, P], color=:black)
-    lines!(ax, [N, P], color=:black)
-    lines!(ax, [N, A2], color=:black)
-    lines!(ax, [N, M], color=:black)
+    lines!(ax, [L, N], color = :black)
+    lines!(ax, [L, P], color = :black)
+    lines!(ax, [N, P], color = :black)
+    lines!(ax, [N, A2], color = :black)
+    lines!(ax, [N, M], color = :black)
 
-    traj_points = Point3f[
-        c1c2c3(iso_vec_to_operator(traj[:Ũ⃗][:, k]))
-        for k in axes(traj[:Ũ⃗], 2)
-    ]
+    traj_points =
+        Point3f[c1c2c3(iso_vec_to_operator(traj[:Ũ⃗][:, k])) for k in axes(traj[:Ũ⃗], 2)]
 
-    record(fig, output_mp4, eachindex(traj_points); framerate=30) do i
+    record(fig, output_mp4, eachindex(traj_points); framerate = 30) do i
         push!(points_obs[], traj_points[i])
         notify(points_obs)
     end
