@@ -102,4 +102,8 @@ it will not build and serve.
 
 -----
 
+<!--## Star History-->
+
+<!--[![Star History Chart](https://api.star-history.com/svg?repos=harmoniqs/piccolo.jl,harmoniqs/namedtrajectories.jl,harmoniqs/directtrajopt.jl&type=Date)](https://www.star-history.com/#harmoniqs/piccolo.jl&harmoniqs/namedtrajectories.jl&harmoniqs/directtrajopt.jl&Date)-->
+
 *"Technologies are ways of commandeering nature: the sky belongs to those who know how to fly; the sea belongs to those who know how to swim and navigate." – Simone de Beauvoir*
