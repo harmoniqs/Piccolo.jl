@@ -42,9 +42,3 @@ Clarify and enforce which integrators are valid for each problem type:
 
 Add `TASKS.md` and `.github/workflows/tasksmd-sync.yml` to sync tasks to the
 harmoniqs GitHub Project board. This PR.
-
-### Typed drive system (LinearDrive, NonlinearDrive) with auto-Jacobian
-<!-- id: PVTI_lADOC9ysqc4BETyazgmXATw -->
-
-Merged in PR #79. Added `LinearDrive` and `NonlinearDrive` types with automatic
-Jacobian generation via ForwardDiff.
