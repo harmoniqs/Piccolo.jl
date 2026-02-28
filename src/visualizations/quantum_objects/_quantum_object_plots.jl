@@ -2,6 +2,7 @@ module QuantumObjectPlots
 
 export plot_unitary_populations
 export plot_state_populations
+export plot_weyl_trajectory
 export plot_name!
 
 using LaTeXStrings
@@ -30,5 +31,6 @@ end
 # Include submodules
 include("unitary_populations.jl")
 include("state_populations.jl")
+include("weyl_trajectory.jl")
 
 end
