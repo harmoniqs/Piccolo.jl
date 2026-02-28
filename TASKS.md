@@ -30,13 +30,13 @@ Clarify and enforce which integrators are valid for each problem type:
 
 ## In Progress
 
+## Done
+
 ### Implement tasksmd-sync for Piccolo.jl
 - **Labels:** meta, tooling
 
 Add `TASKS.md` and `.github/workflows/tasksmd-sync.yml` to sync tasks to the
 harmoniqs GitHub Project board. This PR.
-
-## Done
 
 ### Typed drive system (LinearDrive, NonlinearDrive) with auto-Jacobian
 
