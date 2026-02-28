@@ -53,6 +53,8 @@
 - [DirectTrajOpt.jl](https://github.com/harmoniqs/DirectTrajOpt.jl)
 - [NamedTrajectories.jl](https://github.com/harmoniqs/NamedTrajectories.jl)
 - [TrajectoryIndexingUtils.jl](https://github.com/harmoniqs/TrajectoryIndexingUtils.jl)
+- [DirectTrajOpt.jl](https://github.com/harmoniqs/DirectTrajOpt.jl)
+
 
 For documentation please see the individual packages.
 
@@ -68,38 +70,5 @@ This package is registered! To install enter the Julia REPL, type `]` to enter p
 ```Julia
 pkg> add Piccolo
 ```
-
-### Building Documentation
-This package uses a Documenter config that is shared with many of our other repositories. To build the docs, you will need to run the docs setup script to clone and pull down the utility. 
-```
-# first time only
-./docs/get_docs_utils.sh   # or ./get_docs_utils.sh if cwd is in ./docs/
-```
-
-To build the docs pages:
-```
-julia --project=docs docs/make.jl
-```
-
-or editing the docs live:
-```
-julia --project=docs
-> using LiveServer, Piccolo, Revise
-> servedocs(literate_dir="docs/literate", skip_dirs=["docs/src/generated", "docs/src/assets/"], skip_files=["docs/src/index.md"])
-```
-
-> **Note:** `servedocs` needs to watch a subset of the files in the `docs/` folder. If it watches files that are generated on a docs build/re-build, `servedocs` will continuously try to re-serve the pages.
-> 
-> To prevent this, ensure all generated files are included in the skip dirs or skip files args for `servedocs`.
-
-For example, if we forget index.md like so:
-```
-julia --project=docs
-> using LiveServer, Piccolo, Revise
-> servedocs(literate_dir="docs/literate", skip_dirs=["docs/src/generated", "docs/src/assets/"])
-```
-it will not build and serve.
-
------
 
 *"Technologies are ways of commandeering nature: the sky belongs to those who know how to fly; the sea belongs to those who know how to swim and navigate." – Simone de Beauvoir*
