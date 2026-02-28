@@ -57,8 +57,10 @@ function KetTrajectory(
 
     ψ0 = Vector{ComplexF64}(initial)
     ψg = Vector{ComplexF64}(goal)
+    knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
-    prob = KetOperatorODEProblem(system, pulse, ψ0, save_times)
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = KetOperatorODEProblem(system, pulse, ψ0, tstops)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     return KetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0, ψg, sol)

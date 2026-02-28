@@ -59,8 +59,10 @@ function UnitaryTrajectory(
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
     U0 = Matrix{ComplexF64}(initial)
+    knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
-    prob = UnitaryOperatorODEProblem(system, pulse, save_times; U0 = U0)
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = UnitaryOperatorODEProblem(system, pulse, tstops; U0 = U0)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     return UnitaryTrajectory{typeof(pulse),typeof(sol),G}(system, pulse, U0, goal, sol)

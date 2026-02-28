@@ -57,8 +57,10 @@ function DensityTrajectory(
 
     ρ0 = Matrix{ComplexF64}(initial)
     ρg = Matrix{ComplexF64}(goal)
+    knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
-    prob = DensityODEProblem(system, pulse, ρ0, save_times)
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = DensityODEProblem(system, pulse, ρ0, tstops)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     return DensityTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ρ0, ρg, sol)

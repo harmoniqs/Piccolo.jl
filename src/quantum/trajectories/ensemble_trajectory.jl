@@ -65,11 +65,13 @@ function MultiKetTrajectory(
     ψgs = [Vector{ComplexF64}(ψ) for ψ in goals]
     ws = Vector{Float64}(weights)
 
+    knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
 
     # Build ensemble problem
     dummy = zeros(ComplexF64, system.levels)
-    base_prob = KetOperatorODEProblem(system, pulse, dummy, save_times)
+    base_prob = KetOperatorODEProblem(system, pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = ψ0s[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
