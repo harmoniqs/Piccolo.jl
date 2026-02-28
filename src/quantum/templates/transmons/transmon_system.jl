@@ -462,9 +462,7 @@ end
     # Check Hamiltonian is Hermitian
     using LinearAlgebra: ishermitian
     @test ishermitian(sys.H_drift)
-    for H in sys.H_drives
-        @test ishermitian(H)
-    end
+    @test all(d -> ishermitian(d.H), sys.H_drives)
 end
 
 @testitem "TransmonCavitySystem: custom parameters" begin

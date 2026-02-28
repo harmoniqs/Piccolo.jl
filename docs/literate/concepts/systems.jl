@@ -5,7 +5,7 @@
 #
 # ## The Hamiltonian Model
 #
-# Piccolo.jl uses the standard bilinear control Hamiltonian:
+# The most common model is the **bilinear control Hamiltonian**:
 #
 # ```math
 # H(\boldsymbol{u}, t) = H_{\text{drift}} + \sum_{i=1}^{m} u_i(t)\, H_{\text{drive},i}
@@ -16,21 +16,26 @@
 # controllable interactions, and ``\boldsymbol{u}(t) \in \mathbb{R}^m`` are the
 # time-dependent control amplitudes.
 #
+# Piccolo.jl also supports a **generalized drive model** where each drive term
+# has an arbitrary scalar coefficient function of the control vector:
+#
+# ```math
+# H(\boldsymbol{u}, t) = H_{\text{drift}} + \sum_{d} c_d(\boldsymbol{u})\, H_d
+# ```
+#
+# This includes the standard linear case (``c_d(\boldsymbol{u}) = u_i``) as well
+# as nonlinear drives (``c_d(\boldsymbol{u}) = u_1^2 + u_2^2``, etc.) that arise
+# in displaced frames, cross-Kerr couplings, and other physics.
+#
 # For optimization the Hamiltonian is converted to a **generator** of the
 # Schrödinger equation:
 #
 # ```math
-# G(\boldsymbol{u}) = -i\!\left( H_{\text{drift}} + \sum_{i=1}^{m} u_i\, H_{\text{drive},i} \right)
+# G(\boldsymbol{u}) = -i\!\left( H_{\text{drift}} + \sum_{d} c_d(\boldsymbol{u})\, H_d \right)
 # ```
 #
 # so that ``\dot{\psi} = G\,\psi`` (ket evolution) or ``\dot{U} = G\,U``
-# (unitary propagator).  The generator inherits the bilinear control structure:
-#
-# ```math
-# G(\boldsymbol{u}) = G_{\text{drift}} + \sum_{i=1}^{m} u_i\, G_{\text{drive},i}
-# ```
-#
-# and is stored internally in isomorphic (real) form.
+# (unitary propagator). The generator is stored internally in isomorphic (real) form.
 # See [Isomorphisms](@ref isomorphisms-concept) for how complex matrices become
 # real generators.
 #
@@ -52,7 +57,7 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 # ### Constructor Variants
 #
 # ```julia
-# # Full specification
+# # Full specification (linear drives)
 # sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 #
 # # No drift (pure control)
@@ -60,6 +65,9 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 #
 # # No drives (free evolution)
 # sys = QuantumSystem(H_drift)
+#
+# # Typed drives (supports nonlinear coefficients)
+# sys = QuantumSystem(H_drift, drives, drive_bounds)
 # ```
 #
 # ## Drive Bounds
@@ -82,6 +90,118 @@ H_d = get_drift(sys)
 H_dr = get_drives(sys)
 H_d
 
+# ## Nonlinear Drives
+#
+# When the Hamiltonian contains terms whose coefficient is a nonlinear function of
+# the controls — for example ``|\alpha|^2`` terms in a displaced frame or products
+# of control amplitudes — you can use **typed drive terms** via the
+# `QuantumSystem(H_drift, drives, drive_bounds)` constructor.
+#
+# ### Drive Types
+#
+# Each drive pairs a Hermitian operator ``H_d`` with a scalar coefficient
+# ``c_d(\boldsymbol{u})``:
+#
+# | Type | Coefficient | Use case |
+# |------|-------------|----------|
+# | `LinearDrive(H, i)` | ``u_i`` | Standard bilinear control |
+# | `NonlinearDrive(H, f)` | ``f(\boldsymbol{u})`` | Displaced frames, cross-Kerr, products |
+# | `NonlinearDrive(H, f, ∂f)` | ``f(\boldsymbol{u})`` | Same, with hand-written Jacobian |
+#
+# The **2-argument** `NonlinearDrive(H, f)` constructor is recommended — it
+# auto-generates the Jacobian via ForwardDiff:
+
+using SparseArrays
+
+## Auto-Jacobian (recommended):
+d_auto = NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2)
+
+## Check: ∂(u₁² + u₂²)/∂u₁ at u = [3, 4] should be 6
+drive_coeff_jac(d_auto, [3.0, 4.0, 0.0], 1)
+
+# The **3-argument** form `NonlinearDrive(H, f, ∂f)` is available when you want
+# full control over the Jacobian (e.g., for performance-critical inner loops):
+#
+# ```julia
+# NonlinearDrive(
+#     PAULIS[:Z],
+#     u -> u[1]^2 + u[2]^2,                             # coefficient
+#     (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0  # hand-written Jacobian
+# )
+# ```
+#
+# Hand-written Jacobians are **validated against ForwardDiff** during
+# `QuantumSystem` construction — sign errors or off-by-one bugs are caught
+# immediately.
+#
+# ### Structural Sparsity
+#
+# When a nonlinear drive depends on only a few control indices (e.g., ``u_3^2 + u_4^2``
+# in a 10-control system), you can declare `active_controls` to skip unnecessary
+# Jacobian evaluations in the sensitivity equations:
+
+d_sparse = NonlinearDrive(
+    PAULIS[:Z],
+    u -> u[1]^2 + u[2]^2;
+    active_controls = [1, 2],   ## only u₁ and u₂ affect this drive
+)
+active_controls(d_sparse)
+
+# For `LinearDrive`, `active_controls` is automatically `[index]`.
+#
+# ### Example: Mixed Linear and Nonlinear Drives
+#
+# Consider a qubit in a displaced frame with controls ``\boldsymbol{u} = (u_1, u_2)``
+# and a Hamiltonian:
+#
+# ```math
+# H(\boldsymbol{u}) = u_1\,\sigma_x + u_2\,\sigma_y + (u_1^2 + u_2^2)\,\sigma_z
+# ```
+
+drives = AbstractDrive[
+    LinearDrive(sparse(ComplexF64.(PAULIS[:X])), 1),     ## u₁ σx
+    LinearDrive(sparse(ComplexF64.(PAULIS[:Y])), 2),     ## u₂ σy
+    NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2),   ## (u₁² + u₂²) σz
+]
+
+sys_nl = QuantumSystem(drives, [1.0, 1.0])
+
+# The resulting system works with all the same trajectories and problem templates:
+
+sys_nl.n_drives   ## control dimension (2, not 3 — drives share controls)
+
+#-
+
+length(sys_nl.drives)  ## number of drive terms (3)
+
+#-
+
+has_nonlinear_drives(sys_nl.drives)
+
+# Note that `n_drives` is the control dimension (length of ``\boldsymbol{u}``),
+# which may differ from the number of drive terms when nonlinear drives combine
+# multiple control channels.
+#
+# ### Accessing Drive Terms
+#
+# Use `get_drive_terms(sys)` to access the full `AbstractDrive` objects with
+# coefficient functions, Jacobians, and active control indices:
+
+get_drive_terms(sys_nl)
+
+# Use `get_drives(sys)` for just the Hamiltonian matrices (one per drive term):
+
+get_drives(sys_nl)
+
+# ### Backward Compatibility
+#
+# The standard matrix-based constructor `QuantumSystem(H_drift, H_drives, bounds)`
+# still works exactly as before — it automatically creates `LinearDrive` objects
+# internally:
+
+sys_linear = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+sys_linear.drives  ## auto-populated LinearDrives
+
 # ## OpenQuantumSystem
 #
 # For systems with dissipation the dynamics follow the Lindblad master equation:
@@ -94,10 +214,10 @@ H_d
 # with the Lindbladian superoperator
 #
 # ```math
-# \mathcal{G}(\boldsymbol{u}) = \mathcal{G}_{\text{drift}} + \sum_{i=1}^{m} u_i\, \mathcal{G}_{\text{drive},i}
+# \mathcal{G}(\boldsymbol{u}) = \mathcal{G}_{\text{drift}} + \sum_{d} c_d(\boldsymbol{u})\, \mathcal{G}_{d}
 # ```
 #
-# which has the same bilinear control structure as the closed-system generator.
+# which has the same generalized drive structure as the closed-system generator.
 #
 # ```julia
 # L_ops = [
@@ -105,10 +225,20 @@ H_d
 #     sqrt(γ2) * PAULIS[:Z]           # Pure dephasing (T2)
 # ]
 #
+# # Matrix-based (linear drives only)
 # open_sys = OpenQuantumSystem(
 #     H_drift, H_drives, drive_bounds;
 #     dissipation_operators=L_ops
 # )
+#
+# # Typed drives (supports nonlinear coefficients)
+# open_sys = OpenQuantumSystem(
+#     H_drift, drives, drive_bounds;
+#     dissipation_operators=L_ops
+# )
+#
+# # From an existing QuantumSystem (preserves nonlinear drives)
+# open_sys = OpenQuantumSystem(qsys; dissipation_operators=L_ops)
 # ```
 #
 # ### Compact Lindbladian Generators

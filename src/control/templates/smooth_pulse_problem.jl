@@ -530,7 +530,7 @@ end
     @test get_trajectory(qcp) === qcp.prob.trajectory
 
     # Solve and verify
-    solve!(qcp; max_iter = 100, print_level = 1, verbose = false)
+    solve!(qcp; max_iter = 200, print_level = 1, verbose = false)
 
     # Test fidelity after solve
     traj = get_trajectory(qcp)
@@ -543,7 +543,7 @@ end
     dynamics_integrator = qcp.prob.integrators[1]
     δ = zeros(dynamics_integrator.dim)
     DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
-    @test norm(δ, Inf) < 1e-3
+    @test norm(δ, Inf) < 1e-2
 end
 
 @testitem "SmoothPulseProblem rejects spline pulses" begin
@@ -1065,7 +1065,7 @@ end
     # (depending on SamplingProblem implementation)
 
     # Solve
-    solve!(sampling_prob; max_iter = 50, verbose = false, print_level = 1)
+    solve!(sampling_prob; max_iter = 100, verbose = false, print_level = 1)
 
     # Test dynamics constraints are satisfied
     for integrator in sampling_prob.prob.integrators

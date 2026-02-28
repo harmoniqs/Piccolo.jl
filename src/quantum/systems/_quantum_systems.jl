@@ -6,8 +6,15 @@ export OpenQuantumSystem
 export VariationalQuantumSystem
 export CompositeQuantumSystem
 
+export AbstractDrive, LinearDrive, NonlinearDrive
+export drive_coeff, drive_coeff_jac
+export active_controls
+export has_nonlinear_drives
+export validate_drive_jacobian
+
 export get_drift
 export get_drives
+export get_drive_terms
 export get_c_ops
 export compact_lindbladian_generators
 
@@ -95,12 +102,44 @@ get_drift(sys::AbstractQuantumSystem) = sys.H(zeros(sys.n_drives), 0.0)
 """
     get_drives(sys::AbstractQuantumSystem)
 
-Returns the drive Hamiltonians of the system.
+Returns the drive Hamiltonian matrices of the system.
+
+For systems with typed drives (`sys.H_drives`), returns the `H` matrix from each
+drive term. For function-based systems without drives, extracts operators via
+basis vector evaluation.
+
+!!! note
+    When nonlinear drives are present, the number of returned matrices may differ
+    from `sys.n_drives` (the control dimension). For example, a system with 2
+    controls and 3 drive terms (2 linear + 1 nonlinear) returns 3 matrices.
+    Use [`get_drive_terms`](@ref) to access the full `AbstractDrive` objects with
+    coefficient functions, Jacobians, and active control indices.
 """
 function get_drives(sys::AbstractQuantumSystem)
+    if hasproperty(sys, :H_drives) && !isempty(sys.H_drives)
+        return [d.H for d in sys.H_drives]
+    end
     H_drift = get_drift(sys)
-    # Basis vectors for controls will extract drive operators
+    # Basis vectors for controls will extract drive operators (linear systems only)
     return [sys.H(I[1:sys.n_drives, i], 0.0) - H_drift for i ∈ 1:sys.n_drives]
+end
+
+"""
+    get_drive_terms(sys::AbstractQuantumSystem) -> Vector{AbstractDrive}
+
+Return the typed drive terms from the system. Each `AbstractDrive` pairs a
+Hamiltonian operator with a scalar coefficient function and Jacobian.
+
+Returns `sys.H_drives` directly when available, or an empty vector for
+function-based systems that don't use typed drives.
+
+See also [`get_drives`](@ref) for just the Hamiltonian matrices.
+"""
+function get_drive_terms(sys::AbstractQuantumSystem)
+    if hasproperty(sys, :H_drives)
+        return sys.H_drives
+    end
+    return AbstractDrive[]
 end
 
 function Base.show(io::IO, sys::AbstractQuantumSystem)
@@ -129,6 +168,7 @@ _float_params(nt::NamedTuple{K}) where {K} = NamedTuple{K}(float.(values(nt)))
 # Quantum System Types
 # ----------------------------------------------------------------------------- #
 
+include("drives.jl")
 include("quantum_systems.jl")
 include("open_quantum_systems.jl")
 include("variational_quantum_systems.jl")

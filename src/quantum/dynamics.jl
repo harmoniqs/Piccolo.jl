@@ -139,53 +139,35 @@ function update_global_params!(qtraj, traj)
 end
 
 function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
-    if isempty(sys.H_drives)
-        return QuantumSystem(
-            sys.H,
-            sys.G,
-            sys.H_drift,
-            sys.H_drives,
-            sys.drive_bounds,
-            sys.n_drives,
-            sys.levels,
-            sys.time_dependent,
-            new_global_params,
-        )
-    else
-        return QuantumSystem(
-            sys.H_drift,
-            sys.H_drives,
-            sys.drive_bounds;
-            time_dependent = sys.time_dependent,
-            global_params = new_global_params,
-        )
-    end
+    # Always use the inner constructor to preserve the exact H/G closure types.
+    # H/G closures do not capture global_params directly (they are appended to u
+    # by the integrator), so reusing sys.H and sys.G is always correct.
+    return QuantumSystem(
+        sys.H,
+        sys.G,
+        sys.H_drift,
+        sys.H_drives,
+        sys.drive_bounds,
+        sys.n_drives,
+        sys.levels,
+        sys.time_dependent,
+        new_global_params,
+    )
 end
 
 function _reconstruct_system(sys::OpenQuantumSystem, new_global_params::NamedTuple)
-    if isempty(sys.H_drives)
-        return OpenQuantumSystem(
-            sys.H,
-            sys.𝒢,
-            sys.H_drift,
-            sys.H_drives,
-            sys.drive_bounds,
-            sys.n_drives,
-            sys.levels,
-            sys.dissipation_operators,
-            sys.time_dependent,
-            new_global_params,
-        )
-    else
-        return OpenQuantumSystem(
-            sys.H_drift,
-            sys.H_drives,
-            sys.drive_bounds;
-            dissipation_operators = sys.dissipation_operators,
-            time_dependent = sys.time_dependent,
-            global_params = new_global_params,
-        )
-    end
+    return OpenQuantumSystem(
+        sys.H,
+        sys.𝒢,
+        sys.H_drift,
+        sys.H_drives,
+        sys.drive_bounds,
+        sys.n_drives,
+        sys.levels,
+        sys.dissipation_operators,
+        sys.time_dependent,
+        new_global_params,
+    )
 end
 
 """
