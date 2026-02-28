@@ -804,7 +804,8 @@ evaluate(p::CompositePulse, t) = p.f(t)
 # (defined here because GaussianPulse, ErfPulse, CompositePulse are defined above)
 get_knot_times(p::GaussianPulse) = [0.0, p.duration]
 get_knot_times(p::ErfPulse) = [0.0, p.duration]
-get_knot_times(p::CompositePulse) = sort(unique(vcat([get_knot_times(sub) for sub in p.pulses]...)))
+get_knot_times(p::CompositePulse) =
+    sort(unique(vcat([get_knot_times(sub) for sub in p.pulses]...)))
 
 # ============================================================================ #
 # NamedTrajectory Constructors

@@ -184,8 +184,7 @@ function Rollouts.rollout!(
     knot_times = get_knot_times(qtraj.pulse)
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob =
-        UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
+    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
     sol = solve(
         prob,
         algorithm;
@@ -609,8 +608,7 @@ function Rollouts.rollout(
     knot_times = get_knot_times(qtraj.pulse)
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob =
-        UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
+    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
     sol = solve(
         prob,
         algorithm;
