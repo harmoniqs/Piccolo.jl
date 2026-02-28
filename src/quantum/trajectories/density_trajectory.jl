@@ -27,7 +27,7 @@ mutable struct DensityTrajectory{P<:AbstractPulse,S<:ODESolution} <:
 end
 
 """
-    DensityTrajectory(system, pulse, initial, goal; algorithm=Tsit5())
+    DensityTrajectory(system, pulse, initial, goal; algorithm=Tsit5(), abstol=1e-8, reltol=1e-8, n_save=101)
 
 Create a density matrix trajectory by solving the Lindblad master equation.
 
@@ -39,6 +39,9 @@ Create a density matrix trajectory by solving the Lindblad master equation.
 
 # Keyword Arguments
 - `algorithm`: ODE solver algorithm (default: Tsit5())
+- `abstol`: Absolute tolerance (default: 1e-8)
+- `reltol`: Relative tolerance (default: 1e-8)
+- `n_save`: Number of output time points (default: 101)
 """
 function DensityTrajectory(
     system::OpenQuantumSystem,
@@ -46,20 +49,23 @@ function DensityTrajectory(
     initial::AbstractMatrix{<:Number},
     goal::AbstractMatrix{<:Number};
     algorithm = Tsit5(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+    n_save::Int = 101,
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
     ρ0 = Matrix{ComplexF64}(initial)
     ρg = Matrix{ComplexF64}(goal)
-    times = collect(range(0.0, duration(pulse), length = 101))
-    prob = DensityODEProblem(system, pulse, ρ0, times)
-    sol = solve(prob, algorithm; saveat = times)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    prob = DensityODEProblem(system, pulse, ρ0, save_times)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     return DensityTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ρ0, ρg, sol)
 end
 
 """
-    DensityTrajectory(system, initial, goal, T::Real; drive_name=:u, algorithm=Tsit5())
+    DensityTrajectory(system, initial, goal, T::Real; drive_name=:u, algorithm=Tsit5(), abstol=1e-8, reltol=1e-8)
 
 Convenience constructor that creates a zero pulse of duration T.
 """
@@ -70,11 +76,13 @@ function DensityTrajectory(
     T::Real;
     drive_name::Symbol = :u,
     algorithm = Tsit5(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
     times = [0.0, T]
     controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
-    return DensityTrajectory(system, pulse, initial, goal; algorithm)
+    return DensityTrajectory(system, pulse, initial, goal; algorithm, abstol, reltol)
 end
 
 # Callable: sample solution at any time

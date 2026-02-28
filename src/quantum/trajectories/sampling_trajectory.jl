@@ -440,6 +440,6 @@ end
     @test get_pulse(sampling)(0.5)[1] ≈ 0.5  # Pulse was updated
 
     # Test rollout! with ODE parameters
-    rollout!(sampling; n_points = 21)
+    rollout!(sampling; n_save = 21)
     @test length(get_solution(sampling.base_trajectory).t) == 21
 end

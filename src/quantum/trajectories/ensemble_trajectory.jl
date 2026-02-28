@@ -30,7 +30,7 @@ mutable struct MultiKetTrajectory{P<:AbstractPulse,S} <: AbstractQuantumTrajecto
 end
 
 """
-    MultiKetTrajectory(system, pulse, initials, goals; weights=..., algorithm=MagnusGL4())
+    MultiKetTrajectory(system, pulse, initials, goals; weights=..., algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8, n_save=101)
 
 Create a multi-ket trajectory by solving multiple Schrödinger equations.
 
@@ -42,7 +42,10 @@ Create a multi-ket trajectory by solving multiple Schrödinger equations.
 
 # Keyword Arguments
 - `weights`: Weights for fidelity (default: uniform)
-- `algorithm`: ODE solver algorithm (default: MagnusGL4())
+- `algorithm`: ODE solver algorithm (default: MagnusAdapt4())
+- `abstol`: Absolute tolerance for adaptive integration (default: 1e-8)
+- `reltol`: Relative tolerance for adaptive integration (default: 1e-8)
+- `n_save`: Number of output time points (default: 101)
 """
 function MultiKetTrajectory(
     system::QuantumSystem,
@@ -50,7 +53,10 @@ function MultiKetTrajectory(
     initials::Vector{<:AbstractVector{<:Number}},
     goals::Vector{<:AbstractVector{<:Number}};
     weights::AbstractVector{<:Real} = fill(1.0 / length(initials), length(initials)),
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+    n_save::Int = 101,
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
     @assert length(initials) == length(goals) == length(weights) "initials, goals, and weights must have same length"
@@ -59,20 +65,20 @@ function MultiKetTrajectory(
     ψgs = [Vector{ComplexF64}(ψ) for ψ in goals]
     ws = Vector{Float64}(weights)
 
-    times = collect(range(0.0, duration(pulse), length = 101))
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
 
     # Build ensemble problem
     dummy = zeros(ComplexF64, system.levels)
-    base_prob = KetOperatorODEProblem(system, pulse, dummy, times)
+    base_prob = KetOperatorODEProblem(system, pulse, dummy, save_times)
     prob_func(prob, i, repeat) = remake(prob, u0 = ψ0s[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
-    sol = solve(ensemble_prob, algorithm; trajectories = length(initials), saveat = times)
+    sol = solve(ensemble_prob, algorithm; trajectories = length(initials), saveat = save_times, abstol = abstol, reltol = reltol)
 
     return MultiKetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0s, ψgs, ws, sol)
 end
 
 """
-    MultiKetTrajectory(system, initials, goals, T::Real; weights=..., drive_name=:u, algorithm=MagnusGL4())
+    MultiKetTrajectory(system, initials, goals, T::Real; weights=..., drive_name=:u, algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8)
 
 Convenience constructor that creates a zero pulse of duration T.
 
@@ -85,7 +91,9 @@ Convenience constructor that creates a zero pulse of duration T.
 # Keyword Arguments
 - `weights`: Weights for fidelity (default: uniform)
 - `drive_name::Symbol`: Name of the drive variable (default: `:u`)
-- `algorithm`: ODE solver algorithm (default: MagnusGL4())
+- `algorithm`: ODE solver algorithm (default: MagnusAdapt4())
+- `abstol`: Absolute tolerance (default: 1e-8)
+- `reltol`: Relative tolerance (default: 1e-8)
 """
 function MultiKetTrajectory(
     system::QuantumSystem,
@@ -94,12 +102,14 @@ function MultiKetTrajectory(
     T::Real;
     weights::AbstractVector{<:Real} = fill(1.0 / length(initials), length(initials)),
     drive_name::Symbol = :u,
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
     times = [0.0, T]
     controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
-    return MultiKetTrajectory(system, pulse, initials, goals; weights, algorithm)
+    return MultiKetTrajectory(system, pulse, initials, goals; weights, algorithm, abstol, reltol)
 end
 
 # Callable: sample all solutions at time t

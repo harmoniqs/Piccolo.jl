@@ -1,7 +1,17 @@
 module Rollouts
 
 """
-Rollouts of quantum systems using SciML's DifferentialEquations.jl. 
+Rollouts of quantum systems using SciML's DifferentialEquations.jl.
+
+# Integration Algorithms
+
+The default integrator is `MagnusAdapt4()` — a 4th-order adaptive Magnus method that:
+- Preserves unitarity (Lie group structure)
+- Adapts step size based on local error estimation
+- Uses `abstol`/`reltol` instead of fixed point counts
+
+`MagnusGL4()` is still available for fixed-step integration (pass `algorithm=MagnusGL4()`).
+`Tsit5()` is used by default for `DensityTrajectory` (open systems).
 
 # Two Ways to Check Fidelity
 
@@ -34,7 +44,7 @@ rollout!(qtraj, pulse)
 
 Domain-specific language for quantum system rollouts:
 - `KetODEProblem`: Ket rollouts
-- `UnitaryODEProblem`: Unitary rollouts  
+- `UnitaryODEProblem`: Unitary rollouts
 - `DensityODEProblem`: Density matrix rollouts (open systems)
 
 SciML MatrixOperator versions for Lie group integrators (e.g., Magnus expansion):
@@ -388,7 +398,6 @@ function KetODEProblem(
         ψ0,
         (0, times[end]);
         tstops = times,
-        saveat = times,
         kwargs...,
     )
 end
@@ -409,7 +418,6 @@ function UnitaryODEProblem(
         U0,
         (0, times[end]);
         tstops = times,
-        saveat = times,
         kwargs...,
     )
 end
@@ -431,7 +439,6 @@ function DensityODEProblem(
         ρ0,
         (0, times[end]);
         tstops = times,
-        saveat = times,
         kwargs...,
     )
 end
@@ -457,7 +464,6 @@ function KetOperatorODEProblem(
         ψ0,
         (0, times[end]);
         tstops = times,
-        saveat = times,
         kwargs...,
     )
 end
@@ -478,7 +484,6 @@ function UnitaryOperatorODEProblem(
         U0,
         (0, times[end]);
         tstops = times,
-        saveat = times,
         kwargs...,
     )
 end
@@ -494,7 +499,9 @@ function rollout_fidelity(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :ψ̃,
     control_name::Symbol = :u,
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     state_names = [n for n ∈ traj.names if startswith(string(n), string(state_name))]
@@ -523,9 +530,11 @@ function rollout_fidelity(
     ensemble_prob = EnsembleProblem(rollout, prob_func = prob_func)
     ensemble_sol = solve(
         ensemble_prob,
-        algorithm,
+        algorithm;
         trajectories = length(state_names),
         saveat = [times[end]],
+        abstol = abstol,
+        reltol = reltol,
     )
 
     fids = map(zip(ensemble_sol, state_names)) do (sol, name)
@@ -541,7 +550,9 @@ function unitary_rollout_fidelity(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :Ũ⃗,
     control_name::Symbol = :u,
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
@@ -562,7 +573,7 @@ function unitary_rollout_fidelity(
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
     rollout = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
-    sol = solve(rollout, algorithm, saveat = [times[end]])
+    sol = solve(rollout, algorithm; saveat = [times[end]], abstol = abstol, reltol = reltol)
     xf = sol[state_name][end]
     xg = iso_vec_to_operator(traj.goal[state_name])
     return unitary_fidelity(xf, xg)
@@ -573,7 +584,9 @@ function unitary_rollout(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :Ũ⃗,
     control_name::Symbol = :u,
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
@@ -594,7 +607,7 @@ function unitary_rollout(
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
     prob = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
-    sol = solve(prob, algorithm, saveat = times)
+    sol = solve(prob, algorithm; saveat = times, abstol = abstol, reltol = reltol)
 
     # Extract and convert to iso-vec trajectory
     Ũ⃗_traj = hcat([operator_to_iso_vec(sol[state_name][i]) for i = 1:length(times)]...)
@@ -607,7 +620,9 @@ function ket_rollout_fidelity(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :ψ̃,
     control_name::Symbol = :u,
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     return rollout_fidelity(
@@ -616,6 +631,8 @@ function ket_rollout_fidelity(
         state_name = state_name,
         control_name = control_name,
         algorithm = algorithm,
+        abstol = abstol,
+        reltol = reltol,
         interpolation = interpolation,
     )
 end
@@ -625,7 +642,9 @@ function ket_rollout(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :ψ̃,
     control_name::Symbol = :u,
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
@@ -646,7 +665,7 @@ function ket_rollout(
 
     ψ0 = iso_to_ket(traj.initial[state_name])
     prob = KetOperatorODEProblem(sys, u, ψ0, times, state_name = state_name)
-    sol = solve(prob, algorithm, saveat = times)
+    sol = solve(prob, algorithm; saveat = times, abstol = abstol, reltol = reltol)
 
     # Extract and convert to iso-vec trajectory
     ψ̃_traj = hcat([ket_to_iso(sol[state_name][i]) for i = 1:length(times)]...)
@@ -981,7 +1000,7 @@ end
     @test qtraj2.system === qtraj1.system
 
     # Roll out with custom resolution
-    qtraj3 = rollout(qtraj1, pulse2; n_points = 501)
+    qtraj3 = rollout(qtraj1, pulse2; n_save = 501)
     @test length(qtraj3.solution.u) == 501
 end
 

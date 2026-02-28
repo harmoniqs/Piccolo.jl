@@ -27,7 +27,7 @@ mutable struct KetTrajectory{P<:AbstractPulse,S<:ODESolution} <:
 end
 
 """
-    KetTrajectory(system, pulse, initial, goal; algorithm=MagnusGL4())
+    KetTrajectory(system, pulse, initial, goal; algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8, n_save=101)
 
 Create a ket trajectory by solving the Schrödinger equation.
 
@@ -38,28 +38,34 @@ Create a ket trajectory by solving the Schrödinger equation.
 - `goal::Vector`: Target state |ψ_goal⟩
 
 # Keyword Arguments
-- `algorithm`: ODE solver algorithm (default: MagnusGL4())
+- `algorithm`: ODE solver algorithm (default: MagnusAdapt4())
+- `abstol`: Absolute tolerance for adaptive integration (default: 1e-8)
+- `reltol`: Relative tolerance for adaptive integration (default: 1e-8)
+- `n_save`: Number of output time points (default: 101)
 """
 function KetTrajectory(
     system::QuantumSystem,
     pulse::AbstractPulse,
     initial::AbstractVector{<:Number},
     goal::AbstractVector{<:Number};
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+    n_save::Int = 101,
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
     ψ0 = Vector{ComplexF64}(initial)
     ψg = Vector{ComplexF64}(goal)
-    times = collect(range(0.0, duration(pulse), length = 101))
-    prob = KetOperatorODEProblem(system, pulse, ψ0, times)
-    sol = solve(prob, algorithm; saveat = times)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    prob = KetOperatorODEProblem(system, pulse, ψ0, save_times)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     return KetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0, ψg, sol)
 end
 
 """
-    KetTrajectory(system, initial, goal, T::Real; drive_name=:u, algorithm=MagnusGL4())
+    KetTrajectory(system, initial, goal, T::Real; drive_name=:u, algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8)
 
 Convenience constructor that creates a zero pulse of duration T.
 
@@ -71,7 +77,9 @@ Convenience constructor that creates a zero pulse of duration T.
 
 # Keyword Arguments
 - `drive_name::Symbol`: Name of the drive variable (default: `:u`)
-- `algorithm`: ODE solver algorithm (default: MagnusGL4())
+- `algorithm`: ODE solver algorithm (default: MagnusAdapt4())
+- `abstol`: Absolute tolerance (default: 1e-8)
+- `reltol`: Relative tolerance (default: 1e-8)
 """
 function KetTrajectory(
     system::QuantumSystem,
@@ -79,12 +87,14 @@ function KetTrajectory(
     goal::AbstractVector{<:Number},
     T::Real;
     drive_name::Symbol = :u,
-    algorithm = MagnusGL4(),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
     times = [0.0, T]
     controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
-    return KetTrajectory(system, pulse, initial, goal; algorithm)
+    return KetTrajectory(system, pulse, initial, goal; algorithm, abstol, reltol)
 end
 
 # Callable: sample solution at any time
