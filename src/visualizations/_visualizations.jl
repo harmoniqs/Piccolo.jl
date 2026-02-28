@@ -11,4 +11,7 @@ include("quantum_objects/_quantum_object_plots.jl")
 include("quantum_toolbox.jl")
 @reexport using .QuantumToolboxPlots
 
+include("systems/_systems_plots.jl")
+@reexport using .SystemsPlots
+
 end

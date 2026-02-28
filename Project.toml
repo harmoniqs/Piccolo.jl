@@ -30,6 +30,7 @@ TrajectoryIndexingUtils = "6dad8b7f-dd9a-4c28-9b70-85b9a079bfc8"
 
 [weakdeps]
 QuantumToolbox = "6c2fb7c5-b903-41d2-bc5e-5a7c320b9fab"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [extensions]
 PiccoloMakieExt = ["Makie"]
