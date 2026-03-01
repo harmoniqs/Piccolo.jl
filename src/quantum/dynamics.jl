@@ -844,7 +844,7 @@ end
 
         # KetODEProblem
         ket_prob = KetODEProblem(sys, pulse, ψ0, times)
-        ket_sol = solve(ket_prob, Tsit5(); saveat=times)
+        ket_sol = solve(ket_prob, Tsit5(); saveat = times)
         @test length(ket_sol.u) == n_times
         @test length(ket_sol.u[end]) == 2  # 2-level system
 
@@ -856,7 +856,7 @@ end
 
         # DensityODEProblem
         rho_prob = DensityODEProblem(osys, pulse, ρ0, times)
-        rho_sol = solve(rho_prob, Tsit5(); saveat=times)
+        rho_sol = solve(rho_prob, Tsit5(); saveat = times)
         @test length(rho_sol.u) == n_times
         @test size(rho_sol.u[end]) == (2, 2)
 
@@ -922,7 +922,7 @@ end
 
     # KetODEProblem
     ket_prob = KetODEProblem(sys, pulse, ψ0, times)
-    ket_sol = solve(ket_prob, Tsit5(); saveat=times)
+    ket_sol = solve(ket_prob, Tsit5(); saveat = times)
     @test length(ket_sol.u) == n_times
 
     # UnitaryOperatorODEProblem
