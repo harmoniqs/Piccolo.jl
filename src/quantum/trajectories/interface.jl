@@ -104,7 +104,7 @@ duration(traj::AbstractQuantumTrajectory) = duration(traj.pulse)
 # ============================================================================ #
 
 """
-    rollout!(qtraj::UnitaryTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
+    rollout!(qtraj::UnitaryTrajectory, pulse::AbstractPulse; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8)
 
 Update quantum trajectory in-place with a new pulse by re-solving the ODE.
 Mutates `qtraj.pulse` and `qtraj.solution`.
@@ -114,8 +114,10 @@ Mutates `qtraj.pulse` and `qtraj.solution`.
 - `pulse::AbstractPulse`: The new control pulse
 
 # Keyword Arguments
-- `algorithm`: ODE solver algorithm (default: `MagnusGL4()`)
-- `n_points::Int`: Number of time points to sample (default: 101)
+- `algorithm`: ODE solver algorithm (default: `MagnusAdapt4()`)
+- `n_save::Int`: Number of output time points (default: 101)
+- `abstol`: Absolute tolerance (default: 1e-8)
+- `reltol`: Relative tolerance (default: 1e-8)
 
 # Example
 ```julia
@@ -129,12 +131,16 @@ See also: `rollout`
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
-    times = collect(range(0.0, duration(pulse), length = n_points))
-    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, times; U0 = qtraj.initial)
-    sol = solve(prob, algorithm; saveat = times)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
     qtraj.solution = sol
@@ -142,7 +148,7 @@ function Rollouts.rollout!(
 end
 
 """
-    rollout!(qtraj::UnitaryTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
+    rollout!(qtraj::UnitaryTrajectory; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
 
 Update quantum trajectory in-place by re-solving with same pulse but different ODE parameters.
 Mutates `qtraj.solution`.
@@ -150,9 +156,11 @@ Mutates `qtraj.solution`.
 Useful for comparing different solvers or tolerances.
 
 # Keyword Arguments
-- `algorithm`: ODE solver algorithm (default: `MagnusGL4()`)
-- `n_points::Int`: Number of time points to sample (default: 101)
-- Additional kwargs passed to `solve` (e.g., `abstol`, `reltol`)
+- `algorithm`: ODE solver algorithm (default: `MagnusAdapt4()`)
+- `n_save::Int`: Number of output time points (default: 101)
+- `abstol`: Absolute tolerance (default: 1e-8)
+- `reltol`: Relative tolerance (default: 1e-8)
+- Additional kwargs passed to `solve`
 
 # Example
 ```julia
@@ -167,114 +175,22 @@ See also: `rollout`
 """
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
-    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, times; U0 = qtraj.initial)
-    sol = solve(prob, algorithm; saveat = times, kwargs...)
-
-    qtraj.solution = sol
-    return nothing
-end
-
-"""
-    rollout!(qtraj::KetTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
-
-Update ket trajectory in-place with a new pulse.
-See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
-"""
-function Rollouts.rollout!(
-    qtraj::KetTrajectory,
-    pulse::AbstractPulse;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
-)
-    times = collect(range(0.0, duration(pulse), length = n_points))
-    prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat = times)
-
-    qtraj.pulse = pulse
-    qtraj.solution = sol
-    return nothing
-end
-
-"""
-    rollout!(qtraj::KetTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
-
-Update ket trajectory in-place with same pulse but different ODE parameters.
-See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
-"""
-function Rollouts.rollout!(
-    qtraj::KetTrajectory;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
-    kwargs...,
-)
-    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
-    prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat = times, kwargs...)
-
-    qtraj.solution = sol
-    return nothing
-end
-
-"""
-    rollout!(qtraj::MultiKetTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
-
-Update multi-ket trajectory in-place with a new pulse.
-See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
-"""
-function Rollouts.rollout!(
-    qtraj::MultiKetTrajectory,
-    pulse::AbstractPulse;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
-)
-    times = collect(range(0.0, duration(pulse), length = n_points))
-
-    # Build ensemble problem
-    dummy = zeros(ComplexF64, qtraj.system.levels)
-    base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, times)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
     sol = solve(
-        ensemble_prob,
+        prob,
         algorithm;
-        trajectories = length(qtraj.initials),
-        saveat = times,
-    )
-
-    qtraj.pulse = pulse
-    qtraj.solution = sol
-    return nothing
-end
-
-"""
-    rollout!(qtraj::MultiKetTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
-
-Update multi-ket trajectory in-place with same pulse but different ODE parameters.
-See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
-"""
-function Rollouts.rollout!(
-    qtraj::MultiKetTrajectory;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
-    kwargs...,
-)
-    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
-
-    # Build ensemble problem
-    dummy = zeros(ComplexF64, qtraj.system.levels)
-    base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, times)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
-    sol = solve(
-        ensemble_prob,
-        algorithm;
-        trajectories = length(qtraj.initials),
-        saveat = times,
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
         kwargs...,
     )
 
@@ -283,7 +199,137 @@ function Rollouts.rollout!(
 end
 
 """
-    rollout!(qtraj::DensityTrajectory, pulse::AbstractPulse; algorithm=Tsit5(), n_points=101)
+    rollout!(qtraj::KetTrajectory, pulse::AbstractPulse; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8)
+
+Update ket trajectory in-place with a new pulse.
+See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
+"""
+function Rollouts.rollout!(
+    qtraj::KetTrajectory,
+    pulse::AbstractPulse;
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
+
+    qtraj.pulse = pulse
+    qtraj.solution = sol
+    return nothing
+end
+
+"""
+    rollout!(qtraj::KetTrajectory; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
+
+Update ket trajectory in-place with same pulse but different ODE parameters.
+See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
+"""
+function Rollouts.rollout!(
+    qtraj::KetTrajectory;
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+    kwargs...,
+)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
+
+    qtraj.solution = sol
+    return nothing
+end
+
+"""
+    rollout!(qtraj::MultiKetTrajectory, pulse::AbstractPulse; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8)
+
+Update multi-ket trajectory in-place with a new pulse.
+See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
+"""
+function Rollouts.rollout!(
+    qtraj::MultiKetTrajectory,
+    pulse::AbstractPulse;
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+
+    # Build ensemble problem
+    dummy = zeros(ComplexF64, qtraj.system.levels)
+    base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+    )
+
+    qtraj.pulse = pulse
+    qtraj.solution = sol
+    return nothing
+end
+
+"""
+    rollout!(qtraj::MultiKetTrajectory; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
+
+Update multi-ket trajectory in-place with same pulse but different ODE parameters.
+See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
+"""
+function Rollouts.rollout!(
+    qtraj::MultiKetTrajectory;
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+    kwargs...,
+)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+
+    # Build ensemble problem
+    dummy = zeros(ComplexF64, qtraj.system.levels)
+    base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
+
+    qtraj.solution = sol
+    return nothing
+end
+
+"""
+    rollout!(qtraj::DensityTrajectory, pulse::AbstractPulse; algorithm=Tsit5(), n_save=101, abstol=1e-8, reltol=1e-8)
 
 Update density trajectory in-place with a new pulse.
 Note: Default algorithm is `Tsit5()` since density evolution uses standard ODE solvers.
@@ -293,11 +339,15 @@ function Rollouts.rollout!(
     qtraj::DensityTrajectory,
     pulse::AbstractPulse;
     algorithm = Tsit5(),
-    n_points::Int = 101,
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
-    times = collect(range(0.0, duration(pulse), length = n_points))
-    prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat = times)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
     qtraj.solution = sol
@@ -305,7 +355,7 @@ function Rollouts.rollout!(
 end
 
 """
-    rollout!(qtraj::DensityTrajectory; algorithm=Tsit5(), n_points=101, kwargs...)
+    rollout!(qtraj::DensityTrajectory; algorithm=Tsit5(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
 
 Update density trajectory in-place with same pulse but different ODE parameters.
 Note: Default algorithm is `Tsit5()` since density evolution uses standard ODE solvers.
@@ -314,19 +364,30 @@ See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
 function Rollouts.rollout!(
     qtraj::DensityTrajectory;
     algorithm = Tsit5(),
-    n_points::Int = 101,
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
-    prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat = times, kwargs...)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
 
     qtraj.solution = sol
     return nothing
 end
 
 """
-    rollout!(qtraj::SamplingTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
+    rollout!(qtraj::SamplingTrajectory, pulse::AbstractPulse; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8)
 
 Update sampling trajectory's base trajectory in-place with a new pulse.
 Delegates to the base trajectory's rollout! method.
@@ -334,31 +395,49 @@ Delegates to the base trajectory's rollout! method.
 function Rollouts.rollout!(
     qtraj::SamplingTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
-    rollout!(qtraj.base_trajectory, pulse; algorithm = algorithm, n_points = n_points)
+    rollout!(
+        qtraj.base_trajectory,
+        pulse;
+        algorithm = algorithm,
+        n_save = n_save,
+        abstol = abstol,
+        reltol = reltol,
+    )
     return nothing
 end
 
 """
-    rollout!(qtraj::SamplingTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
+    rollout!(qtraj::SamplingTrajectory; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
 
 Update sampling trajectory's base trajectory in-place with new ODE parameters.
 Delegates to the base trajectory's rollout! method.
 """
 function Rollouts.rollout!(
     qtraj::SamplingTrajectory;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     kwargs...,
 )
-    rollout!(qtraj.base_trajectory; algorithm = algorithm, n_points = n_points, kwargs...)
+    rollout!(
+        qtraj.base_trajectory;
+        algorithm = algorithm,
+        n_save = n_save,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
     return nothing
 end
 
 """
-    rollout(qtraj::UnitaryTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
+    rollout(qtraj::UnitaryTrajectory, pulse::AbstractPulse; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8)
 
 Create a new quantum trajectory by rolling out a new pulse through the system.
 Returns a new UnitaryTrajectory with the updated pulse and solution.
@@ -368,8 +447,10 @@ Returns a new UnitaryTrajectory with the updated pulse and solution.
 - `pulse::AbstractPulse`: The new control pulse to roll out
 
 # Keyword Arguments
-- `algorithm`: ODE solver algorithm (default: `MagnusGL4()`)
-- `n_points::Int`: Number of time points to sample (default: 101)
+- `algorithm`: ODE solver algorithm (default: `MagnusAdapt4()`)
+- `n_save::Int`: Number of output time points (default: 101)
+- `abstol`: Absolute tolerance (default: 1e-8)
+- `reltol`: Relative tolerance (default: 1e-8)
 
 # Example
 ```julia
@@ -387,17 +468,21 @@ See also: `extract_pulse`, `rollout!`, `fidelity`
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
-    times = collect(range(0.0, duration(pulse), length = n_points))
-    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, times; U0 = qtraj.initial)
-    sol = solve(prob, algorithm; saveat = times)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return UnitaryTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
 
 """
-    rollout(qtraj::KetTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
+    rollout(qtraj::KetTrajectory, pulse::AbstractPulse; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8)
 
 Create a new ket trajectory by rolling out a new pulse.
 See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
@@ -405,17 +490,21 @@ See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout(
     qtraj::KetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
-    times = collect(range(0.0, duration(pulse), length = n_points))
-    prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat = times)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return KetTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
 
 """
-    rollout(qtraj::MultiKetTrajectory, pulse::AbstractPulse; algorithm=MagnusGL4(), n_points=101)
+    rollout(qtraj::MultiKetTrajectory, pulse::AbstractPulse; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8)
 
 Create a new multi-ket trajectory by rolling out a new pulse.
 See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
@@ -423,21 +512,27 @@ See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
-    times = collect(range(0.0, duration(pulse), length = n_points))
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
 
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
-    base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, times)
+    base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
         algorithm;
         trajectories = length(qtraj.initials),
-        saveat = times,
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
     )
 
     return MultiKetTrajectory(
@@ -451,7 +546,7 @@ function Rollouts.rollout(
 end
 
 """
-    rollout(qtraj::DensityTrajectory, pulse::AbstractPulse; algorithm=Tsit5(), n_points=101)
+    rollout(qtraj::DensityTrajectory, pulse::AbstractPulse; algorithm=Tsit5(), n_save=101, abstol=1e-8, reltol=1e-8)
 
 Create a new density trajectory by rolling out a new pulse.
 Note: Default algorithm is `Tsit5()` since density evolution uses standard ODE solvers.
@@ -461,18 +556,22 @@ function Rollouts.rollout(
     qtraj::DensityTrajectory,
     pulse::AbstractPulse;
     algorithm = Tsit5(),
-    n_points::Int = 101,
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 )
-    times = collect(range(0.0, duration(pulse), length = n_points))
-    prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat = times)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return DensityTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
 
 # Rollout with same pulse, different ODE parameters (non-mutating)
 
 """
-    rollout(qtraj::UnitaryTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
+    rollout(qtraj::UnitaryTrajectory; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
 
 Re-solve the trajectory with the same pulse but different ODE parameters.
 Returns a new UnitaryTrajectory with the updated solution.
@@ -480,9 +579,11 @@ Returns a new UnitaryTrajectory with the updated solution.
 Useful for comparing different solvers or tolerances.
 
 # Keyword Arguments
-- `algorithm`: ODE solver algorithm (default: `MagnusGL4()`)
-- `n_points::Int`: Number of time points to sample (default: 101)
-- Additional kwargs passed to `solve` (e.g., `abstol`, `reltol`)
+- `algorithm`: ODE solver algorithm (default: `MagnusAdapt4()`)
+- `n_save::Int`: Number of output time points (default: 101)
+- `abstol`: Absolute tolerance (default: 1e-8)
+- `reltol`: Relative tolerance (default: 1e-8)
+- Additional kwargs passed to `solve`
 
 # Example
 ```julia
@@ -498,58 +599,86 @@ See also: [`rollout!`](@ref)
 """
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
-    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, times; U0 = qtraj.initial)
-    sol = solve(prob, algorithm; saveat = times, kwargs...)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
     return UnitaryTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
 """
-    rollout(qtraj::KetTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
+    rollout(qtraj::KetTrajectory; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
 
 Re-solve ket trajectory with same pulse but different ODE parameters.
 See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::KetTrajectory;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
-    prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat = times, kwargs...)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
     return KetTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
 """
-    rollout(qtraj::MultiKetTrajectory; algorithm=MagnusGL4(), n_points=101, kwargs...)
+    rollout(qtraj::MultiKetTrajectory; algorithm=MagnusAdapt4(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
 
 Re-solve multi-ket trajectory with same pulse but different ODE parameters.
 See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory;
-    algorithm = MagnusGL4(),
-    n_points::Int = 101,
+    algorithm = MagnusAdapt4(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
 
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
-    base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, times)
+    base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
         algorithm;
         trajectories = length(qtraj.initials),
-        saveat = times,
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
         kwargs...,
     )
 
@@ -564,7 +693,7 @@ function Rollouts.rollout(
 end
 
 """
-    rollout(qtraj::DensityTrajectory; algorithm=Tsit5(), n_points=101, kwargs...)
+    rollout(qtraj::DensityTrajectory; algorithm=Tsit5(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
 
 Re-solve density trajectory with same pulse but different ODE parameters.
 Note: Default algorithm is `Tsit5()` since density evolution uses standard ODE solvers.
@@ -573,12 +702,23 @@ See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 function Rollouts.rollout(
     qtraj::DensityTrajectory;
     algorithm = Tsit5(),
-    n_points::Int = 101,
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
     kwargs...,
 )
-    times = collect(range(0.0, duration(qtraj.pulse), length = n_points))
-    prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, times)
-    sol = solve(prob, algorithm; saveat = times, kwargs...)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+    prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
     return DensityTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
@@ -766,7 +906,7 @@ end
     @test fid2 != fid1
 
     # Roll out with higher resolution
-    qtraj_fine = rollout(qtraj, pulse2; n_points = 501)
+    qtraj_fine = rollout(qtraj, pulse2; n_save = 501)
     @test length(qtraj_fine.solution.u) == 501
 
     # Roll out with different algorithm
@@ -788,7 +928,7 @@ end
 
     # Roll out new pulse
     pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
-    qtraj_new = rollout(qtraj, pulse2; n_points = 201)
+    qtraj_new = rollout(qtraj, pulse2; n_save = 201)
 
     @test length(qtraj_new.solution.u) == 201
     @test qtraj_new.pulse === pulse2
@@ -830,7 +970,7 @@ end
 
     # Roll out new pulse
     pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
-    qtraj_new = rollout(qtraj, pulse2; n_points = 301)
+    qtraj_new = rollout(qtraj, pulse2; n_save = 301)
 
     @test length(qtraj_new.solution.u) == 301
     @test qtraj_new.pulse === pulse2
