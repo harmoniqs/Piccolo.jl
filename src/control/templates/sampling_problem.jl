@@ -355,6 +355,35 @@ end
     solve!(mintime_prob; max_iter = 20, verbose = false, print_level = 1)
 end
 
+@testitem "SamplingProblem with EmbeddedOperator" begin
+    using DirectTrajOpt
+
+    # Minimal setup (reproducing the bug from main.jl)
+    T = 1.0
+    N = 10
+    times = collect(range(0, T, length = N))
+    initial_controls = zeros(2, N)
+    pulse = ZeroOrderPulse(initial_controls, times)
+
+    # Create systems
+    sys1 = TransmonSystem(levels = 2, δ = -0.18)
+    sys2 = TransmonSystem(levels = 2, δ = -0.20)
+
+    # Create embedded operator (this is what caused the bug)
+    X_embedded = EmbeddedOperator(GATES[:X], sys2)
+
+    # Create trajectory with embedded operator as goal
+    qtraj = UnitaryTrajectory(sys2, pulse, X_embedded)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+
+    # This should not fail - it's the bug we're fixing
+    sampling_prob = SamplingProblem(qcp, [sys1, sys2])
+
+    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob.qtraj isa SamplingTrajectory
+    @test length(sampling_prob.qtraj.systems) == 2
+end
+
 @testitem "SamplingProblem with DensityTrajectory" tags = [:density, :skip] begin
     # TODO: DensityTrajectory support for SamplingProblem is not yet complete
     # Needs: BilinearIntegrator dispatch, SamplingTrajectory NamedTrajectory conversion
