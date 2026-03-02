@@ -181,6 +181,18 @@ has_nonlinear_drives(drives::AbstractVector{<:AbstractDrive}) =
     any(d -> d isa NonlinearDrive, drives)
 
 # ----------------------------------------------------------------------------- #
+# Isomorphism dispatch for drives
+# ----------------------------------------------------------------------------- #
+
+"""
+    Isomorphisms.G(d::AbstractDrive)
+
+Delegate `G` to the underlying Hamiltonian matrix `d.H`, so that broadcasting
+`G.(sys.H_drives)` works when `H_drives` contains `AbstractDrive` objects.
+"""
+Isomorphisms.G(d::AbstractDrive) = Isomorphisms.G(d.H)
+
+# ----------------------------------------------------------------------------- #
 # Jacobian Validation
 # ----------------------------------------------------------------------------- #
 
@@ -345,4 +357,25 @@ end
     # Auto-Jacobian should always pass validation
     d_auto = NonlinearDrive(H, u -> u[1]^2 + u[2]^2)
     validate_drive_jacobian(d_auto, 2)
+end
+
+@testitem "G works on AbstractDrive types" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse(ComplexF64[0 1; 1 0])
+
+    # G on LinearDrive should match G on the matrix
+    ld = LinearDrive(H, 1)
+    @test Piccolo.Isomorphisms.G(ld) == Piccolo.Isomorphisms.G(H)
+
+    # G on NonlinearDrive
+    nd = NonlinearDrive(H, u -> u[1]^2)
+    @test Piccolo.Isomorphisms.G(nd) == Piccolo.Isomorphisms.G(H)
+
+    # Broadcasting over Vector{AbstractDrive}
+    drives = AbstractDrive[ld, nd]
+    G_mats = Piccolo.Isomorphisms.G.(drives)
+    @test length(G_mats) == 2
+    @test all(G_mats .== Ref(Piccolo.Isomorphisms.G(H)))
 end
