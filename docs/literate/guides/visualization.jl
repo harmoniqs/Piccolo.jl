@@ -119,7 +119,9 @@ fig = plot_bloch(traj_ket; index=50)
 # For cavity/oscillator systems, plot the Wigner quasi-probability distribution:
 
 using GLMakie, QuantumToolbox
-fig = plot_wigner(traj_ket, 1)  # Plot at first timestep
+using CairoMakie
+using QuantumToolbox
+fig = plot_wigner(traj_ket, 1, mode=:record)  # Plot at first timestep
 
 # ## Custom Plotting
 #
@@ -191,24 +193,24 @@ fig
 #
 # Show controls appearing progressively over time:
 
-using GLMakie
+using CairoMakie
 fig = animate_name(traj, :u; fps=30)
 
 # To save animation to file, use CairoMakie with mode=:record:
-# using CairoMakie
-# fig = animate_name(traj, :u; mode=:record, filename="controls.mp4", fps=24)
+using CairoMakie
+fig = animate_name(traj, :u; mode=:record, filename="controls.mp4", fps=24)
 
 # ### Animate Bloch Sphere
 #
 # Requires QuantumToolbox.jl. Shows state evolution with moving vector:
 
-using GLMakie, QuantumToolbox
-fig = animate_bloch(traj_ket; fps=30)
+using CairoMakie, QuantumToolbox
+fig = animate_bloch(traj_ket; fps=30, mode=:record)
 fig
 
 # To save animation to file, use CairoMakie with mode=:record:
-# using CairoMakie
-# fig = animate_bloch(traj_ket; mode=:record, filename="bloch_animation.mp4", fps=24)
+using CairoMakie
+fig = animate_bloch(traj_ket; mode=:record, filename="bloch_animation.mp4", fps=24)
 
 # ### Animate Wigner Function
 #
