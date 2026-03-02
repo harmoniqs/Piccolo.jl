@@ -155,17 +155,10 @@ qcp = SmoothPulseProblem(qtraj, 100; Q=100.0, R=1e-2)
 # 5. Solve (Ipopt interior-point method)
 solve!(qcp; max_iter=100)
 
-# 6. Extract and save results
+# 6. Extract results
 fidelity(qcp)
 optimized_pulse = get_pulse(qcp.qtraj)
-
-# 7. Save for later (warm-starting, analysis, hardware deployment)
-using JLD2
-jldsave("x_gate.jld2"; pulse=optimized_pulse, fidelity=fidelity(qcp))
 ```
-
-Saved pulses can be reloaded and used as starting points for further
-optimization — see [Saving and Loading Pulses](@ref saving-loading).
 
 ## Concept Pages
 

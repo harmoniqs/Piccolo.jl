@@ -6,7 +6,6 @@ This section contains task-oriented guides for specific problems in quantum opti
 
 | Guide | Description |
 |-------|-------------|
-| [Saving and Loading Pulses](@ref saving-loading) | Saving optimized pulses, warm-starting, and organizing results |
 | [Leakage Suppression](@ref leakage-suppression) | Controlling population leakage in multilevel systems |
 | [Global Variables](@ref global-variables) | Optimizing system parameters alongside controls |
 | [Visualization](@ref visualization) | Plotting trajectories and analyzing results |
@@ -22,12 +21,6 @@ Each guide follows a consistent format:
 5. **Variations**: Common modifications
 
 ## Quick Links by Task
-
-### Saving and Reusing Results
-
-- [Saving optimized pulses to disk](@ref saving-loading)
-- [Warm-starting from a saved pulse](@ref saving-loading)
-- [Organizing pulse files across a project](@ref saving-loading)
 
 ### Handling Multilevel Systems
 

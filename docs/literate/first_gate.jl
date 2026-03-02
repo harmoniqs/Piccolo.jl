@@ -160,29 +160,6 @@ fig
 # The X gate rotates the qubit state around the X-axis by π radians.
 # You can see the controls create the right rotation!
 
-# ## Step 8: Save the Optimized Pulse
-#
-# Optimized pulses are valuable — save them so you can reload them later for
-# warm-starting, analysis, or hardware deployment.
-
-using JLD2
-
-optimized_pulse = get_pulse(qcp.qtraj)
-jldsave("x_gate_pulse.jld2"; pulse = optimized_pulse, fidelity = fidelity(qcp))
-
-# To reload later and continue optimizing:
-#
-# ```julia
-# saved_pulse = load("x_gate_pulse.jld2", "pulse")
-# qtraj_warm = UnitaryTrajectory(sys, saved_pulse, GATES[:X])
-# qcp_warm = SmoothPulseProblem(qtraj_warm, N; Q=1000.0)
-# solve!(qcp_warm; max_iter=50)  # converges faster from a good starting point
-# ```
-#
-# See the [Saving and Loading Pulses](@ref saving-loading) guide for more details.
-
-rm("x_gate_pulse.jld2"; force = true) # hide
-
 # ## What's Next?
 #
 # Now that you've synthesized your first gate, try:
@@ -191,7 +168,6 @@ rm("x_gate_pulse.jld2"; force = true) # hide
 # 2. **Faster gates**: Reduce `T` and see how fidelity changes
 # 3. **Smoother pulses**: Increase `R` or decrease `ddu_bound`
 # 4. **Time-optimal**: Add `Δt_bounds` and use `MinimumTimeProblem`
-# 5. **Save and reload**: Use [Saving and Loading Pulses](@ref saving-loading) to build on your results
 #
 # Continue to the [State Transfer](@ref state-transfer-tutorial) tutorial to learn about
 # preparing specific quantum states.

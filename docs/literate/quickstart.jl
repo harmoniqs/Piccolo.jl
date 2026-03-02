@@ -99,26 +99,6 @@ using CairoMakie
 ## Plot the unitary evolution (state populations over time)
 fig = plot_unitary_populations(traj)
 
-# ## Saving Your Results
-#
-# Save the optimized pulse so you can reload it later without re-solving:
-
-using JLD2
-optimized_pulse = get_pulse(qcp.qtraj)
-jldsave("quickstart_pulse.jld2"; pulse = optimized_pulse, fidelity = fidelity(qcp))
-
-# You can load it back in any script with:
-#
-# ```julia
-# saved_pulse = load("quickstart_pulse.jld2", "pulse")
-# qtraj = UnitaryTrajectory(sys, saved_pulse, GATES[:X])
-# ```
-#
-# See the [Saving and Loading Pulses](@ref saving-loading) guide for warm-starting
-# and other patterns.
-
-rm("quickstart_pulse.jld2"; force = true) # hide
-
 # ## Minimum Time Optimization
 #
 # Now let's find the shortest gate duration that achieves 99% fidelity.
@@ -212,5 +192,4 @@ fidelity(qcp_robust)
 #
 # - See [Concepts](@ref concepts-overview) for the mathematical formulation
 # - Learn about different [Problem Templates](@ref problem-templates-overview)
-# - Read [Saving and Loading Pulses](@ref saving-loading) to organize and reuse your results
 # - Explore [Tutorials](@ref tutorials-overview) for more complex examples
