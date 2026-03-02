@@ -1,0 +1,217 @@
+# Piccolo.jl
+
+Piccolo.jl is a Julia package for quantum optimal control, providing tools to design control pulses for quantum systems.
+
+## Core Components
+
+### Quantum Systems
+- `QuantumSystem(H_drift, H_drives, drive_bounds)` - Define quantum system with drift and drive Hamiltonians
+- Common operators: `PAULIS[:X]`, `PAULIS[:Y]`, `PAULIS[:Z]`, `GATES[:X]`, `GATES[:H]`, etc.
+
+### Trajectories
+- `UnitaryTrajectory(sys, pulse, U_goal)` - For gate synthesis problems
+- `KetTrajectory(sys, pulse, ψ_init, ψ_goal)` - For state transfer problems
+- Extract with `get_trajectory(problem)`
+
+### Problem Setup
+- `SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2, ddu_bound=1.0)` - Standard optimization problem
+- `solve!(problem; max_iter=100)` - Solve the problem
+- `cached_solve!(problem, "cache_name")` - Solve with caching
+
+### Pulses
+- `ZeroOrderPulse(controls, T, N)` - Piecewise constant pulse
+- `BSplinePulse(controls, carrier_freqs, options)` - Smooth pulse parameterization
+
+## Visualization API
+
+### Backend Selection
+```julia
+using CairoMakie  # For static plots and :record animations
+using GLMakie     # For interactive plots and :inline animations
+```
+
+### Core Plotting Functions
+
+#### plot_unitary_populations
+```julia
+plot_unitary_populations(
+    traj::NamedTrajectory;
+    unitary_columns = 1:2,
+    unitary_name = :Ũ⃗,
+    control_name = :u
+) -> Figure
+```
+Plots populations |U_{i,j}(t)|² for unitary gate trajectories.
+
+#### plot_state_populations
+```julia
+plot_state_populations(
+    traj::NamedTrajectory;
+    state_name = :ψ̃,
+    state_indices = nothing,
+    control_name = :u,
+    subspace = nothing
+) -> Figure
+```
+Plots populations |ψᵢ|² for ket state trajectories.
+
+#### plot_bloch (requires QuantumToolbox)
+```julia
+plot_bloch(
+    traj::NamedTrajectory;
+    index = nothing,
+    state_name = :ψ̃,
+    state_type = :ket,
+    subspace = 1:2
+) -> Figure
+```
+Visualizes qubit state on Bloch sphere.
+
+#### plot_wigner (requires QuantumToolbox)
+```julia
+plot_wigner(
+    traj::NamedTrajectory,
+    idx::Int;
+    state_name = :ψ̃,
+    state_type = :ket,
+    xvec = -5:0.1:5,
+    yvec = -5:0.1:5
+) -> Figure
+```
+Plots Wigner quasi-probability distribution.
+
+### Animation Functions
+
+#### animate_bloch
+```julia
+animate_bloch(
+    traj::NamedTrajectory;
+    fps = 24,
+    mode = :inline,
+    filename = "bloch_animation.mp4"
+) -> Figure
+```
+Animates Bloch sphere evolution. Use `GLMakie` for `:inline` mode.
+
+#### animate_wigner
+```julia
+animate_wigner(
+    traj::NamedTrajectory;
+    mode = :inline,
+    fps = 24,
+    filename = "wigner_animation.mp4"
+) -> Figure
+```
+Animates Wigner function evolution.
+
+#### animate_name
+```julia
+animate_name(
+    traj::NamedTrajectory,
+    name::Symbol;
+    fps = 24,
+    mode = :inline,
+    filename = "name_animation.mp4"
+) -> Figure
+```
+Animates trajectory component appearing progressively.
+
+#### animate_figure (low-level)
+```julia
+animate_figure(
+    fig::Figure,
+    frames::AbstractVector{Int},
+    update_frame!::Function;
+    mode = :inline,
+    fps = 24,
+    filename = "animation.mp4"
+) -> Figure
+```
+Generic animation with custom update function.
+
+## Common Workflows
+
+### Basic Gate Synthesis
+```julia
+using Piccolo, CairoMakie
+
+# Define system
+H_drift = 0.5 * PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+# Setup trajectory
+T = 10.0
+N = 100
+pulse = ZeroOrderPulse(0.1 * randn(2, N), T, N)
+qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+
+# Create and solve problem
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2, ddu_bound=1.0)
+solve!(qcp; max_iter=100)
+
+# Visualize
+traj = get_trajectory(qcp)
+fig = plot_unitary_populations(traj)
+save("populations.png", fig)
+```
+
+### State Transfer with Visualization
+```julia
+using Piccolo, GLMakie, QuantumToolbox
+
+# Define states
+ψ_init = ComplexF64[1, 0]
+ψ_goal = ComplexF64[0, 1]
+
+# Setup and solve
+pulse = ZeroOrderPulse(0.1 * randn(2, N), T, N)
+qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
+solve!(qcp; max_iter=100)
+
+# Visualize
+traj = get_trajectory(qcp)
+fig1 = plot_state_populations(traj)
+fig2 = animate_bloch(traj; fps=30)
+```
+
+## Key Conventions
+
+### Trajectory Components
+- `:u` - Control signals
+- `:du` - Control derivatives
+- `:ddu` - Control second derivatives
+- `:Ũ⃗` - Unitary in isomorphism representation
+- `:ψ̃` - Ket state in isomorphism representation
+- `:ρ̃⃗` - Density matrix in isomorphism representation
+- `:Δt` - Timesteps
+
+### Animation Modes
+- `:inline` - Interactive display (requires GLMakie)
+- `:record` - Save to file (works with CairoMakie or GLMakie)
+
+### State Types
+- `:ket` - State vector representation
+- `:density` - Density matrix representation
+
+## Common Issues
+
+### CairoMakie Animation Error
+**Problem**: `:inline` animation fails with CairoMakie
+**Solution**: Use `mode=:record` or switch to `using GLMakie`
+
+### State Name Not Found
+**Problem**: Error with `state_name=:ψ̃`
+**Solution**: Check `traj.names` for actual component names
+
+### Multi-Level Bloch Plot Error
+**Problem**: Can't plot 3-level system on Bloch sphere
+**Solution**: Use `subspace=1:2` to extract qubit subspace
+
+## Resources
+
+- Documentation: https://docs.harmoniqs.co/Piccolo/dev/
+- Visualization Guide: https://github.com/aarontrowbridge/Piccolo.jl/blob/main/VISUALIZATION_CONTEXT.md
+- NamedTrajectories: https://docs.harmoniqs.co/NamedTrajectories/dev/
+- Makie Documentation: https://docs.makie.org/stable/
