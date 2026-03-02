@@ -81,6 +81,7 @@ pages = [
         "Leakage Suppression" => "generated/guides/leakage_suppression.md",
         "Global Variables" => "generated/guides/global_variables.md",
         "Visualization" => "generated/guides/visualization.md",
+        "Wigner Functions (Bosonic Qubits)" => "generated/guides/wigner_bosonic_qubits.md",
         "Custom Objectives" => "generated/guides/custom_objectives.md",
     ],
     "API Reference" => ["Overview" => "reference/index.md", "Library" => "lib.md"],
