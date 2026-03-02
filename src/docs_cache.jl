@@ -3,6 +3,7 @@ module DocsCache
 using JLD2
 using NamedTrajectories: NamedTrajectory, load_traj
 using ..Control: QuantumControlProblem, solve!, sync_trajectory!, get_trajectory
+using TestItems
 
 export cached_solve!
 
@@ -214,6 +215,171 @@ function cached_solve!(
     verbose && @info "Saved cache to $(basename(saved_path))"
 
     return nothing
+end
+
+
+# ============================================================================= #
+# Tests
+# ============================================================================= #
+
+@testitem "truncate_solver_output preserves short output" begin
+    using Piccolo
+    trunc = Piccolo.DocsCache.truncate_solver_output
+
+    # Build fake Ipopt output with fewer iterations than head+tail threshold
+    header = "This is Ipopt version 3.14\n\niter    objective    inf_pr\n"
+    iters = join(["   $i  $(1.0 - i * 0.01)e+00  1.0e-03" for i in 0:8], "\n")
+    footer = "\n\nEXIT: Optimal Solution Found."
+    output = header * iters * footer
+
+    result = trunc(output; head = 5, tail = 5)
+    @test result == output  # ≤ 10 iter lines → unchanged
+end
+
+@testitem "truncate_solver_output snips long output" begin
+    using Piccolo
+    trunc = Piccolo.DocsCache.truncate_solver_output
+
+    header = "Ipopt preamble\n\niter    objective    inf_pr\n"
+    iters = join(["   $i  $(Float64(100 - i))e+00  1.0e-03" for i in 0:19], "\n")
+    footer = "\n\nEXIT: Optimal Solution Found."
+    output = header * iters * footer
+
+    result = trunc(output; head = 3, tail = 3)
+    @test occursin("⋮", result)
+    # First 3 and last 3 iteration lines survive
+    @test occursin("   0  ", result)
+    @test occursin("   2  ", result)
+    @test !occursin("   3  ", result)   # snipped
+    @test occursin("  17  ", result)
+    @test occursin("  19  ", result)
+    # Preamble and footer survive
+    @test occursin("Ipopt preamble", result)
+    @test occursin("Optimal Solution Found", result)
+end
+
+@testitem "find_cache_file finds and misses correctly" begin
+    using Piccolo
+    find_cache_file = Piccolo.DocsCache.find_cache_file
+
+    dir = mktempdir()
+    @test isnothing(find_cache_file("myprob", dir))
+
+    # Create a matching file
+    path = joinpath(dir, "myprob_abc1234.jld2")
+    touch(path)
+    @test find_cache_file("myprob", dir) == path
+
+    # Non-matching file is ignored
+    @test isnothing(find_cache_file("other", dir))
+end
+
+@testitem "clean_old_caches! removes stale files" begin
+    using Piccolo
+    clean_old_caches! = Piccolo.DocsCache.clean_old_caches!
+
+    dir = mktempdir()
+    old1 = joinpath(dir, "myprob_aaa0001.jld2")
+    old2 = joinpath(dir, "myprob_bbb0002.jld2")
+    current = joinpath(dir, "myprob_ccc0003.jld2")
+    unrelated = joinpath(dir, "other_ccc0003.jld2")
+    for f in (old1, old2, current, unrelated)
+        touch(f)
+    end
+
+    clean_old_caches!("myprob", dir, "ccc0003")
+
+    @test !isfile(old1)
+    @test !isfile(old2)
+    @test isfile(current)
+    @test isfile(unrelated)  # different name prefix → untouched
+end
+
+@testitem "cached_solve! fresh solve creates cache, reload skips solve" begin
+    using Piccolo
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    find_cache_file = Piccolo.DocsCache.find_cache_file
+
+    # Minimal 2-level qubit system
+    levels = 2
+    H_drift = zeros(ComplexF64, levels, levels)
+    σx = ComplexF64[0 1; 1 0]
+    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+
+    ψ_init = ComplexF64[1, 0]
+    ψ_target = ComplexF64[0, 1]
+    N = 11
+    T = 5.0
+    times = collect(range(0, T, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_target)
+
+    traj = NamedTrajectory(qtraj, N)
+    obj = QuadraticRegularizer(:u, traj, 0.01)
+    integrator = BilinearIntegrator(qtraj, N)
+    prob = DirectTrajOptProblem(traj, obj, integrator)
+    qcp = QuantumControlProblem(qtraj, prob)
+
+    data_dir = mktempdir()
+
+    # First call: no cache → runs solve!, saves cache
+    cached_solve!(qcp, "test_cached"; data_dir = data_dir, max_iter = 0, verbose = false)
+    @test !isnothing(find_cache_file("test_cached", data_dir))
+
+    # Record trajectory values after first solve
+    traj_after_first = copy(get_trajectory(qcp).u)
+
+    # Perturb the trajectory to confirm reload overwrites it
+    get_trajectory(qcp).u .= 999.0
+
+    # Second call: cache exists → loads without solving
+    cached_solve!(qcp, "test_cached"; data_dir = data_dir, max_iter = 0, verbose = false)
+    @test get_trajectory(qcp).u ≈ traj_after_first
+end
+
+@testitem "cached_solve! force=true regenerates cache" begin
+    using Piccolo
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    find_cache_file = Piccolo.DocsCache.find_cache_file
+
+    levels = 2
+    H_drift = zeros(ComplexF64, levels, levels)
+    σx = ComplexF64[0 1; 1 0]
+    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+
+    ψ_init = ComplexF64[1, 0]
+    ψ_target = ComplexF64[0, 1]
+    N = 11
+    T = 5.0
+    times = collect(range(0, T, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_target)
+
+    traj = NamedTrajectory(qtraj, N)
+    obj = QuadraticRegularizer(:u, traj, 0.01)
+    integrator = BilinearIntegrator(qtraj, N)
+    prob = DirectTrajOptProblem(traj, obj, integrator)
+    qcp = QuantumControlProblem(qtraj, prob)
+
+    data_dir = mktempdir()
+
+    # Create initial cache
+    cached_solve!(qcp, "test_force"; data_dir = data_dir, max_iter = 0, verbose = false)
+    cache1 = find_cache_file("test_force", data_dir)
+    @test !isnothing(cache1)
+
+    # Force regeneration — should overwrite (same hash → same file, just rewritten)
+    cached_solve!(
+        qcp, "test_force"; data_dir = data_dir, max_iter = 0, verbose = false, force = true
+    )
+    cache2 = find_cache_file("test_force", data_dir)
+    @test !isnothing(cache2)
 end
 
 end # module DocsCache
