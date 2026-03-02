@@ -228,7 +228,7 @@ end
 
     # Build fake Ipopt output with fewer iterations than head+tail threshold
     header = "This is Ipopt version 3.14\n\niter    objective    inf_pr\n"
-    iters = join(["   $i  $(1.0 - i * 0.01)e+00  1.0e-03" for i in 0:8], "\n")
+    iters = join(["   $i  $(1.0 - i * 0.01)e+00  1.0e-03" for i = 0:8], "\n")
     footer = "\n\nEXIT: Optimal Solution Found."
     output = header * iters * footer
 
@@ -241,7 +241,7 @@ end
     trunc = Piccolo.DocsCache.truncate_solver_output
 
     header = "Ipopt preamble\n\niter    objective    inf_pr\n"
-    iters = join(["   $i  $(Float64(100 - i))e+00  1.0e-03" for i in 0:19], "\n")
+    iters = join(["   $i  $(Float64(100 - i))e+00  1.0e-03" for i = 0:19], "\n")
     footer = "\n\nEXIT: Optimal Solution Found."
     output = header * iters * footer
 
@@ -376,7 +376,12 @@ end
 
     # Force regeneration — should overwrite (same hash → same file, just rewritten)
     cached_solve!(
-        qcp, "test_force"; data_dir = data_dir, max_iter = 0, verbose = false, force = true
+        qcp,
+        "test_force";
+        data_dir = data_dir,
+        max_iter = 0,
+        verbose = false,
+        force = true,
     )
     cache2 = find_cache_file("test_force", data_dir)
     @test !isnothing(cache2)
