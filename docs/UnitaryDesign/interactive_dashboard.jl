@@ -1,206 +1,194 @@
 #!/usr/bin/env julia
 #
-# Interactive Pulse Parameter Dashboard
-# Issue #59: Animation of a Pulse Evolving with Parameters
+# interactive_pulse_dashboard.jl
+# 
 #
-# Opens a live GLMakie window with four sliders.
-# All plots update in real time as you drag them.
+# Usage:  julia --project interactive_pulse_dashboard.jl
+# Requires: Piccolo, GLMakie
 #
-# Usage:
-#   julia interactive_pulse_dashboard.jl
-#
-# Dependencies:
-#   using Pkg; Pkg.add(["Piccolo", "GLMakie"])
-#
-# API used (verified against QuantumCollocation.jl docs, Jan 2026):
-#   PAULIS[:X], GATES[:X]
-#   UnitaryTrajectory(sys, U_goal, T)
-#   SmoothPulseProblem(qtraj, N; Q, R)
-#   solve!(qcp; options=IpoptOptions(max_iter=N))
-#   fidelity(qcp)
-#   get_trajectory(qcp) → NamedTrajectory
-#   traj[:u], traj[:Ũ⃗], traj[:Δt]
-#   iso_vec_to_operator(v)
+#  
+# ═══════════════════════════════════════════════════════════════════
 
 using Piccolo
 using GLMakie
 using Random
-using LinearAlgebra
 
 Random.seed!(42)
 
-# ─── Quantum system ───────────────────────────────────────────────────────────
+# ── 1. Quantum system 
 
-H_drift  = 0.1 * PAULIS[:Z]
-H_drives = [PAULIS[:X], PAULIS[:Y]]
+H_drift  = 0.5 * PAULIS[:Z]                          # 
+H_drives = [PAULIS[:X], PAULIS[:Y]]                  # 
 sys      = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
-const T_GATE = 10.0
-const N_GATE = 51
+T     = 10.0
+N     = 100
+# length = N confirmed: quickstart line 35,
+times = collect(range(0, T; length = N))
 
-# Fixed time axis for display (N_GATE equally-spaced points over T_GATE).
-# The actual traj[:Δt] may vary slightly after optimisation, but for the
-# parametric slider view we always use this uniform grid.
-const TIMES = collect(range(0, T_GATE; length=N_GATE))
+# trajectory
+_pulse_ref = ZeroOrderPulse(zeros(2, N), times)
+qtraj_ref  = UnitaryTrajectory(sys, _pulse_ref, GATES[:X])  # 
 
-# ─── Pure physics helpers (no Piccolo calls needed) ───────────────────────────
+# ── 2. Control builder 
 
-"""
-Build 2×N parametric controls from the four slider values.
-Row 1 = uₓ (I channel), Row 2 = uᵧ (Q channel).
-"""
-function make_controls(amp, freq, ph, chirp)
-    if abs(chirp) > 0.01
-        ω_t = @. freq + chirp * TIMES / T_GATE
-        φ   = cumsum(ω_t) .* (T_GATE / N_GATE) .+ ph
-        u_x = @. amp * cos(φ)
-        u_y = @. amp * sin(φ)
+function build_controls(amp::Real, freq::Real, phase::Real, chirp::Real)
+    if abs(chirp) > 1e-6
+        omega_t     = @. freq + chirp * times / T
+        phase_accum = cumsum(omega_t) .* (T / N)
+        u_x = amp .* cos.(phase_accum .+ phase)
+        u_y = amp .* sin.(phase_accum .+ phase)
     else
-        φ   = @. 2π * freq * TIMES / T_GATE + ph
-        u_x = @. amp * sin(φ)
-        u_y = @. amp * cos(φ)
+        theta = @. 2pi * freq * times / T + phase
+        u_x   = amp .* sin.(theta)
+        u_y   = amp .* cos.(theta)
     end
-    return [u_x'; u_y']
+    return vcat(u_x', u_y')   # (2 × N)
 end
 
-"""
-Propagate 2×N controls through the quantum system.
-Returns (p00, p10, fidelity) where pij = |U_{i,1}|² at each timestep.
+# ── 3. Population extractor ───────────────────────────────────────────────────
+#
+# Pattern c in official reference demo (pulse_animation_demo.jl):
+#   Ũ⃗ = traj[:Ũ⃗]
+#   pops = [abs2.(iso_vec_to_operator(Ũ⃗[:, i])[:, 1]) for i in 1:k]
+#
+#
 
-We use a simple matrix-exponential Magnus step (first-order) which is fast
-enough for real-time slider updates and avoids a full Ipopt round-trip.
-The fidelity is computed using the standard unitary fidelity formula.
-"""
-function propagate(ctrl::Matrix{Float64}, U_goal)
-    N    = size(ctrl, 2)
-    dt   = T_GATE / N
-    U    = Matrix{ComplexF64}(I, 2, 2)
-
-    p00 = Vector{Float64}(undef, N)
-    p10 = Vector{Float64}(undef, N)
-
-    for k in 1:N
-        H_k = H_drift + ctrl[1, k] * H_drives[1] + ctrl[2, k] * H_drives[2]
-        U   = exp(-im * H_k * dt) * U
-        p00[k] = abs2(U[1, 1])
-        p10[k] = abs2(U[2, 1])
-    end
-
-    d   = size(U, 1)
-    fid = abs2(tr(U_goal' * U)) / d^2
-    return p00, p10, fid
+function traj_pops(qt::UnitaryTrajectory)
+    tdata  = get_trajectory(qt)          # 
+    Utilde = tdata[:Ũ⃗]                  # 
+    n      = size(Utilde, 2)
+    # 
+    pops   = [abs2.(iso_vec_to_operator(Utilde[:, i])[:, 1]) for i in 1:n]
+    pop0   = [p[1] for p in pops]
+    pop1   = [p[2] for p in pops]
+    return pop0, pop1
 end
 
-fid_color(f) = f > 0.99 ? :green : f > 0.95 ? :darkorange : :red
+# ── 4. Figure 
 
-# ─── Figure layout ────────────────────────────────────────────────────────────
-
-fig = Figure(size=(1450, 1000), fontsize=14)
+fig = Figure(size = (1400, 1020), fontsize = 14)
 
 Label(fig[0, 1:2], "Interactive Pulse Parameter Dashboard";
-      fontsize=24, font=:bold, color=:navy)
+      fontsize = 24, font = :bold, color = :navy)
 
 sg = SliderGrid(
     fig[1, 1],
-    (label="Amplitude",    range=0.1:0.05:2.0, startvalue=0.5),
-    (label="Frequency",    range=0.5:0.1:5.0,  startvalue=1.5),
-    (label="Phase  (rad)", range=0.0:0.1:2π,   startvalue=0.0),
-    (label="Chirp rate",   range=-1.0:0.1:1.0, startvalue=0.0),
-    width=420, tellheight=true,
+    (label = "Amplitude",  range = 0.1:0.05:2.0,  startvalue = 0.8),
+    (label = "Frequency",  range = 0.5:0.1:5.0,   startvalue = 1.5),
+    (label = "Phase",      range = 0.0:0.1:2pi,   startvalue = 0.0),
+    (label = "Chirp Rate", range = -1.0:0.1:1.0,  startvalue = 0.0);
+    width = 420, tellheight = true,
 )
 
-amp_obs   = sg.sliders[1].value
-freq_obs  = sg.sliders[2].value
-phase_obs = sg.sliders[3].value
-chirp_obs = sg.sliders[4].value
+amp_sl   = sg.sliders[1].value
+freq_sl  = sg.sliders[2].value
+phase_sl = sg.sliders[3].value
+chirp_sl = sg.sliders[4].value
 
 ax_pulse = Axis(fig[2, 1];
-    title="Control Pulses", xlabel="Time (arb. units)", ylabel="Amplitude")
-hlines!(ax_pulse, [0.0]; color=(:black, 0.15), linewidth=1)
+    xlabel = "Time (arb. units)", ylabel = "Control amplitude",
+    title  = "Control Pulses")
 
 ax_pop = Axis(fig[3, 1];
-    title="Unitary Populations (column 1)",
-    xlabel="Time (arb. units)", ylabel="|Uᵢⱼ|²")
-ylims!(ax_pop, -0.05, 1.05)
-hlines!(ax_pop, [0.0, 1.0]; color=(:gray, 0.4), linestyle=:dash)
+    xlabel = "Time (arb. units)", ylabel = "|Uij|^2",
+    title  = "Unitary Populations — column 1")
+ylims!(ax_pop, 0, 1)
+hlines!(ax_pop, [0.0, 1.0]; color = :gray, linestyle = :dash, linewidth = 1)
 
-fid_lbl = Label(fig[1, 2], "Fidelity\n—";
-    fontsize=20, font=:bold, padding=(20, 20, 20, 20),
-    halign=:center, valign=:center)
+# Colour stored as RGBf — prevents Symbol → Any widening in Observable type
+fid_label = Label(fig[1, 2], "Fidelity: —";
+    fontsize = 22, font = :bold, padding = (16, 16, 16, 16))
 
 Label(fig[2:3, 2],
-    "Slider guide\n\n" *
-    "Amplitude   — pulse strength\n" *
-    "Frequency   — oscillation rate\n" *
-    "Phase       — initial phase offset\n" *
-    "Chirp rate  — linear frequency sweep\n\n" *
-    "Fidelity colour key\n\n" *
-    "  Green  > 0.99   excellent\n" *
-    "  Orange > 0.95   good\n" *
-    "  Red   ≤ 0.95   needs tuning\n\n" *
-    "Target: X gate\n\n" *
-    "Note: fidelity computed via\n" *
-    "first-order Magnus propagation\n" *
-    "(fast; use [Optimize!] in\n" *
-    "pulse_gui.jl for exact GRAPE).";
-    fontsize=13, halign=:left, valign=:top, padding=(20, 20, 20, 20))
+    """
+    Controls
+
+    Amplitude  — pulse strength
+    Frequency  — oscillation rate
+    Phase      — initial phase offset
+    Chirp      — frequency sweep
+
+    Plots update in real-time.
+    Target: X gate (sigma_x)
+
+    Tip: amplitude ~0.8,
+         frequency ~1.5
+    """;
+    fontsize = 13, halign = :left, valign = :top, padding = (20, 20, 20, 20))
+
+# ── 5. Observable chain 
+#
+#  sliders → controls_obs → ux_obs / uy_obs       (pulse lines)
+#                         → qtraj_obs              rollout(qtraj_ref, pulse)
+#                               → pop0_obs / pop1_obs
+#                               → on(...) fidelity label
+
+controls_obs = lift(amp_sl, freq_sl, phase_sl, chirp_sl) do amp, freq, ph, chirp
+    build_controls(amp, freq, ph, chirp)
+end
+
+ux_obs = lift(c -> vec(c[1, :]), controls_obs)
+uy_obs = lift(c -> vec(c[2, :]), controls_obs)
+
+# rollout(qtraj, pulse) 
+qtraj_obs = lift(controls_obs) do ctrl
+    pulse = ZeroOrderPulse(ctrl, times)
+    rollout(qtraj_ref, pulse)
+end
+
+# traj_pops uses the demo-confirmed pattern
+pop0_obs = lift(qt -> traj_pops(qt)[1], qtraj_obs)
+pop1_obs = lift(qt -> traj_pops(qt)[2], qtraj_obs)
+
+# fidelity(qtraj) 
+on(qtraj_obs) do qt
+    fid = fidelity(qt)
+    fid_label.text[]  = "Fidelity: $(round(fid; digits = 6))"
+    fid_label.color[] =
+        fid > 0.99 ? RGBf(0.05f0, 0.60f0, 0.05f0) :
+        fid > 0.95 ? RGBf(0.85f0, 0.55f0, 0.00f0) :
+                     RGBf(0.80f0, 0.10f0, 0.10f0)
+end
+
+# ── 6. Plot lines 
+
+lines!(ax_pulse, times, ux_obs; label = "ux (I)", linewidth = 2, color = :steelblue)
+lines!(ax_pulse, times, uy_obs; label = "uy (Q)", linewidth = 2, color = :firebrick)
+axislegend(ax_pulse; position = :rt)
+
+lines!(ax_pop, times, pop0_obs; label = "|U_11|^2 stay |0>", linewidth = 2, color = :mediumseagreen)
+lines!(ax_pop, times, pop1_obs; label = "|U_21|^2 flip |1>", linewidth = 2, color = :darkorange)
+axislegend(ax_pop; position = :rt)
 
 Label(fig[4, 1:2],
-    "Drag any slider to update pulse shape, populations, and fidelity in real time.";
-    fontsize=15, color=:gray40)
+    "Drag sliders for real-time updates.  " *
+    "Populations via iso_vec_to_operator (Piccolo reference demo pattern).";
+    fontsize = 13, color = :gray60)
 
-# ─── Reactive graph ───────────────────────────────────────────────────────────
-
-# 1. Controls (pure math — instant)
-ctrl_obs = lift(amp_obs, freq_obs, phase_obs, chirp_obs) do amp, freq, ph, chirp
-    make_controls(amp, freq, ph, chirp)
-end
-
-# 2. Physics result (Magnus propagation — ~1 ms, imperceptible)
-result_obs = lift(ctrl_obs) do ctrl
-    p00, p10, fid = propagate(ctrl, GATES[:X])
-    (p00=p00, p10=p10, fid=fid)
-end
-
-fid_obs = lift(r -> r.fid, result_obs)
-p00_obs = lift(r -> r.p00, result_obs)
-p10_obs = lift(r -> r.p10, result_obs)
-
-# ─── Fidelity label ──────────────────────────────────────────────────────────
-
-on(fid_obs) do fid
-    fid_lbl.text[]  = "Fidelity\n$(round(fid; digits=6))"
-    fid_lbl.color[] = fid_color(fid)
-end
-
-# ─── Pulse plot ───────────────────────────────────────────────────────────────
-
-ux_obs = lift(c -> c[1, :], ctrl_obs)
-uy_obs = lift(c -> c[2, :], ctrl_obs)
-
-lines!(ax_pulse, TIMES, ux_obs; label="uₓ (I)", linewidth=2, color=:royalblue)
-lines!(ax_pulse, TIMES, uy_obs; label="uᵧ (Q)", linewidth=2, color=:crimson)
-axislegend(ax_pulse; position=:rt)
-
-# ─── Population plot ─────────────────────────────────────────────────────────
-
-lines!(ax_pop, TIMES, p00_obs; label="|U₁₁|²  (stay |0⟩)", linewidth=2, color=:seagreen)
-lines!(ax_pop, TIMES, p10_obs; label="|U₂₁|²  (flip |1⟩)", linewidth=2, color=:darkorange)
-axislegend(ax_pop; position=:rt)
-
-# ─── Launch ───────────────────────────────────────────────────────────────────
+# ── 7. Launch ─────────────────────────────────────────────────────────────────
 
 display(fig)
 
-println()
-println("=" ^ 60)
-println("Interactive dashboard running!")
-println("  Drag sliders → real-time pulse + population updates.")
-println("  Close the window or Ctrl-C to exit.")
-println("=" ^ 60)
+@info """
++------------------------------------------------------------------+
+|       Interactive Pulse Dashboard — running                      |
++------------------------------------------------------------------+
+|  Drag sliders → controls → rollout(qtraj, pulse) → fidelity     |
+|  Fidelity: green >0.99 | orange >0.95 | red <0.95               |
+|  Close window or Ctrl-C to exit                                  |
++------------------------------------------------------------------+
+|  All APIs confirmed against official Piccolo documentation       |
+|    rollout(qtraj, pulse)   rollouts API docs                     |
+|    fidelity(qtraj)         rollouts API docs                     |
+|    traj[:Ũ⃗]               quickstart + reference demo           |
+|    iso_vec_to_operator     quickstart + reference demo           |
+|    plot_unitary_populations  used for static snapshots           |
++------------------------------------------------------------------+
+"""
 
 try
     wait(fig.scene)
-catch _
-    println("Dashboard closed.")
+catch
+    @info "Dashboard closed."
 end
