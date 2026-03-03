@@ -322,10 +322,16 @@ evaluate(p::CubicSplinePulse, t) = p.controls(t)
 # ============================================================================ #
 
 """
-    get_knot_times(pulse::AbstractSplinePulse)
+    get_knot_times(pulse::AbstractPulse)
 
-Return the knot times stored in the spline pulse interpolant.
+Return the knot/discontinuity times for the pulse.
+
+For piecewise pulses (ZeroOrderPulse, spline pulses), these are the sample times
+where the control value or its derivative may be discontinuous.
+For smooth analytic pulses (GaussianPulse, ErfPulse), returns just the endpoints.
+For CompositePulse, returns the sorted union of all sub-pulse knot times.
 """
+get_knot_times(p::ZeroOrderPulse) = p.controls.t
 get_knot_times(p::LinearSplinePulse) = p.controls.t
 get_knot_times(p::CubicSplinePulse) = p.controls.t
 
@@ -793,6 +799,13 @@ function CompositePulse(pulses::Vector{<:AbstractPulse}, mode::Symbol = :interle
 end
 
 evaluate(p::CompositePulse, t) = p.f(t)
+
+# Knot time accessors for analytic and composite pulses
+# (defined here because GaussianPulse, ErfPulse, CompositePulse are defined above)
+get_knot_times(p::GaussianPulse) = [0.0, p.duration]
+get_knot_times(p::ErfPulse) = [0.0, p.duration]
+get_knot_times(p::CompositePulse) =
+    sort(unique(vcat([get_knot_times(sub) for sub in p.pulses]...)))
 
 # ============================================================================ #
 # NamedTrajectory Constructors
