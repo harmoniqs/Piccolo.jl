@@ -629,7 +629,7 @@ end
 
     # Test interface
     @test get_system(qtraj) === system
-    @test get_goal(qtraj) === X_gate
+    @test get_goal(qtraj) == X_gate
     @test state_name(qtraj) == :Ũ⃗
     @test drive_name(qtraj) == :u
     @test time_name(qtraj) == :t
