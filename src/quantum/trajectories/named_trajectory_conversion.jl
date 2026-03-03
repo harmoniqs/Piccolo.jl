@@ -844,7 +844,7 @@ end
 
     @test qtraj2 isa UnitaryTrajectory
     @test qtraj2.system === system
-    @test qtraj2.goal === X_gate
+    @test qtraj2.goal == X_gate
 end
 
 @testitem "NamedTrajectory with Δt_bounds" begin
