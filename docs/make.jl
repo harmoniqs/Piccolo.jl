@@ -106,5 +106,6 @@ generate_docs(
         canonical = "https://docs.harmoniqs.co/Piccolo.jl",
         size_threshold = 400 * 2^10,  # 400 KiB for lib.md
     ),
+    mask_cached_solve = true,
     makedocs_kwargs = (draft = draft,),
 )
