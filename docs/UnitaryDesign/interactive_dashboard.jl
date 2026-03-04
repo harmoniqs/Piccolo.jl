@@ -1,7 +1,6 @@
 #!/usr/bin/env julia
 
 using Piccolo
-using PiccoloMakieExt
 using GLMakie
 using Observables
 using LinearAlgebra
@@ -158,4 +157,5 @@ display(fig)
 
 println("Dashboard running...")
 println("Adjust sliders to update pulse and populations.")
+
 println("Click 'Play Animation' to animate pulse drawing.")
