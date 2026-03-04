@@ -22,7 +22,7 @@ jobs:
     env:
       DOC_TEMPLATE_VERSION: "v0.7.1" # Change this to the specific tag version you want
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
       - uses: julia-actions/cache@v2
       - name: Use Documentation Template
