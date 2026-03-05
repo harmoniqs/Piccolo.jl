@@ -2,6 +2,29 @@
 #
 # Piccolo.jl provides visualization tools for analyzing optimization results.
 # This guide covers plotting controls, states, and populations.
+#
+#md # !!! tip "Quick Start for AI Agents"
+#md #     **Most common patterns:**
+#md #     ```julia
+#md #     using Piccolo, CairoMakie
+#md #     
+#md #     # After solving: qcp = SmoothPulseProblem(...); solve!(qcp)
+#md #     traj = get_trajectory(qcp)
+#md #     
+#md #     # Plot unitary populations (for UnitaryTrajectory)
+#md #     fig = plot_unitary_populations(traj)
+#md #     
+#md #     # Plot state populations (for KetTrajectory)  
+#md #     fig = plot_state_populations(traj)
+#md #     
+#md #     # Plot controls
+#md #     fig = plot(traj, [:u])
+#md #     
+#md #     # Save figure
+#md #     save("output.png", fig)
+#md #     ```
+#md #     For animations, use `GLMakie` instead of `CairoMakie` for `:inline` mode.
+#md #     See [CONTEXT.md](https://github.com/harmoniqs/Piccolo.jl/blob/main/src/visualizations/CONTEXT.md) for comprehensive AI-friendly API documentation.
 
 # ## Setup
 #
@@ -46,13 +69,23 @@ fig = plot(traj, [:u, :du, :ddu])
 
 # ### Unitary Populations
 #
-# For `UnitaryTrajectory`, visualize how state populations evolve during the gate:
+# For `UnitaryTrajectory`, visualize how state populations evolve during the gate.
+# Each column of the unitary represents evolution from one basis state:
 
 fig = plot_unitary_populations(traj)
 
+#md # !!! tip "Understanding Unitary Populations"
+#md #     For a unitary `U(t)`, the `j`-th column shows `|U_{i,j}(t)|²` for all rows `i`.
+#md #     This represents the probability distribution when starting in state `|j⟩`.
+#md #     For a perfect X gate, column 1 should transition from `|0⟩` to `|1⟩`.
+
+# Plot only specific columns:
+
+fig = plot_unitary_populations(traj; unitary_columns=[1])
+
 # ### Ket State Populations
 #
-# For `KetTrajectory`, use `plot_state_populations`:
+# For `KetTrajectory`, use `plot_state_populations` to see basis state populations:
 
 ψ_init = ComplexF64[1.0, 0.0]
 ψ_goal = ComplexF64[0.0, 1.0]
@@ -64,6 +97,29 @@ cached_solve!(qcp_ket, "visualization_ket"; max_iter = 50, verbose = false, prin
 
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)
+
+#md # !!! tip "Multi-Level Systems"
+#md #     For systems with leakage levels, use `subspace` to plot only computational states:
+#md #     ```julia
+#md #     fig = plot_state_populations(traj; subspace=1:2)  # Only qubit subspace
+#md #     ```
+
+# ### Bloch Sphere Visualization
+#
+# Requires QuantumToolbox.jl extension. Visualize qubit trajectories on the Bloch sphere:
+
+using QuantumToolbox
+fig = plot_bloch(traj_ket)
+
+# Show vector arrow at specific timestep:
+fig = plot_bloch(traj_ket; index=50)
+
+# ### Wigner Function Visualization
+#
+# For cavity/oscillator systems, plot the Wigner quasi-probability distribution:
+
+using GLMakie, QuantumToolbox
+fig = plot_wigner(traj_ket, 1)  # Plot at first timestep
 
 # ## Custom Plotting
 #
@@ -124,6 +180,49 @@ scatter!(
 )
 axislegend(ax, position = :rt)
 fig
+
+# ## Animation
+
+#md # !!! warning "Backend Requirements"
+#md #     Interactive animations (`:inline` mode) require `GLMakie`. `CairoMakie` only supports
+#md #     saving animations to file (`:record` mode).
+
+# ### Animate Control Evolution
+#
+# Show controls appearing progressively over time:
+
+using GLMakie
+fig = animate_name(traj, :u; fps=30)
+
+# To save animation to file instead, use CairoMakie with mode=:record:
+# using CairoMakie
+# fig = animate_name(traj, :u; mode=:record, filename="controls.mp4", fps=24)
+
+# ### Animate Bloch Sphere
+#
+# Requires QuantumToolbox.jl. Shows state evolution with moving vector:
+
+using GLMakie, QuantumToolbox
+fig = animate_bloch(traj_ket; fps=30)
+fig
+
+# To save animation to file, use CairoMakie with mode=:record:
+# using CairoMakie
+# fig = animate_bloch(traj_ket; mode=:record, filename="bloch_animation.mp4", fps=24)
+
+# ### Animate Wigner Function
+#
+# For cavity systems, animate phase space evolution:
+
+fig = animate_wigner(traj_ket; fps=24, xvec=-4:0.1:4, yvec=-4:0.1:4)
+
+# To save animation to file:
+# using CairoMakie
+# fig = animate_wigner(traj_cavity; mode=:record, filename="wigner_animation.mp4", fps=24, xvec=-4:0.1:4, yvec=-4:0.1:4)
+
+# ### Custom Animation
+#
+# Use `animate_figure` for complete control. See the fidelity evolution example below.
 
 # ## Fidelity Evolution
 #
