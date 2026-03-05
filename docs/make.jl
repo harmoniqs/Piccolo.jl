@@ -78,6 +78,7 @@ pages = [
     ],
     "How-To Guides" => [
         "Overview" => "guides/index.md",
+        "Saving and Loading Pulses" => "generated/guides/saving_loading.md",
         "Leakage Suppression" => "generated/guides/leakage_suppression.md",
         "Global Variables" => "generated/guides/global_variables.md",
         "Visualization" => "generated/guides/visualization.md",
