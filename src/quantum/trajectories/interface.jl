@@ -727,20 +727,66 @@ end
 # ============================================================================ #
 
 """
-    fidelity(traj::UnitaryTrajectory; subspace=nothing)
+    fidelity(traj::UnitaryTrajectory; subspace=nothing, phases=nothing)
 
 Compute the fidelity between the final unitary and the goal.
+
+For `EmbeddedOperator` goals, uses the Pedersen average gate fidelity on the
+computational subspace, matching the metric the optimizer minimizes:
+
+    F = 1/(n(n+1)) * (|tr(M'M)| + |tr(M)|²),   M = U_goal' * U_sub
+
+For standard goals (or when an explicit `subspace` is given), uses the standard
+unitary fidelity |tr(U'U_goal)|²/N².
+
+When `phases` is provided (a vector of per-qubit Z-phases of length `n_qubits`),
+the goal on the computational subspace is adjusted by `Diagonal(phase_vec) *
+U_goal_sub` before computing fidelity, where `phase_vec` is a length-`n_sub`
+vector whose entries are products of `exp(im * θⱼ)` for each qubit `j` that is
+in the `|1⟩` state of the corresponding computational basis vector (via binary
+decomposition of the basis index). This matches the free-phase objective used
+during optimization.
 """
 function Rollouts.fidelity(
     traj::UnitaryTrajectory;
     subspace::Union{Nothing,AbstractVector{Int}} = nothing,
+    phases::Union{Nothing,AbstractVector{<:Real}} = nothing,
 )
     U_final = traj.solution.u[end]
-    U_goal = traj.goal isa EmbeddedOperator ? traj.goal.operator : traj.goal
-    if isnothing(subspace)
-        return unitary_fidelity(U_final, U_goal)
+    if traj.goal isa EmbeddedOperator && isnothing(subspace)
+        U_goal_sub = if isnothing(phases)
+            unembed(traj.goal)
+        else
+            # Apply free phases: same convention as _make_free_phase_goal
+            U_base = unembed(traj.goal)
+            n_sub = size(U_base, 1)
+            n_qubits = length(phases)
+            phase_diag = map(1:n_sub) do i
+                bits = i - 1
+                phase = sum(
+                    phases[j] for j in 1:n_qubits
+                    if (bits >> (n_qubits - j)) & 1 == 1;
+                    init = 0.0
+                )
+                return exp(im * phase)
+            end
+            Diagonal(phase_diag) * U_base
+        end
+        # Use Pedersen formula, consistent with unitary_fidelity_loss(Ũ⃗, ::EmbeddedOperator)
+        U_sub = U_final[traj.goal.subspace, traj.goal.subspace]
+        n = length(traj.goal.subspace)
+        M = U_goal_sub' * U_sub
+        return 1 / (n * (n + 1)) * (abs(tr(M' * M)) + abs2(tr(M)))
     else
-        return unitary_fidelity(U_final, U_goal; subspace = subspace)
+        if !isnothing(phases)
+            @warn "`phases` kwarg is ignored when goal is not an EmbeddedOperator or when `subspace` is provided"
+        end
+        U_goal = traj.goal isa EmbeddedOperator ? traj.goal.operator : traj.goal
+        if isnothing(subspace)
+            return unitary_fidelity(U_final, U_goal)
+        else
+            return unitary_fidelity(U_final, U_goal; subspace = subspace)
+        end
     end
 end
 
@@ -974,6 +1020,72 @@ end
 
     @test length(qtraj_new.solution.u) == 301
     @test qtraj_new.pulse === pulse2
+end
+
+@testitem "fidelity with EmbeddedOperator uses Pedersen formula" begin
+    using LinearAlgebra
+
+    # 2-level system embedded in 3 levels
+    H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
+    H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
+    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+
+    σx = ComplexF64[0 1; 1 0]
+    subspace = [1, 2]
+    levels = [3]
+    U_goal = EmbeddedOperator(σx, subspace, levels)
+
+    # Create trajectory — fidelity depends on the rollout result
+    pulse = ZeroOrderPulse(0.1 * randn(1, 20), collect(range(0.0, 5.0, length = 20)))
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    # Should not error — uses Pedersen formula for EmbeddedOperator
+    fid = fidelity(qtraj)
+    @test 0.0 <= fid <= 1.0
+end
+
+@testitem "fidelity with phases kwarg" begin
+    using LinearAlgebra
+
+    H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
+    H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
+    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+
+    σx = ComplexF64[0 1; 1 0]
+    subspace = [1, 2]
+    levels = [3]
+    U_goal = EmbeddedOperator(σx, subspace, levels)
+
+    pulse = ZeroOrderPulse(0.1 * randn(1, 20), collect(range(0.0, 5.0, length = 20)))
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    # phases=zeros should equal no-phase fidelity
+    fid_nophase = fidelity(qtraj)
+    fid_zerophase = fidelity(qtraj; phases = [0.0])
+    @test fid_nophase ≈ fid_zerophase atol = 1e-12
+
+    # phases=nonzero should give a different fidelity
+    fid_phase = fidelity(qtraj; phases = [π / 4])
+    # Not necessarily different (depends on state) but should not error
+    @test 0.0 <= fid_phase <= 1.0
+end
+
+@testitem "fidelity with plain matrix goal and subspace" begin
+    using LinearAlgebra
+
+    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    X_gate = ComplexF64[0 1; 1 0]
+
+    pulse = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
+    qtraj = UnitaryTrajectory(sys, pulse, X_gate)
+
+    # Standard fidelity (no EmbeddedOperator)
+    fid = fidelity(qtraj)
+    @test 0.0 <= fid <= 1.0
+
+    # With explicit subspace
+    fid_sub = fidelity(qtraj; subspace = [1, 2])
+    @test 0.0 <= fid_sub <= 1.0
 end
 
 # ============================================================================ #
