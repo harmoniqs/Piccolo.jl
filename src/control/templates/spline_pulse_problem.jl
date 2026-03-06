@@ -145,30 +145,10 @@ function SplinePulseProblem(
         goal = qtraj.goal
         @assert goal isa EmbeddedOperator "free_phase=true requires an EmbeddedOperator goal"
         n_qubits = length(goal.subsystem_levels)
-        θ_names = [Symbol(:φ_, i) for i in 1:n_qubits]
         U_goal_fn = _make_free_phase_goal(goal)
-
-        # Add phase variables to global_data
-        if isnothing(global_data)
-            global_data = Dict{Symbol,Vector{Float64}}()
-        end
-        for name in θ_names
-            global_data[name] = [0.0]
-        end
-
-        # Add phase bounds to global_bounds
-        if isnothing(global_bounds)
-            global_bounds = Dict{Symbol,Union{Float64,Tuple{Float64,Float64}}}()
-        end
-        for name in θ_names
-            if !haskey(global_bounds, name)
-                global_bounds[name] = (-2π, 2π)
-            end
-        end
-
-        if piccolo_options.verbose
-            println("    free_phase=true: added phase variables $θ_names")
-        end
+        θ_names, global_data, global_bounds = setup_free_phase_globals!(
+            n_qubits, global_data, global_bounds; verbose=piccolo_options.verbose
+        )
     end
 
     # Convert quantum trajectory to NamedTrajectory
@@ -347,28 +327,10 @@ function SplinePulseProblem(
     if free_phase
         @assert !isnothing(subsystem_levels) "free_phase=true requires subsystem_levels"
         n_qubits = length(subsystem_levels)
-        θ_names = [Symbol(:φ_, i) for i in 1:n_qubits]
         goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
-
-        if isnothing(global_data)
-            global_data = Dict{Symbol,Vector{Float64}}()
-        end
-        for name in θ_names
-            global_data[name] = [0.0]
-        end
-
-        if isnothing(global_bounds)
-            global_bounds = Dict{Symbol,Union{Float64,Tuple{Float64,Float64}}}()
-        end
-        for name in θ_names
-            if !haskey(global_bounds, name)
-                global_bounds[name] = (-2π, 2π)
-            end
-        end
-
-        if piccolo_options.verbose
-            println("    free_phase=true: added phase variables $θ_names")
-        end
+        θ_names, global_data, global_bounds = setup_free_phase_globals!(
+            n_qubits, global_data, global_bounds; verbose=piccolo_options.verbose
+        )
     end
 
     # Convert quantum trajectory to NamedTrajectory

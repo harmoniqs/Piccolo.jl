@@ -739,9 +739,13 @@ computational subspace, matching the metric the optimizer minimizes:
 For standard goals (or when an explicit `subspace` is given), uses the standard
 unitary fidelity |tr(U'U_goal)|²/N².
 
-When `phases` is provided (a vector of per-qubit Z-phases), the goal is adjusted
-by `Diagonal(exp.(im .* θ)) * U_goal_sub` before computing fidelity, matching
-the free-phase objective used during optimization.
+When `phases` is provided (a vector of per-qubit Z-phases of length `n_qubits`),
+the goal on the computational subspace is adjusted by `Diagonal(phase_vec) *
+U_goal_sub` before computing fidelity, where `phase_vec` is a length-`n_sub`
+vector whose entries are products of `exp(im * θⱼ)` for each qubit `j` that is
+in the `|1⟩` state of the corresponding computational basis vector (via binary
+decomposition of the basis index). This matches the free-phase objective used
+during optimization.
 """
 function Rollouts.fidelity(
     traj::UnitaryTrajectory;
@@ -774,6 +778,9 @@ function Rollouts.fidelity(
         M = U_goal_sub' * U_sub
         return 1 / (n * (n + 1)) * (abs(tr(M' * M)) + abs2(tr(M)))
     else
+        if !isnothing(phases)
+            @warn "`phases` kwarg is ignored when goal is not an EmbeddedOperator or when `subspace` is provided"
+        end
         U_goal = traj.goal isa EmbeddedOperator ? traj.goal.operator : traj.goal
         if isnothing(subspace)
             return unitary_fidelity(U_final, U_goal)
