@@ -54,7 +54,7 @@ function apply_piccolo_options!(
         end
 
         if isnothing(state_leakage_indices)
-            throw(ValueError("Leakage indices are required for leakage suppression."))
+            throw(ArgumentError("Leakage indices are required for leakage suppression."))
         end
 
         if state_names isa Symbol
@@ -200,6 +200,29 @@ end
     constraints6 = AbstractConstraint[]
     add_global_bounds_constraints!(constraints6, Dict(:δ => 0.5), traj; verbose = true)
     @test length(constraints6) == 1
+end
+
+@testitem "apply_piccolo_options! throws ArgumentError for missing leakage indices" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using .ProblemTemplates: apply_piccolo_options!
+
+    N = 5
+    traj = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    piccolo_opts = PiccoloOptions(leakage_constraint = true)
+    constraints = AbstractConstraint[]
+
+    # Should throw ArgumentError (not ValueError) when leakage indices are missing
+    @test_throws ArgumentError apply_piccolo_options!(
+        piccolo_opts, constraints, traj;
+        state_names = :x,
+        state_leakage_indices = nothing,
+    )
 end
 
 end

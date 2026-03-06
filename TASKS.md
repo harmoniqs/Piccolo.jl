@@ -32,6 +32,13 @@ Clarify and enforce which integrators are valid for each problem type:
 - Private Piccolissimo integrators should work with `SplinePulseProblem`
 - `SmoothPulseProblem` and `BangBangProblem` should only accept zero-order hold pulses
 
+### Investigate BangBang slack variable representation
+- **Labels:** bug
+
+The bang-bang slack representation doesn't seem to be the right slack rep. Look into this
+and fix or clarify the correct representation. Also investigate how multiple `solve!` calls
+interact with this.
+
 ## In Progress
 
 ## Done
