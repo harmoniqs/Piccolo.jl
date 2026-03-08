@@ -766,7 +766,7 @@ function Rollouts.fidelity(
                 phase = sum(
                     phases[j] for j in 1:n_qubits
                     if (bits >> (n_qubits - j)) & 1 == 1;
-                    init = 0.0
+                    init = zero(eltype(phases))
                 )
                 return exp(im * phase)
             end

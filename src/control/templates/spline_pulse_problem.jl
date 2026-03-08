@@ -4,38 +4,6 @@ export SplinePulseProblem
 _get_spline_order(::LinearSplinePulse) = 1
 _get_spline_order(::CubicSplinePulse) = 3
 
-"""
-    _make_free_phase_goal(op::EmbeddedOperator)
-
-Build a function `θ -> EmbeddedOperator` that applies single-qubit Z-phase rotations
-to the goal gate. For an N-qubit gate, `θ` has N elements (one phase per qubit).
-
-The phase-adjusted gate is `(Z(θ₁) ⊗ Z(θ₂) ⊗ ⋯) ⋅ U_goal`, where `Z(θ) = diag(1, e^{iθ})`.
-"""
-function _make_free_phase_goal(op::EmbeddedOperator)
-    U_base = unembed(op)
-    subspace = op.subspace
-    levels = op.subsystem_levels
-    n_qubits = length(levels)
-    n_sub = size(U_base, 1)
-
-    # Type-generic for ForwardDiff compatibility (θ may contain Dual numbers)
-    function U_goal_fn(θ)
-        phase_diag = map(1:n_sub) do i
-            bits = i - 1
-            phase = sum(
-                θ[j] for j in 1:n_qubits
-                if (bits >> (n_qubits - j)) & 1 == 1;
-                init = zero(eltype(θ))
-            )
-            return exp(im * phase)
-        end
-        phased = Diagonal(phase_diag) * U_base
-        return EmbeddedOperator(Matrix(phased), subspace, levels)
-    end
-    return U_goal_fn
-end
-
 @doc raw"""
     SplinePulseProblem(qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse}; kwargs...)
     SplinePulseProblem(qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse}, N::Int; kwargs...)

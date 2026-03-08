@@ -28,6 +28,106 @@ using TestItems
 
 const ⊗ = kron
 
+# ----------------------------------------------------------------------------- #
+# Free-phase helpers (shared by SmoothPulseProblem, SplinePulseProblem, etc.)
+# ----------------------------------------------------------------------------- #
+
+"""
+    _make_free_phase_ket_goals(goals, subsystem_levels)
+
+Build a function `θ -> Vector{Vector{ComplexF64}}` that applies single-qubit
+Z-phase rotations to ket goal states in the full Hilbert space.
+
+For an N-qubit system with levels `[l₁, l₂, ...]`, each basis element
+`|s₁,s₂,...,sₙ⟩` gets phase `exp(i·Σⱼ θⱼ·δ(sⱼ,1))` — only the `|1⟩`
+level of each qubit acquires a phase.
+"""
+function _make_free_phase_ket_goals(
+    goals::Vector{<:AbstractVector{<:Complex}},
+    subsystem_levels::Vector{Int},
+)
+    dim = prod(subsystem_levels)
+    n_qubits = length(subsystem_levels)
+
+    # Type-generic for ForwardDiff compatibility (θ may contain Dual numbers)
+    function goals_fn(θ)
+        phase_diag = map(0:dim-1) do idx
+            phase = zero(eltype(θ))
+            remaining = idx
+            for j in 1:n_qubits
+                stride = prod(subsystem_levels[k] for k in j+1:n_qubits; init=1)
+                sj = remaining ÷ stride
+                remaining = remaining % stride
+                if sj == 1  # |1⟩ state of qubit j
+                    phase += θ[j]
+                end
+            end
+            return exp(im * phase)
+        end
+        return [phase_diag .* g for g in goals]
+    end
+    return goals_fn
+end
+
+"""
+    _make_free_phase_ket_goal(goal, subsystem_levels)
+
+Single-ket version of `_make_free_phase_ket_goals`. Returns `θ -> Vector{ComplexF64}`.
+"""
+function _make_free_phase_ket_goal(
+    goal::AbstractVector{<:Complex},
+    subsystem_levels::Vector{Int},
+)
+    multi_fn = _make_free_phase_ket_goals([goal], subsystem_levels)
+    return θ -> multi_fn(θ)[1]
+end
+
+"""
+    _build_phase_diagonal(θ, n_qubits, n_sub)
+
+Build the diagonal vector `[exp(i·Σⱼ θⱼ·bⱼ) for each computational basis state]`
+where `bⱼ` is the j-th bit (1 if qubit j is in `|1⟩`). Assumes 2-level subsystems.
+
+Type-generic: works with ForwardDiff Dual numbers.
+"""
+function _build_phase_diagonal(θ, n_qubits::Int, n_sub::Int)
+    return map(1:n_sub) do i
+        bits = i - 1
+        phase = sum(
+            θ[j] for j in 1:n_qubits
+            if (bits >> (n_qubits - j)) & 1 == 1;
+            init = zero(eltype(θ))
+        )
+        return exp(im * phase)
+    end
+end
+
+"""
+    _make_free_phase_goal(op::EmbeddedOperator)
+
+Build a function `θ -> EmbeddedOperator` that applies single-qubit Z-phase rotations
+to the goal gate. For an N-qubit gate, `θ` has N elements (one phase per qubit).
+
+The phase-adjusted gate is `(Z(θ₁) ⊗ Z(θ₂) ⊗ ⋯) ⋅ U_goal`, where `Z(θ) = diag(1, e^{iθ})`.
+"""
+function _make_free_phase_goal(op::EmbeddedOperator)
+    U_base = unembed(op)
+    subspace = op.subspace
+    levels = op.subsystem_levels
+    n_qubits = length(levels)
+    n_sub = size(U_base, 1)
+
+    # Type-generic for ForwardDiff compatibility (θ may contain Dual numbers)
+    function U_goal_fn(θ)
+        phase_diag = _build_phase_diagonal(θ, n_qubits, n_sub)
+        phased = Diagonal(phase_diag) * U_base
+        return EmbeddedOperator(Matrix(phased), subspace, levels)
+    end
+    return U_goal_fn
+end
+
+# ----------------------------------------------------------------------------- #
+
 include("smooth_pulse_problem.jl")
 include("bang_bang_pulse_problem.jl")
 include("spline_pulse_problem.jl")
