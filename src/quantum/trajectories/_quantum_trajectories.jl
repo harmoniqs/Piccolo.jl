@@ -29,7 +29,7 @@ using ..Rollouts:
     KetOperatorODEProblem,
     DensityODEProblem
 using ..Rollouts: unitary_fidelity
-using ..EmbeddedOperators: AbstractPiccoloOperator, EmbeddedOperator
+using ..EmbeddedOperators: AbstractPiccoloOperator, EmbeddedOperator, unembed
 using ..Isomorphisms: operator_to_iso_vec, ket_to_iso, iso_to_ket, iso_vec_to_operator
 using ..Isomorphisms: density_to_compact_iso, compact_iso_to_density
 
