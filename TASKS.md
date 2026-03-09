@@ -33,6 +33,7 @@ Clarify and enforce which integrators are valid for each problem type:
 - `SmoothPulseProblem` and `BangBangProblem` should only accept zero-order hold pulses
 
 ### Investigate BangBang slack variable representation
+<!-- id: PVTI_lADOC9ysqc4BETyazgnBXlw -->
 - **Labels:** bug
 
 The bang-bang slack representation doesn't seem to be the right slack rep. Look into this
