@@ -231,11 +231,12 @@ end
 
     # Reference: fixed-step with very many points
     qtraj_ref =
-        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 10001)
+        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 1001)
     fid_ref = fidelity(qtraj_ref)
 
     # Adaptive should match reference; fixed-101 may not
     @test abs(fid_adapt - fid_ref) < 1e-6
+    @test fid_ref < fid_fixed < 1.0  # Fixed-101 should be worse than perfect
     @test abs(fid_fixed - fid_ref) > abs(fid_adapt - fid_ref)
 end
 
