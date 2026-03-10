@@ -194,7 +194,7 @@ function CoherentKetFreePhaseInfidelityObjective(
 
     function ℓ(z)
         x = z[1:total_state_dim]
-        θ = z[total_state_dim+1:end]
+        θ = z[(total_state_dim+1):end]
 
         # Extract individual ket states from concatenated vector
         ψ̃s = Vector{Vector{eltype(x)}}(undef, n_states)
@@ -245,7 +245,7 @@ function KetFreePhaseInfidelityObjective(
 
     function ℓ(z)
         ψ̃ = z[1:d_state]
-        θ = z[d_state+1:end]
+        θ = z[(d_state+1):end]
         phased_goal = goal_fn(θ)
         return abs(1 - ket_fidelity_loss(ψ̃, phased_goal))
     end
@@ -548,7 +548,13 @@ end
     )
 
     θ_names = [:φ_1]
-    obj = CoherentKetFreePhaseInfidelityObjective(goals_fn, [:ψ̃1, :ψ̃2], θ_names, traj; Q = 100.0)
+    obj = CoherentKetFreePhaseInfidelityObjective(
+        goals_fn,
+        [:ψ̃1, :ψ̃2],
+        θ_names,
+        traj;
+        Q = 100.0,
+    )
 
     # With θ=0, perfect states should give ~0 infidelity
     J = objective_value(obj, traj)
@@ -571,7 +577,11 @@ end
     )
 
     obj_rand = CoherentKetFreePhaseInfidelityObjective(
-        goals_fn, [:ψ̃1, :ψ̃2], θ_names, traj_rand; Q = 100.0
+        goals_fn,
+        [:ψ̃1, :ψ̃2],
+        θ_names,
+        traj_rand;
+        Q = 100.0,
     )
     J_rand = objective_value(obj_rand, traj_rand)
     @test 0.0 <= J_rand <= 100.0
