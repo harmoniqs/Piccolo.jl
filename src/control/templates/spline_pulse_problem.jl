@@ -24,9 +24,8 @@ function _make_free_phase_goal(op::EmbeddedOperator)
         phase_diag = map(1:n_sub) do i
             bits = i - 1
             phase = sum(
-                θ[j] for j in 1:n_qubits
-                if (bits >> (n_qubits - j)) & 1 == 1;
-                init = zero(eltype(θ))
+                θ[j] for j = 1:n_qubits if (bits >> (n_qubits - j)) & 1 == 1;
+                init = zero(eltype(θ)),
             )
             return exp(im * phase)
         end
@@ -131,9 +130,7 @@ function SplinePulseProblem(
 
     # Build global_data from system's global_params if present
     global_data = if !isempty(sys.global_params)
-        Dict{Symbol,Vector{Float64}}(
-            name => [val] for (name, val) in pairs(sys.global_params)
-        )
+        Dict{Symbol,Vector{Float64}}(name => [val] for (name, val) in pairs(sys.global_params))
     else
         nothing
     end
@@ -147,7 +144,10 @@ function SplinePulseProblem(
         n_qubits = length(goal.subsystem_levels)
         U_goal_fn = _make_free_phase_goal(goal)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds; verbose=piccolo_options.verbose
+            n_qubits,
+            global_data,
+            global_bounds;
+            verbose = piccolo_options.verbose,
         )
     end
 
@@ -329,7 +329,10 @@ function SplinePulseProblem(
         n_qubits = length(subsystem_levels)
         goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds; verbose=piccolo_options.verbose
+            n_qubits,
+            global_data,
+            global_bounds;
+            verbose = piccolo_options.verbose,
         )
     end
 
@@ -413,7 +416,7 @@ function SplinePulseProblem(
     J = if free_phase && !isnothing(goals_fn)
         CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj; Q = Q)
     else
-        _ensemble_ket_objective(qtraj, traj, snames, weights, goals, Q; coherent=coherent)
+        _ensemble_ket_objective(qtraj, traj, snames, weights, goals, Q; coherent = coherent)
     end
 
     # Add regularization for control and derivative
@@ -885,8 +888,10 @@ end
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     qcp = SplinePulseProblem(
-        qtraj, N;
-        Q = 100.0, R = 1e-2,
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
         free_phase = true,
         subsystem_levels = [2],
     )
@@ -931,7 +936,8 @@ end
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     @test_throws AssertionError SplinePulseProblem(
-        qtraj, N;
+        qtraj,
+        N;
         free_phase = true,
         subsystem_levels = nothing,
     )

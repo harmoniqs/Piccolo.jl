@@ -764,9 +764,8 @@ function Rollouts.fidelity(
             phase_diag = map(1:n_sub) do i
                 bits = i - 1
                 phase = sum(
-                    phases[j] for j in 1:n_qubits
-                    if (bits >> (n_qubits - j)) & 1 == 1;
-                    init = 0.0
+                    phases[j] for j = 1:n_qubits if (bits >> (n_qubits - j)) & 1 == 1;
+                    init = 0.0,
                 )
                 return exp(im * phase)
             end

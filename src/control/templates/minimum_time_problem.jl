@@ -159,8 +159,7 @@ function _final_fidelity_constraint(
 
     # Detect free-phase variables (φ_1, φ_2, ...) in global components
     θ_names = Symbol[
-        name for name in keys(traj.global_components)
-        if startswith(string(name), "φ_")
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
     ]
     sort!(θ_names)  # ensure consistent ordering
 
@@ -168,7 +167,11 @@ function _final_fidelity_constraint(
         # Free-phase: use callable U_goal(θ) with phase-adjusted gate
         U_goal_fn = _make_free_phase_goal(U_goal)
         return FinalUnitaryFidelityConstraint(
-            U_goal_fn, state_sym, θ_names, final_fidelity, traj
+            U_goal_fn,
+            state_sym,
+            θ_names,
+            final_fidelity,
+            traj,
         )
     else
         # Fixed-phase: use static U_goal
