@@ -97,20 +97,22 @@ function _plot_atom_populations(
             pop_traces[:, t] = rydberg_populations(ψ_t, N_atoms)
         end
 
-        legend_entries = [
-            # LineElement(; color = i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
-            LineElement(; linewidth = 2) for i in 1:N_atoms
-        ]
+        # legend_entries = [
+        #     # LineElement(; color = i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
+        #     LineElement(; color=i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
+        # ]
 
         for i in 1:N_atoms
-            # lines!(ax, times, pop_traces[i, :]; linewidth = 2, label=labels[i])
-            # plt = trajectoryplot!(ax, traj, unitary_name, x -> rydberg_populations(iso_vec_to_operator(x) * ψ0, N_atoms)[i]; label=labels[i], color=colors[i], colormap=:viridis, colorrange=1:N_atoms,)
-            plt = trajectoryplot!(ax, traj, unitary_name, x -> rydberg_populations(iso_vec_to_operator(x) * ψ0, N_atoms)[i]; label=labels[i],)
-            child_plots = filter(p -> haskey(p, :label) && !isnothing(to_value(p.label)), plt.plots)
-            println(length(child_plots), typeof(child_plots), to_value(child_plots[1]))
-            # labels = [to_value(p.label) for p in child_plots]
-            # println(typeof(p), typeof(p.label))
-            Legend(fig[s, 2], legend_entries, labels, tellheight=false)
+            # # lines!(ax, times, pop_traces[i, :]; linewidth = 2, label=labels[i])
+            # # plt = trajectoryplot!(ax, traj, unitary_name, x -> rydberg_populations(iso_vec_to_operator(x) * ψ0, N_atoms)[i]; label=labels[i], color=colors[i], colormap=:viridis, colorrange=1:N_atoms,)
+            # plt = trajectoryplot!(ax, traj, unitary_name, x -> rydberg_populations(iso_vec_to_operator(x) * ψ0, N_atoms)[i]; label=labels[i],)
+            # child_plots = filter(p -> haskey(p, :label) && !isnothing(to_value(p.label)), plt.plots)
+            # println(length(child_plots), typeof(child_plots), to_value(child_plots[1]))
+            # # labels = [to_value(p.label) for p in child_plots]
+            # # println(typeof(p), typeof(p.label))
+            # Legend(fig[s, 2], legend_entries, labels, tellheight=false)
+
+            lines!(ax, times, pop_traces[i, :]; linewidth = 2, label=labels[i], colormap=:viridis, color=i, colorrange=1:N_atoms)
         end
 
         ylims!(ax, -0.05, 1.05)
@@ -124,11 +126,11 @@ function _plot_atom_populations(
         end
     end
 
-    # legend_entries = [
-    #     # LineElement(; color = i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
-    #     LineElement(; linewidth = 2) for i in 1:N_atoms
-    # ]
-    # Legend(fig[:, 2], legend_entries, labels; framevisible = false, labelsize = 12)
+    legend_entries = [
+        # LineElement(; color = i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
+        LineElement(; color=i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
+    ]
+    Legend(fig[:, 2], legend_entries, labels; framevisible = false, labelsize = 12)
 
     if !isempty(title)
         Label(fig[0, 1], title; fontsize = 16, font = :bold)
