@@ -55,7 +55,7 @@ single-atom excitation probability ``\\langle n_i \\rangle(t)`` at each timestep
 # Returns
 A Makie `Figure` with one subplot per initial state, one line per atom.
 """
-function plot_atom_populations(
+function _plot_atom_populations(
     traj::NamedTrajectory,
     N_atoms::Int;
     unitary_name::Symbol = :Ũ⃗,
@@ -77,11 +77,17 @@ function plot_atom_populations(
     n_states = length(initial_states)
     fig = Figure(; size = (800, 300 * n_states), kwargs...)
 
+    # colors = Makie.wong_colors()
+    # colors = [i for i = 1:N_atoms]
+    labels = ["Atom $i" for i = 1:N_atoms]
+
     for (s, ψ0) in enumerate(initial_states)
         ax = Axis(
             fig[s, 1],
             ylabel = "Rydberg population",
             xlabel = s == n_states ? "Time (μs)" : "",
+            # colormap = :viridis,
+            # colorrange = 1:N_atoms,
         )
 
         pop_traces = zeros(Float64, N_atoms, T)
@@ -91,20 +97,38 @@ function plot_atom_populations(
             pop_traces[:, t] = rydberg_populations(ψ_t, N_atoms)
         end
 
+        legend_entries = [
+            # LineElement(; color = i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
+            LineElement(; linewidth = 2) for i in 1:N_atoms
+        ]
+
         for i in 1:N_atoms
-            lines!(ax, times, pop_traces[i, :]; linewidth = 2, label = "Atom $i")
+            # lines!(ax, times, pop_traces[i, :]; linewidth = 2, label=labels[i])
+            # plt = trajectoryplot!(ax, traj, unitary_name, x -> rydberg_populations(iso_vec_to_operator(x) * ψ0, N_atoms)[i]; label=labels[i], color=colors[i], colormap=:viridis, colorrange=1:N_atoms,)
+            plt = trajectoryplot!(ax, traj, unitary_name, x -> rydberg_populations(iso_vec_to_operator(x) * ψ0, N_atoms)[i]; label=labels[i],)
+            child_plots = filter(p -> haskey(p, :label) && !isnothing(to_value(p.label)), plt.plots)
+            println(length(child_plots), typeof(child_plots), to_value(child_plots[1]))
+            # labels = [to_value(p.label) for p in child_plots]
+            # println(typeof(p), typeof(p.label))
+            Legend(fig[s, 2], legend_entries, labels, tellheight=false)
         end
 
         ylims!(ax, -0.05, 1.05)
 
-        if N_atoms <= 6
-            axislegend(ax; position = :rt)
-        end
+        # if N_atoms <= 6
+        #     axislegend(ax; position = :rt)
+        # end
 
         if s < n_states
             hidexdecorations!(ax; grid = false)
         end
     end
+
+    # legend_entries = [
+    #     # LineElement(; color = i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
+    #     LineElement(; linewidth = 2) for i in 1:N_atoms
+    # ]
+    # Legend(fig[:, 2], legend_entries, labels; framevisible = false, labelsize = 12)
 
     if !isempty(title)
         Label(fig[0, 1], title; fontsize = 16, font = :bold)
