@@ -33,7 +33,7 @@ Plot instantaneous gate fidelity ``F(t) = |\\text{tr}(U_{\\text{goal}}^\\dagger 
 # Returns
 A Makie `Figure` with a single fidelity-vs-time line plot.
 """
-function plot_fidelity_trace(
+function _plot_fidelity_trace(
     traj::NamedTrajectory,
     U_goal::AbstractMatrix{<:Number};
     unitary_name::Symbol = :Ũ⃗,
@@ -56,16 +56,23 @@ function plot_fidelity_trace(
     end
 
     fig = Figure(; size = (800, 350), kwargs...)
-    ax = Axis(fig[1, 1], xlabel = "Time (μs)", ylabel = "Fidelity")
+    ax = Axis(
+        fig[1, 1],
+        title = !isempty(title) ? title : "",
+        titlesize = 16,
+
+        xlabel = "Time (μs)",
+        ylabel = "Fidelity"
+    )
 
     lines!(ax, times, fidelities; linewidth = 2, color = :black)
     hlines!(ax, [1.0]; color = :green, linestyle = :dash, linewidth = 1.0, alpha = 0.7)
 
-    ylims!(ax, max(0.0, minimum(fidelities) - 0.05), 1.02)
+    ylims!(ax, max(0.0, minimum(fidelities) - 0.05), 1.05)
 
-    if !isempty(title)
-        Label(fig[0, 1], title; fontsize = 16, font = :bold)
-    end
+    # if !isempty(title)
+    #     Label(fig[0, 1], title; fontsize = 16, font = :bold)
+    # end
 
     return fig
 end
