@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
       - name: Use Documentation Template
         run: |
           ./docs/get_docs_utils.sh ${{ env.DOC_TEMPLATE_VERSION }}
