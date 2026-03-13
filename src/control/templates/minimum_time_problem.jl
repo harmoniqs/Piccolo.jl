@@ -156,7 +156,27 @@ function _final_fidelity_constraint(
 )
     U_goal = qtraj.goal
     state_sym = state_name(qtraj)
-    return FinalUnitaryFidelityConstraint(U_goal, state_sym, final_fidelity, traj)
+
+    # Detect free-phase variables (φ_1, φ_2, ...) in global components
+    θ_names = Symbol[
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
+    ]
+    sort!(θ_names)  # ensure consistent ordering
+
+    if !isempty(θ_names) && U_goal isa EmbeddedOperator
+        # Free-phase: use callable U_goal(θ) with phase-adjusted gate
+        U_goal_fn = _make_free_phase_goal(U_goal)
+        return FinalUnitaryFidelityConstraint(
+            U_goal_fn,
+            state_sym,
+            θ_names,
+            final_fidelity,
+            traj,
+        )
+    else
+        # Fixed-phase: use static U_goal
+        return FinalUnitaryFidelityConstraint(U_goal, state_sym, final_fidelity, traj)
+    end
 end
 
 function _final_fidelity_constraint(
@@ -685,4 +705,39 @@ end
 
     duration_after = sum(get_timesteps(get_trajectory(sampling_mintime)))
     @test duration_after <= duration_before * 1.1
+end
+
+@testitem "MinimumTimeProblem detects free-phase variables" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Create a system with an EmbeddedOperator goal and free-phase variables
+    H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
+    H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
+    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+
+    T = 10.0
+    N = 51
+
+    σx = ComplexF64[0 1; 1 0]
+    subspace = [1, 2]
+    levels = [3]
+    U_goal = EmbeddedOperator(σx, subspace, levels)
+
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    # First create a spline problem with free_phase to get phase variables
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, free_phase = true)
+    solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+
+    # Convert to minimum-time — should auto-detect φ_ variables
+    qcp_mintime = MinimumTimeProblem(qcp; final_fidelity = 0.5, D = 50.0)
+    @test qcp_mintime isa QuantumControlProblem
+
+    # Verify the free-phase variable is preserved in the trajectory
+    traj = get_trajectory(qcp_mintime)
+    @test haskey(traj.global_components, :φ_1)
 end

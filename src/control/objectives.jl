@@ -2,6 +2,8 @@ module QuantumObjectives
 
 export KetInfidelityObjective
 export CoherentKetInfidelityObjective
+export CoherentKetFreePhaseInfidelityObjective
+export KetFreePhaseInfidelityObjective
 export UnitaryInfidelityObjective
 export DensityMatrixInfidelityObjective
 export DensityMatrixPureStateInfidelityObjective
@@ -19,7 +21,7 @@ using TestItems
 #                       Kets
 # ---------------------------------------------------------
 
-function ket_fidelity_loss(ψ̃::AbstractVector, ψ_goal::AbstractVector{<:Complex{Float64}})
+function ket_fidelity_loss(ψ̃::AbstractVector, ψ_goal::AbstractVector{<:Complex})
     ψ = iso_to_ket(ψ̃)
     return abs2(ψ_goal' * ψ)
 end
@@ -79,7 +81,7 @@ which is necessary for implementing gates via state transfer.
 - `ψ̃s::Vector{<:AbstractVector}`: List of isomorphic state vectors
 - `ψ_goals::Vector{<:AbstractVector{<:Complex}}`: List of goal states
 """
-function coherent_ket_fidelity(ψ̃s, ψ_goals::Vector{<:AbstractVector{<:Complex{Float64}}})
+function coherent_ket_fidelity(ψ̃s, ψ_goals::AbstractVector{<:AbstractVector{<:Complex}})
     n = length(ψ̃s)
     @assert n == length(ψ_goals) "Number of states must match number of goals"
 
@@ -153,6 +155,103 @@ function CoherentKetInfidelityObjective(
     return TerminalObjective(ℓ, ψ̃_names, traj; Q = Q)
 end
 
+# ---------------------------------------------------------
+#              Free-Phase Ket Fidelity
+# ---------------------------------------------------------
+
+"""
+    CoherentKetFreePhaseInfidelityObjective(goals_fn, ψ̃_names, θ_names, traj; Q=100.0)
+
+Coherent ket infidelity with optimizable single-qubit Z-phase rotations.
+
+`goals_fn(θ)` returns phase-rotated goal kets. Phase variables `θ` are stored
+in the trajectory's `global_data` and optimized alongside the pulse.
+
+The objective minimizes:
+    1 - |1/n Σᵢ ⟨goal_i(θ)|ψ_i⟩|²
+
+where `goal_i(θ) = Φ(θ) · goal_i` with `Φ(θ) = Z₁(θ₁) ⊗ Z₂(θ₂) ⊗ ⋯`.
+
+# Arguments
+- `goals_fn::Function`: Maps phase vector `θ` to phased goal kets
+- `ψ̃_names::Vector{Symbol}`: Names of isomorphic state variables in trajectory
+- `θ_names::AbstractVector{Symbol}`: Names of phase global variables
+- `traj::NamedTrajectory`: The trajectory
+
+# Keyword Arguments
+- `Q::Float64=100.0`: Weight on the infidelity objective
+"""
+function CoherentKetFreePhaseInfidelityObjective(
+    goals_fn::Function,
+    ψ̃_names::Vector{Symbol},
+    θ_names::AbstractVector{Symbol},
+    traj::NamedTrajectory;
+    Q::Float64 = 100.0,
+)
+    n_states = length(ψ̃_names)
+    state_dims = [length(traj.components[name]) for name in ψ̃_names]
+    total_state_dim = sum(state_dims)
+
+    function ℓ(z)
+        x = z[1:total_state_dim]
+        θ = z[(total_state_dim+1):end]
+
+        # Extract individual ket states from concatenated vector
+        ψ̃s = Vector{Vector{eltype(x)}}(undef, n_states)
+        offset = 0
+        for i = 1:n_states
+            ψ̃s[i] = x[(offset+1):(offset+state_dims[i])]
+            offset += state_dims[i]
+        end
+
+        phased_goals = goals_fn(θ)
+        return abs(1 - coherent_ket_fidelity(ψ̃s, phased_goals))
+    end
+
+    return GlobalKnotPointObjective(
+        ℓ,
+        ψ̃_names,
+        collect(θ_names),
+        traj;
+        Qs = [Q],
+        times = [traj.N],
+    )
+end
+
+"""
+    KetFreePhaseInfidelityObjective(goal_fn, ψ̃_name, θ_names, traj; Q=100.0)
+
+Single-ket infidelity with optimizable Z-phase rotations.
+
+`goal_fn(θ)` returns the phase-rotated goal ket. Minimizes `1 - |⟨goal(θ)|ψ⟩|²`.
+
+# Arguments
+- `goal_fn::Function`: Maps phase vector `θ` to phased goal ket
+- `ψ̃_name::Symbol`: Name of isomorphic state variable in trajectory
+- `θ_names::AbstractVector{Symbol}`: Names of phase global variables
+- `traj::NamedTrajectory`: The trajectory
+
+# Keyword Arguments
+- `Q::Float64=100.0`: Weight on the infidelity objective
+"""
+function KetFreePhaseInfidelityObjective(
+    goal_fn::Function,
+    ψ̃_name::Symbol,
+    θ_names::AbstractVector{Symbol},
+    traj::NamedTrajectory;
+    Q::Float64 = 100.0,
+)
+    d_state = length(traj.components[ψ̃_name])
+
+    function ℓ(z)
+        ψ̃ = z[1:d_state]
+        θ = z[(d_state+1):end]
+        phased_goal = goal_fn(θ)
+        return abs(1 - ket_fidelity_loss(ψ̃, phased_goal))
+    end
+
+    return TerminalObjective(ℓ, ψ̃_name, θ_names, traj; Q = Q)
+end
 
 # ---------------------------------------------------------
 #                       Unitaries
@@ -390,6 +489,141 @@ using TestItems
     # overlap_sum = ⟨ψ1|ψ1⟩ + ⟨ψ0|(-ψ0)⟩ = 1 + (-1) = 0
     # F_coherent = |0/2|² = 0
     @test J_phase > 50.0  # Should be high infidelity (close to Q * 1.0)
+end
+
+@testitem "coherent_ket_fidelity accepts generic Complex types" begin
+    using LinearAlgebra
+    using ForwardDiff
+
+    # Test that coherent_ket_fidelity works with Complex{Float32} (relaxed from Complex{Float64})
+    ψ0_f32 = Complex{Float32}[1.0f0, 0.0f0]
+    ψ1_f32 = Complex{Float32}[0.0f0, 1.0f0]
+    goals_f32 = [ψ1_f32, ψ0_f32]
+
+    ψ̃s = [ket_to_iso(ComplexF64.(ψ1_f32)), ket_to_iso(ComplexF64.(ψ0_f32))]
+    F = Piccolo.QuantumObjectives.coherent_ket_fidelity(ψ̃s, goals_f32)
+    @test F ≈ 1.0
+
+    # Test that it works with Complex{ForwardDiff.Dual} (needed for autodiff)
+    # This validates the type signature relaxation
+    goals_f64 = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
+    F2 = Piccolo.QuantumObjectives.coherent_ket_fidelity(ψ̃s, goals_f64)
+    @test F2 ≈ 1.0
+end
+
+@testitem "CoherentKetFreePhaseInfidelityObjective" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Setup: 2-level system, 2 kets for X gate
+    N = 10
+    ket_dim = 4  # iso dim for 2-level system
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    goals = [ψ1, ψ0]
+
+    # Build a goals_fn that applies Z-phase to each goal
+    # For a single qubit: phase_diag = [1, exp(iθ)]
+    function goals_fn(θ)
+        phase_diag = [one(eltype(θ)), exp(im * θ[1])]
+        return [phase_diag .* g for g in goals]
+    end
+
+    # Create trajectory with global phase variable
+    ψ̃1 = zeros(ket_dim, N)
+    ψ̃2 = zeros(ket_dim, N)
+    for k = 1:N
+        ψ̃1[:, k] = ket_to_iso(ψ1)
+        ψ̃2[:, k] = ket_to_iso(ψ0)
+    end
+
+    traj = NamedTrajectory(
+        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.0],
+        global_components = (φ_1 = 1:1,),
+    )
+
+    θ_names = [:φ_1]
+    obj = CoherentKetFreePhaseInfidelityObjective(
+        goals_fn,
+        [:ψ̃1, :ψ̃2],
+        θ_names,
+        traj;
+        Q = 100.0,
+    )
+
+    # With θ=0, perfect states should give ~0 infidelity
+    J = objective_value(obj, traj)
+    @test J < 1e-10
+
+    # Test gradient is computable
+    ∇ = zeros(traj.dim * traj.N + traj.global_dim)
+    gradient!(∇, obj, traj)
+
+    # Test with random states: objective should be between 0 and Q
+    ψ̃1_rand = randn(ket_dim, N)
+    ψ̃2_rand = randn(ket_dim, N)
+
+    traj_rand = NamedTrajectory(
+        (ψ̃1 = ψ̃1_rand, ψ̃2 = ψ̃2_rand, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.5],
+        global_components = (φ_1 = 1:1,),
+    )
+
+    obj_rand = CoherentKetFreePhaseInfidelityObjective(
+        goals_fn,
+        [:ψ̃1, :ψ̃2],
+        θ_names,
+        traj_rand;
+        Q = 100.0,
+    )
+    J_rand = objective_value(obj_rand, traj_rand)
+    @test 0.0 <= J_rand <= 100.0
+end
+
+@testitem "KetFreePhaseInfidelityObjective" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    N = 10
+    ket_dim = 4  # iso dim for 2-level system
+    ψ_goal = ComplexF64[0.0, 1.0]
+
+    function goal_fn(θ)
+        phase_diag = [one(eltype(θ)), exp(im * θ[1])]
+        return phase_diag .* ψ_goal
+    end
+
+    # Perfect state at final time
+    ψ̃ = zeros(ket_dim, N)
+    for k = 1:N
+        ψ̃[:, k] = ket_to_iso(ψ_goal)
+    end
+
+    traj = NamedTrajectory(
+        (ψ̃ = ψ̃, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.0],
+        global_components = (φ_1 = 1:1,),
+    )
+
+    obj = KetFreePhaseInfidelityObjective(goal_fn, :ψ̃, [:φ_1], traj; Q = 100.0)
+
+    # Perfect state with zero phase -> zero infidelity
+    J = objective_value(obj, traj)
+    @test J < 1e-10
+
+    # Test gradient
+    ∇ = zeros(traj.dim * traj.N + traj.global_dim)
+    gradient!(∇, obj, traj)
 end
 
 end

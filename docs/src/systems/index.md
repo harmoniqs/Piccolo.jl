@@ -63,10 +63,13 @@ solve!(qcp)
 
 For platforms not covered by a template, build directly from matrices:
 
-```julia
+```@example custom_systems
+using Piccolo
+using SparseArrays
+
 # Standard linear drives: H(u) = H_drift + u₁ H₁ + u₂ H₂
-H_drift = my_drift_matrix
-H_drives = [my_drive_1, my_drive_2]
+H_drift = PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
 drive_bounds = [1.0, 1.0]
 
 sys = QuantumSystem(H_drift, H_drives, drive_bounds)
@@ -75,20 +78,20 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 For systems with **nonlinear drive coefficients**, use typed drive terms.
 The Jacobian is auto-generated via ForwardDiff:
 
-```julia
+```@example custom_systems
 # H(u) = u₁ σx + u₂ σy + (u₁² + u₂²) σz
 drives = AbstractDrive[
-    LinearDrive(sparse(ComplexF64.(σx)), 1),
-    LinearDrive(sparse(ComplexF64.(σy)), 2),
-    NonlinearDrive(σz, u -> u[1]^2 + u[2]^2),   # auto-Jacobian
+    LinearDrive(sparse(ComplexF64.(PAULIS[:X])), 1),
+    LinearDrive(sparse(ComplexF64.(PAULIS[:Y])), 2),
+    NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2),   # auto-Jacobian
 ]
 sys = QuantumSystem(H_drift, drives, [1.0, 1.0])
 ```
 
 You can also provide a hand-written Jacobian (validated against ForwardDiff at construction):
 
-```julia
-NonlinearDrive(σz,
+```@example custom_systems
+NonlinearDrive(PAULIS[:Z],
     u -> u[1]^2 + u[2]^2,                         # coefficient c(u)
     (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0;  # Jacobian ∂c/∂uⱼ
     active_controls = [1, 2]                       # structural sparsity hint
