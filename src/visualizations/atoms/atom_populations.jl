@@ -55,7 +55,7 @@ single-atom excitation probability ``\\langle n_i \\rangle(t)`` at each timestep
 # Returns
 A Makie `Figure` with one subplot per initial state, one line per atom.
 """
-function _plot_atom_populations(
+function plot_atom_populations(
     traj::NamedTrajectory,
     N_atoms::Int;
     unitary_name::Symbol = :Ũ⃗,
