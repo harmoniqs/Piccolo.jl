@@ -54,8 +54,14 @@ function plot_pulse_waveforms(
     for i in 1:n_drives
         ax = Axis(
             fig[i, 1],
-            ylabel = labels[min(i, length(labels))] * " (MHz)",
+            title = (i == 1 && !isempty(title)) ? title : "",
+            titlealign = :left,
+            titlesize = 16,
+            titlefont = :bold,
+            xticklabelsvisible = i == n_drives,
+            xtickalign = 1,
             xlabel = i == n_drives ? "Time (μs)" : "",
+            ylabel = labels[min(i, length(labels))] * " (MHz)",
         )
 
         # Hardware bounds as shaded band
@@ -70,14 +76,14 @@ function plot_pulse_waveforms(
         lines!(ax, times, u[i, :]; linewidth = 2)
         hlines!(ax, [0.0]; color = :gray, linestyle = :dash, linewidth = 0.5)
 
-        if i < n_drives
-            hidexdecorations!(ax; grid = false)
-        end
+        # if i < n_drives
+        #     hidexdecorations!(ax; grid = false)
+        # end
     end
 
-    if !isempty(title)
-        Label(fig[0, 1], title; fontsize = 16, font = :bold)
-    end
+    # if !isempty(title)
+    #     Label(fig[1, 1], title; fontsize = 16, font = :bold)
+    # end
 
     return fig
 end
