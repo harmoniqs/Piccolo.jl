@@ -46,12 +46,12 @@ function plot_pulse_waveforms(
     times = get_times(traj)
 
     if isnothing(labels)
-        labels = ["Drive $i" for i in 1:n_drives]
+        labels = ["Drive $i" for i = 1:n_drives]
     end
 
     fig = Figure(; size = (800, 100 + 140 * n_drives), kwargs...)
 
-    for i in 1:n_drives
+    for i = 1:n_drives
         ax = Axis(
             fig[i, 1],
             title = (i == 1 && !isempty(title)) ? title : "",
@@ -67,10 +67,21 @@ function plot_pulse_waveforms(
         # Hardware bounds as shaded band
         if !isnothing(bounds) && i <= length(bounds) && !isnothing(bounds[i])
             lo, hi = bounds[i]
-            band!(ax, times, fill(Float64(lo), T), fill(Float64(hi), T);
-                color = (:steelblue, 0.1))
-            hlines!(ax, [lo, hi]; color = :steelblue, linestyle = :dash,
-                linewidth = 0.8, alpha = 0.5)
+            band!(
+                ax,
+                times,
+                fill(Float64(lo), T),
+                fill(Float64(hi), T);
+                color = (:steelblue, 0.1),
+            )
+            hlines!(
+                ax,
+                [lo, hi];
+                color = :steelblue,
+                linestyle = :dash,
+                linewidth = 0.8,
+                alpha = 0.5,
+            )
         end
 
         lines!(ax, times, u[i, :]; linewidth = 2)
@@ -95,11 +106,8 @@ end
     using NamedTrajectories
 
     T = 20
-    traj = NamedTrajectory(
-        (u = randn(3, T), Δt = fill(0.1, T));
-        controls = :u,
-        timestep = :Δt,
-    )
+    traj =
+        NamedTrajectory((u = randn(3, T), Δt = fill(0.1, T)); controls = :u, timestep = :Δt)
 
     fig = plot_pulse_waveforms(traj)
     @test fig isa Figure
@@ -110,13 +118,11 @@ end
     using NamedTrajectories
 
     T = 20
-    traj = NamedTrajectory(
-        (u = randn(3, T), Δt = fill(0.1, T));
-        controls = :u,
-        timestep = :Δt,
-    )
+    traj =
+        NamedTrajectory((u = randn(3, T), Δt = fill(0.1, T)); controls = :u, timestep = :Δt)
 
-    fig = plot_pulse_waveforms(traj;
+    fig = plot_pulse_waveforms(
+        traj;
         labels = ["Ωx", "Ωy", "Δ"],
         bounds = [(-15.8, 15.8), (-15.8, 15.8), (-124.0, 124.0)],
         title = "Test Pulses",

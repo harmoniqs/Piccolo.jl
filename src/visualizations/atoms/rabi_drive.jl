@@ -87,11 +87,8 @@ end
     using NamedTrajectories
 
     T = 30
-    traj = NamedTrajectory(
-        (u = randn(3, T), Δt = fill(0.1, T));
-        controls = :u,
-        timestep = :Δt,
-    )
+    traj =
+        NamedTrajectory((u = randn(3, T), Δt = fill(0.1, T)); controls = :u, timestep = :Δt)
 
     fig = plot_rabi_drive(traj)
     @test fig isa Figure
@@ -108,8 +105,10 @@ end
         timestep = :Δt,
     )
 
-    fig = plot_rabi_drive(traj;
-        omega_x_index = 2, omega_y_index = 3,
+    fig = plot_rabi_drive(
+        traj;
+        omega_x_index = 2,
+        omega_y_index = 3,
         title = "Custom Rabi Drive",
     )
     @test fig isa Figure

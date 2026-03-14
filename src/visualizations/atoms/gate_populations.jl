@@ -15,7 +15,7 @@ Generate computational basis state labels: |0⟩, |1⟩, |00⟩, |01⟩, ...
 """
 function basis_labels(n_qubits::Int)
     n = 2^n_qubits
-    return ["|" * string(i - 1, base = 2, pad = n_qubits) * "⟩" for i in 1:n]
+    return ["|" * string(i - 1, base = 2, pad = n_qubits) * "⟩" for i = 1:n]
 end
 
 """
@@ -79,9 +79,9 @@ function plot_gate_populations(
 
     # Precompute populations: pops[i, j, t] = |U_{ij}(t)|²
     pops = zeros(Float64, n, n, T)
-    for t in 1:T
+    for t = 1:T
         U = iso_vec_to_operator(Ũ⃗_data[:, t])
-        for j in 1:n, i in 1:n
+        for j = 1:n, i = 1:n
             pops[i, j, t] = abs2(U[i, j])
         end
     end
@@ -101,7 +101,7 @@ function plot_gate_populations(
         )
         ylims!(ax, -0.05, 1.05)
 
-        for i in 1:n
+        for i = 1:n
             c = colors[mod1(i, length(colors))]
             lines!(ax, times, pops[i, j, :]; linewidth = 1.8, color = c, label = labels[i])
         end
@@ -115,10 +115,15 @@ function plot_gate_populations(
     end
 
     # Shared legend to the right of the grid
-    legend_entries = [
-        LineElement(; color = colors[mod1(i, length(colors))], linewidth = 2) for i in 1:n
-    ]
-    Legend(fig[:, grid_cols + 1], legend_entries, labels; framevisible = false, labelsize = 12)
+    legend_entries =
+        [LineElement(; color = colors[mod1(i, length(colors))], linewidth = 2) for i = 1:n]
+    Legend(
+        fig[:, grid_cols+1],
+        legend_entries,
+        labels;
+        framevisible = false,
+        labelsize = 12,
+    )
 
     if !isempty(title)
         Label(fig[0, 1:grid_cols], title; fontsize = 16, font = :bold)
@@ -138,7 +143,7 @@ end
     T = 15
     dim = 2
     U = Matrix{ComplexF64}(I, dim, dim)
-    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ in 1:T]...)
+    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ = 1:T]...)
 
     traj = NamedTrajectory(
         (Ũ⃗ = Ũ⃗_data, u = randn(2, T), Δt = fill(0.1, T));
@@ -159,7 +164,7 @@ end
     T = 20
     dim = 4
     U = Matrix{ComplexF64}(I, dim, dim)
-    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ in 1:T]...)
+    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ = 1:T]...)
 
     traj = NamedTrajectory(
         (Ũ⃗ = Ũ⃗_data, u = randn(3, T), Δt = fill(0.1, T));
@@ -180,7 +185,7 @@ end
     T = 15
     dim = 4
     U = Matrix{ComplexF64}(I, dim, dim)
-    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ in 1:T]...)
+    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ = 1:T]...)
 
     traj = NamedTrajectory(
         (Ũ⃗ = Ũ⃗_data, u = randn(3, T), Δt = fill(0.1, T));

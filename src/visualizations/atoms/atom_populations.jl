@@ -15,9 +15,9 @@ Calculate the population in the Rydberg state (|1⟩) for each atom in a chain o
 """
 function rydberg_populations(ψ::AbstractVector{<:Number}, N::Int)
     pops = zeros(Float64, N)
-    for idx in 0:(2^N - 1)
-        prob = abs2(ψ[idx + 1])
-        for i in 1:N
+    for idx = 0:(2^N-1)
+        prob = abs2(ψ[idx+1])
+        for i = 1:N
             b_i = (idx ÷ 2^(N - i)) % 2
             if b_i == 1
                 pops[i] += prob
@@ -91,7 +91,7 @@ function plot_atom_populations(
         )
 
         pop_traces = zeros(Float64, N_atoms, T)
-        for t in 1:T
+        for t = 1:T
             U = iso_vec_to_operator(Ũ⃗_data[:, t])
             ψ_t = U * ψ0
             pop_traces[:, t] = rydberg_populations(ψ_t, N_atoms)
@@ -102,7 +102,7 @@ function plot_atom_populations(
         #     LineElement(; color=i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
         # ]
 
-        for i in 1:N_atoms
+        for i = 1:N_atoms
             # # lines!(ax, times, pop_traces[i, :]; linewidth = 2, label=labels[i])
             # # plt = trajectoryplot!(ax, traj, unitary_name, x -> rydberg_populations(iso_vec_to_operator(x) * ψ0, N_atoms)[i]; label=labels[i], color=colors[i], colormap=:viridis, colorrange=1:N_atoms,)
             # plt = trajectoryplot!(ax, traj, unitary_name, x -> rydberg_populations(iso_vec_to_operator(x) * ψ0, N_atoms)[i]; label=labels[i],)
@@ -112,7 +112,16 @@ function plot_atom_populations(
             # # println(typeof(p), typeof(p.label))
             # Legend(fig[s, 2], legend_entries, labels, tellheight=false)
 
-            lines!(ax, times, pop_traces[i, :]; linewidth = 2, label=labels[i], colormap=:viridis, color=i, colorrange=1:N_atoms)
+            lines!(
+                ax,
+                times,
+                pop_traces[i, :];
+                linewidth = 2,
+                label = labels[i],
+                colormap = :viridis,
+                color = i,
+                colorrange = 1:N_atoms,
+            )
         end
 
         ylims!(ax, -0.05, 1.05)
@@ -128,7 +137,12 @@ function plot_atom_populations(
 
     legend_entries = [
         # LineElement(; color = i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
-        LineElement(; color=i, colormap=:viridis, colorrange=1:N_atoms, linewidth = 2) for i in 1:N_atoms
+        LineElement(;
+            color = i,
+            colormap = :viridis,
+            colorrange = 1:N_atoms,
+            linewidth = 2,
+        ) for i = 1:N_atoms
     ]
     Legend(fig[:, 2], legend_entries, labels; framevisible = false, labelsize = 12)
 
@@ -151,7 +165,7 @@ end
     T = 15
     dim = 2^N
     U = Matrix{ComplexF64}(I, dim, dim)
-    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ in 1:T]...)
+    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ = 1:T]...)
 
     traj = NamedTrajectory(
         (Ũ⃗ = Ũ⃗_data, u = randn(3, T), Δt = fill(0.1, T));
@@ -173,7 +187,7 @@ end
     T = 10
     dim = 2^N
     U = Matrix{ComplexF64}(I, dim, dim)
-    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ in 1:T]...)
+    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ = 1:T]...)
 
     traj = NamedTrajectory(
         (Ũ⃗ = Ũ⃗_data, u = randn(2, T), Δt = fill(0.1, T));

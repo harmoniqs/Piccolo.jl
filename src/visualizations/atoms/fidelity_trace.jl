@@ -46,7 +46,7 @@ function plot_fidelity_trace(
     times = get_times(traj)
 
     fidelities = zeros(Float64, T)
-    for t in 1:T
+    for t = 1:T
         U_t = iso_vec_to_operator(Ũ⃗_data[:, t])
         if isnothing(subspace)
             fidelities[t] = unitary_fidelity(U_t, U_goal)
@@ -60,9 +60,8 @@ function plot_fidelity_trace(
         fig[1, 1],
         title = !isempty(title) ? title : "",
         titlesize = 16,
-
         xlabel = "Time (μs)",
-        ylabel = "Fidelity"
+        ylabel = "Fidelity",
     )
 
     lines!(ax, times, fidelities; linewidth = 2, color = :black)
@@ -88,7 +87,7 @@ end
 
     T = 20
     U = Matrix{ComplexF64}(I, 2, 2)
-    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ in 1:T]...)
+    Ũ⃗_data = hcat([operator_to_iso_vec(U) for _ = 1:T]...)
 
     traj = NamedTrajectory(
         (Ũ⃗ = Ũ⃗_data, u = randn(2, T), Δt = fill(0.1, T));
@@ -108,7 +107,7 @@ end
 
     T = 15
     X = ComplexF64[0 1; 1 0]
-    Us = [exp(-im * (π / 2) * t / T * X) for t in 1:T]
+    Us = [exp(-im * (π / 2) * t / T * X) for t = 1:T]
     Ũ⃗_data = hcat(operator_to_iso_vec.(Us)...)
 
     traj = NamedTrajectory(
