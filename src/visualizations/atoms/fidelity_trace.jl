@@ -67,8 +67,9 @@ function plot_fidelity_trace(
 
     lines!(ax, times, fidelities; linewidth = 2, color = :black)
     hlines!(ax, [1.0]; color = :green, linestyle = :dash, linewidth = 1.0, alpha = 0.7)
+    hlines!(ax, [0.0]; color = :red, linestyle = :dash, linewidth = 1.0, alpha = 0.7)
 
-    ylims!(ax, max(0.0, minimum(fidelities) - 0.05), 1.05)
+    ylims!(ax, -0.05, 1.05)
 
     # if !isempty(title)
     #     Label(fig[0, 1], title; fontsize = 16, font = :bold)

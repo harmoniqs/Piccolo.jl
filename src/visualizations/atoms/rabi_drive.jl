@@ -49,7 +49,16 @@ function plot_rabi_drive(
     fig = Figure(; size = (800, 450), kwargs...)
 
     # Magnitude subplot
-    ax_mag = Axis(fig[1, 1], ylabel = "|Ω| (MHz)")
+    ax_mag = Axis(
+        fig[1, 1],
+        title = (isempty(title) ? "" : title),
+        titlealign = :left,
+        titlesize = 16,
+        titlefont = :bold,
+        xticklabelsvisible = true,
+        xtickalign = 1,
+        ylabel = "|Ω| (MHz)",
+    )
     lines!(ax_mag, times, magnitude; linewidth = 2, color = :dodgerblue)
     hlines!(ax_mag, [0.0]; color = :gray, linestyle = :dash, linewidth = 0.5)
     hidexdecorations!(ax_mag; grid = false)
@@ -64,9 +73,9 @@ function plot_rabi_drive(
     lines!(ax_phase, times, phase; linewidth = 2, color = :coral)
     hlines!(ax_phase, [0.0]; color = :gray, linestyle = :dash, linewidth = 0.5)
 
-    if !isempty(title)
-        Label(fig[0, 1], title; fontsize = 16, font = :bold)
-    end
+    # if !isempty(title)
+    #     Label(fig[0, 1], title; fontsize = 16, font = :bold)
+    # end
 
     return fig
 end
