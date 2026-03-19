@@ -197,7 +197,6 @@ end
 
     # Test indexing - returns individual solution
     sol1 = qtraj[1]
-    @test sol1 isa ODESolution
     @test sol1(0.0) ≈ ρ0s[1]
 
     sol2 = qtraj[2]

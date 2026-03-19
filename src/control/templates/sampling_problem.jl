@@ -179,7 +179,8 @@ end
 function _final_fidelity_constraint(
     qtraj::SamplingTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     constraints = [
         _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj) for name in state_names(qtraj)
