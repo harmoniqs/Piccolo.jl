@@ -7,10 +7,11 @@ export VariationalQuantumSystem
 export CompositeQuantumSystem
 
 export AbstractDrive, LinearDrive, NonlinearDrive
-export drive_coeff, drive_coeff_jac
+export drive_coeff, drive_coeff_jac, drive_coeff_hess
+export drive_matrix, drive_dim
 export active_controls
 export has_nonlinear_drives
-export validate_drive_jacobian
+export validate_drive_jacobian, validate_drive_hessian
 
 export get_drift
 export get_drives
@@ -117,7 +118,7 @@ basis vector evaluation.
 """
 function get_drives(sys::AbstractQuantumSystem)
     if hasproperty(sys, :H_drives) && !isempty(sys.H_drives)
-        return [d.H for d in sys.H_drives]
+        return [drive_matrix(d) for d in sys.H_drives]
     end
     H_drift = get_drift(sys)
     # Basis vectors for controls will extract drive operators (linear systems only)

@@ -75,7 +75,8 @@ Both pulse types always have `:du` components in the trajectory, simplifying int
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses `BilinearIntegrator` (which does not support global variables). A custom integrator is required when `global_names` is specified.
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator (e.g., `SplineIntegrator` from Piccolissimo) that supports global variables.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
-- `du_bound::Float64=Inf`: Bound on derivative (slope) magnitude
+- `du_bound::Float64=Inf`: Uniform bound on derivative (slope) magnitude for all drives
+- `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Weight on regularization terms
 - `R_u::Union{Float64, Vector{Float64}}=R`: Weight on control regularization
@@ -111,6 +112,7 @@ function SplinePulseProblem(
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     du_bound::Float64 = Inf,
+    du_bounds::Union{Nothing,Vector{Float64}} = nothing,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
@@ -119,6 +121,7 @@ function SplinePulseProblem(
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -147,7 +150,8 @@ function SplinePulseProblem(
         n_qubits = length(goal.subsystem_levels)
         U_goal_fn = _make_free_phase_goal(goal)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds; verbose=piccolo_options.verbose
+            n_qubits, global_data, global_bounds;
+            initial_phases=initial_phases, verbose=piccolo_options.verbose
         )
     end
 
@@ -163,26 +167,32 @@ function SplinePulseProblem(
     du_sym = Symbol(:d, control_sym)
     is_linear_spline = !haskey(base_traj.components, du_sym)
 
+    # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
+    _du_bounds_vec = if !isnothing(du_bounds)
+        du_bounds
+    elseif isfinite(du_bound)
+        fill(du_bound, sys.n_drives)
+    else
+        nothing
+    end
+
     traj = if haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
-        # We need to update them if du_bound is specified
-        if isfinite(du_bound)
-            # Use update_bound! to set the bounds properly
-            update_bound!(base_traj, du_sym, (-du_bound, du_bound))
+        if !isnothing(_du_bounds_vec)
+            update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
             if piccolo_options.verbose
-                println("    set du bounds to ±$du_bound for CubicSplinePulse")
+                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
             end
         end
         base_traj
     else
         # LinearSplinePulse: always add derivatives
-        du_bounds_vec = isfinite(du_bound) ? fill(du_bound, sys.n_drives) : Float64[]
-        if !isempty(du_bounds_vec)
+        if !isnothing(_du_bounds_vec)
             add_control_derivatives(
                 base_traj,
                 1;  # Only 1 derivative for spline pulses
                 control_name = control_sym,
-                derivative_bounds = (du_bounds_vec,),
+                derivative_bounds = (_du_bounds_vec,),
             )
         else
             add_control_derivatives(base_traj, 1; control_name = control_sym)
@@ -289,6 +299,7 @@ function SplinePulseProblem(
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     du_bound::Float64 = Inf,
+    du_bounds::Union{Nothing,Vector{Float64}} = nothing,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
@@ -298,6 +309,7 @@ function SplinePulseProblem(
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     coherent::Bool = true,
 )
     sys = get_system(qtraj)
@@ -321,7 +333,7 @@ function SplinePulseProblem(
         nothing
     end
 
-    # Free-phase support: add single-qubit Z-phase variables as globals
+    # Free-phase support: add per-subsystem phase variables as globals
     θ_names = Symbol[]
     goals_fn = nothing
     if free_phase
@@ -329,7 +341,8 @@ function SplinePulseProblem(
         n_qubits = length(subsystem_levels)
         goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds; verbose=piccolo_options.verbose
+            n_qubits, global_data, global_bounds;
+            initial_phases=initial_phases, verbose=piccolo_options.verbose
         )
     end
 
@@ -345,26 +358,32 @@ function SplinePulseProblem(
     du_sym = Symbol(:d, control_sym)
     is_linear_spline = !haskey(base_traj.components, du_sym)
 
+    # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
+    _du_bounds_vec = if !isnothing(du_bounds)
+        du_bounds
+    elseif isfinite(du_bound)
+        fill(du_bound, sys.n_drives)
+    else
+        nothing
+    end
+
     traj = if haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
-        # We need to update them if du_bound is specified
-        if isfinite(du_bound)
-            # Use update_bound! to set the bounds properly
-            update_bound!(base_traj, du_sym, (-du_bound, du_bound))
+        if !isnothing(_du_bounds_vec)
+            update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
             if piccolo_options.verbose
-                println("    set du bounds to ±$du_bound for CubicSplinePulse")
+                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
             end
         end
         base_traj
     else
         # LinearSplinePulse: always add derivatives
-        du_bounds_vec = isfinite(du_bound) ? fill(du_bound, sys.n_drives) : Float64[]
-        if !isempty(du_bounds_vec)
+        if !isnothing(_du_bounds_vec)
             add_control_derivatives(
                 base_traj,
                 1;  # Only 1 derivative for spline pulses
                 control_name = control_sym,
-                derivative_bounds = (du_bounds_vec,),
+                derivative_bounds = (_du_bounds_vec,),
             )
         else
             add_control_derivatives(base_traj, 1; control_name = control_sym)

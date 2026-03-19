@@ -17,7 +17,7 @@ All pulses are callable: `pulse(t)` returns the control vector at time `t`.
 
 export AbstractPulse, AbstractSplinePulse
 export ZeroOrderPulse,
-    LinearSplinePulse, CubicSplinePulse, GaussianPulse, ErfPulse, CompositePulse
+    LinearSplinePulse, CubicSplinePulse, GaussianPulse, ErfPulse, CompositePulse, FunctionPulse
 export duration, n_drives, sample, drive_name
 
 using DataInterpolations: ConstantInterpolation, LinearInterpolation, CubicHermiteSpline
@@ -800,8 +800,49 @@ end
 
 evaluate(p::CompositePulse, t) = p.f(t)
 
+# ============================================================================ #
+# FunctionPulse (arbitrary user-defined function)
+# ============================================================================ #
+
+"""
+    FunctionPulse{F<:Function} <: AbstractPulse
+
+Pulse defined by an arbitrary function `f(t) -> Vector{Float64}`.
+
+Useful for testing analytic pulse shapes (e.g. sin² envelopes) with the
+`rollout` / `fidelity` interface without discretizing into spline knots.
+
+# Fields
+- `f::F`: Function mapping time to control vector
+- `duration::Float64`: Total pulse duration
+- `n_drives::Int`: Number of control drives
+- `drive_name::Symbol`: Name of the drive variable (default `:u`)
+
+# Example
+```julia
+T = 1000.0
+pulse = FunctionPulse(t -> [0.0, 0.0, 1.5 * sin(π*t/T)^2, 0.0], T, 4)
+qtraj = MultiKetTrajectory(sys, pulse, initials, goals)
+qtraj_out = rollout(qtraj)
+fid = fidelity(qtraj_out)
+```
+"""
+struct FunctionPulse{F<:Function} <: AbstractPulse
+    f::F
+    duration::Float64
+    n_drives::Int
+    drive_name::Symbol
+end
+
+function FunctionPulse(f::Function, duration::Real, n_drives::Int; drive_name::Symbol=:u)
+    return FunctionPulse(f, Float64(duration), n_drives, drive_name)
+end
+
+evaluate(p::FunctionPulse, t) = p.f(t)
+
 # Knot time accessors for analytic and composite pulses
 # (defined here because GaussianPulse, ErfPulse, CompositePulse are defined above)
+get_knot_times(p::FunctionPulse) = [0.0, p.duration]
 get_knot_times(p::GaussianPulse) = [0.0, p.duration]
 get_knot_times(p::ErfPulse) = [0.0, p.duration]
 get_knot_times(p::CompositePulse) =

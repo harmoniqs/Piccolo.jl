@@ -100,7 +100,7 @@ function UnitaryTrajectory(
 end
 
 # Callable: sample solution at any time
-(traj::UnitaryTrajectory)(t::Real) = traj.solution(t)
+(qtraj::UnitaryTrajectory)(t::Real) = qtraj.solution(t)
 
 # ============================================================================ #
 # Tests

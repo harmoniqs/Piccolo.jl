@@ -99,7 +99,7 @@ function apply_piccolo_options!(
 end
 
 """
-    setup_free_phase_globals!(n_qubits, global_data, global_bounds; verbose=false)
+    setup_free_phase_globals!(n_qubits, global_data, global_bounds; initial_phases=nothing, verbose=false)
 
 Add per-qubit Z-phase variables (`φ_1`, `φ_2`, …) to `global_data` and
 `global_bounds` dicts. Returns the vector of phase variable names and the
@@ -107,20 +107,30 @@ Add per-qubit Z-phase variables (`φ_1`, `φ_2`, …) to `global_data` and
 
 Mutates `global_data` and `global_bounds` in place if they are not `nothing`;
 otherwise creates new dicts.
+
+# Keyword Arguments
+- `initial_phases::Union{Nothing,Vector{Float64}}`: Initial values for the phase variables.
+  If `nothing`, all phases are initialized to 0. If provided, must have length `n_qubits`.
+- `verbose::Bool`: Print diagnostic information.
 """
 function setup_free_phase_globals!(
     n_qubits::Int,
     global_data::Union{Nothing,Dict{Symbol,Vector{Float64}}},
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}};
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     verbose::Bool = false,
 )
     θ_names = [Symbol(:φ_, i) for i in 1:n_qubits]
 
+    if !isnothing(initial_phases)
+        @assert length(initial_phases) == n_qubits "initial_phases must have length $n_qubits"
+    end
+
     if isnothing(global_data)
         global_data = Dict{Symbol,Vector{Float64}}()
     end
-    for name in θ_names
-        global_data[name] = [0.0]
+    for (i, name) in enumerate(θ_names)
+        global_data[name] = [isnothing(initial_phases) ? 0.0 : initial_phases[i]]
     end
 
     if isnothing(global_bounds)

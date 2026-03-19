@@ -86,6 +86,8 @@ function MinimumTimeProblem(
     goal::Union{Nothing,AbstractPiccoloOperator,AbstractVector} = nothing,
     final_fidelity::Float64 = 0.99,
     D::Float64 = 100.0,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 ) where {QT<:AbstractQuantumTrajectory}
 
@@ -98,6 +100,11 @@ function MinimumTimeProblem(
     # Copy trajectory and constraints from original problem
     traj = deepcopy(qcp.prob.trajectory)
     constraints = deepcopy(qcp.prob.constraints)
+
+    # Optionally update Δt bounds (e.g., widen for min-time after tight fidelity solve)
+    if !isnothing(Δt_bounds) && haskey(traj.bounds, :Δt)
+        traj.bounds = merge(traj.bounds, (Δt = ([Δt_bounds[1]], [Δt_bounds[2]]),))
+    end
 
     # Add minimum-time objective to existing objective
     J = qcp.prob.objective + MinimumTimeObjective(traj, D = D)
@@ -112,7 +119,8 @@ function MinimumTimeProblem(
 
     # Add final fidelity constraint - dispatches on QT type parameter!
     fidelity_constraint =
-        _final_fidelity_constraint(qtraj_for_constraint, final_fidelity, traj)
+        _final_fidelity_constraint(qtraj_for_constraint, final_fidelity, traj;
+            subsystem_levels=subsystem_levels)
 
     # Handle single constraint or multiple constraints
     if fidelity_constraint isa AbstractVector
@@ -152,7 +160,8 @@ end
 function _final_fidelity_constraint(
     qtraj::UnitaryTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     U_goal = qtraj.goal
     state_sym = state_name(qtraj)
@@ -179,7 +188,8 @@ end
 function _final_fidelity_constraint(
     qtraj::KetTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     ψ_goal = qtraj.goal
     state_sym = state_name(qtraj)
@@ -189,7 +199,8 @@ end
 function _final_fidelity_constraint(
     qtraj::DensityTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     # TODO: Implement density matrix fidelity constraint when available
     throw(
@@ -217,13 +228,33 @@ essential when implementing a gate via state transfer (e.g., X gate via
 function _final_fidelity_constraint(
     qtraj::MultiKetTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     snames = state_names(qtraj)
     goals = qtraj.goals
 
-    # Use coherent fidelity constraint for proper phase alignment
-    return FinalCoherentKetFidelityConstraint(goals, snames, final_fidelity, traj)
+    # Detect free-phase variables (φ_1, φ_2, ...) in global components
+    θ_names = Symbol[
+        name for name in keys(traj.global_components)
+        if startswith(string(name), "φ_")
+    ]
+    sort!(θ_names)  # ensure consistent ordering
+
+    if !isempty(θ_names)
+        # Free-phase: need subsystem_levels to build phase-adjusted goals
+        @assert !isnothing(subsystem_levels) (
+            "MinimumTimeProblem with MultiKetTrajectory + free_phase requires " *
+            "subsystem_levels kwarg (e.g., subsystem_levels=[3,3] for two 3-level atoms)"
+        )
+        goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
+        return FinalCoherentKetFidelityConstraint(
+            goals_fn, snames, θ_names, final_fidelity, traj
+        )
+    else
+        # Fixed-phase: use static goals
+        return FinalCoherentKetFidelityConstraint(goals, snames, final_fidelity, traj)
+    end
 end
 
 function _ensemble_fidelity_constraint(

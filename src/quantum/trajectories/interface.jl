@@ -3,45 +3,45 @@
 # ============================================================================ #
 
 """
-    get_system(traj)
+    get_system(qtraj)
 
 Get the quantum system from a trajectory.
 """
-get_system(traj::AbstractQuantumTrajectory) = traj.system
+get_system(qtraj::AbstractQuantumTrajectory) = qtraj.system
 
 """
-    get_pulse(traj)
+    get_pulse(qtraj)
 
 Get the control pulse from a trajectory.
 """
-get_pulse(traj::AbstractQuantumTrajectory) = traj.pulse
+get_pulse(qtraj::AbstractQuantumTrajectory) = qtraj.pulse
 
 """
-    get_initial(traj)
+    get_initial(qtraj)
 
 Get the initial state/operator from a trajectory.
 """
-get_initial(traj::UnitaryTrajectory) = traj.initial
-get_initial(traj::KetTrajectory) = traj.initial
-get_initial(traj::MultiKetTrajectory) = traj.initials
-get_initial(traj::DensityTrajectory) = traj.initial
+get_initial(qtraj::UnitaryTrajectory) = qtraj.initial
+get_initial(qtraj::KetTrajectory) = qtraj.initial
+get_initial(qtraj::MultiKetTrajectory) = qtraj.initials
+get_initial(qtraj::DensityTrajectory) = qtraj.initial
 
 """
-    get_goal(traj)
+    get_goal(qtraj)
 
 Get the goal state/operator from a trajectory.
 """
-get_goal(traj::UnitaryTrajectory) = traj.goal
-get_goal(traj::KetTrajectory) = traj.goal
-get_goal(traj::MultiKetTrajectory) = traj.goals
-get_goal(traj::DensityTrajectory) = traj.goal
+get_goal(qtraj::UnitaryTrajectory) = qtraj.goal
+get_goal(qtraj::KetTrajectory) = qtraj.goal
+get_goal(qtraj::MultiKetTrajectory) = qtraj.goals
+get_goal(qtraj::DensityTrajectory) = qtraj.goal
 
 """
-    get_solution(traj)
+    get_solution(qtraj)
 
 Get the ODE solution from a trajectory.
 """
-get_solution(traj::AbstractQuantumTrajectory) = traj.solution
+get_solution(qtraj::AbstractQuantumTrajectory) = qtraj.solution
 
 # ============================================================================ #
 # Fixed Name Accessors (for NamedTrajectory conversion)
@@ -62,21 +62,21 @@ state_name(::MultiKetTrajectory) = :ψ̃  # prefix for :ψ̃1, :ψ̃2, etc.
 state_name(::DensityTrajectory) = :ρ⃗̃
 
 """
-    state_names(traj::MultiKetTrajectory)
+    state_names(qtraj::MultiKetTrajectory)
 
 Get all state names for an ensemble trajectory (`:ψ̃1`, `:ψ̃2`, etc.)
 """
-function state_names(traj::MultiKetTrajectory)
-    prefix = state_name(traj)
-    return [Symbol(prefix, i) for i = 1:length(traj.initials)]
+function state_names(qtraj::MultiKetTrajectory)
+    prefix = state_name(qtraj)
+    return [Symbol(prefix, i) for i = 1:length(qtraj.initials)]
 end
 
 """
-    drive_name(traj::AbstractQuantumTrajectory)
+    drive_name(qtraj::AbstractQuantumTrajectory)
 
 Get the drive/control variable name from the trajectory's pulse.
 """
-drive_name(traj::AbstractQuantumTrajectory) = drive_name(traj.pulse)
+drive_name(qtraj::AbstractQuantumTrajectory) = drive_name(qtraj.pulse)
 
 """
     time_name(::AbstractQuantumTrajectory)
@@ -93,11 +93,11 @@ Get the timestep variable name (always `:Δt`).
 timestep_name(::AbstractQuantumTrajectory) = :Δt
 
 """
-    duration(traj)
+    duration(qtraj)
 
 Get the duration of a trajectory (from its pulse).
 """
-duration(traj::AbstractQuantumTrajectory) = duration(traj.pulse)
+duration(qtraj::AbstractQuantumTrajectory) = duration(qtraj.pulse)
 
 # ============================================================================ #
 # Rollout - Re-solve ODE with new pulse or different ODE parameters
@@ -727,7 +727,7 @@ end
 # ============================================================================ #
 
 """
-    fidelity(traj::UnitaryTrajectory; subspace=nothing, phases=nothing)
+    fidelity(qtraj::UnitaryTrajectory; subspace=nothing, phases=nothing)
 
 Compute the fidelity between the final unitary and the goal.
 
@@ -748,17 +748,17 @@ decomposition of the basis index). This matches the free-phase objective used
 during optimization.
 """
 function Rollouts.fidelity(
-    traj::UnitaryTrajectory;
+    qtraj::UnitaryTrajectory;
     subspace::Union{Nothing,AbstractVector{Int}} = nothing,
     phases::Union{Nothing,AbstractVector{<:Real}} = nothing,
 )
-    U_final = traj.solution.u[end]
-    if traj.goal isa EmbeddedOperator && isnothing(subspace)
+    U_final = qtraj.solution.u[end]
+    if qtraj.goal isa EmbeddedOperator && isnothing(subspace)
         U_goal_sub = if isnothing(phases)
-            unembed(traj.goal)
+            unembed(qtraj.goal)
         else
             # Apply free phases: same convention as _make_free_phase_goal
-            U_base = unembed(traj.goal)
+            U_base = unembed(qtraj.goal)
             n_sub = size(U_base, 1)
             n_qubits = length(phases)
             phase_diag = map(1:n_sub) do i
@@ -773,15 +773,15 @@ function Rollouts.fidelity(
             Diagonal(phase_diag) * U_base
         end
         # Use Pedersen formula, consistent with unitary_fidelity_loss(Ũ⃗, ::EmbeddedOperator)
-        U_sub = U_final[traj.goal.subspace, traj.goal.subspace]
-        n = length(traj.goal.subspace)
+        U_sub = U_final[qtraj.goal.subspace, qtraj.goal.subspace]
+        n = length(qtraj.goal.subspace)
         M = U_goal_sub' * U_sub
         return 1 / (n * (n + 1)) * (abs(tr(M' * M)) + abs2(tr(M)))
     else
         if !isnothing(phases)
             @warn "`phases` kwarg is ignored when goal is not an EmbeddedOperator or when `subspace` is provided"
         end
-        U_goal = traj.goal isa EmbeddedOperator ? traj.goal.operator : traj.goal
+        U_goal = qtraj.goal isa EmbeddedOperator ? qtraj.goal.operator : qtraj.goal
         if isnothing(subspace)
             return unitary_fidelity(U_final, U_goal)
         else
@@ -791,49 +791,55 @@ function Rollouts.fidelity(
 end
 
 """
-    fidelity(traj::KetTrajectory)
+    fidelity(qtraj::KetTrajectory)
 
 Compute the fidelity between the final state and the goal.
 """
-function Rollouts.fidelity(traj::KetTrajectory)
-    ψ_final = traj.solution.u[end]
-    return abs2(ψ_final' * traj.goal)
+function Rollouts.fidelity(qtraj::KetTrajectory)
+    ψ_final = qtraj.solution.u[end]
+    return abs2(ψ_final' * qtraj.goal)
 end
 
 """
-    fidelity(traj::MultiKetTrajectory)
+    fidelity(qtraj::MultiKetTrajectory)
 
-Compute the weighted average fidelity across all state transfers.
+Compute the coherent fidelity across all state transfers:
+
+    F = |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|²
+
+This matches the `CoherentKetInfidelityObjective` used by the optimizer,
+requiring all state overlaps to have aligned phases (necessary for gates).
 """
-function Rollouts.fidelity(traj::MultiKetTrajectory)
-    fids = map(zip(traj.solution, traj.goals)) do (sol, goal)
-        abs2(sol.u[end]' * goal)
-    end
-    return sum(traj.weights .* fids)
+function Rollouts.fidelity(qtraj::MultiKetTrajectory)
+    n = length(qtraj.goals)
+    overlap_sum = sum(
+        qtraj.goals[i]' * qtraj.solution[i].u[end] for i in 1:n
+    )
+    return abs2(overlap_sum / n)
 end
 
 """
-    fidelity(traj::DensityTrajectory)
+    fidelity(qtraj::DensityTrajectory)
 
 Compute the fidelity between the final density matrix and the goal.
 Uses trace fidelity: F = tr(ρ_final * ρ_goal)
 """
-function Rollouts.fidelity(traj::DensityTrajectory)
-    ρ_final = traj.solution.u[end]
-    return real(tr(ρ_final * traj.goal))
+function Rollouts.fidelity(qtraj::DensityTrajectory)
+    ρ_final = qtraj.solution.u[end]
+    return real(tr(ρ_final * qtraj.goal))
 end
 
 """
-    fidelity(traj::SamplingTrajectory; kwargs...)
+    fidelity(qtraj::SamplingTrajectory; kwargs...)
 
 Compute the fidelity for each system in the sampling trajectory.
 
 Returns a vector of fidelities, one per system, by rolling out the current pulse
 with each system and computing the fidelity against the goal.
 """
-function Rollouts.fidelity(traj::SamplingTrajectory; kwargs...)
-    base = traj.base_trajectory
-    return [Rollouts.fidelity(_swap_system(base, sys); kwargs...) for sys in traj.systems]
+function Rollouts.fidelity(qtraj::SamplingTrajectory; kwargs...)
+    base = qtraj.base_trajectory
+    return [Rollouts.fidelity(_swap_system(base, sys); kwargs...) for sys in qtraj.systems]
 end
 
 # Helpers to create a trajectory with a different system (for per-system fidelity evaluation)
