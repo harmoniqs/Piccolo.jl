@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/systems/trapped_ions.jl
+# ```
+#
 # # [Trapped Ions](@id trapped-ion-systems)
 #
 # Trapped-ion quantum computers encode qubits in internal states of individual
