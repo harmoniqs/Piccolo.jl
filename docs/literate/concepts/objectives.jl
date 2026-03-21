@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/concepts/objectives.jl
+# ```
+#
 # # [Objectives](@id objectives-concept)
 #
 # Objectives define what the optimization minimizes.  The total cost function

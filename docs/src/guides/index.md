@@ -1,3 +1,6 @@
+```@copybutton
+```
+
 # [How-To Guides](@id guides-overview)
 
 This section contains task-oriented guides for specific problems in quantum optimal control.

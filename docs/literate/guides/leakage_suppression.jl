@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/guides/leakage_suppression.jl
+# ```
+#
 # # [Leakage Suppression](@id leakage-suppression)
 #
 # When working with multilevel quantum systems (like transmons), population can

@@ -1,3 +1,6 @@
+```@copybutton
+```
+
 # [Problem Templates](@id problem-templates-overview)
 
 Problem templates are the primary user-facing API in Piccolo.jl. They provide high-level constructors that set up quantum optimal control problems with sensible defaults while allowing fine-grained customization.

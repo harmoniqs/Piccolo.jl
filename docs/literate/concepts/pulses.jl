@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/concepts/pulses.jl
+# ```
+#
 # # [Pulses](@id pulses-concept)
 #
 # Pulses parameterize how control amplitudes ``\boldsymbol{u}(t)`` vary over
