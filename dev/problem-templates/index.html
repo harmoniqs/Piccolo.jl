@@ -74,4 +74,191 @@ solve!(qcp; max_iter=100)
 
 # 6. Analyze results
 println(&quot;Fidelity: &quot;, fidelity(qcp))
-optimized_pulse = get_pulse(qcp.qtraj)</code></pre><h2 id="Key-Concepts"><a class="docs-heading-anchor" href="#Key-Concepts">Key Concepts</a><a id="Key-Concepts-1"></a><a class="docs-heading-anchor-permalink" href="#Key-Concepts" title="Permalink"></a></h2><h3 id="Pulse-Type-Matching"><a class="docs-heading-anchor" href="#Pulse-Type-Matching">Pulse Type Matching</a><a id="Pulse-Type-Matching-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Type-Matching" title="Permalink"></a></h3><p>Each base problem template requires a specific pulse type:</p><table><tr><th style="text-align: right">Problem Template</th><th style="text-align: right">Required Pulse Type</th></tr><tr><td style="text-align: right"><code>SmoothPulseProblem</code></td><td style="text-align: right"><code>ZeroOrderPulse</code></td></tr><tr><td style="text-align: right"><code>BangBangPulseProblem</code></td><td style="text-align: right"><code>ZeroOrderPulse</code></td></tr><tr><td style="text-align: right"><code>SplinePulseProblem</code></td><td style="text-align: right"><code>LinearSplinePulse</code> or <code>CubicSplinePulse</code></td></tr></table><p>Using the wrong pulse type will result in a helpful error message.</p><h3 id="Trajectory-Types"><a class="docs-heading-anchor" href="#Trajectory-Types">Trajectory Types</a><a id="Trajectory-Types-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Types" title="Permalink"></a></h3><p>Problem templates work with different trajectory types depending on your goal:</p><table><tr><th style="text-align: right">Trajectory Type</th><th style="text-align: right">Use Case</th></tr><tr><td style="text-align: right"><code>UnitaryTrajectory</code></td><td style="text-align: right">Gate synthesis (most common)</td></tr><tr><td style="text-align: right"><code>KetTrajectory</code></td><td style="text-align: right">State transfer</td></tr><tr><td style="text-align: right"><code>DensityTrajectory</code></td><td style="text-align: right">Open system evolution</td></tr><tr><td style="text-align: right"><code>MultiKetTrajectory</code></td><td style="text-align: right">Multiple state transfers with coherent phases</td></tr></table><h3 id="Regularization-Parameters"><a class="docs-heading-anchor" href="#Regularization-Parameters">Regularization Parameters</a><a id="Regularization-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Regularization-Parameters" title="Permalink"></a></h3><p>Most problems use these regularization parameters:</p><ul><li><strong><code>Q</code></strong>: Weight on infidelity objective (higher = prioritize fidelity)</li><li><strong><code>R</code></strong>: Base regularization weight for control smoothness</li><li><strong><code>R_u</code></strong>, <strong><code>R_du</code></strong>, <strong><code>R_ddu</code></strong>: Per-derivative regularization weights</li></ul><h3 id="Free-Time-Optimization"><a class="docs-heading-anchor" href="#Free-Time-Optimization">Free-Time Optimization</a><a id="Free-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Free-Time-Optimization" title="Permalink"></a></h3><p>To enable time optimization with <code>MinimumTimeProblem</code>, set <code>Δt_bounds</code> in your base problem:</p><pre><code class="language-julia hljs">qcp = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))</code></pre><h2 id="Detailed-Documentation"><a class="docs-heading-anchor" href="#Detailed-Documentation">Detailed Documentation</a><a id="Detailed-Documentation-1"></a><a class="docs-heading-anchor-permalink" href="#Detailed-Documentation" title="Permalink"></a></h2><ul><li><a href="../generated/problem-templates/smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Full parameter reference and examples</li><li><a href="../generated/problem-templates/bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - L1-regularized bang-bang controls</li><li><a href="../generated/problem-templates/spline_pulse/#spline-pulse">SplinePulseProblem</a> - Spline-based optimization</li><li><a href="../generated/problem-templates/minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../generated/problem-templates/sampling/#sampling">SamplingProblem</a> - Robust optimization</li><li><a href="../generated/problem-templates/composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../generated/robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../generated/problem-templates/smooth_pulse/">SmoothPulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 March 2026 07:50">Saturday 21 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+optimized_pulse = get_pulse(qcp.qtraj)</code></pre><h2 id="Key-Concepts"><a class="docs-heading-anchor" href="#Key-Concepts">Key Concepts</a><a id="Key-Concepts-1"></a><a class="docs-heading-anchor-permalink" href="#Key-Concepts" title="Permalink"></a></h2><h3 id="Pulse-Type-Matching"><a class="docs-heading-anchor" href="#Pulse-Type-Matching">Pulse Type Matching</a><a id="Pulse-Type-Matching-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Type-Matching" title="Permalink"></a></h3><p>Each base problem template requires a specific pulse type:</p><table><tr><th style="text-align: right">Problem Template</th><th style="text-align: right">Required Pulse Type</th></tr><tr><td style="text-align: right"><code>SmoothPulseProblem</code></td><td style="text-align: right"><code>ZeroOrderPulse</code></td></tr><tr><td style="text-align: right"><code>BangBangPulseProblem</code></td><td style="text-align: right"><code>ZeroOrderPulse</code></td></tr><tr><td style="text-align: right"><code>SplinePulseProblem</code></td><td style="text-align: right"><code>LinearSplinePulse</code> or <code>CubicSplinePulse</code></td></tr></table><p>Using the wrong pulse type will result in a helpful error message.</p><h3 id="Trajectory-Types"><a class="docs-heading-anchor" href="#Trajectory-Types">Trajectory Types</a><a id="Trajectory-Types-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Types" title="Permalink"></a></h3><p>Problem templates work with different trajectory types depending on your goal:</p><table><tr><th style="text-align: right">Trajectory Type</th><th style="text-align: right">Use Case</th></tr><tr><td style="text-align: right"><code>UnitaryTrajectory</code></td><td style="text-align: right">Gate synthesis (most common)</td></tr><tr><td style="text-align: right"><code>KetTrajectory</code></td><td style="text-align: right">State transfer</td></tr><tr><td style="text-align: right"><code>DensityTrajectory</code></td><td style="text-align: right">Open system evolution</td></tr><tr><td style="text-align: right"><code>MultiKetTrajectory</code></td><td style="text-align: right">Multiple state transfers with coherent phases</td></tr></table><h3 id="Regularization-Parameters"><a class="docs-heading-anchor" href="#Regularization-Parameters">Regularization Parameters</a><a id="Regularization-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Regularization-Parameters" title="Permalink"></a></h3><p>Most problems use these regularization parameters:</p><ul><li><strong><code>Q</code></strong>: Weight on infidelity objective (higher = prioritize fidelity)</li><li><strong><code>R</code></strong>: Base regularization weight for control smoothness</li><li><strong><code>R_u</code></strong>, <strong><code>R_du</code></strong>, <strong><code>R_ddu</code></strong>: Per-derivative regularization weights</li></ul><h3 id="Free-Time-Optimization"><a class="docs-heading-anchor" href="#Free-Time-Optimization">Free-Time Optimization</a><a id="Free-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Free-Time-Optimization" title="Permalink"></a></h3><p>To enable time optimization with <code>MinimumTimeProblem</code>, set <code>Δt_bounds</code> in your base problem:</p><pre><code class="language-julia hljs">qcp = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))</code></pre><h2 id="Detailed-Documentation"><a class="docs-heading-anchor" href="#Detailed-Documentation">Detailed Documentation</a><a id="Detailed-Documentation-1"></a><a class="docs-heading-anchor-permalink" href="#Detailed-Documentation" title="Permalink"></a></h2><ul><li><a href="../generated/problem-templates/smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Full parameter reference and examples</li><li><a href="../generated/problem-templates/bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - L1-regularized bang-bang controls</li><li><a href="../generated/problem-templates/spline_pulse/#spline-pulse">SplinePulseProblem</a> - Spline-based optimization</li><li><a href="../generated/problem-templates/minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../generated/problem-templates/sampling/#sampling">SamplingProblem</a> - Robust optimization</li><li><a href="../generated/problem-templates/composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../generated/robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../generated/problem-templates/smooth_pulse/">SmoothPulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 March 2026 15:31">Saturday 21 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./index.md","providers":[{"name":"Claude","base":"https://claude.ai/new?q=","suffix":""},{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"T3","base":"https://t3.chat/new?q=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","pagePath":"problem-templates/index.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain">```@copybutton
+```
+
+# [Problem Templates](@id problem-templates-overview)
+
+Problem templates are the primary user-facing API in Piccolo.jl. They provide high-level constructors that set up quantum optimal control problems with sensible defaults while allowing fine-grained customization.
+
+## Overview
+
+Piccolo.jl provides five main problem templates:
+
+| Template | Purpose | Pulse Type |
+|----------|---------|------------|
+| [`SmoothPulseProblem`](@ref smooth-pulse) | Piecewise constant controls with smoothness regularization | `ZeroOrderPulse` |
+| [`BangBangPulseProblem`](@ref bang-bang-pulse) | Piecewise constant controls with L1 (bang-bang) regularization | `ZeroOrderPulse` |
+| [`SplinePulseProblem`](@ref spline-pulse) | Spline-based controls for smooth pulses | `LinearSplinePulse`, `CubicSplinePulse` |
+| [`MinimumTimeProblem`](@ref minimum-time) | Time-optimal control (wraps another problem) | Any |
+| [`SamplingProblem`](@ref sampling) | Robust optimization over parameter variations | Any |
+
+## Choosing a Template
+
+Use this decision flowchart to select the right template for your task:
+
+```
+        ┌──────────────────────┐
+        │  What pulse type?    │
+        └──────────┬───────────┘
+           ┌───────┴───────┐
+           ▼               ▼
+    ZeroOrderPulse    SplinePulse
+           │               │
+           ▼               ▼
+  ┌────────────────┐ ┌─────────────────┐
+  │ Smooth or      │ │ SplinePulse     │
+  │ bang-bang?      │ │ Problem         │
+  └───┬────────┬───┘ └────────┬────────┘
+      │        │              │
+   Smooth   Bang-bang         │
+      │        │              │
+      ▼        ▼              │
+  ┌────────┐ ┌─────────┐     │
+  │ Smooth │ │ BangBang │     │
+  │ Pulse  │ │ Pulse    │     │
+  │ Problem│ │ Problem  │     │
+  └───┬────┘ └────┬─────┘     │
+      └──────┬────┘           │
+             └────────┬───────┘
+                      ▼
+           ┌──────────────────┐
+           │ Need robustness? │
+           └───┬──────────┬───┘
+            Yes│          │No
+               ▼          │
+       ┌──────────────┐   │
+       │ Sampling     │   │
+       │ Problem      │   │
+       └──────┬───────┘   │
+              └─────┬─────┘
+                    ▼
+           ┌────────────────┐
+           │ Minimize time? │
+           └───┬────────┬───┘
+            Yes│        │No
+               ▼        │
+       ┌──────────────┐ │
+       │ MinimumTime  │ │
+       │ Problem      │ │
+       └──────┬───────┘ │
+              └────┬────┘
+                   ▼
+              ┌────────┐
+              │ Done!  │
+              └────────┘
+```
+
+### Quick Decision Guide
+
+**Choose your base problem:**
+- **`SmoothPulseProblem`**: Start here for most problems. Uses piecewise constant pulses with derivative regularization for smoothness.
+- **`BangBangPulseProblem`**: Use when you want piecewise constant pulses with minimal switching (L1 regularization promotes bang-bang controls).
+- **`SplinePulseProblem`**: Use when you need inherently smooth pulses or want to warm-start from a previous solution.
+
+**Add robustness (optional):**
+- **`SamplingProblem`**: Wrap your base problem to optimize over multiple system variants (e.g., different detuning values).
+
+**Minimize time (optional):**
+- **`MinimumTimeProblem`**: Wrap any problem to find the shortest gate duration that achieves a target fidelity.
+
+## Composability
+
+Problem templates can be chained together:
+
+```julia
+# Step 1: Create base problem with free time enabled
+qcp_base = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))
+solve!(qcp_base; max_iter=100)
+
+# Step 2: Add robustness
+qcp_robust = SamplingProblem(qcp_base, [sys_nominal, sys_perturbed])
+solve!(qcp_robust; max_iter=100)
+
+# Step 3: Minimize time while maintaining fidelity
+qcp_mintime = MinimumTimeProblem(qcp_robust; final_fidelity=0.99)
+solve!(qcp_mintime; max_iter=100)
+```
+
+## Common Workflow
+
+All problem templates follow the same workflow:
+
+```julia
+# 1. Define quantum system
+sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+
+# 2. Create initial pulse
+pulse = ZeroOrderPulse(initial_controls, times)
+
+# 3. Create trajectory with goal
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+# 4. Set up optimization problem
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
+
+# 5. Solve
+solve!(qcp; max_iter=100)
+
+# 6. Analyze results
+println("Fidelity: ", fidelity(qcp))
+optimized_pulse = get_pulse(qcp.qtraj)
+```
+
+## Key Concepts
+
+### Pulse Type Matching
+
+Each base problem template requires a specific pulse type:
+
+| Problem Template | Required Pulse Type |
+|-----------------|---------------------|
+| `SmoothPulseProblem` | `ZeroOrderPulse` |
+| `BangBangPulseProblem` | `ZeroOrderPulse` |
+| `SplinePulseProblem` | `LinearSplinePulse` or `CubicSplinePulse` |
+
+Using the wrong pulse type will result in a helpful error message.
+
+### Trajectory Types
+
+Problem templates work with different trajectory types depending on your goal:
+
+| Trajectory Type | Use Case |
+|-----------------|----------|
+| `UnitaryTrajectory` | Gate synthesis (most common) |
+| `KetTrajectory` | State transfer |
+| `DensityTrajectory` | Open system evolution |
+| `MultiKetTrajectory` | Multiple state transfers with coherent phases |
+
+### Regularization Parameters
+
+Most problems use these regularization parameters:
+
+- **`Q`**: Weight on infidelity objective (higher = prioritize fidelity)
+- **`R`**: Base regularization weight for control smoothness
+- **`R_u`**, **`R_du`**, **`R_ddu`**: Per-derivative regularization weights
+
+### Free-Time Optimization
+
+To enable time optimization with `MinimumTimeProblem`, set `Δt_bounds` in your base problem:
+
+```julia
+qcp = SmoothPulseProblem(qtraj, N; Δt_bounds=(0.01, 0.5))
+```
+
+## Detailed Documentation
+
+- [SmoothPulseProblem](@ref smooth-pulse) - Full parameter reference and examples
+- [BangBangPulseProblem](@ref bang-bang-pulse) - L1-regularized bang-bang controls
+- [SplinePulseProblem](@ref spline-pulse) - Spline-based optimization
+- [MinimumTimeProblem](@ref minimum-time) - Time-optimal control
+- [SamplingProblem](@ref sampling) - Robust optimization
+- [Composing Templates](@ref composition) - Advanced composition patterns
+</script>
+<link rel="stylesheet" href="../assets/copybutton.css"/>
+<script src="../assets/copybutton.js"></script>
+
+</body></html>

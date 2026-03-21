@@ -71,4 +71,226 @@ traj_multi = get_trajectory(qcp_multi)
 optimized_global_data = traj_multi.global_data
 (optimized_global_data)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Float64}:
  0.05229768657486398
- 1.0000000000196556</code></pre><h2 id="Best-Practices"><a class="docs-heading-anchor" href="#Best-Practices">Best Practices</a><a id="Best-Practices-1"></a><a class="docs-heading-anchor-permalink" href="#Best-Practices" title="Permalink"></a></h2><h3 id="1.-Start-with-Good-Initial-Values"><a class="docs-heading-anchor" href="#1.-Start-with-Good-Initial-Values">1. Start with Good Initial Values</a><a id="1.-Start-with-Good-Initial-Values-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Start-with-Good-Initial-Values" title="Permalink"></a></h3><p>Use physically reasonable initial parameters. The initial values come from <code>global_params</code> in the <code>QuantumSystem</code> constructor:</p><pre><code class="language-julia hljs">sys = QuantumSystem(H_drift, H_drives, bounds; global_params = (δ = 0.15,))</code></pre><h3 id="2.-Use-Reasonable-Bounds"><a class="docs-heading-anchor" href="#2.-Use-Reasonable-Bounds">2. Use Reasonable Bounds</a><a id="2.-Use-Reasonable-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Use-Reasonable-Bounds" title="Permalink"></a></h3><p>Don&#39;t make bounds too wide — ~50% variation is usually sufficient:</p><pre><code class="language-julia hljs">global_bounds = Dict(:δ =&gt; (0.1, 0.2))  # Not 10x variation</code></pre><h3 id="3.-Consider-Sensitivity"><a class="docs-heading-anchor" href="#3.-Consider-Sensitivity">3. Consider Sensitivity</a><a id="3.-Consider-Sensitivity-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Consider-Sensitivity" title="Permalink"></a></h3><p>Global parameters affect all timesteps, so they have strong influence on the solution. Start with tighter bounds and relax if needed.</p><h3 id="4.-Verify-Physical-Meaning"><a class="docs-heading-anchor" href="#4.-Verify-Physical-Meaning">4. Verify Physical Meaning</a><a id="4.-Verify-Physical-Meaning-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Verify-Physical-Meaning" title="Permalink"></a></h3><p>After optimization, check that global values are physically reasonable:</p><h2 id="Comparison-with-SamplingProblem"><a class="docs-heading-anchor" href="#Comparison-with-SamplingProblem">Comparison with SamplingProblem</a><a id="Comparison-with-SamplingProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Comparison-with-SamplingProblem" title="Permalink"></a></h2><table><tr><th style="text-align: right">Feature</th><th style="text-align: right">Global Variables</th><th style="text-align: right">SamplingProblem</th></tr><tr><td style="text-align: right">Parameter role</td><td style="text-align: right">Optimized</td><td style="text-align: right">Fixed (sampled)</td></tr><tr><td style="text-align: right">Goal</td><td style="text-align: right">Find optimal parameter</td><td style="text-align: right">Robust to parameter variation</td></tr><tr><td style="text-align: right">Use case</td><td style="text-align: right">Calibration, design</td><td style="text-align: right">Uncertainty handling</td></tr></table><p>For robustness to uncertainty, use <code>SamplingProblem</code>. For finding optimal parameters, use global variables.</p><h2 id="Limitations"><a class="docs-heading-anchor" href="#Limitations">Limitations</a><a id="Limitations-1"></a><a class="docs-heading-anchor-permalink" href="#Limitations" title="Permalink"></a></h2><ul><li>Full global optimization requires a custom integrator from Piccolissimo that provides global-aware Jacobians and Hessians</li><li>Piccolo&#39;s built-in <code>BilinearIntegrator</code> stores globals in the trajectory but does not couple them to the dynamics</li><li>More complex optimization landscape</li><li>Convergence can be slower</li></ul><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../problem-templates/sampling/#sampling">SamplingProblem</a> - For parameter robustness</li><li><a href="../../../systems/#systems-overview">Quantum Systems</a> - System construction</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Main optimization API</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../leakage_suppression/">« Leakage Suppression</a><a class="docs-footer-nextpage" href="../visualization/">Visualization »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 March 2026 07:50">Saturday 21 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ 1.0000000000196556</code></pre><h2 id="Best-Practices"><a class="docs-heading-anchor" href="#Best-Practices">Best Practices</a><a id="Best-Practices-1"></a><a class="docs-heading-anchor-permalink" href="#Best-Practices" title="Permalink"></a></h2><h3 id="1.-Start-with-Good-Initial-Values"><a class="docs-heading-anchor" href="#1.-Start-with-Good-Initial-Values">1. Start with Good Initial Values</a><a id="1.-Start-with-Good-Initial-Values-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Start-with-Good-Initial-Values" title="Permalink"></a></h3><p>Use physically reasonable initial parameters. The initial values come from <code>global_params</code> in the <code>QuantumSystem</code> constructor:</p><pre><code class="language-julia hljs">sys = QuantumSystem(H_drift, H_drives, bounds; global_params = (δ = 0.15,))</code></pre><h3 id="2.-Use-Reasonable-Bounds"><a class="docs-heading-anchor" href="#2.-Use-Reasonable-Bounds">2. Use Reasonable Bounds</a><a id="2.-Use-Reasonable-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Use-Reasonable-Bounds" title="Permalink"></a></h3><p>Don&#39;t make bounds too wide — ~50% variation is usually sufficient:</p><pre><code class="language-julia hljs">global_bounds = Dict(:δ =&gt; (0.1, 0.2))  # Not 10x variation</code></pre><h3 id="3.-Consider-Sensitivity"><a class="docs-heading-anchor" href="#3.-Consider-Sensitivity">3. Consider Sensitivity</a><a id="3.-Consider-Sensitivity-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Consider-Sensitivity" title="Permalink"></a></h3><p>Global parameters affect all timesteps, so they have strong influence on the solution. Start with tighter bounds and relax if needed.</p><h3 id="4.-Verify-Physical-Meaning"><a class="docs-heading-anchor" href="#4.-Verify-Physical-Meaning">4. Verify Physical Meaning</a><a id="4.-Verify-Physical-Meaning-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Verify-Physical-Meaning" title="Permalink"></a></h3><p>After optimization, check that global values are physically reasonable:</p><h2 id="Comparison-with-SamplingProblem"><a class="docs-heading-anchor" href="#Comparison-with-SamplingProblem">Comparison with SamplingProblem</a><a id="Comparison-with-SamplingProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Comparison-with-SamplingProblem" title="Permalink"></a></h2><table><tr><th style="text-align: right">Feature</th><th style="text-align: right">Global Variables</th><th style="text-align: right">SamplingProblem</th></tr><tr><td style="text-align: right">Parameter role</td><td style="text-align: right">Optimized</td><td style="text-align: right">Fixed (sampled)</td></tr><tr><td style="text-align: right">Goal</td><td style="text-align: right">Find optimal parameter</td><td style="text-align: right">Robust to parameter variation</td></tr><tr><td style="text-align: right">Use case</td><td style="text-align: right">Calibration, design</td><td style="text-align: right">Uncertainty handling</td></tr></table><p>For robustness to uncertainty, use <code>SamplingProblem</code>. For finding optimal parameters, use global variables.</p><h2 id="Limitations"><a class="docs-heading-anchor" href="#Limitations">Limitations</a><a id="Limitations-1"></a><a class="docs-heading-anchor-permalink" href="#Limitations" title="Permalink"></a></h2><ul><li>Full global optimization requires a custom integrator from Piccolissimo that provides global-aware Jacobians and Hessians</li><li>Piccolo&#39;s built-in <code>BilinearIntegrator</code> stores globals in the trajectory but does not couple them to the dynamics</li><li>More complex optimization landscape</li><li>Convergence can be slower</li></ul><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../problem-templates/sampling/#sampling">SamplingProblem</a> - For parameter robustness</li><li><a href="../../../systems/#systems-overview">Quantum Systems</a> - System construction</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Main optimization API</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../leakage_suppression/">« Leakage Suppression</a><a class="docs-footer-nextpage" href="../visualization/">Visualization »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 March 2026 15:31">Saturday 21 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./global_variables.jl","providers":[{"name":"Claude","base":"https://claude.ai/new?q=","suffix":""},{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"T3","base":"https://t3.chat/new?q=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","pagePath":"generated/guides/global_variables.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
+# literate/guides/global_variables.jl
+# ```
+#
+# # [Global Variables](@id global-variables)
+#
+# Global variables allow you to optimize system parameters alongside control pulses.
+# This is useful for calibrating system properties or finding optimal operating points.
+
+# ## When to Use Global Variables
+#
+# - **System calibration**: Finding optimal qubit frequencies or coupling strengths
+# - **Gate design**: Optimizing hardware parameters for better gates
+# - **Sensitivity analysis**: Understanding parameter effects
+
+# ## Basic Concept
+#
+# Standard optimization only varies control pulses ``u(t)``. With global variables,
+# you can also optimize system parameters that appear in the Hamiltonian.
+#
+# ```math
+# H(u, t; \theta) = H_{\text{drift}}(\theta) + \sum_i u_i(t) H_{\text{drive},i}(\theta)
+# ```
+#
+# Where ``\theta`` are global parameters to optimize.
+
+# ## Setup Requirements
+#
+# Global variable optimization requires:
+# 1. A `QuantumSystem` with `global_params`
+# 2. A **custom integrator** that supports globals (e.g., from Piccolissimo)
+# 3. **Global bounds** specification
+#
+# Piccolo's built-in `BilinearIntegrator` does **not** support global variables —
+# it has no global-aware Jacobian columns or Hessian blocks. A custom integrator
+# from Piccolissimo handles the extended control vector `[controls..., globals...]`
+# and provides the correct derivative information to the optimizer.
+#
+# This guide demonstrates the global variable API using Piccolo's built-in
+# integrator. The globals are stored in the trajectory and bounded, but are not
+# coupled to the dynamics. For full global optimization, use a Piccolissimo
+# integrator.
+
+# ## Defining a System with Global Parameters
+#
+# Global parameters are stored on the `QuantumSystem` via the `global_params`
+# keyword argument. With a custom integrator from Piccolissimo, the Hamiltonian
+# function receives `u = [controls..., globals...]`:
+#
+# ```julia
+# ## Function-based system (requires Piccolissimo integrator for dynamics)
+# H = (u, t) -> u[3] * PAULIS[:Z] + u[1] * PAULIS[:X] + u[2] * PAULIS[:Y]
+# sys = QuantumSystem(H, [1.0, 1.0]; time_dependent=true, global_params=(δ=0.5,))
+# ```
+#
+# For this guide we use a matrix-based system, which works with the built-in
+# `BilinearIntegrator`:
+
+using Piccolo
+
+sys = QuantumSystem(
+    PAULIS[:Z],
+    [PAULIS[:X], PAULIS[:Y]],
+    [1.0, 1.0];
+    global_params = (δ = 0.5,),
+)
+
+sys.global_params
+
+# ## Setting Up a Problem with Globals
+#
+# When `global_params` is set on the system, `SmoothPulseProblem` automatically
+# includes the global variables in the trajectory as optimization variables.
+# The `global_bounds` keyword constrains their range:
+
+T = 10.0
+N = 50
+U_goal = GATES[:X]
+
+qtraj = UnitaryTrajectory(sys, U_goal, T)
+
+qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    global_bounds = Dict(:δ => 1.0),  ## symmetric bounds: δ ∈ [δ₀ - 1.0, δ₀ + 1.0]
+)
+
+solve!(
+    qcp;
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
+
+# ## Accessing Global Variables
+#
+# After solving, global values are stored in the trajectory's `global_data`
+# vector, indexed by `global_components`:
+
+traj = get_trajectory(qcp)
+optimized_δ = traj.global_data[traj.global_components[:δ]][1]
+optimized_δ
+
+# !!! note
+#     With the built-in `BilinearIntegrator`, the global variable is not coupled
+#     to the dynamics, so its value will remain near the initial value. To
+#     actually optimize globals through the Hamiltonian, use a Piccolissimo
+#     integrator that provides global-aware Jacobians and Hessians.
+
+# ## Global Bounds Format
+#
+# Global bounds can be specified in two ways:
+#
+# **Symmetric bounds** (scalar): applied as ±value around the initial value.
+# ```julia
+# global_bounds = Dict(:δ => 0.05)  # δ ∈ [δ₀ - 0.05, δ₀ + 0.05]
+# ```
+#
+# **Asymmetric bounds** (tuple): explicit (lower, upper) bounds.
+# ```julia
+# global_bounds = Dict(:δ => (0.05, 0.2))  # δ ∈ [0.05, 0.2]
+# ```
+#
+# **Multiple globals** with mixed bound types:
+# ```julia
+# global_bounds = Dict(
+#     :δ => (0.05, 0.2),
+#     :J => 0.01,  # J ∈ [J₀ - 0.01, J₀ + 0.01]
+# )
+# ```
+
+# ## Multiple Global Variables
+#
+# You can define several system parameters simultaneously:
+
+sys_multi =
+    QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [1.0]; global_params = (ω = 1.0, J = 0.05))
+
+qtraj_multi = UnitaryTrajectory(sys_multi, U_goal, T)
+
+qcp_multi = SmoothPulseProblem(
+    qtraj_multi,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    global_bounds = Dict(:ω => (0.9, 1.1), :J => (0.02, 0.1)),
+)
+
+solve!(
+    qcp_multi;
+    max_iter = 100,
+    verbose = false,
+    print_level = 1,
+)
+
+## Access optimized global values
+traj_multi = get_trajectory(qcp_multi)
+optimized_global_data = traj_multi.global_data
+(optimized_global_data)
+
+# ## Best Practices
+
+# ### 1. Start with Good Initial Values
+#
+# Use physically reasonable initial parameters. The initial values come from
+# `global_params` in the `QuantumSystem` constructor:
+#
+# ```julia
+# sys = QuantumSystem(H_drift, H_drives, bounds; global_params = (δ = 0.15,))
+# ```
+
+# ### 2. Use Reasonable Bounds
+#
+# Don't make bounds too wide — ~50% variation is usually sufficient:
+#
+# ```julia
+# global_bounds = Dict(:δ => (0.1, 0.2))  # Not 10x variation
+# ```
+
+# ### 3. Consider Sensitivity
+#
+# Global parameters affect all timesteps, so they have strong influence on the
+# solution. Start with tighter bounds and relax if needed.
+
+# ### 4. Verify Physical Meaning
+#
+# After optimization, check that global values are physically reasonable:
+
+# ## Comparison with SamplingProblem
+#
+# | Feature | Global Variables | SamplingProblem |
+# |---------|-----------------|-----------------|
+# | Parameter role | Optimized | Fixed (sampled) |
+# | Goal | Find optimal parameter | Robust to parameter variation |
+# | Use case | Calibration, design | Uncertainty handling |
+#
+# For robustness to uncertainty, use `SamplingProblem`. For finding optimal
+# parameters, use global variables.
+
+# ## Limitations
+#
+# - Full global optimization requires a custom integrator from Piccolissimo that
+#   provides global-aware Jacobians and Hessians
+# - Piccolo's built-in `BilinearIntegrator` stores globals in the trajectory but
+#   does not couple them to the dynamics
+# - More complex optimization landscape
+# - Convergence can be slower
+
+# ## See Also
+#
+# - [SamplingProblem](@ref sampling) - For parameter robustness
+# - [Quantum Systems](@ref systems-overview) - System construction
+# - [Problem Templates](@ref problem-templates-overview) - Main optimization API
+</script>
+<link rel="stylesheet" href="../../../assets/copybutton.css"/>
+<script src="../../../assets/copybutton.js"></script>
+
+</body></html>

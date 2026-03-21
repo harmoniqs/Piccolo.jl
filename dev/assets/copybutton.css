@@ -1,0 +1,106 @@
+/* DocumenterCopyButton — floating button group
+   Uses Bulma .button, .dropdown-content, .dropdown-item classes
+   for theme-consistent styling across all Documenter themes. */
+
+.copybutton-container {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* Hide behind Bulma modals (settings, search, etc.) */
+.modal.is-active ~ .copybutton-container,
+body:has(.modal.is-active) .copybutton-container {
+  z-index: 0;
+}
+
+/* Horizontal button group */
+.copybutton-group {
+  display: flex;
+  flex-direction: row;
+}
+
+.copybutton-group .button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.copybutton-group .button:last-child {
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+
+.copybutton-group .button:only-child {
+  border-radius: 4px;
+}
+
+.copybutton-group .button {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  gap: 5px;
+  font-size: 0.8rem;
+}
+
+.copybutton-group .button:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+}
+
+/* Dropdown — opens upward, uses Bulma .dropdown-content for theming */
+.copybutton-dropdown {
+  position: relative;
+  bottom: 6px;
+  right: 0;
+  min-width: 160px;
+  display: none;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.copybutton-dropdown.is-open {
+  display: flex;
+}
+
+/* Override Bulma dropdown-item to work as block links in our context */
+.copybutton-dropdown .dropdown-item {
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.copybutton-dropdown a.dropdown-item:hover {
+  text-decoration: none;
+}
+
+/* "Copied!" tooltip */
+.copybutton-tooltip {
+  font-size: 0.75rem;
+  color: #fff;
+  background: #363636;
+  border-radius: 4px;
+  padding: 4px 10px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.copybutton-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+html[data-theme="documenter-dark"] .copybutton-tooltip {
+  background: #1a2021;
+}
+
+/* ── Mobile: hide ──────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .copybutton-container {
+    display: none;
+  }
+}

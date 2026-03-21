@@ -31,10 +31,10 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0, Δt_bounds = (0.05, 0.5))
 solve!(qcp_base; max_iter = 100)
 
-sum(get_timesteps(get_trajectory(qcp_base)))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">23.643816303044666</code></pre><pre><code class="language-julia hljs">fidelity(qcp_base)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999403535049575</code></pre><h3 id="Step-2:-Minimize-Time"><a class="docs-heading-anchor" href="#Step-2:-Minimize-Time">Step 2: Minimize Time</a><a id="Step-2:-Minimize-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Minimize-Time" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
+sum(get_timesteps(get_trajectory(qcp_base)))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">23.643816303044666</code></pre><pre><code class="language-julia hljs">fidelity(qcp_base)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.999940716185951</code></pre><h3 id="Step-2:-Minimize-Time"><a class="docs-heading-anchor" href="#Step-2:-Minimize-Time">Step 2: Minimize Time</a><a id="Step-2:-Minimize-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Minimize-Time" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
 solve!(qcp_mintime; max_iter = 100)
 
-sum(get_timesteps(get_trajectory(qcp_mintime)))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">13.643538876567835</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9900010557899727</code></pre><h3 id="Exploring-Fidelity-Time-Trade-off"><a class="docs-heading-anchor" href="#Exploring-Fidelity-Time-Trade-off">Exploring Fidelity-Time Trade-off</a><a id="Exploring-Fidelity-Time-Trade-off-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-Fidelity-Time-Trade-off" title="Permalink"></a></h3><pre><code class="language-julia hljs">results = []
+sum(get_timesteps(get_trajectory(qcp_mintime)))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">13.643538876567835</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9900010557899738</code></pre><h3 id="Exploring-Fidelity-Time-Trade-off"><a class="docs-heading-anchor" href="#Exploring-Fidelity-Time-Trade-off">Exploring Fidelity-Time Trade-off</a><a id="Exploring-Fidelity-Time-Trade-off-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-Fidelity-Time-Trade-off" title="Permalink"></a></h3><pre><code class="language-julia hljs">results = []
 for target_fidelity in [0.999, 0.99, 0.95, 0.90]
     qcp_mt = MinimumTimeProblem(qcp_base; final_fidelity = target_fidelity)
     solve!(
@@ -159,4 +159,216 @@ EXIT: Maximum Number of Iterations Exceeded.
         applying constraint: bounds on ddu
         applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
         applying constraint: initial time t₁ = 0
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from mintime_y_gate_573ffb2.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 March 2026 07:50">Saturday 21 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from mintime_y_gate_573ffb2.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 March 2026 15:31">Saturday 21 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./minimum_time.jl","providers":[{"name":"Claude","base":"https://claude.ai/new?q=","suffix":""},{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"T3","base":"https://t3.chat/new?q=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","pagePath":"generated/problem-templates/minimum_time.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
+# literate/problem-templates/minimum_time.jl
+# ```
+#
+# # [MinimumTimeProblem](@id minimum-time)
+#
+# `MinimumTimeProblem` converts an existing optimization problem into a time-optimal control problem. It minimizes the total gate duration while maintaining a minimum fidelity constraint.
+#
+# ## When to Use
+#
+# Use `MinimumTimeProblem` when:
+# - You have a working solution and want to minimize its duration
+# - You need the fastest possible gate that achieves a target fidelity
+# - You're exploring the fidelity-time trade-off
+#
+# ## Key Design: Composition Pattern
+#
+# `MinimumTimeProblem` **wraps** an existing `QuantumControlProblem`. It does not create a problem directly from a trajectory:
+#
+# ```julia
+# # This does NOT work
+# qcp_mintime = MinimumTimeProblem(qtraj)  # Error!
+#
+# # This works
+# qcp_base = SmoothPulseProblem(qtraj; Δt_bounds=(0.01, 0.5))
+# solve!(qcp_base)
+# qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity=0.99)
+# ```
+#
+# ## Prerequisites
+#
+# The base problem **must** have `Δt_bounds` set to enable variable timesteps:
+#
+# ```julia
+# # Enable free-time optimization in the base problem
+# qcp_base = SmoothPulseProblem(qtraj; Δt_bounds=(0.01, 0.5))
+# ```
+#
+# ## Constructor
+#
+# ```julia
+# MinimumTimeProblem(
+#     qcp::QuantumControlProblem;
+#     goal = nothing,
+#     final_fidelity = 0.99,
+#     D = 100.0,
+#     piccolo_options = PiccoloOptions()
+# )
+# ```
+#
+# ## Parameter Reference
+#
+# | Parameter | Type | Default | Description |
+# |-----------|------|---------|-------------|
+# | `qcp` | `QuantumControlProblem` | required | Base problem to convert (must have `Δt_bounds`) |
+# | `goal` | `AbstractPiccoloOperator` or `AbstractVector` | `nothing` | Optional new goal (uses base problem's goal if `nothing`) |
+# | `final_fidelity` | `Float64` | `0.99` | Minimum fidelity constraint |
+# | `D` | `Float64` | `100.0` | Weight on total time objective |
+# | `piccolo_options` | `PiccoloOptions` | `PiccoloOptions()` | Solver options |
+#
+# ## Optimization Problem
+#
+# `MinimumTimeProblem` sets up:
+#
+# ```
+# minimize:    J_original + D × Σ Δtₖ
+# subject to:  Original dynamics and constraints
+#              F_final ≥ final_fidelity
+#              Δt_min ≤ Δtₖ ≤ Δt_max
+# ```
+#
+# The parameter `D` controls the trade-off between the original objective and time minimization. Higher `D` values prioritize shorter duration.
+#
+# ## Examples
+#
+# ### Basic Time-Optimal Gate
+
+using Piccolo
+using Printf # hide
+
+## Setup
+H_drift = PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+T, N = 20.0, 100
+times = collect(range(0, T, length = N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+
+## Step 1: Solve base problem with free time enabled
+qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0, Δt_bounds = (0.05, 0.5))
+solve!(qcp_base; max_iter = 100)
+
+sum(get_timesteps(get_trajectory(qcp_base)))
+
+#-
+
+fidelity(qcp_base)
+
+# ### Step 2: Minimize Time
+
+qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
+solve!(qcp_mintime; max_iter = 100)
+
+sum(get_timesteps(get_trajectory(qcp_mintime)))
+
+#-
+
+fidelity(qcp_mintime)
+
+# ### Exploring Fidelity-Time Trade-off
+
+results = []
+for target_fidelity in [0.999, 0.99, 0.95, 0.90]
+    qcp_mt = MinimumTimeProblem(qcp_base; final_fidelity = target_fidelity)
+    solve!(
+        qcp_mt;
+        max_iter = 100,
+        verbose = false,
+        print_level = 1,
+    )
+    dur = sum(get_timesteps(get_trajectory(qcp_mt)))
+    push!(results, (target = target_fidelity, duration = dur, achieved = fidelity(qcp_mt)))
+end
+
+println("Fidelity-Time Trade-off")
+println("─"^50)
+for r in results
+    @printf(
+        "  Target: %.3f  │  Duration: %.3f  │  Achieved: %.4f\n",
+        r.target,
+        r.duration,
+        r.achieved
+    )
+end
+#
+# ### With Robust Optimization
+#
+# Chain with `SamplingProblem` for robust time-optimal control:
+#
+# ```julia
+# # Base problem
+# qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
+# solve!(qcp_base; max_iter=100)
+#
+# # Add robustness
+# sys_perturbed = QuantumSystem(1.1 * H_drift, H_drives, [1.0, 1.0])
+# qcp_robust = SamplingProblem(qcp_base, [sys, sys_perturbed])
+# solve!(qcp_robust; max_iter=100)
+#
+# # Minimize time while maintaining robustness
+# qcp_mintime = MinimumTimeProblem(qcp_robust; final_fidelity=0.95)
+# solve!(qcp_mintime; max_iter=100)
+# ```
+#
+# ## Fidelity Constraints by Trajectory Type
+#
+# `MinimumTimeProblem` automatically adds the appropriate fidelity constraint based on the trajectory type:
+#
+# | Trajectory Type | Constraint Type |
+# |-----------------|-----------------|
+# | `UnitaryTrajectory` | `FinalUnitaryFidelityConstraint` |
+# | `KetTrajectory` | `FinalKetFidelityConstraint` |
+# | `MultiKetTrajectory` | `FinalCoherentKetFidelityConstraint` |
+# | `DensityTrajectory` | Not yet implemented |
+#
+# ## Tips
+#
+# ### Setting D
+#
+# The `D` parameter controls the weight on total time:
+# - **Higher D** (e.g., 1000): Aggressively minimize time, may sacrifice fidelity margin
+# - **Lower D** (e.g., 10): More conservative, maintains fidelity buffer
+#
+# ### Initial Solution Quality
+#
+# `MinimumTimeProblem` works best when starting from a good solution. If your base problem has low fidelity, solve it first:
+#
+# ```julia
+# # Ensure good initial solution
+# qcp_base = SmoothPulseProblem(qtraj, N; Q=1000.0, Δt_bounds=(0.05, 0.5))
+# solve!(qcp_base; max_iter=200)
+#
+# # Only then minimize time
+# if fidelity(qcp_base) > 0.99
+#     qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity=0.99)
+#     solve!(qcp_mintime; max_iter=100)
+# end
+# ```
+#
+# ### Changing the Goal
+#
+# You can optimize for a different goal without recreating the base problem:
+
+qcp_y = MinimumTimeProblem(qcp_base; goal = GATES[:Y], final_fidelity = 0.99)
+solve!(qcp_y; max_iter = 100)
+#
+# ## See Also
+#
+# - [SmoothPulseProblem](@ref smooth-pulse) - Base problem for piecewise constant controls
+# - [BangBangPulseProblem](@ref bang-bang-pulse) - Base problem for bang-bang controls
+# - [SplinePulseProblem](@ref spline-pulse) - Base problem for spline controls
+# - [SamplingProblem](@ref sampling) - Add robustness before minimizing time
+# - [Composing Templates](@ref composition) - Advanced composition patterns
+</script>
+<link rel="stylesheet" href="../../../assets/copybutton.css"/>
+<script src="../../../assets/copybutton.js"></script>
+
+</body></html>

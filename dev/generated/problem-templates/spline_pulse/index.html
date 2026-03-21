@@ -204,4 +204,181 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic)
   Goal: Matrix{ComplexF64}
   Trajectory: 50 knots
   State: Ũ⃗
-  Controls: u</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bang_bang_pulse/">« BangBangPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 March 2026 07:50">Saturday 21 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+  Controls: u</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bang_bang_pulse/">« BangBangPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 March 2026 15:31">Saturday 21 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./spline_pulse.jl","providers":[{"name":"Claude","base":"https://claude.ai/new?q=","suffix":""},{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"T3","base":"https://t3.chat/new?q=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","pagePath":"generated/problem-templates/spline_pulse.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
+# literate/problem-templates/spline_pulse.jl
+# ```
+#
+# # [SplinePulseProblem](@id spline-pulse)
+#
+# `SplinePulseProblem` sets up trajectory optimization with spline-based pulses where derivative variables represent spline slopes or tangents. This is ideal for inherently smooth control pulses and warm-starting from previous solutions.
+#
+# ## When to Use
+#
+# Use `SplinePulseProblem` when:
+# - You need inherently smooth control pulses
+# - You're warm-starting from a previously optimized solution
+# - You want cubic spline smoothness without derivative regularization
+# - You're working with hardware that expects smooth pulse shapes
+#
+# ## Pulse Requirements
+#
+# `SplinePulseProblem` works with spline pulse types:
+#
+# | Pulse Type | Derivative Meaning |
+# |------------|-------------------|
+# | `LinearSplinePulse` | `:du` represents constrained slope between knots |
+# | `CubicSplinePulse` | `:du` represents independent Hermite tangents |
+#
+# ```julia
+# # Linear spline
+# pulse = LinearSplinePulse(controls, times)
+# qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+# qcp = SplinePulseProblem(qtraj)  # Works
+#
+# # Cubic spline
+# pulse = CubicSplinePulse(controls, tangents, times)
+# qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+# qcp = SplinePulseProblem(qtraj)  # Works
+# ```
+#
+# ## Constructor Variants
+#
+# ### Use Native Knot Times (Recommended for Warm-Starting)
+#
+# ```julia
+# SplinePulseProblem(qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse}; kwargs...)
+# ```
+#
+# Uses the pulse's native knot times without resampling. Best for warm-starting from a previous solution.
+#
+# ### Resample to N Timesteps
+#
+# ```julia
+# SplinePulseProblem(qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse}, N::Int; kwargs...)
+# ```
+#
+# Resamples the pulse to `N` uniformly spaced timesteps.
+#
+# ### Use Specific Times
+#
+# ```julia
+# SplinePulseProblem(qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse}, times::AbstractVector; kwargs...)
+# ```
+#
+# Resamples the pulse to the specified time points.
+#
+# ## Parameter Reference
+#
+# ### Objective Weights
+#
+# | Parameter | Type | Default | Description |
+# |-----------|------|---------|-------------|
+# | `Q` | `Float64` | `100.0` | Weight on infidelity objective |
+# | `R` | `Float64` | `1e-2` | Base regularization weight |
+# | `R_u` | `Float64` or `Vector{Float64}` | `R` | Regularization on control values |
+# | `R_du` | `Float64` or `Vector{Float64}` | `R` | Regularization on derivatives/tangents |
+#
+# ### Bounds
+#
+# | Parameter | Type | Default | Description |
+# |-----------|------|---------|-------------|
+# | `du_bound` | `Float64` | `Inf` | Maximum derivative/slope bound |
+# | `Δt_bounds` | `Tuple{Float64, Float64}` | `nothing` | Time-step bounds for free-time optimization |
+#
+# ### Advanced Options
+#
+# | Parameter | Type | Default | Description |
+# |-----------|------|---------|-------------|
+# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator (uses `BilinearIntegrator` if `nothing`) |
+# | `global_names` | `Vector{Symbol}` | `nothing` | Global parameters to optimize |
+# | `global_bounds` | `Dict{Symbol, ...}` | `nothing` | Bounds on global variables |
+# | `constraints` | `Vector{AbstractConstraint}` | `[]` | Additional constraints |
+# | `piccolo_options` | `PiccoloOptions` | `PiccoloOptions()` | Solver options |
+#
+# ## Examples
+#
+# ### Basic Spline Optimization
+
+using Piccolo
+
+## Define system
+H_drift = PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+## Create cubic spline pulse
+T, N = 10.0, 50
+times = collect(range(0, T, length = N))
+controls = 0.1 * randn(2, N)
+tangents = zeros(2, N)  ## Initial tangents
+pulse = CubicSplinePulse(controls, tangents, times)
+
+qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+
+## Solve using native knot times
+qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0)
+solve!(qcp; max_iter = 100)
+
+# ### Warm-Starting from Previous Solution
+#
+# ```julia
+# # Load previously optimized pulse
+# using JLD2
+# @load "optimized_pulse.jld2" saved_pulse
+#
+# # Create new trajectory with saved pulse
+# qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
+#
+# # Use native knot times (no resampling)
+# qcp = SplinePulseProblem(qtraj)
+# solve!(qcp; max_iter=50)  # Converges quickly from good initial guess
+# ```
+#
+# ### Resampling to Different Resolution
+#
+# The original pulse above has 50 knots. We can resample to 100 for finer control:
+
+qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
+solve!(qcp_resampled; max_iter = 100)
+
+# ### Linear vs Cubic Splines
+#
+# **Linear Splines**: The derivative `:du` represents the slope between knots. A `DerivativeIntegrator` constraint enforces `du[k] = (u[k+1] - u[k]) / Δt`.
+
+pulse_linear = LinearSplinePulse(controls, times)
+qtraj_linear = UnitaryTrajectory(sys, pulse_linear, GATES[:X])
+qcp_linear = SplinePulseProblem(qtraj_linear)
+## du is constrained to be consistent with u
+
+# **Cubic Splines (Hermite)**: The derivative `:du` represents independent Hermite tangents at each knot. These are free optimization variables with no inter-knot constraint.
+
+pulse_cubic = CubicSplinePulse(controls, tangents, times)
+qtraj_cubic = UnitaryTrajectory(sys, pulse_cubic, GATES[:X])
+qcp_cubic = SplinePulseProblem(qtraj_cubic)
+## du (tangents) are independent variables
+#
+# ## Trajectory Structure
+#
+# Unlike `SmoothPulseProblem` which has three derivative levels (`:u`, `:du`, `:ddu`), `SplinePulseProblem` only has one:
+#
+# | Variable | Description |
+# |----------|-------------|
+# | `:u` | Control values at knot points |
+# | `:du` | Derivatives/tangents (meaning depends on spline type) |
+#
+# The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.
+#
+# ## See Also
+#
+# - [SmoothPulseProblem](@ref smooth-pulse) - For piecewise constant controls
+# - [BangBangPulseProblem](@ref bang-bang-pulse) - For L1-regularized bang-bang controls
+# - [MinimumTimeProblem](@ref minimum-time) - Time-optimal control
+# - [Pulses](@ref pulses-concept) - Detailed pulse type documentation
+</script>
+<link rel="stylesheet" href="../../../assets/copybutton.css"/>
+<script src="../../../assets/copybutton.js"></script>
+
+</body></html>
