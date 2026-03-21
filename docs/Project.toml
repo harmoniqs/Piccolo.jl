@@ -8,3 +8,6 @@ LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
 Piccolo = "c4671d76-df94-11ed-2057-43d4fd632fad"
 PiccoloDocsTemplate = "a90a139f-c522-4b23-980b-4210ddb8d065"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+
+[sources]
+DocumenterCopyButton = {url = "https://github.com/harmoniqs/DocumenterCopyButton.jl", rev = "main"}
