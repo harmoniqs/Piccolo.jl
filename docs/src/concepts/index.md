@@ -1,3 +1,6 @@
+```@copybutton
+```
+
 # [Concepts Overview](@id concepts-overview)
 
 Piccolo.jl solves **quantum optimal control problems** via direct trajectory optimization. This page describes the mathematical problem and how Piccolo.jl's components map onto it.

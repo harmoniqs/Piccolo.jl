@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/problem-templates/smooth_pulse.jl
+# ```
+#
 # # [SmoothPulseProblem](@id smooth-pulse)
 #
 # `SmoothPulseProblem` is the most commonly used problem template in Piccolo.jl. It sets up trajectory optimization with piecewise constant controls (`ZeroOrderPulse`) where control smoothness is enforced through discrete derivative variables.

@@ -1,5 +1,6 @@
 using Piccolo
 using PiccoloDocsTemplate
+using DocumenterCopyButton: CopyButton
 
 draft_mode_pages = [
 # "first_gate.jl",
@@ -107,5 +108,5 @@ generate_docs(
         size_threshold = 400 * 2^10,  # 400 KiB for lib.md
     ),
     mask_cached_solve = true,
-    makedocs_kwargs = (draft = draft,),
+    makedocs_kwargs = (draft = draft, plugins = [CopyButton()]),
 )

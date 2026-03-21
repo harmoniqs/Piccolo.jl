@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/guides/visualization.jl
+# ```
+#
 # # [Visualization](@id visualization)
 #
 # Piccolo.jl provides visualization tools for analyzing optimization results.

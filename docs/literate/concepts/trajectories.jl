@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/concepts/trajectories.jl
+# ```
+#
 # # [Trajectories](@id trajectories-concept)
 #
 # A trajectory bundles a quantum system, a control pulse, and a goal into the
