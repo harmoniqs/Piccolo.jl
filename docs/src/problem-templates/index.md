@@ -148,8 +148,9 @@ Problem templates work with different trajectory types depending on your goal:
 |-----------------|----------|
 | `UnitaryTrajectory` | Gate synthesis (most common) |
 | `KetTrajectory` | State transfer |
-| `DensityTrajectory` | Open system evolution |
 | `MultiKetTrajectory` | Multiple state transfers with coherent phases |
+| `DensityTrajectory` | Open system evolution |
+| `MultiDensityTrajectory` | Multiple open system evolutions (e.g., process tomography) |
 
 ### Regularization Parameters
 

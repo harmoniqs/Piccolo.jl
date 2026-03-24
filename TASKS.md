@@ -32,6 +32,12 @@ Clarify and enforce which integrators are valid for each problem type:
 - Private Piccolissimo integrators should work with `SplinePulseProblem`
 - `SmoothPulseProblem` and `BangBangProblem` should only accept zero-order hold pulses
 
+### Refactor hermiticity check to a warning
+- **Labels:** refactor
+
+The hermiticity check for quantum systems currently throws an error. Change it to a
+warning so users can proceed with non-Hermitian Hamiltonians if desired.
+
 ### Investigate BangBang slack variable representation
 - **Labels:** bug
 
