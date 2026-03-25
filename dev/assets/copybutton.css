@@ -63,10 +63,24 @@ body:has(.modal.is-active) .copybutton-container {
 }
 
 /* Override Bulma dropdown-item to work as block links in our context */
-.copybutton-dropdown .dropdown-item {
+.copybutton-dropdown a.dropdown-item {
   cursor: pointer;
   font-size: 0.8rem;
   white-space: nowrap;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.copybutton-redirect-icon {
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.copybutton-dropdown .dropdown-item:hover .copybutton-redirect-icon {
+  opacity: 0.8;
 }
 
 .copybutton-dropdown a.dropdown-item:hover {

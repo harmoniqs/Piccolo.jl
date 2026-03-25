@@ -16,17 +16,19 @@
     var mdUrl = config.mdUrl || "";
     var providers = config.providers || [];
     var prompt = config.prompt || "";
+    var copyLabel = config.copyLabel || "Copy for AI";
     var canonicalBase = config.canonicalBase || "";
     var pagePath = config.pagePath || "";
 
     // Resolve the full markdown URL for AI provider links
+    // Use current page location to get the correct deployed path (includes dev/, stable/, etc.)
     var fullMdUrl;
-    if (canonicalBase && pagePath) {
-      var base = canonicalBase.replace(/\/$/, "");
-      var page = pagePath.replace(/^\//, "");
-      fullMdUrl = base + "/" + page;
+    if (mdUrl) {
+      var loc = window.location;
+      var basePath = loc.pathname.replace(/[^/]*$/, "");
+      fullMdUrl = loc.origin + basePath + mdUrl.replace(/^\.\//, "");
     } else {
-      fullMdUrl = mdUrl;
+      fullMdUrl = "";
     }
 
     // --- Build DOM ---
@@ -50,17 +52,17 @@
     var group = document.createElement("div");
     group.className = "copybutton-group";
 
-    // --- Copy as Markdown button ---
+    // --- Copy for AI button ---
     var copyBtn = document.createElement("button");
     copyBtn.className = "button";
-    copyBtn.title = "Copy page as Markdown";
-    copyBtn.setAttribute("aria-label", "Copy page as Markdown");
+    copyBtn.title = "Copy page as Markdown for AI";
+    copyBtn.setAttribute("aria-label", "Copy page as Markdown for AI");
     copyBtn.innerHTML =
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
       '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>' +
       '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>' +
       '</svg>' +
-      '<span>Copy</span>';
+      '<span>' + copyLabel + '</span>';
 
     copyBtn.addEventListener("click", function () {
       fetchAndCopy(mdUrl, function (err) {
@@ -96,7 +98,24 @@
         var item = document.createElement("a");
         item.className = "dropdown-item";
         item.setAttribute("role", "menuitem");
-        item.textContent = provider.name || "Open";
+        var nameSpan = document.createElement("span");
+        nameSpan.textContent = provider.name || "Open";
+        item.appendChild(nameSpan);
+        var redirectSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        redirectSvg.setAttribute("width", "8");
+        redirectSvg.setAttribute("height", "8");
+        redirectSvg.setAttribute("viewBox", "0 0 8 8");
+        redirectSvg.setAttribute("fill", "none");
+        redirectSvg.setAttribute("aria-hidden", "true");
+        redirectSvg.classList.add("copybutton-redirect-icon");
+        var redirectPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        redirectPath.setAttribute("d", "M2.91667 0.75H7.25M7.25 0.75V5.08333M7.25 0.75L0.75 7.25");
+        redirectPath.setAttribute("stroke", "currentColor");
+        redirectPath.setAttribute("stroke-width", "1.5");
+        redirectPath.setAttribute("stroke-linecap", "round");
+        redirectPath.setAttribute("stroke-linejoin", "round");
+        redirectSvg.appendChild(redirectPath);
+        item.appendChild(redirectSvg);
         item.href = "#";
         item.addEventListener("click", function (e) {
           e.preventDefault();
