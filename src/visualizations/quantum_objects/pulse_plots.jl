@@ -249,7 +249,7 @@ function _plot_pulse_type!(
             knot_vals[i, :];
             color = colors[ci],
             linewidth = 2,
-            step = :pre,
+            step = :post,
             kwargs...,
         )
 
