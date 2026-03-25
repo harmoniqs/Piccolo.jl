@@ -4,6 +4,7 @@ export plot_unitary_populations
 export plot_state_populations
 export plot_weyl_trajectory
 export plot_name!
+export plot_pulse, plot_pulse!
 
 using LaTeXStrings
 using Makie
@@ -32,5 +33,6 @@ end
 include("unitary_populations.jl")
 include("state_populations.jl")
 include("weyl_trajectory.jl")
+include("pulse_plots.jl")
 
 end
