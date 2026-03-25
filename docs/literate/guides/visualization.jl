@@ -69,6 +69,43 @@ cached_solve!(qcp_ket, "visualization_ket"; max_iter = 50, verbose = false, prin
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)
 
+# ## Pulse Plotting
+#
+# The `plot_pulse` function renders any `AbstractPulse` with type-appropriate
+# visuals: step functions for `ZeroOrderPulse`, line segments for
+# `LinearSplinePulse`, smooth curves for `CubicSplinePulse`, etc.
+
+# ### Plot a pulse directly
+
+pulse_demo = ZeroOrderPulse(0.1 * randn(2, N), times)
+fig = plot_pulse(pulse_demo; title = "ZeroOrderPulse", labels = ["u_x", "u_y"])
+
+# ### Overlay layout
+
+fig = plot_pulse(pulse_demo; layout = :overlay, labels = ["u_x", "u_y"])
+
+# ### Extract and plot the optimized pulse
+
+optimized_traj = get_trajectory(qcp)
+optimized_pulse = ZeroOrderPulse(optimized_traj)
+fig = plot_pulse(optimized_pulse; title = "Optimized Pulse", labels = ["u_x", "u_y"])
+
+# ### Hardware bounds
+
+fig = plot_pulse(
+    optimized_pulse;
+    bounds = [(-1.0, 1.0), (-1.0, 1.0)],
+    title = "Pulse with Bounds",
+    labels = ["u_x", "u_y"],
+)
+
+# ### Composable: add to existing figures
+
+fig = Figure(size = (800, 400))
+ax = Axis(fig[1, 1]; xlabel = "Time", ylabel = "Amplitude", title = "Custom Layout")
+plot_pulse!(ax, optimized_pulse)
+fig
+
 # ## Custom Plotting
 #
 # For full control, extract trajectory data and use Makie directly.
