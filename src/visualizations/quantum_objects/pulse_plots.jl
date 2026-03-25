@@ -418,7 +418,14 @@ function _draw_bounds!(ax, pulse::AbstractPulse, bound_pair)
         [Float64(hi), Float64(hi)];
         color = (:steelblue, 0.1),
     )
-    hlines!(ax, [lo, hi]; color = :steelblue, linestyle = :dash, linewidth = 0.8, alpha = 0.5)
+    hlines!(
+        ax,
+        [lo, hi];
+        color = :steelblue,
+        linestyle = :dash,
+        linewidth = 0.8,
+        alpha = 0.5,
+    )
 end
 
 # ============================================================================ #
