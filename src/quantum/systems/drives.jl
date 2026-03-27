@@ -138,28 +138,131 @@ function _forwarddiff_jacobian(f::F) where {F}
 end
 
 # ----------------------------------------------------------------------------- #
-# Interface
+# Modulation Types
+# ----------------------------------------------------------------------------- #
+
+const _identity_modulation = Returns(1.0)
+const _zero_modulation_deriv = Returns(0.0)
+
+"""
+    DriftTerm{H, F, DF}
+
+A drift Hamiltonian term with an optional time-dependent modulation: `a(t) * H`.
+
+# Fields
+- `H::H`: The Hermitian drift operator (matrix or `AbstractDynamicsOperator`)
+- `modulation::F`: `t -> scalar` modulation function (default: `t -> 1`)
+- `modulation_deriv::DF`: `t -> da/dt`, pre-computed via ForwardDiff
+
+# Constructors
+```julia
+DriftTerm(H)                    # identity modulation
+DriftTerm(H, t -> cos(omega*t)) # auto-computes derivative
+```
+"""
+struct DriftTerm{H, F, DF}
+    H::H
+    modulation::F
+    modulation_deriv::DF
+end
+
+function DriftTerm(H, modulation::F) where {F}
+    modulation_deriv = t -> ForwardDiff.derivative(modulation, t)
+    # Validate at construction
+    @assert modulation(0.0) isa Real "Modulation must return a real scalar"
+    modulation_deriv(0.0)  # trigger ForwardDiff to catch errors early
+    return DriftTerm(H, modulation, modulation_deriv)
+end
+
+DriftTerm(H) = DriftTerm(H, _identity_modulation, _zero_modulation_deriv)
+
+"""
+    has_modulation(dt::DriftTerm) -> Bool
+
+Return `true` if this drift term has non-identity modulation.
+"""
+has_modulation(dt::DriftTerm) = dt.modulation !== _identity_modulation
+
+"""
+    ModulatedDrive{D<:AbstractDrive, F, DF} <: AbstractDrive
+
+A drive term with time-dependent modulation: `drive_coeff(base, u, t) * b(t) * H`.
+
+Composes with any `AbstractDrive` subtype. The modulation `b(t)` is independent
+of the control vector `u`.
+
+# Fields
+- `base::D`: The underlying drive (e.g., `LinearDrive`, `NonlinearDrive`)
+- `modulation::F`: `t -> scalar` modulation function
+- `modulation_deriv::DF`: `t -> db/dt`, pre-computed via ForwardDiff
+
+# Example
+```julia
+# u[1] * cos(omega*t) * H_x
+ModulatedDrive(LinearDrive(H_x, 1), t -> cos(omega * t))
+```
+"""
+struct ModulatedDrive{D<:AbstractDrive, F, DF} <: AbstractDrive
+    base::D
+    modulation::F
+    modulation_deriv::DF
+end
+
+function ModulatedDrive(base::D, modulation::F) where {D<:AbstractDrive, F}
+    modulation_deriv = t -> ForwardDiff.derivative(modulation, t)
+    @assert modulation(0.0) isa Real "Modulation must return a real scalar"
+    modulation_deriv(0.0)
+    return ModulatedDrive(base, modulation, modulation_deriv)
+end
+
+has_modulation(d::ModulatedDrive) = true
+has_modulation(::AbstractDrive) = false
+
+# ----------------------------------------------------------------------------- #
+# Interface (all signatures require t for time-modulation support)
 # ----------------------------------------------------------------------------- #
 
 """
-    drive_coeff(d::AbstractDrive, u::AbstractVector) -> Number
+    drive_coeff(d::AbstractDrive, u::AbstractVector, t) -> Number
 
-Compute the scalar coefficient of this drive at controls `u`.
+Compute the scalar coefficient of this drive at controls `u` and time `t`.
 """
-@inline drive_coeff(d::LinearDrive, u::AbstractVector) = u[d.index]
-@inline drive_coeff(d::NonlinearDrive, u::AbstractVector) = d.coeff(u)
+@inline drive_coeff(d::LinearDrive, u::AbstractVector, _t) = u[d.index]
+@inline drive_coeff(d::NonlinearDrive, u::AbstractVector, _t) = d.coeff(u)
+@inline drive_coeff(d::ModulatedDrive, u::AbstractVector, t) =
+    drive_coeff(d.base, u, t) * d.modulation(t)
 
 """
-    drive_coeff_jac(d::AbstractDrive, u::AbstractVector, j::Int) -> Number
+    drive_coeff_jac(d::AbstractDrive, u::AbstractVector, t, j::Int) -> Number
 
-Compute ∂coeff/∂u_j at controls `u`.
+Compute ∂coeff/∂u_j at controls `u` and time `t`.
 
 For `LinearDrive`: returns 1.0 if `j == d.index`, 0.0 otherwise (Kronecker delta).
 For `NonlinearDrive`: evaluates the Jacobian function (user-provided or auto-generated).
+For `ModulatedDrive`: scales the base Jacobian by the modulation at time `t`.
 """
-@inline drive_coeff_jac(d::LinearDrive, ::AbstractVector, j::Int) = j == d.index ? 1.0 : 0.0
-@inline drive_coeff_jac(d::NonlinearDrive, u::AbstractVector, j::Int) = d.coeff_jac(u, j)
+@inline drive_coeff_jac(d::LinearDrive, ::AbstractVector, _t, j::Int) =
+    j == d.index ? 1.0 : 0.0
+@inline drive_coeff_jac(d::NonlinearDrive, u::AbstractVector, _t, j::Int) =
+    d.coeff_jac(u, j)
+@inline drive_coeff_jac(d::ModulatedDrive, u::AbstractVector, t, j::Int) =
+    drive_coeff_jac(d.base, u, t, j) * d.modulation(t)
 
+"""
+    drive_coeff_dt(d::AbstractDrive, u, t) -> Number
+
+Time derivative of the drive coefficient: d/dt[drive_coeff(d, u, t)].
+Returns zero for unmodulated drives.
+"""
+@inline drive_coeff_dt(::LinearDrive, u::AbstractVector, t) = 0.0
+@inline drive_coeff_dt(::NonlinearDrive, u::AbstractVector, t) = 0.0
+@inline drive_coeff_dt(d::ModulatedDrive, u::AbstractVector, t) =
+    drive_coeff(d.base, u, t) * d.modulation_deriv(t)
+
+# Backward-compatible 2-arg shims (remove in PR 2 when Piccolissimo gains t)
+@inline drive_coeff(d::AbstractDrive, u::AbstractVector) = drive_coeff(d, u, 0.0)
+@inline drive_coeff_jac(d::AbstractDrive, u::AbstractVector, j::Int) =
+    drive_coeff_jac(d, u, 0.0, j)
 """
     active_controls(d::AbstractDrive) -> Vector{Int}
 
@@ -173,12 +276,39 @@ active_controls(d::LinearDrive) = [d.index]
 active_controls(d::NonlinearDrive) = d.active_controls
 
 """
+    drive_matrix(d::AbstractDrive) -> AbstractMatrix
+
+Return the Hermitian operator matrix for this drive term.
+"""
+drive_matrix(d::LinearDrive) = d.H
+drive_matrix(d::NonlinearDrive) = d.H
+
+"""
+    drive_dim(d::AbstractDrive) -> Int
+
+Return the size (number of rows) of the drive operator.
+"""
+drive_dim(d::LinearDrive) = size(d.H, 1)
+drive_dim(d::NonlinearDrive) = size(d.H, 1)
+
+# ModulatedDrive interface delegation
+drive_matrix(d::ModulatedDrive) = drive_matrix(d.base)
+drive_dim(d::ModulatedDrive) = drive_dim(d.base)
+active_controls(d::ModulatedDrive) = active_controls(d.base)
+Isomorphisms.G(d::ModulatedDrive) = Isomorphisms.G(d.base)
+
+# Update has_nonlinear_drives to unwrap ModulatedDrive
+_is_nonlinear(::AbstractDrive) = false
+_is_nonlinear(::NonlinearDrive) = true
+_is_nonlinear(d::ModulatedDrive) = _is_nonlinear(d.base)
+
+"""
     has_nonlinear_drives(drives::Vector{<:AbstractDrive}) -> Bool
 
 Check if any drive terms are nonlinear.
 """
 has_nonlinear_drives(drives::AbstractVector{<:AbstractDrive}) =
-    any(d -> d isa NonlinearDrive, drives)
+    any(_is_nonlinear, drives)
 
 # ----------------------------------------------------------------------------- #
 # Isomorphism dispatch for drives
@@ -378,4 +508,126 @@ end
     G_mats = Piccolo.Isomorphisms.G.(drives)
     @test length(G_mats) == 2
     @test all(G_mats .== Ref(Piccolo.Isomorphisms.G(H)))
+end
+
+@testitem "DriftTerm" begin
+    using Piccolo
+    using SparseArrays
+    using ForwardDiff
+
+    H = sparse(ComplexF64[1 0; 0 -1])
+
+    # Default (identity modulation)
+    dt = DriftTerm(H)
+    @test dt.H === H
+    @test dt.modulation(0.0) == 1.0
+    @test dt.modulation(5.0) == 1.0
+    @test dt.modulation_deriv(0.0) == 0.0
+    @test dt.modulation_deriv(5.0) == 0.0
+
+    # With modulation
+    omega = 2.0
+    dt2 = DriftTerm(H, t -> cos(omega * t))
+    @test dt2.modulation(0.0) == 1.0
+    @test dt2.modulation(pi / (2 * omega)) ≈ 0.0 atol=1e-14
+    @test dt2.modulation_deriv(0.0) ≈ 0.0 atol=1e-14
+    @test dt2.modulation_deriv(pi / (2 * omega)) ≈ -omega atol=1e-10
+
+    # Derivative matches ForwardDiff
+    for t in [0.0, 0.5, 1.0, 2.3]
+        @test dt2.modulation_deriv(t) ≈ ForwardDiff.derivative(dt2.modulation, t) atol=1e-10
+    end
+
+    # Non-real modulation should fail at construction
+    @test_throws AssertionError DriftTerm(H, t -> im * t)
+end
+
+@testitem "ModulatedDrive" begin
+    using Piccolo
+    using SparseArrays
+    using ForwardDiff
+
+    H = sparse(ComplexF64[0 1; 1 0])
+    omega = 3.0
+
+    # Wrap a LinearDrive
+    ld = LinearDrive(H, 2)
+    md = ModulatedDrive(ld, t -> cos(omega * t))
+
+    @test md.base === ld
+    @test md.modulation(0.0) == 1.0
+    @test md.modulation(pi / (2 * omega)) ≈ 0.0 atol=1e-14
+
+    # Derivative pre-computed correctly
+    for t in [0.0, 0.5, 1.0]
+        @test md.modulation_deriv(t) ≈ ForwardDiff.derivative(md.modulation, t) atol=1e-10
+    end
+
+    # drive_matrix delegates to base
+    @test drive_matrix(md) == drive_matrix(ld)
+    @test drive_dim(md) == drive_dim(ld)
+    @test active_controls(md) == active_controls(ld)
+
+    # Isomorphisms.G delegates
+    @test Piccolo.Isomorphisms.G(md) == Piccolo.Isomorphisms.G(ld)
+
+    # Wrap a NonlinearDrive
+    nd = NonlinearDrive(H, u -> u[1]^2; active_controls=[1])
+    mnd = ModulatedDrive(nd, t -> sin(omega * t))
+
+    @test drive_matrix(mnd) == drive_matrix(nd)
+    @test active_controls(mnd) == [1]
+
+    # has_nonlinear_drives detects wrapped NonlinearDrive
+    drives = AbstractDrive[md, mnd]
+    @test has_nonlinear_drives(drives)
+
+    drives2 = AbstractDrive[md]
+    @test !has_nonlinear_drives(drives2)
+end
+
+@testitem "drive_coeff with time argument" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse(ComplexF64[0 1; 1 0])
+    omega = 2.0
+    u = [0.3, 0.7, 0.1]
+
+    # LinearDrive ignores t
+    ld = LinearDrive(H, 2)
+    @test drive_coeff(ld, u, 0.0) == 0.7
+    @test drive_coeff(ld, u, 99.0) == 0.7
+    @test drive_coeff_jac(ld, u, 0.0, 2) == 1.0
+    @test drive_coeff_jac(ld, u, 0.0, 1) == 0.0
+
+    # NonlinearDrive ignores t
+    nd = NonlinearDrive(H, u -> u[1]^2 + u[2]^2)
+    @test drive_coeff(nd, u, 0.0) ≈ 0.09 + 0.49
+    @test drive_coeff(nd, u, 99.0) ≈ 0.09 + 0.49
+    @test drive_coeff_jac(nd, u, 0.0, 1) ≈ 0.6
+
+    # ModulatedDrive uses t
+    md = ModulatedDrive(ld, t -> cos(omega * t))
+    @test drive_coeff(md, u, 0.0) ≈ 0.7 * 1.0
+    @test drive_coeff(md, u, pi / (2 * omega)) ≈ 0.0 atol=1e-14
+    @test drive_coeff_jac(md, u, 0.0, 2) ≈ 1.0 * 1.0
+    @test drive_coeff_jac(md, u, pi / (2 * omega), 2) ≈ 0.0 atol=1e-14
+
+    # ModulatedDrive wrapping NonlinearDrive
+    mnd = ModulatedDrive(nd, t -> cos(omega * t))
+    @test drive_coeff(mnd, u, 0.0) ≈ 0.58
+    t_test = 0.3
+    @test drive_coeff(mnd, u, t_test) ≈ (u[1]^2 + u[2]^2) * cos(omega * t_test)
+    @test drive_coeff_jac(mnd, u, t_test, 1) ≈ 2 * u[1] * cos(omega * t_test)
+
+    # drive_coeff_dt
+    @test drive_coeff_dt(ld, u, 0.0) == 0.0
+    @test drive_coeff_dt(nd, u, 0.0) == 0.0
+    @test drive_coeff_dt(md, u, 0.0) ≈ 0.0 atol=1e-14  # cos'(0) = 0
+    @test drive_coeff_dt(md, u, 0.5) ≈ u[2] * (-omega * sin(omega * 0.5)) atol=1e-10
+
+    # 2-arg backward-compatible shims
+    @test drive_coeff(ld, u) == drive_coeff(ld, u, 0.0)
+    @test drive_coeff_jac(ld, u, 2) == drive_coeff_jac(ld, u, 0.0, 2)
 end
