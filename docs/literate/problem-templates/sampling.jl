@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/problem-templates/sampling.jl
+# ```
+#
 # # [SamplingProblem](@id sampling)
 #
 # `SamplingProblem` enables robust optimization over multiple system variants with shared controls. This is essential for designing pulses that perform well despite parameter uncertainty or variation.

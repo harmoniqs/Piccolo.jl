@@ -34,7 +34,7 @@ function _make_free_phase_ket_goals(
 
     # Type-generic for ForwardDiff compatibility (θ may contain Dual numbers)
     function goals_fn(θ)
-        phase_diag = map(0:dim-1) do idx
+        phase_diag = map(0:(dim-1)) do idx
             phase = zero(eltype(θ))
             remaining = idx
             for j in 1:n_subsystems
@@ -369,7 +369,15 @@ function SmoothPulseProblem(
     J = if free_phase && !isnothing(goals_fn)
         CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj_smooth; Q = Q)
     else
-        _ensemble_ket_objective(qtraj, traj_smooth, snames, weights, goals, Q; coherent=coherent)
+        _ensemble_ket_objective(
+            qtraj,
+            traj_smooth,
+            snames,
+            weights,
+            goals,
+            Q;
+            coherent = coherent,
+        )
     end
 
     # Add regularization for control and derivatives
@@ -548,8 +556,8 @@ function _ensemble_ket_objective(
         # Use individual fidelity - each state optimized independently
         # Useful for cold-start on gates with negative phases (e.g. CZ)
         return sum(
-            KetInfidelityObjective(goals[i], snames[i], traj; Q = weights[i] * Q)
-            for i in eachindex(goals)
+            KetInfidelityObjective(goals[i], snames[i], traj; Q = weights[i] * Q) for
+            i in eachindex(goals)
         )
     end
 end
@@ -579,7 +587,9 @@ function _apply_piccolo_options(
     end
 
     return apply_piccolo_options!(
-        piccolo_options, constraints, traj;
+        piccolo_options,
+        constraints,
+        traj;
         state_names = snames,
         state_leakage_indices = leakage_indices,
     )
@@ -1278,7 +1288,7 @@ end
         1.0,                                    # |00⟩: no phase
         0.0,                                    # |01⟩
         0.0,                                    # |10⟩
-        exp(im * (θ[1] + θ[2]))                 # |11⟩: both qubits in |1⟩
+        exp(im * (θ[1] + θ[2])),                 # |11⟩: both qubits in |1⟩
     ] / √2
     @test result_2q[1] ≈ expected atol=1e-12
 
@@ -1304,8 +1314,10 @@ end
 
     # Create problem with free_phase
     qcp = SmoothPulseProblem(
-        ensemble_qtraj, N;
-        Q = 100.0, R = 1e-2,
+        ensemble_qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
         free_phase = true,
         subsystem_levels = [2],
     )
@@ -1333,7 +1345,8 @@ end
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     @test_throws AssertionError SmoothPulseProblem(
-        qtraj, N;
+        qtraj,
+        N;
         free_phase = true,
         subsystem_levels = nothing,
     )
@@ -1370,11 +1383,27 @@ end
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], goals)
 
     # coherent=true (default) should use CoherentKetInfidelityObjective
-    J_coherent = _ensemble_ket_objective(qtraj, traj, [:ψ̃1, :ψ̃2], weights, goals, 100.0; coherent=true)
+    J_coherent = _ensemble_ket_objective(
+        qtraj,
+        traj,
+        [:ψ̃1, :ψ̃2],
+        weights,
+        goals,
+        100.0;
+        coherent = true,
+    )
     @test J_coherent isa DirectTrajOpt.Objectives.KnotPointObjective
 
     # coherent=false should use individual KetInfidelityObjective sum
-    J_incoherent = _ensemble_ket_objective(qtraj, traj, [:ψ̃1, :ψ̃2], weights, goals, 100.0; coherent=false)
+    J_incoherent = _ensemble_ket_objective(
+        qtraj,
+        traj,
+        [:ψ̃1, :ψ̃2],
+        weights,
+        goals,
+        100.0;
+        coherent = false,
+    )
     val_coh = objective_value(J_coherent, traj)
     val_inc = objective_value(J_incoherent, traj)
     @test val_coh ≈ 0.0 atol = 1e-8
@@ -1400,12 +1429,9 @@ end
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     # Enable leakage constraint — should auto-compute indices from goals
-    piccolo_opts = PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 0.01)
-    qcp = SmoothPulseProblem(
-        qtraj, N;
-        Q = 100.0, R = 1e-2,
-        piccolo_options = piccolo_opts,
-    )
+    piccolo_opts =
+        PiccoloOptions(leakage_constraint = true, leakage_constraint_value = 0.01)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, piccolo_options = piccolo_opts)
 
     @test qcp isa QuantumControlProblem
 

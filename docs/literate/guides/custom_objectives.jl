@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/guides/custom_objectives.jl
+# ```
+#
 # # [Custom Objectives](@id custom-objectives)
 #
 # While Piccolo.jl provides standard objectives for fidelity and regularization,

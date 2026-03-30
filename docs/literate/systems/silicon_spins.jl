@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/systems/silicon_spins.jl
+# ```
+#
 # # [Silicon Spins](@id silicon-spin-systems)
 #
 # Silicon spin qubits use electron or hole spins in semiconductor quantum dots

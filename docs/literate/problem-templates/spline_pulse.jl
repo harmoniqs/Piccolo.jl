@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/problem-templates/spline_pulse.jl
+# ```
+#
 # # [SplinePulseProblem](@id spline-pulse)
 #
 # `SplinePulseProblem` sets up trajectory optimization with spline-based pulses where derivative variables represent spline slopes or tangents. This is ideal for inherently smooth control pulses and warm-starting from previous solutions.

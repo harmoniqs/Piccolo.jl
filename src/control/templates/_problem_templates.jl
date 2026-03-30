@@ -120,7 +120,7 @@ function setup_free_phase_globals!(
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     verbose::Bool = false,
 )
-    θ_names = [Symbol(:φ_, i) for i in 1:n_qubits]
+    θ_names = [Symbol(:φ_, i) for i = 1:n_qubits]
 
     if !isnothing(initial_phases)
         @assert length(initial_phases) == n_qubits "initial_phases must have length $n_qubits"
@@ -270,7 +270,9 @@ end
 
     # Should throw ArgumentError (not ValueError) when leakage indices are missing
     @test_throws ArgumentError apply_piccolo_options!(
-        piccolo_opts, constraints, traj;
+        piccolo_opts,
+        constraints,
+        traj;
         state_names = :x,
         state_leakage_indices = nothing,
     )
