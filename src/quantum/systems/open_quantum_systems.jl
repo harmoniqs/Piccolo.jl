@@ -168,7 +168,7 @@ function OpenQuantumSystem(
 
     # Check that all drive operators are Hermitian
     for (i, d) in enumerate(drives)
-        @assert is_hermitian(d.H) "Drive operator drives[$i].H is not Hermitian"
+        @assert is_hermitian(drive_matrix(d)) "Drive operator drives[$i].H is not Hermitian"
     end
 
     H_drift_sparse = sparse(ComplexF64.(H_drift))
@@ -191,7 +191,7 @@ function OpenQuantumSystem(
 
     # Build H(u,t) and 𝒢(u) from drives
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(H_drift_sparse))
-    𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(d.H)) for d in drives]
+    𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(drive_matrix(d))) for d in drives]
 
     # Build dissipator
     if isempty(dissipation_operators)
@@ -204,11 +204,11 @@ function OpenQuantumSystem(
         H_fn = (u, t) -> H_drift_sparse
         𝒢_fn = u -> 𝒢_drift + 𝒟
     else
-        H_fn = (u, t) -> H_drift_sparse + sum(drive_coeff(d, u) * d.H for d in drives)
+        H_fn = (u, t) -> H_drift_sparse + sum(drive_coeff(d, u, t) * drive_matrix(d) for d in drives)
         𝒢_fn =
             u ->
                 𝒢_drift +
-                sum(drive_coeff(d, u) * 𝒢_d for (d, 𝒢_d) in zip(drives, 𝒢_drive_mats)) +
+                sum(drive_coeff(d, u, 0.0) * 𝒢_d for (d, 𝒢_d) in zip(drives, 𝒢_drive_mats)) +
                 𝒟
     end
 
@@ -369,7 +369,7 @@ function compact_lindbladian_generators(sys::OpenQuantumSystem)
 
     # Reconstruct full Lindbladian components from stored fields
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(sys.H_drift))
-    𝒢_drive_terms = [Isomorphisms.G(Isomorphisms.ad_vec(d.H)) for d in sys.H_drives]
+    𝒢_drive_terms = [Isomorphisms.G(Isomorphisms.ad_vec(drive_matrix(d))) for d in sys.H_drives]
 
     if isempty(sys.dissipation_operators)
         𝒟 = spzeros(size(𝒢_drift))
