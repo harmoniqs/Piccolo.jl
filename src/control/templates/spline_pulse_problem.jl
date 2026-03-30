@@ -99,6 +99,9 @@ qcp = SplinePulseProblem(qtraj; Q=100.0, du_bound=10.0)
 # Or resample to different number of knots
 qcp = SplinePulseProblem(qtraj, 50; Q=100.0, du_bound=10.0)
 
+# Per-drive bounds (takes precedence over du_bound)
+qcp = SplinePulseProblem(qtraj; Q=100.0, du_bounds=[5.0, 2.0])
+
 solve!(qcp; max_iter=100)
 ```
 
@@ -280,7 +283,7 @@ Create a spline-based trajectory optimization problem for ensemble ket state tra
 
 Uses coherent fidelity objective (phases must align) for gate implementation.
 
-# Arguments  
+# Arguments
 - `qtraj::MultiKetTrajectory{<:AbstractSplinePulse}`: Ensemble trajectory with spline pulse
 - `N_or_times`: One of:
   - `nothing` (default): Use native knot times from spline pulse
@@ -288,7 +291,14 @@ Uses coherent fidelity objective (phases must align) for gate implementation.
   - `times::AbstractVector`: Specific sample times
 
 # Keyword Arguments
-Same as the base `SplinePulseProblem` method.
+Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method, plus:
+- `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
+- `free_phase::Bool=false`: Optimize a per-subsystem frame phase alongside the pulse. Applies number-operator rotation `e^{iθ n̂}` to goal states — level `s` acquires phase `s·θ`. Requires `subsystem_levels`.
+- `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
+- `initial_phases::Union{Nothing, Vector{Float64}}=nothing`: Initial values for the per-subsystem phase variables when `free_phase=true`. Length must equal the number of subsystems.
+- `coherent::Bool=true`: If `true`, uses a coherent fidelity objective (phases must align across state pairs). If `false`, uses per-state fidelity.
+- `integrator_type::Symbol=:spline`: Integrator backend (`:spline` or `:ensemble`).
+- `parallel_backend::Symbol=:manual`: Parallelism strategy (`:manual`, `:threads`, or `:gpu`).
 """
 function SplinePulseProblem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
