@@ -2,13 +2,13 @@
 # Drive Types: Operator + Coefficient for Hamiltonian Terms
 #
 # A Drive pairs a Hamiltonian matrix with a scalar coefficient function of the
-# control vector u. This enables both linear drives (u[i] * H_i) and nonlinear
-# drives (f(u) * H) in the same framework.
+# control vector u and time t. This enables linear drives (u[i] * H_i),
+# nonlinear drives (f(u) * H), and time-modulated drives (f(u) * b(t) * H).
 #
-# The Hamiltonian is: H(u, t) = H_drift + Σ_d drive_coeff(d, u) * d.H
+# The Hamiltonian is: H(u, t) = Σ_dt a(t)*H_dt + Σ_d drive_coeff(d, u, t) * H_d
 #
 # For analytical sensitivity equations (e.g., spline integrators), the chain
-# rule requires: ∂H/∂u_j = Σ_d drive_coeff_jac(d, u, j) * d.H
+# rule requires: ∂H/∂u_j = Σ_d drive_coeff_jac(d, u, t, j) * H_d
 # ----------------------------------------------------------------------------- #
 
 """
@@ -17,16 +17,16 @@
 Abstract supertype for Hamiltonian drive terms.
 
 A drive pairs a Hermitian matrix `H` with a scalar coefficient that depends on the
-control vector `u`. The full Hamiltonian is:
+control vector `u` and (optionally) time `t`. The full Hamiltonian is:
 
-    H(u, t) = H_drift + Σ_d drive_coeff(d, u) * d.H
+    H(u, t) = Σ_k a_k(t) * H_drift_k + Σ_d drive_coeff(d, u, t) * H_d
 
 Subtypes must implement:
-- `drive_coeff(d, u)` — compute the scalar coefficient
-- `drive_coeff_jac(d, u, j)` — compute ∂coeff/∂u_j
+- `drive_coeff(d, u, t)` — compute the scalar coefficient
+- `drive_coeff_jac(d, u, t, j)` — compute ∂coeff/∂u_j
 - `active_controls(d)` — return indices where ∂coeff/∂u_j can be nonzero
 
-See [`LinearDrive`](@ref) and [`NonlinearDrive`](@ref).
+See [`LinearDrive`](@ref), [`NonlinearDrive`](@ref), [`ModulatedDrive`](@ref).
 """
 abstract type AbstractDrive end
 

@@ -18,15 +18,31 @@ end
 A struct for storing quantum dynamics.
 
 # Fields
-- `H::Function`: The Hamiltonian function: (u, t) -> H(u, t), where u is the control vector and t is time
-- `G::Function`: The isomorphic generator function: (u, t) -> G(u, t), including the Hamiltonian mapped to superoperator space
-- `H_drift::SparseMatrixCSC{ComplexF64, Int}`: The drift Hamiltonian (time-independent component)
-- `H_drives::Vector{AbstractDrive}`: The canonical drive terms, each pairing an operator with a coefficient function. Matrix-based constructors auto-populate this with `LinearDrive` objects; function-based systems leave it empty.
-- `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds for each control (lower, upper)
-- `n_drives::Int`: The number of control channels (length of the control vector `u`)
-- `levels::Int`: The number of levels (dimension) in the system
-- `time_dependent::Bool`: Whether the Hamiltonian has explicit time dependence beyond control modulation
-- `global_params::NamedTuple`: Global parameters that the Hamiltonian may depend on (e.g., (δ=0.5, Ω=1.0))
+- `H::Function`: The Hamiltonian function: `(u, t) -> H(u, t)`
+- `G::Function`: The isomorphic generator function: `(u, t) -> G(u, t)`
+- `H_drift::SparseMatrixCSC{ComplexF64, Int}`: Sum of drift matrices (backward compat)
+- `drift_terms::Vector{DriftTerm}`: Source of truth for drift terms with optional time modulation
+- `H_drives::Vector{AbstractDrive}`: Drive terms (`LinearDrive`, `NonlinearDrive`, or `ModulatedDrive`)
+- `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds per control
+- `n_drives::Int`: Number of control channels
+- `levels::Int`: System dimension
+- `time_dependent::Bool`: Set automatically when modulation is present
+- `global_params::NamedTuple`: Global parameters
+
+# Time Modulation (Pair syntax)
+
+Use `=>` to attach time-dependent modulation to drift or drive terms:
+
+```julia
+# Modulated drive: u[1] * cos(ωt) * H_x
+sys = QuantumSystem(H_z, [H_x => t -> cos(ω*t)], [1.0])
+
+# Modulated drift: cos(ωt) * H_z
+sys = QuantumSystem(H_z => t -> cos(ω*t), [H_x], [1.0])
+
+# Multiple drift terms
+sys = QuantumSystem([H_z, H_x => t -> cos(ω*t)], [H_y], [1.0])
+```
 
 See also [`OpenQuantumSystem`](@ref), [`VariationalQuantumSystem`](@ref).
 """
