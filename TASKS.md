@@ -39,6 +39,7 @@ The hermiticity check for quantum systems currently throws an error. Change it t
 warning so users can proceed with non-Hermitian Hamiltonians if desired.
 
 ### Investigate BangBang slack variable representation
+<!-- id: PVTI_lADOC9ysqc4BETyazgnBXlw -->
 - **Labels:** bug
 
 The bang-bang slack representation doesn't seem to be the right slack rep. Look into this
