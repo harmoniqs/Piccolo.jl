@@ -389,7 +389,10 @@ function QuantumSystem(
         H_fn = (u, t) -> H_drift
         G_fn = (u, t) -> G_drift
     else
-        H_fn = (u, t) -> H_drift + sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
+        H_fn =
+            (u, t) ->
+                H_drift +
+                sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
         G_fn =
             (u, t) ->
                 G_drift +
@@ -431,14 +434,16 @@ function _normalize_drive(p::Pair{<:AbstractMatrix,<:Function}, index::Int)
     return ModulatedDrive(LinearDrive(sparse(ComplexF64.(p.first)), index), p.second)
 end
 _normalize_drive(d::AbstractDrive, ::Int) = d
-_normalize_drive(p::Pair{<:AbstractDrive,<:Function}, ::Int) = ModulatedDrive(p.first, p.second)
+_normalize_drive(p::Pair{<:AbstractDrive,<:Function}, ::Int) =
+    ModulatedDrive(p.first, p.second)
 
 """Check if any drift_terms or drives have non-identity modulation."""
 function _has_any_modulation(drift_terms, drives)
     any(has_modulation, drift_terms) || any(has_modulation, drives)
 end
 
-const _DriftInput = Union{AbstractMatrix{<:Number},Pair{<:AbstractMatrix{<:Number},<:Function}}
+const _DriftInput =
+    Union{AbstractMatrix{<:Number},Pair{<:AbstractMatrix{<:Number},<:Function}}
 const _DriftInputs = Union{_DriftInput,AbstractVector}
 
 """
@@ -469,8 +474,8 @@ function QuantumSystem(
 )
     # Normalize drift into Vector{DriftTerm}
     drift_terms = _normalize_drift(drift)
-    H_drift_sum = isempty(drift_terms) ? spzeros(ComplexF64, 0, 0) :
-        sum(dt.H for dt in drift_terms)
+    H_drift_sum =
+        isempty(drift_terms) ? spzeros(ComplexF64, 0, 0) : sum(dt.H for dt in drift_terms)
 
     # Check drift is Hermitian
     @assert is_hermitian(H_drift_sum) "Drift Hamiltonian is not Hermitian"
@@ -484,7 +489,13 @@ function QuantumSystem(
         elseif d_input isa AbstractDrive
             push!(drives, d_input)
         elseif d_input isa Pair{<:AbstractMatrix,<:Function}
-            push!(drives, ModulatedDrive(LinearDrive(sparse(ComplexF64.(d_input.first)), linear_idx), d_input.second))
+            push!(
+                drives,
+                ModulatedDrive(
+                    LinearDrive(sparse(ComplexF64.(d_input.first)), linear_idx),
+                    d_input.second,
+                ),
+            )
             linear_idx += 1
         else
             # Plain matrix
@@ -512,19 +523,34 @@ function QuantumSystem(
 
     if isempty(drives)
         H_fn = (u, t) -> sum(dt.modulation(t) * dt.H for dt in drift_terms)
-        G_fn = (u, t) -> sum(dt.modulation(t) * G_dt for (dt, G_dt) in zip(drift_terms, G_drift_terms))
+        G_fn =
+            (u, t) -> sum(
+                dt.modulation(t) * G_dt for (dt, G_dt) in zip(drift_terms, G_drift_terms)
+            )
     else
-        H_fn = (u, t) ->
-            sum(dt.modulation(t) * dt.H for dt in drift_terms) +
-            sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
-        G_fn = (u, t) ->
-            sum(dt.modulation(t) * G_dt for (dt, G_dt) in zip(drift_terms, G_drift_terms)) +
-            sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
+        H_fn =
+            (u, t) ->
+                sum(dt.modulation(t) * dt.H for dt in drift_terms) +
+                sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
+        G_fn =
+            (u, t) ->
+                sum(
+                    dt.modulation(t) * G_dt for
+                    (dt, G_dt) in zip(drift_terms, G_drift_terms)
+                ) +
+                sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
     end
 
     return QuantumSystem(
-        H_fn, G_fn, H_drift_sum, drift_terms, collect(AbstractDrive, drives),
-        drive_bounds_vec, n_drives, levels, td,
+        H_fn,
+        G_fn,
+        H_drift_sum,
+        drift_terms,
+        collect(AbstractDrive, drives),
+        drive_bounds_vec,
+        n_drives,
+        levels,
+        td,
         _float_params(global_params),
     )
 end
@@ -782,7 +808,7 @@ end
     @test sys3.H_drift ≈ H_z + H_x  # sum of all drift matrices
 
     # Typed drive with modulation: NonlinearDrive => modulation
-    nd = NonlinearDrive(H_x, u -> u[1]^2; active_controls=[1])
+    nd = NonlinearDrive(H_x, u -> u[1]^2; active_controls = [1])
     sys4 = QuantumSystem(H_z, [nd => t -> cos(omega * t)], [1.0])
     @test sys4.H_drives[1] isa ModulatedDrive
     @test sys4.H_drives[1].base === nd

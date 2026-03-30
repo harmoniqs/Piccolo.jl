@@ -32,7 +32,11 @@ function BilinearIntegrator(qtraj::UnitaryTrajectory, N::Int)
     if sys.time_dependent
         Ĝ = (u_, t) -> I(sys.levels) ⊗ sys.G(u_, t)
         return TimeDependentBilinearIntegrator(
-            Ĝ, state_name(qtraj), drive_name(qtraj), :t, traj
+            Ĝ,
+            state_name(qtraj),
+            drive_name(qtraj),
+            :t,
+            traj,
         )
     else
         Ĝ = u_ -> I(sys.levels) ⊗ sys.G(u_, 0.0)
@@ -51,7 +55,11 @@ function BilinearIntegrator(qtraj::KetTrajectory, N::Int)
     if sys.time_dependent
         Ĝ = (u_, t) -> sys.G(u_, t)
         return TimeDependentBilinearIntegrator(
-            Ĝ, state_name(qtraj), drive_name(qtraj), :t, traj
+            Ĝ,
+            state_name(qtraj),
+            drive_name(qtraj),
+            :t,
+            traj,
         )
     else
         Ĝ = u_ -> sys.G(u_, 0.0)
@@ -92,7 +100,10 @@ function BilinearIntegrator(qtraj::MultiKetTrajectory, N::Int)
     snames = state_names(qtraj)
     if sys.time_dependent
         Ĝ = (u_, t) -> sys.G(u_, t)
-        return [TimeDependentBilinearIntegrator(Ĝ, name, control_sym, :t, traj) for name in snames]
+        return [
+            TimeDependentBilinearIntegrator(Ĝ, name, control_sym, :t, traj) for
+            name in snames
+        ]
     else
         Ĝ = u_ -> sys.G(u_, 0.0)
         return [BilinearIntegrator(Ĝ, name, control_sym, traj) for name in snames]
@@ -522,7 +533,7 @@ end
 
     T = 1.0
     N = 11
-    times = collect(range(0, T, length=N))
+    times = collect(range(0, T, length = N))
     controls = zeros(1, N)
     pulse = LinearSplinePulse(controls, times)
 
@@ -560,7 +571,7 @@ end
 
     T = 1.0
     N = 11
-    times = collect(range(0, T, length=N))
+    times = collect(range(0, T, length = N))
     controls = zeros(1, N)
     pulse = LinearSplinePulse(controls, times)
 
@@ -595,7 +606,7 @@ end
 
     T = 1.0
     N = 11
-    times = collect(range(0, T, length=N))
+    times = collect(range(0, T, length = N))
     controls = zeros(1, N)
     pulse = LinearSplinePulse(controls, times)
 

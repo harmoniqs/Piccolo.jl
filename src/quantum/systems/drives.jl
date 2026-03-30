@@ -160,7 +160,7 @@ DriftTerm(H)                    # identity modulation
 DriftTerm(H, t -> cos(omega*t)) # auto-computes derivative
 ```
 """
-struct DriftTerm{H, F, DF}
+struct DriftTerm{H,F,DF}
     H::H
     modulation::F
     modulation_deriv::DF
@@ -202,13 +202,13 @@ of the control vector `u`.
 ModulatedDrive(LinearDrive(H_x, 1), t -> cos(omega * t))
 ```
 """
-struct ModulatedDrive{D<:AbstractDrive, F, DF} <: AbstractDrive
+struct ModulatedDrive{D<:AbstractDrive,F,DF} <: AbstractDrive
     base::D
     modulation::F
     modulation_deriv::DF
 end
 
-function ModulatedDrive(base::D, modulation::F) where {D<:AbstractDrive, F}
+function ModulatedDrive(base::D, modulation::F) where {D<:AbstractDrive,F}
     modulation_deriv = t -> ForwardDiff.derivative(modulation, t)
     @assert modulation(0.0) isa Real "Modulation must return a real scalar"
     modulation_deriv(0.0)
@@ -307,8 +307,7 @@ _is_nonlinear(d::ModulatedDrive) = _is_nonlinear(d.base)
 
 Check if any drive terms are nonlinear.
 """
-has_nonlinear_drives(drives::AbstractVector{<:AbstractDrive}) =
-    any(_is_nonlinear, drives)
+has_nonlinear_drives(drives::AbstractVector{<:AbstractDrive}) = any(_is_nonlinear, drives)
 
 # ----------------------------------------------------------------------------- #
 # Isomorphism dispatch for drives
@@ -529,13 +528,14 @@ end
     omega = 2.0
     dt2 = DriftTerm(H, t -> cos(omega * t))
     @test dt2.modulation(0.0) == 1.0
-    @test dt2.modulation(pi / (2 * omega)) ≈ 0.0 atol=1e-14
-    @test dt2.modulation_deriv(0.0) ≈ 0.0 atol=1e-14
-    @test dt2.modulation_deriv(pi / (2 * omega)) ≈ -omega atol=1e-10
+    @test dt2.modulation(pi / (2 * omega)) ≈ 0.0 atol = 1e-14
+    @test dt2.modulation_deriv(0.0) ≈ 0.0 atol = 1e-14
+    @test dt2.modulation_deriv(pi / (2 * omega)) ≈ -omega atol = 1e-10
 
     # Derivative matches ForwardDiff
     for t in [0.0, 0.5, 1.0, 2.3]
-        @test dt2.modulation_deriv(t) ≈ ForwardDiff.derivative(dt2.modulation, t) atol=1e-10
+        @test dt2.modulation_deriv(t) ≈ ForwardDiff.derivative(dt2.modulation, t) atol =
+            1e-10
     end
 
     # Non-real modulation should fail at construction
@@ -556,11 +556,11 @@ end
 
     @test md.base === ld
     @test md.modulation(0.0) == 1.0
-    @test md.modulation(pi / (2 * omega)) ≈ 0.0 atol=1e-14
+    @test md.modulation(pi / (2 * omega)) ≈ 0.0 atol = 1e-14
 
     # Derivative pre-computed correctly
     for t in [0.0, 0.5, 1.0]
-        @test md.modulation_deriv(t) ≈ ForwardDiff.derivative(md.modulation, t) atol=1e-10
+        @test md.modulation_deriv(t) ≈ ForwardDiff.derivative(md.modulation, t) atol = 1e-10
     end
 
     # drive_matrix delegates to base
@@ -572,7 +572,7 @@ end
     @test Piccolo.Isomorphisms.G(md) == Piccolo.Isomorphisms.G(ld)
 
     # Wrap a NonlinearDrive
-    nd = NonlinearDrive(H, u -> u[1]^2; active_controls=[1])
+    nd = NonlinearDrive(H, u -> u[1]^2; active_controls = [1])
     mnd = ModulatedDrive(nd, t -> sin(omega * t))
 
     @test drive_matrix(mnd) == drive_matrix(nd)
@@ -610,9 +610,9 @@ end
     # ModulatedDrive uses t
     md = ModulatedDrive(ld, t -> cos(omega * t))
     @test drive_coeff(md, u, 0.0) ≈ 0.7 * 1.0
-    @test drive_coeff(md, u, pi / (2 * omega)) ≈ 0.0 atol=1e-14
+    @test drive_coeff(md, u, pi / (2 * omega)) ≈ 0.0 atol = 1e-14
     @test drive_coeff_jac(md, u, 0.0, 2) ≈ 1.0 * 1.0
-    @test drive_coeff_jac(md, u, pi / (2 * omega), 2) ≈ 0.0 atol=1e-14
+    @test drive_coeff_jac(md, u, pi / (2 * omega), 2) ≈ 0.0 atol = 1e-14
 
     # ModulatedDrive wrapping NonlinearDrive
     mnd = ModulatedDrive(nd, t -> cos(omega * t))
@@ -624,8 +624,8 @@ end
     # drive_coeff_dt
     @test drive_coeff_dt(ld, u, 0.0) == 0.0
     @test drive_coeff_dt(nd, u, 0.0) == 0.0
-    @test drive_coeff_dt(md, u, 0.0) ≈ 0.0 atol=1e-14  # cos'(0) = 0
-    @test drive_coeff_dt(md, u, 0.5) ≈ u[2] * (-omega * sin(omega * 0.5)) atol=1e-10
+    @test drive_coeff_dt(md, u, 0.0) ≈ 0.0 atol = 1e-14  # cos'(0) = 0
+    @test drive_coeff_dt(md, u, 0.5) ≈ u[2] * (-omega * sin(omega * 0.5)) atol = 1e-10
 
     # 2-arg backward-compatible shims
     @test drive_coeff(ld, u) == drive_coeff(ld, u, 0.0)
