@@ -37,8 +37,8 @@ function _make_free_phase_ket_goals(
         phase_diag = map(0:(dim-1)) do idx
             phase = zero(eltype(θ))
             remaining = idx
-            for j in 1:n_subsystems
-                stride = prod(subsystem_levels[k] for k in j+1:n_subsystems; init=1)
+            for j = 1:n_subsystems
+                stride = prod(subsystem_levels[k] for k = (j+1):n_subsystems; init = 1)
                 sj = remaining ÷ stride
                 remaining = remaining % stride
                 phase += sj * θ[j]
@@ -342,8 +342,11 @@ function SmoothPulseProblem(
         n_qubits = length(subsystem_levels)
         goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds;
-            initial_phases=initial_phases, verbose=piccolo_options.verbose
+            n_qubits,
+            global_data,
+            global_bounds;
+            initial_phases = initial_phases,
+            verbose = piccolo_options.verbose,
         )
     end
 

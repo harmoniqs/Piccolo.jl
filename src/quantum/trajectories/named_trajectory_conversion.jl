@@ -670,8 +670,12 @@ function NamedTrajectory(
         state_dim = size(ρ̃, 1)
 
         state_data = merge(state_data, _named_tuple(name => ρ̃))
-        initial_nt = merge(initial_nt, _named_tuple(name => density_to_compact_iso(qtraj.initials[i])))
-        goal_nt = merge(goal_nt, _named_tuple(name => density_to_compact_iso(qtraj.goals[i])))
+        initial_nt = merge(
+            initial_nt,
+            _named_tuple(name => density_to_compact_iso(qtraj.initials[i])),
+        )
+        goal_nt =
+            merge(goal_nt, _named_tuple(name => density_to_compact_iso(qtraj.goals[i])))
         bounds = merge(bounds, _named_tuple(name => (-ones(state_dim), ones(state_dim))))
     end
 

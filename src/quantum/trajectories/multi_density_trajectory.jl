@@ -83,7 +83,14 @@ function MultiDensityTrajectory(
         reltol = reltol,
     )
 
-    return MultiDensityTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ρ0s, ρgs, ws, sol)
+    return MultiDensityTrajectory{typeof(pulse),typeof(sol)}(
+        system,
+        pulse,
+        ρ0s,
+        ρgs,
+        ws,
+        sol,
+    )
 end
 
 """

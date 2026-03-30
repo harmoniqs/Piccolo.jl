@@ -147,8 +147,11 @@ function SplinePulseProblem(
         n_qubits = length(goal.subsystem_levels)
         U_goal_fn = _make_free_phase_goal(goal)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds;
-            initial_phases=initial_phases, verbose=piccolo_options.verbose
+            n_qubits,
+            global_data,
+            global_bounds;
+            initial_phases = initial_phases,
+            verbose = piccolo_options.verbose,
         )
     end
 
@@ -338,8 +341,11 @@ function SplinePulseProblem(
         n_qubits = length(subsystem_levels)
         goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds;
-            initial_phases=initial_phases, verbose=piccolo_options.verbose
+            n_qubits,
+            global_data,
+            global_bounds;
+            initial_phases = initial_phases,
+            verbose = piccolo_options.verbose,
         )
     end
 
