@@ -50,20 +50,20 @@ function UnitaryTrajectory(
     system::QuantumSystem,
     pulse::AbstractPulse,
     goal::G;
-    initial::AbstractMatrix{<:Number}=Matrix{ComplexF64}(I, system.levels, system.levels),
-    algorithm=MagnusAdapt4(),
-    abstol::Real=1e-8,
-    reltol::Real=1e-8,
-    n_save::Int=101,
+    initial::AbstractMatrix{<:Number} = Matrix{ComplexF64}(I, system.levels, system.levels),
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+    n_save::Int = 101,
 ) where {G}
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
     U0 = Matrix{ComplexF64}(initial)
     knot_times = get_knot_times(pulse)
-    save_times = collect(range(0.0, duration(pulse), length=n_save))
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = UnitaryOperatorODEProblem(system, pulse, tstops; U0=U0)
-    sol = solve(prob, algorithm; saveat=save_times, abstol=abstol, reltol=reltol)
+    prob = UnitaryOperatorODEProblem(system, pulse, tstops; U0 = U0)
+    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     return UnitaryTrajectory{typeof(pulse),typeof(sol),G}(system, pulse, U0, goal, sol)
 end
@@ -88,10 +88,10 @@ function UnitaryTrajectory(
     system::QuantumSystem,
     goal::G,
     T::Real;
-    drive_name::Symbol=:u,
-    algorithm=MagnusAdapt4(),
-    abstol::Real=1e-8,
-    reltol::Real=1e-8,
+    drive_name::Symbol = :u,
+    algorithm = MagnusAdapt4(),
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
 ) where {G}
     times = [0.0, T]
     controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
@@ -195,7 +195,7 @@ end
     @test qtraj.goal isa EmbeddedOperator
 
     # Fidelity with subspace
-    fid = fidelity(qtraj; subspace=[1, 2])
+    fid = fidelity(qtraj; subspace = [1, 2])
     @test fid isa Real
 end
 
@@ -215,7 +215,7 @@ end
 
     # Fixed-step with only 101 points — may be inaccurate
     qtraj_fixed =
-        UnitaryTrajectory(sys, pulse, X_gate; algorithm=MagnusGL4(), n_save=101)
+        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 101)
     fid_fixed = fidelity(qtraj_fixed)
 
     # Adaptive — should be accurate
@@ -223,15 +223,15 @@ end
         sys,
         pulse,
         X_gate;
-        algorithm=MagnusAdapt4(),
-        abstol=1e-10,
-        reltol=1e-10,
+        algorithm = MagnusAdapt4(),
+        abstol = 1e-10,
+        reltol = 1e-10,
     )
     fid_adapt = fidelity(qtraj_adapt)
 
     # Reference: fixed-step with very many points
     qtraj_ref =
-        UnitaryTrajectory(sys, pulse, X_gate; algorithm=MagnusGL4(), n_save=10001)
+        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 10001)
     fid_ref = fidelity(qtraj_ref)
 
     # Adaptive should match reference; fixed-101 may not
@@ -245,16 +245,16 @@ end
 
     sys = QuantumSystem(10.0 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     T = 1.0
-    pulse = ZeroOrderPulse(randn(2, 5), range(0, T, length=5))
+    pulse = ZeroOrderPulse(randn(2, 5), range(0, T, length = 5))
     X_gate = ComplexF64[0 1; 1 0]
 
     qtraj = UnitaryTrajectory(
         sys,
         pulse,
         X_gate;
-        algorithm=MagnusAdapt4(),
-        abstol=1e-10,
-        reltol=1e-10,
+        algorithm = MagnusAdapt4(),
+        abstol = 1e-10,
+        reltol = 1e-10,
     )
 
     for U in qtraj.solution.u
@@ -277,9 +277,9 @@ end
         sys,
         pulse,
         X_gate;
-        algorithm=MagnusAdapt4(),
-        abstol=1e-12,
-        reltol=1e-12,
+        algorithm = MagnusAdapt4(),
+        abstol = 1e-12,
+        reltol = 1e-12,
     )
 
     @test fidelity(qtraj) > 1.0 - 1e-10
@@ -299,14 +299,14 @@ end
             sys,
             pulse,
             X_gate;
-            algorithm=MagnusAdapt4(),
-            abstol=1e-10,
-            reltol=1e-10,
+            algorithm = MagnusAdapt4(),
+            abstol = 1e-10,
+            reltol = 1e-10,
         ),
     )
 
     fid_gl4_fine = fidelity(
-        UnitaryTrajectory(sys, pulse, X_gate; algorithm=MagnusGL4(), n_save=10001),
+        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 10001),
     )
 
     @test fid_adapt ≈ fid_gl4_fine atol = 1e-6
