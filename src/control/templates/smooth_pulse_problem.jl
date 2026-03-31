@@ -7,32 +7,41 @@ export SmoothPulseProblem
 """
     _make_free_phase_ket_goals(goals, subsystem_levels)
 
-Build a function `θ -> Vector{Vector{ComplexF64}}` that applies single-qubit
-Z-phase rotations to ket goal states in the full Hilbert space.
+Build a function `θ -> Vector{Vector{ComplexF64}}` that applies per-subsystem
+frame rotations `e^{iθⱼ n̂ⱼ}` to ket goal states in the full Hilbert space.
 
-For an N-qubit system with levels `[l₁, l₂, ...]`, each basis element
-`|s₁,s₂,...,sₙ⟩` gets phase `exp(i·Σⱼ θⱼ·δ(sⱼ,1))` — only the `|1⟩`
-level of each qubit acquires a phase.
+Each basis element `|s₁, s₂, ..., sₙ⟩` acquires phase `exp(i·Σⱼ sⱼ·θⱼ)`,
+where `sⱼ` is the level index of subsystem `j`. This is a number-operator
+rotation `e^{iθ n̂}` on each subsystem — the natural "free" phase from frame
+tracking.
+
+For 2-level qubits this is identical to the Z gate: `diag(1, e^{iθ})`.
+For multi-level systems (transmon, cavity) it gives: `diag(1, e^{iθ}, e^{2iθ}, ...)`.
+
+For a transmon⊗cavity system with `levels=[3, 10]`:
+- `|e, 0⟩` (q=1, n=0) gets phase `e^{iθ₁}`
+- `|e, 1⟩` (q=1, n=1) gets phase `e^{i(θ₁ + θ₂)}`
+- `|e, 2⟩` (q=1, n=2) gets phase `e^{i(θ₁ + 2θ₂)}`
+- `|g, n⟩` (q=0, any n) gets phase `e^{inθ₂}`
+- `|f, n⟩` (q=2, any n) gets phase `e^{i(2θ₁ + nθ₂)}`
 """
 function _make_free_phase_ket_goals(
     goals::Vector{<:AbstractVector{<:Complex}},
     subsystem_levels::Vector{Int},
 )
     dim = prod(subsystem_levels)
-    n_qubits = length(subsystem_levels)
+    n_subsystems = length(subsystem_levels)
 
     # Type-generic for ForwardDiff compatibility (θ may contain Dual numbers)
     function goals_fn(θ)
         phase_diag = map(0:(dim-1)) do idx
             phase = zero(eltype(θ))
             remaining = idx
-            for j = 1:n_qubits
-                stride = prod(subsystem_levels[k] for k = (j+1):n_qubits; init = 1)
+            for j = 1:n_subsystems
+                stride = prod(subsystem_levels[k] for k = (j+1):n_subsystems; init = 1)
                 sj = remaining ÷ stride
                 remaining = remaining % stride
-                if sj == 1  # |1⟩ state of qubit j
-                    phase += θ[j]
-                end
+                phase += sj * θ[j]
             end
             return exp(im * phase)
         end
@@ -302,6 +311,7 @@ function SmoothPulseProblem(
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     coherent::Bool = true,
 )
     if piccolo_options.verbose
@@ -324,7 +334,7 @@ function SmoothPulseProblem(
         nothing
     end
 
-    # Free-phase support: add single-qubit Z-phase variables as globals
+    # Free-phase support: add per-subsystem phase variables as globals
     θ_names = Symbol[]
     goals_fn = nothing
     if free_phase
@@ -335,6 +345,7 @@ function SmoothPulseProblem(
             n_qubits,
             global_data,
             global_bounds;
+            initial_phases = initial_phases,
             verbose = piccolo_options.verbose,
         )
     end

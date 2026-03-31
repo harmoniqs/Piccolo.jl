@@ -20,7 +20,7 @@ A struct for storing quantum dynamics.
 # Fields
 - `H::Function`: The Hamiltonian function: (u, t) -> H(u, t), where u is the control vector and t is time
 - `G::Function`: The isomorphic generator function: (u, t) -> G(u, t), including the Hamiltonian mapped to superoperator space
-- `H_drift::SparseMatrixCSC{ComplexF64, Int}`: The drift Hamiltonian (time-independent component)
+- `H_drift`: The drift Hamiltonian (time-independent component). Typically `SparseMatrixCSC{ComplexF64,Int}` for matrix-based systems, but can be any type (e.g., an `AbstractDynamicsOperator` from Piccolissimo) for structured operator acceleration.
 - `H_drives::Vector{AbstractDrive}`: The canonical drive terms, each pairing an operator with a coefficient function. Matrix-based constructors auto-populate this with `LinearDrive` objects; function-based systems leave it empty.
 - `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds for each control (lower, upper)
 - `n_drives::Int`: The number of control channels (length of the control vector `u`)
@@ -30,10 +30,10 @@ A struct for storing quantum dynamics.
 
 See also [`OpenQuantumSystem`](@ref), [`VariationalQuantumSystem`](@ref).
 """
-struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple} <: AbstractQuantumSystem
+struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple,HD} <: AbstractQuantumSystem
     H::F1
     G::F2
-    H_drift::SparseMatrixCSC{ComplexF64,Int}
+    H_drift::HD
     H_drives::Vector{AbstractDrive}
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
@@ -249,7 +249,7 @@ function QuantumSystem(
     global_params::NamedTuple = NamedTuple(),
 )
     @assert !isempty(drives) "At least one drive is required"
-    levels = size(first(drives).H, 1)
+    levels = drive_dim(first(drives))
     return QuantumSystem(
         spzeros(ComplexF64, levels, levels),
         drives,
@@ -338,7 +338,7 @@ function QuantumSystem(
 
     # Check that all drive operators are Hermitian
     for (i, d) in enumerate(drives)
-        @assert is_hermitian(d.H) "Drive operator drives[$i].H is not Hermitian"
+        @assert is_hermitian(drive_matrix(d)) "Drive operator drives[$i].H is not Hermitian"
     end
 
     H_drift = sparse(ComplexF64.(H_drift))
@@ -361,13 +361,17 @@ function QuantumSystem(
 
     # Build H(u,t) and G(u,t) from drives
     G_drift = sparse(Isomorphisms.G(H_drift))
-    G_drive_mats = [sparse(Isomorphisms.G(d.H)) for d in drives]
+    H_drive_mats = [sparse(ComplexF64.(drive_matrix(d))) for d in drives]
+    G_drive_mats = [sparse(Isomorphisms.G(H_d)) for H_d in H_drive_mats]
 
     if isempty(drives)
         H_fn = (u, t) -> H_drift
         G_fn = (u, t) -> G_drift
     else
-        H_fn = (u, t) -> H_drift + sum(drive_coeff(d, u) * d.H for d in drives)
+        H_fn =
+            (u, t) ->
+                H_drift +
+                sum(drive_coeff(d, u) * H_d for (d, H_d) in zip(drives, H_drive_mats))
         G_fn =
             (u, t) ->
                 G_drift +
@@ -378,6 +382,102 @@ function QuantumSystem(
         H_fn,
         G_fn,
         H_drift,
+        collect(AbstractDrive, drives),
+        drive_bounds,
+        n_drives,
+        levels,
+        time_dependent,
+        _float_params(global_params),
+    )
+end
+
+"""
+    QuantumSystem(
+        H_drift,
+        drives::Vector{<:AbstractDrive},
+        drive_bounds::Vector;
+        time_dependent::Bool=false,
+        global_params::NamedTuple=NamedTuple()
+    )
+
+Construct a QuantumSystem from a non-matrix drift Hamiltonian (e.g., a structured
+operator from Piccolissimo) and typed drive terms.
+
+The drift is stored directly without sparse conversion, enabling structured operator
+acceleration in the spline integrator. The `H(u,t)` and `G(u,t)` closures are built
+from materialized matrices for backward compatibility with function-based paths.
+
+# Example
+```julia
+using Piccolissimo: DiagonalOperator
+H_drift_op = DiagonalOperator(ComplexF64[0.0, 1.0, 2.0])
+sys = QuantumSystem(H_drift_op, [LinearDrive(H_x_op, 1)], [1.0])
+```
+"""
+function QuantumSystem(
+    H_drift_op,
+    drives::Vector{<:AbstractDrive},
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
+    time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
+)
+    # Only dispatch here for non-AbstractMatrix types; matrices use the method above
+    H_drift_op isa AbstractMatrix && return QuantumSystem(
+        convert(AbstractMatrix{ComplexF64}, H_drift_op),
+        drives,
+        drive_bounds;
+        time_dependent = time_dependent,
+        global_params = global_params,
+    )
+
+    drive_bounds = normalize_drive_bounds(drive_bounds)
+
+    # Check that all drive operators are Hermitian (drive_matrix materializes)
+    for (i, d) in enumerate(drives)
+        @assert is_hermitian(drive_matrix(d)) "Drive operator drives[$i].H is not Hermitian"
+    end
+
+    n_drives = length(drive_bounds)
+    levels = size(H_drift_op, 1)
+
+    # Validate LinearDrive indices
+    for (i, d) in enumerate(drives)
+        if d isa LinearDrive
+            @assert 1 <= d.index <= n_drives "LinearDrive at drives[$i] has index $(d.index) but control dimension is $n_drives"
+        end
+    end
+
+    # Validate NonlinearDrive Jacobians
+    for d in drives
+        if d isa NonlinearDrive
+            validate_drive_jacobian(d, n_drives)
+        end
+    end
+
+    # Build H(u,t) and G(u,t) from materialized matrices (for backward-compat closures)
+    H_drift_mat = sparse(ComplexF64.(_ensure_matrix(H_drift_op)))
+    G_drift = sparse(Isomorphisms.G(H_drift_mat))
+    H_drive_mats = [sparse(ComplexF64.(drive_matrix(d))) for d in drives]
+    G_drive_mats = [sparse(Isomorphisms.G(H_d)) for H_d in H_drive_mats]
+
+    if isempty(drives)
+        H_fn = (u, t) -> H_drift_mat
+        G_fn = (u, t) -> G_drift
+    else
+        H_fn =
+            (u, t) ->
+                H_drift_mat +
+                sum(drive_coeff(d, u) * H_d for (d, H_d) in zip(drives, H_drive_mats))
+        G_fn =
+            (u, t) ->
+                G_drift +
+                sum(drive_coeff(d, u) * G_d for (d, G_d) in zip(drives, G_drive_mats))
+    end
+
+    return QuantumSystem(
+        H_fn,
+        G_fn,
+        H_drift_op,    # store the structured operator, not the sparse matrix
         collect(AbstractDrive, drives),
         drive_bounds,
         n_drives,

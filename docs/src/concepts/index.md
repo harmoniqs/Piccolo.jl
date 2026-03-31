@@ -27,7 +27,7 @@ where each ``c_d(\boldsymbol{u})`` is a scalar coefficient — typically linear 
 where:
 
 - ``x_k`` is the quantum state at timestep ``k``, represented as a real vector via an [isomorphism](@ref isomorphisms-concept)
-- ``G(\boldsymbol{u}) = G_{\text{drift}} + \sum_i u_i\, G_{\text{drive},i}`` is the generator of the dynamics (see below)
+- ``G(\boldsymbol{u}) = G_{\text{drift}} + \sum_d c_d(\boldsymbol{u})\, G_d`` is the generator of the dynamics (see below)
 - ``\ell(x_N, x_{\text{goal}})`` is an infidelity measure at the final time
 - ``\Delta \boldsymbol{u}_k`` and ``\Delta^2 \boldsymbol{u}_k`` are discrete first and second differences of the controls
 - ``Q``, ``R_u``, ``R_{du}``, ``R_{ddu}`` are scalar weights
@@ -38,8 +38,8 @@ The generator ``G`` depends on the type of evolution:
 
 | Evolution | Generator | Equation |
 |-----------|-----------|----------|
-| **Closed** (Schrödinger) | ``G(\boldsymbol{u}) = -i\bigl(H_{\text{drift}} + \sum_i u_i H_i\bigr)`` | ``\dot{U} = G\, U`` or ``\dot{\psi} = G\, \psi`` |
-| **Open** (Lindblad) | ``\mathcal{G}(\boldsymbol{u}) = \mathcal{L}_{\text{drift}} + \sum_i u_i\, \mathcal{L}_i`` | ``\dot{\rho} = \mathcal{G}\, \text{vec}(\rho)`` |
+| **Closed** (Schrödinger) | ``G(\boldsymbol{u}) = -i\bigl(H_{\text{drift}} + \sum_d c_d(\boldsymbol{u})\, H_d\bigr)`` | ``\dot{U} = G\, U`` or ``\dot{\psi} = G\, \psi`` |
+| **Open** (Lindblad) | ``\mathcal{G}(\boldsymbol{u}) = \mathcal{L}_{\text{drift}} + \sum_d c_d(\boldsymbol{u})\, \mathcal{L}_d`` | ``\dot{\rho} = \mathcal{G}\, \text{vec}(\rho)`` |
 
 For open systems, the Lindbladian superoperator includes dissipation:
 
@@ -135,7 +135,9 @@ The state dimension ``n_x`` depends on the trajectory type and the system dimens
 |------------|-------|---------|
 | `UnitaryTrajectory` | ``\tilde{U} \in \mathbb{R}^{2d^2}`` | ``2d^2`` |
 | `KetTrajectory` | ``\tilde{\psi} \in \mathbb{R}^{2d}`` | ``2d`` |
+| `MultiKetTrajectory` | ``M`` kets ``\tilde{\psi}_m \in \mathbb{R}^{2d}`` | ``2d`` each |
 | `DensityTrajectory` | ``\tilde{\rho} \in \mathbb{R}^{d^2}`` | ``d^2`` (compact) |
+| `MultiDensityTrajectory` | ``M`` densities ``\tilde{\rho}_m \in \mathbb{R}^{d^2}`` | ``d^2`` each |
 
 ## Workflow
 A typical Piccolo.jl workflow follows these steps:

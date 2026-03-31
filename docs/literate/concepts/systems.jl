@@ -134,6 +134,12 @@ drive_coeff_jac(d_auto, [3.0, 4.0, 0.0], 1)
 # `QuantumSystem` construction — sign errors or off-by-one bugs are caught
 # immediately.
 #
+# The **Hessian** ``\partial^2 f / \partial u_i \partial u_j`` is also
+# auto-generated via ForwardDiff (for both constructor forms).  It is used by
+# `SplineIntegrator` when `exact_hessian=true` to compute exact second-order
+# sensitivity matrices — essential for convergence with nonlinear drives.
+# You can override it with `coeff_hess = (u, i, j) -> ...` if needed.
+#
 # ### Structural Sparsity
 #
 # When a nonlinear drive depends on only a few control indices (e.g., ``u_3^2 + u_4^2``

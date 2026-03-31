@@ -43,6 +43,7 @@ include("unitary_trajectory.jl")
 include("ket_trajectory.jl")
 include("ensemble_trajectory.jl")
 include("density_trajectory.jl")
+include("multi_density_trajectory.jl")
 include("sampling_trajectory.jl")
 
 # Interface methods (getters, accessors, fidelity)
