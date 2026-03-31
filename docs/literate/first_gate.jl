@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/first_gate.jl
+# ```
+#
 # # [Your First Gate](@id first-gate-tutorial)
 #
 # This tutorial walks through synthesizing your first quantum gate with Piccolo.jl.

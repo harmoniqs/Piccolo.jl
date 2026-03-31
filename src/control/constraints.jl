@@ -99,6 +99,49 @@ function FinalCoherentKetFidelityConstraint(
     )
 end
 
+"""
+    FinalCoherentKetFidelityConstraint(goals_fn, ψ̃_names, θ_names, final_fidelity, traj)
+
+Free-phase version: `goals_fn(θ)` returns phase-adjusted goal kets.
+Uses `NonlinearGlobalKnotPointConstraint` to include global phase variables.
+"""
+function FinalCoherentKetFidelityConstraint(
+    goals_fn::Function,
+    ψ̃_names::Vector{Symbol},
+    θ_names::AbstractVector{Symbol},
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    n_states = length(ψ̃_names)
+    state_dims = [traj.dims[name] for name in ψ̃_names]
+    total_state_dim = sum(state_dims)
+
+    function terminal_constraint(z)
+        x = z[1:total_state_dim]
+        θ = z[(total_state_dim+1):end]
+
+        # Extract each state from the concatenated vector
+        ψ̃s = Vector{Vector{eltype(x)}}(undef, n_states)
+        offset = 0
+        for i = 1:n_states
+            ψ̃s[i] = x[(offset+1):(offset+state_dims[i])]
+            offset += state_dims[i]
+        end
+
+        phased_goals = goals_fn(θ)
+        return [final_fidelity - coherent_ket_fidelity(ψ̃s, phased_goals)]
+    end
+
+    return NonlinearGlobalKnotPointConstraint(
+        terminal_constraint,
+        ψ̃_names,
+        θ_names,
+        traj,
+        equality = false,
+        times = [traj.N],
+    )
+end
+
 # ---------------------------------------------------------
 #                        Unitaries
 # ---------------------------------------------------------

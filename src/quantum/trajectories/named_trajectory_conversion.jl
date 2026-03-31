@@ -611,6 +611,110 @@ function NamedTrajectory(
     return NamedTrajectory(data; nt_kwargs...)
 end
 
+"""
+    NamedTrajectory(qtraj::MultiDensityTrajectory; kwargs...)
+    NamedTrajectory(qtraj::MultiDensityTrajectory, N::Int; kwargs...)
+    NamedTrajectory(qtraj::MultiDensityTrajectory, times::AbstractVector; kwargs...)
+
+Convert a MultiDensityTrajectory to a NamedTrajectory for optimization.
+
+Uses the compact density isomorphism (n² real parameters per state) which exploits
+the Hermiticity of density matrices.
+
+# Stored Variables
+- `ρ⃗̃1`, `ρ⃗̃2`, ...: Compact isomorphism of each density matrix (n² reals each)
+- `u` (or custom drive_name): Control values sampled at times
+- `du`: Control derivatives (only for CubicSplinePulse)
+- `t`: Times
+
+# Arguments
+- `N_or_times`: One of:
+  - `nothing` (default): Use native knot times from spline pulse
+  - `N::Int`: Number of uniformly spaced time points
+  - `times::AbstractVector`: Specific times to sample at
+
+# Keyword Arguments
+- `Δt_bounds`: Optional tuple `(lower, upper)` for timestep bounds. If provided,
+  enables free-time optimization (minimum-time problems). Default: `nothing` (no bounds).
+- `global_data`: Optional Dict mapping global variable names to initial values (as vectors).
+  Note: global variables are optimization variables without explicit box constraints.
+"""
+function NamedTrajectory(
+    qtraj::MultiDensityTrajectory,
+    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    global_data::Union{Nothing,Dict{Symbol,<:AbstractVector}} = nothing,
+)
+    times = _sample_times(qtraj, N_or_times)
+    N = length(times)
+    n_states = length(qtraj)
+    state_prefix = state_name(qtraj)
+
+    # Auto-populate global_data from system if not provided
+    if isnothing(global_data) && !isempty(qtraj.system.global_params)
+        global_data =
+            Dict(name => [val] for (name, val) in pairs(qtraj.system.global_params))
+    end
+
+    # Sample all density matrix states
+    state_data = NamedTuple()
+    initial_nt = NamedTuple()
+    goal_nt = NamedTuple()
+    bounds = NamedTuple()
+
+    for i = 1:n_states
+        name = Symbol(state_prefix, i)
+        sol = qtraj[i]
+        states = [sol(t) for t in times]
+        ρ̃ = hcat([density_to_compact_iso(ρ) for ρ in states]...)
+        state_dim = size(ρ̃, 1)
+
+        state_data = merge(state_data, _named_tuple(name => ρ̃))
+        initial_nt = merge(
+            initial_nt,
+            _named_tuple(name => density_to_compact_iso(qtraj.initials[i])),
+        )
+        goal_nt =
+            merge(goal_nt, _named_tuple(name => density_to_compact_iso(qtraj.goals[i])))
+        bounds = merge(bounds, _named_tuple(name => (-ones(state_dim), ones(state_dim))))
+    end
+
+    # Get control data
+    control_data, control_names, control_bounds, control_initial, control_final =
+        _get_control_data(qtraj.pulse, times, qtraj.system)
+
+    # Merge control boundaries with state boundaries
+    initial_nt = merge(initial_nt, control_initial)
+    final_nt = merge(control_final)  # Control boundaries go to final (hard constraints)
+
+    # Compute Δt from times (pad to length N by repeating last value)
+    Δt_diff = diff(times)
+    Δt = [Δt_diff; Δt_diff[end]]
+
+    # Build data with Δt as timestep and t for reference
+    data = merge(state_data, (; Δt = Δt, t = collect(times)), control_data)
+    bounds = merge(bounds, control_bounds)
+    # Add Δt bounds if provided
+    if !isnothing(Δt_bounds)
+        bounds = merge(bounds, (Δt = ([Δt_bounds[1]], [Δt_bounds[2]]),))
+    end
+
+    # Build kwargs for NamedTrajectory constructor
+    nt_kwargs = (
+        timestep = :Δt,
+        controls = (:Δt, control_names...),
+        bounds = bounds,
+        initial = initial_nt,
+        final = final_nt,
+        goal = goal_nt,
+    )
+
+    # Add global variables if provided
+    nt_kwargs = _add_global_data_to_kwargs(nt_kwargs, global_data)
+
+    return NamedTrajectory(data; nt_kwargs...)
+end
+
 # ============================================================================ #
 # Tests
 # ============================================================================ #

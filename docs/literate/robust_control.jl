@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/robust_control.jl
+# ```
+#
 # # [Robust Control](@id robust-control-tutorial)
 #
 # This tutorial shows how to design control pulses that are robust to

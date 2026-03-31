@@ -88,7 +88,7 @@ function DensityTrajectory(
 end
 
 # Callable: sample solution at any time
-(traj::DensityTrajectory)(t::Real) = traj.solution(t)
+(qtraj::DensityTrajectory)(t::Real) = qtraj.solution(t)
 
 # ============================================================================ #
 # Tests

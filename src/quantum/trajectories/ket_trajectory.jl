@@ -100,7 +100,7 @@ function KetTrajectory(
 end
 
 # Callable: sample solution at any time
-(traj::KetTrajectory)(t::Real) = traj.solution(t)
+(qtraj::KetTrajectory)(t::Real) = qtraj.solution(t)
 
 # ============================================================================ #
 # Tests

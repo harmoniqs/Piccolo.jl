@@ -54,7 +54,7 @@ function apply_piccolo_options!(
         end
 
         if isnothing(state_leakage_indices)
-            throw(ValueError("Leakage indices are required for leakage suppression."))
+            throw(ArgumentError("Leakage indices are required for leakage suppression."))
         end
 
         if state_names isa Symbol
@@ -96,6 +96,57 @@ function apply_piccolo_options!(
     end
 
     return J
+end
+
+"""
+    setup_free_phase_globals!(n_qubits, global_data, global_bounds; initial_phases=nothing, verbose=false)
+
+Add per-qubit Z-phase variables (`φ_1`, `φ_2`, …) to `global_data` and
+`global_bounds` dicts. Returns the vector of phase variable names and the
+(possibly initialized) dicts.
+
+Mutates `global_data` and `global_bounds` in place if they are not `nothing`;
+otherwise creates new dicts.
+
+# Keyword Arguments
+- `initial_phases::Union{Nothing,Vector{Float64}}`: Initial values for the phase variables.
+  If `nothing`, all phases are initialized to 0. If provided, must have length `n_qubits`.
+- `verbose::Bool`: Print diagnostic information.
+"""
+function setup_free_phase_globals!(
+    n_qubits::Int,
+    global_data::Union{Nothing,Dict{Symbol,Vector{Float64}}},
+    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}};
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
+    verbose::Bool = false,
+)
+    θ_names = [Symbol(:φ_, i) for i = 1:n_qubits]
+
+    if !isnothing(initial_phases)
+        @assert length(initial_phases) == n_qubits "initial_phases must have length $n_qubits"
+    end
+
+    if isnothing(global_data)
+        global_data = Dict{Symbol,Vector{Float64}}()
+    end
+    for (i, name) in enumerate(θ_names)
+        global_data[name] = [isnothing(initial_phases) ? 0.0 : initial_phases[i]]
+    end
+
+    if isnothing(global_bounds)
+        global_bounds = Dict{Symbol,Union{Float64,Tuple{Float64,Float64}}}()
+    end
+    for name in θ_names
+        if !haskey(global_bounds, name)
+            global_bounds[name] = (-2π, 2π)
+        end
+    end
+
+    if verbose
+        println("    free_phase=true: added phase variables $θ_names")
+    end
+
+    return θ_names, global_data, global_bounds
 end
 
 """
@@ -200,6 +251,31 @@ end
     constraints6 = AbstractConstraint[]
     add_global_bounds_constraints!(constraints6, Dict(:δ => 0.5), traj; verbose = true)
     @test length(constraints6) == 1
+end
+
+@testitem "apply_piccolo_options! throws ArgumentError for missing leakage indices" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using .ProblemTemplates: apply_piccolo_options!
+
+    N = 5
+    traj = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    piccolo_opts = PiccoloOptions(leakage_constraint = true)
+    constraints = AbstractConstraint[]
+
+    # Should throw ArgumentError (not ValueError) when leakage indices are missing
+    @test_throws ArgumentError apply_piccolo_options!(
+        piccolo_opts,
+        constraints,
+        traj;
+        state_names = :x,
+        state_leakage_indices = nothing,
+    )
 end
 
 end

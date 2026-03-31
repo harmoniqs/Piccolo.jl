@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/state_transfer.jl
+# ```
+#
 # # [State Transfer](@id state-transfer-tutorial)
 #
 # This tutorial covers state-to-state transfer using `KetTrajectory`.

@@ -86,6 +86,8 @@ function MinimumTimeProblem(
     goal::Union{Nothing,AbstractPiccoloOperator,AbstractVector} = nothing,
     final_fidelity::Float64 = 0.99,
     D::Float64 = 100.0,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 ) where {QT<:AbstractQuantumTrajectory}
 
@@ -99,6 +101,11 @@ function MinimumTimeProblem(
     traj = deepcopy(qcp.prob.trajectory)
     constraints = deepcopy(qcp.prob.constraints)
 
+    # Optionally update Δt bounds (e.g., widen for min-time after tight fidelity solve)
+    if !isnothing(Δt_bounds) && haskey(traj.bounds, :Δt)
+        traj.bounds = merge(traj.bounds, (Δt = ([Δt_bounds[1]], [Δt_bounds[2]]),))
+    end
+
     # Add minimum-time objective to existing objective
     J = qcp.prob.objective + MinimumTimeObjective(traj, D = D)
 
@@ -111,8 +118,12 @@ function MinimumTimeProblem(
     end
 
     # Add final fidelity constraint - dispatches on QT type parameter!
-    fidelity_constraint =
-        _final_fidelity_constraint(qtraj_for_constraint, final_fidelity, traj)
+    fidelity_constraint = _final_fidelity_constraint(
+        qtraj_for_constraint,
+        final_fidelity,
+        traj;
+        subsystem_levels = subsystem_levels,
+    )
 
     # Handle single constraint or multiple constraints
     if fidelity_constraint isa AbstractVector
@@ -152,17 +163,39 @@ end
 function _final_fidelity_constraint(
     qtraj::UnitaryTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     U_goal = qtraj.goal
     state_sym = state_name(qtraj)
-    return FinalUnitaryFidelityConstraint(U_goal, state_sym, final_fidelity, traj)
+
+    # Detect free-phase variables (φ_1, φ_2, ...) in global components
+    θ_names = Symbol[
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
+    ]
+    sort!(θ_names)  # ensure consistent ordering
+
+    if !isempty(θ_names) && U_goal isa EmbeddedOperator
+        # Free-phase: use callable U_goal(θ) with phase-adjusted gate
+        U_goal_fn = _make_free_phase_goal(U_goal)
+        return FinalUnitaryFidelityConstraint(
+            U_goal_fn,
+            state_sym,
+            θ_names,
+            final_fidelity,
+            traj,
+        )
+    else
+        # Fixed-phase: use static U_goal
+        return FinalUnitaryFidelityConstraint(U_goal, state_sym, final_fidelity, traj)
+    end
 end
 
 function _final_fidelity_constraint(
     qtraj::KetTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     ψ_goal = qtraj.goal
     state_sym = state_name(qtraj)
@@ -172,7 +205,8 @@ end
 function _final_fidelity_constraint(
     qtraj::DensityTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     # TODO: Implement density matrix fidelity constraint when available
     throw(
@@ -200,13 +234,36 @@ essential when implementing a gate via state transfer (e.g., X gate via
 function _final_fidelity_constraint(
     qtraj::MultiKetTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     snames = state_names(qtraj)
     goals = qtraj.goals
 
-    # Use coherent fidelity constraint for proper phase alignment
-    return FinalCoherentKetFidelityConstraint(goals, snames, final_fidelity, traj)
+    # Detect free-phase variables (φ_1, φ_2, ...) in global components
+    θ_names = Symbol[
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
+    ]
+    sort!(θ_names)  # ensure consistent ordering
+
+    if !isempty(θ_names)
+        # Free-phase: need subsystem_levels to build phase-adjusted goals
+        @assert !isnothing(subsystem_levels) (
+            "MinimumTimeProblem with MultiKetTrajectory + free_phase requires " *
+            "subsystem_levels kwarg (e.g., subsystem_levels=[3,3] for two 3-level atoms)"
+        )
+        goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
+        return FinalCoherentKetFidelityConstraint(
+            goals_fn,
+            snames,
+            θ_names,
+            final_fidelity,
+            traj,
+        )
+    else
+        # Fixed-phase: use static goals
+        return FinalCoherentKetFidelityConstraint(goals, snames, final_fidelity, traj)
+    end
 end
 
 function _ensemble_fidelity_constraint(
@@ -685,4 +742,39 @@ end
 
     duration_after = sum(get_timesteps(get_trajectory(sampling_mintime)))
     @test duration_after <= duration_before * 1.1
+end
+
+@testitem "MinimumTimeProblem detects free-phase variables" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Create a system with an EmbeddedOperator goal and free-phase variables
+    H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
+    H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
+    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+
+    T = 10.0
+    N = 51
+
+    σx = ComplexF64[0 1; 1 0]
+    subspace = [1, 2]
+    levels = [3]
+    U_goal = EmbeddedOperator(σx, subspace, levels)
+
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    # First create a spline problem with free_phase to get phase variables
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, free_phase = true)
+    solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+
+    # Convert to minimum-time — should auto-detect φ_ variables
+    qcp_mintime = MinimumTimeProblem(qcp; final_fidelity = 0.5, D = 50.0)
+    @test qcp_mintime isa QuantumControlProblem
+
+    # Verify the free-phase variable is preserved in the trajectory
+    traj = get_trajectory(qcp_mintime)
+    @test haskey(traj.global_components, :φ_1)
 end

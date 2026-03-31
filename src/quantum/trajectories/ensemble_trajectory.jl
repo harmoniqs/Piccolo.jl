@@ -131,11 +131,11 @@ function MultiKetTrajectory(
 end
 
 # Callable: sample all solutions at time t
-(traj::MultiKetTrajectory)(t::Real) = [sol(t) for sol in traj.solution]
+(qtraj::MultiKetTrajectory)(t::Real) = [sol(t) for sol in qtraj.solution]
 
 # Indexing: get individual trajectory solution
-Base.getindex(traj::MultiKetTrajectory, i::Int) = traj.solution[i]
-Base.length(traj::MultiKetTrajectory) = length(traj.initials)
+Base.getindex(qtraj::MultiKetTrajectory, i::Int) = qtraj.solution[i]
+Base.length(qtraj::MultiKetTrajectory) = length(qtraj.initials)
 
 # ============================================================================ #
 # Tests

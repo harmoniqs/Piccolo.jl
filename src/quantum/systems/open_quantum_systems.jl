@@ -189,9 +189,12 @@ function OpenQuantumSystem(
         end
     end
 
+    # Materialize drive operators for closures
+    H_drive_mats = [sparse(ComplexF64.(drive_matrix(d))) for d in drives]
+
     # Build H(u,t) and 𝒢(u) from drives
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(H_drift_sparse))
-    𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(drive_matrix(d))) for d in drives]
+    𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(H_d)) for H_d in H_drive_mats]
 
     # Build dissipator
     if isempty(dissipation_operators)
@@ -206,7 +209,8 @@ function OpenQuantumSystem(
     else
         H_fn =
             (u, t) ->
-                H_drift_sparse + sum(drive_coeff(d, u, t) * drive_matrix(d) for d in drives)
+                H_drift_sparse +
+                sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
         𝒢_fn =
             u ->
                 𝒢_drift +
