@@ -509,12 +509,12 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   4.5208114578581910e-03    4.5208114578581910e-03
-Dual infeasibility......:   5.7045166390113809e-04    5.7045166390113809e-04
-Constraint violation....:   3.3835301782580984e-09    3.3835301782580984e-09
+Objective...............:   4.5208114578137422e-03    4.5208114578137422e-03
+Dual infeasibility......:   5.7045166390267072e-04    5.7045166390267072e-04
+Constraint violation....:   3.3835301227469472e-09    3.3835301227469472e-09
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
 Complementarity.........:   1.0000000000000000e-04    1.0000000000000000e-04
-Overall NLP error.......:   5.7045166390113809e-04    5.7045166390113809e-04
+Overall NLP error.......:   5.7045166390267072e-04    5.7045166390267072e-04
 
 
 Number of objective function evaluations             = 102
@@ -524,36 +524,36 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 42.028
+Total seconds in IPOPT                               = 29.461
 
 EXIT: Maximum Number of Iterations Exceeded.
     initializing optimizer...
       building evaluator: 4 integrators, 0 nonlinear constraints
       dynamics constraints: 1188, nonlinear constraints: 0
-        integrator 1 jacobian structure: 0.248s
+        integrator 1 jacobian structure: 0.138s
         integrator 2 jacobian structure: 0.003s
-        integrator 3 jacobian structure: 0.023s
-        integrator 4 jacobian structure: 0.004s
-      jacobian structure: 38016 nonzeros (0.307s)
-        integrator 1 hessian structure: 0.069s
-        integrator 2 hessian structure: 0.028s
-        integrator 3 hessian structure: 0.04s
-        integrator 4 hessian structure: 0.021s
+        integrator 3 jacobian structure: 0.051s
+        integrator 4 jacobian structure: 0.001s
+      jacobian structure: 38016 nonzeros (0.21s)
+        integrator 1 hessian structure: 0.038s
+        integrator 2 hessian structure: 0.005s
+        integrator 3 hessian structure: 0.026s
+        integrator 4 hessian structure: 0.016s
         computing objective hessian structure (CompositeObjective)...
-          sub-objective 1 (GlobalKnotPointObjective): 0.498s
-          sub-objective 2 (QuadraticRegularizer): 0.33s
+          sub-objective 1 (GlobalKnotPointObjective): 0.294s
+          sub-objective 2 (QuadraticRegularizer): 0.186s
           sub-objective 3 (QuadraticRegularizer): 0.001s
           sub-objective 4 (QuadraticRegularizer): 0.001s
-          sub-objective 5 (NullObjective): 0.007s
-        objective hessian structure: 0.893s
-      hessian structure: 38953 nonzeros (1.052s)
-      linear index maps built (0.041s)
-      evaluator ready (total: 1.56s)
-    evaluator created (2.044s)
-    NL constraint bounds extracted (0.025s)
+          sub-objective 5 (NullObjective): 0.004s
+        objective hessian structure: 0.52s
+      hessian structure: 38953 nonzeros (0.604s)
+      linear index maps built (0.105s)
+      evaluator ready (total: 1.011s)
+    evaluator created (1.271s)
+    NL constraint bounds extracted (0.017s)
     NLP block data built (0.0s)
-    Ipopt optimizer configured (0.009s)
-    variables set (0.128s)
+    Ipopt optimizer configured (0.006s)
+    variables set (0.076s)
         applying constraint: timesteps all equal constraint
         applying constraint: bounds constraint on global variable φ_1
         applying constraint: initial value of ψ̃1
@@ -568,9 +568,9 @@ EXIT: Maximum Number of Iterations Exceeded.
         applying constraint: bounds on Δt
         applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
         applying constraint: initial time t₁ = 0
-    linear constraints added: 14 (0.81s)
-    optimizer initialization complete (total: 3.015s)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to smooth_pulse_free_phase_f5236f4.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>SmoothPulseProblem</code> internally:</p><ol><li><p><strong>Adds derivative variables</strong>: Creates <code>:du</code> (first derivative) and <code>:ddu</code> (second derivative) variables alongside controls <code>:u</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce consistency:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li><li><code>ddu[k] = (du[k+1] - du[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic regularization on <code>u</code>, <code>du</code>, <code>ddu</code> with weights <code>R_u</code>, <code>R_du</code>, <code>R_ddu</code></li></ul></li><li><p><strong>Applies bounds</strong>: Enforces <code>du_bound</code> and <code>ddu_bound</code> as hard constraints</p></li></ol><p>The derivative variables act as auxiliary optimization variables that encourage smooth control transitions without requiring explicit smoothness constraints on the original controls.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Robust optimization</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../../problem-templates/">« Overview</a><a class="docs-footer-nextpage" href="../bang_bang_pulse/">BangBangPulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 31 March 2026 00:23">Tuesday 31 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+    linear constraints added: 14 (0.447s)
+    optimizer initialization complete (total: 1.817s)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from smooth_pulse_free_phase_83da686.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>SmoothPulseProblem</code> internally:</p><ol><li><p><strong>Adds derivative variables</strong>: Creates <code>:du</code> (first derivative) and <code>:ddu</code> (second derivative) variables alongside controls <code>:u</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce consistency:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li><li><code>ddu[k] = (du[k+1] - du[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic regularization on <code>u</code>, <code>du</code>, <code>ddu</code> with weights <code>R_u</code>, <code>R_du</code>, <code>R_ddu</code></li></ul></li><li><p><strong>Applies bounds</strong>: Enforces <code>du_bound</code> and <code>ddu_bound</code> as hard constraints</p></li></ol><p>The derivative variables act as auxiliary optimization variables that encourage smooth control transitions without requiring explicit smoothness constraints on the original controls.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Robust optimization</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../../problem-templates/">« Overview</a><a class="docs-footer-nextpage" href="../bang_bang_pulse/">BangBangPulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 31 March 2026 00:37">Tuesday 31 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./smooth_pulse.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/smooth_pulse.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
