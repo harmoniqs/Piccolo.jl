@@ -101,6 +101,24 @@ NonlinearDrive(PAULIS[:Z],
 )
 ```
 
+### Open Systems with Nonlinear Drives
+
+`OpenQuantumSystem` also accepts typed drives, combining nonlinear Hamiltonian
+coefficients with Lindblad dissipation:
+
+```julia
+# Open system: H(u) = u₁ σx + (u₁² + u₂²) σz  with T₁ decay
+drives = AbstractDrive[
+    LinearDrive(sparse(ComplexF64.(σx)), 1),
+    NonlinearDrive(σz, u -> u[1]^2 + u[2]^2),
+]
+L = sparse(ComplexF64.([0 0; 1 0]))  # |0⟩⟨1| decay operator
+
+sys = OpenQuantumSystem(zeros(2,2), drives, [1.0, 1.0];
+    dissipation_operators=[L]
+)
+```
+
 All Hamiltonians must be Hermitian (``H = H^\dagger``); Piccolo.jl validates this
 at construction.
 

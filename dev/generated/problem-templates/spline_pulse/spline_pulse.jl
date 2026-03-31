@@ -76,7 +76,8 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `du_bound` | `Float64` | `Inf` | Maximum derivative/slope bound |
+# | `du_bound` | `Float64` | `Inf` | Uniform maximum derivative/slope bound for all drives. |
+# | `du_bounds` | `Vector{Float64}` | `nothing` | Per-drive maximum derivative/slope bounds (takes precedence over `du_bound`). |
 # | `Δt_bounds` | `Tuple{Float64, Float64}` | `nothing` | Time-step bounds for free-time optimization |
 #
 # ### Advanced Options
@@ -88,6 +89,8 @@
 # | `global_bounds` | `Dict{Symbol, ...}` | `nothing` | Bounds on global variables |
 # | `constraints` | `Vector{AbstractConstraint}` | `[]` | Additional constraints |
 # | `piccolo_options` | `PiccoloOptions` | `PiccoloOptions()` | Solver options |
+# | `free_phase` | `Bool` | `false` | Optimize a per-subsystem frame phase alongside the pulse. |
+# | `initial_phases` | `Vector{Float64}` | `nothing` | Initial values for the per-subsystem phase variables when `free_phase=true`. |
 #
 # ## Examples
 #
@@ -150,7 +153,18 @@ pulse_cubic = CubicSplinePulse(controls, tangents, times)
 qtraj_cubic = UnitaryTrajectory(sys, pulse_cubic, GATES[:X])
 qcp_cubic = SplinePulseProblem(qtraj_cubic)
 ## du (tangents) are independent variables
+
+# ### Per-Drive Derivative Bounds
 #
+# Set independent slope limits for each drive, e.g. when hardware channels
+# have different slew-rate constraints:
+
+qcp_per_drive = SplinePulseProblem(
+    qtraj;
+    Q = 100.0,
+    du_bounds = [5.0, 2.0],  ## drive 1 allows faster slopes than drive 2
+)
+
 # ## Trajectory Structure
 #
 # Unlike `SmoothPulseProblem` which has three derivative levels (`:u`, `:du`, `:ddu`), `SplinePulseProblem` only has one:
