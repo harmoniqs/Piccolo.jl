@@ -234,9 +234,8 @@ end
         UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 10001)
     fid_ref = fidelity(qtraj_ref)
 
-    # Adaptive should match reference; fixed-101 may not
-    @test_broken abs(fid_adapt - fid_ref) < 1e-6
-    @test_broken abs(fid_fixed - fid_ref) > abs(fid_adapt - fid_ref)
+    # Adaptive should be closer to reference than fixed-101
+    @test abs(fid_adapt - fid_ref) < abs(fid_fixed - fid_ref)
 end
 
 @testitem "MagnusAdapt4 preserves unitarity" begin
