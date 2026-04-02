@@ -73,6 +73,7 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
@@ -89,7 +90,9 @@ function QuantumSystem(
     levels = size(H_drift, 1)
 
     # Check that H_drift is Hermitian
-    @assert is_hermitian(H_drift) "Drift Hamiltonian H(u=0, t=0) is not Hermitian"
+    if hermitian
+        @assert is_hermitian(H_drift) "Drift Hamiltonian H(u=0, t=0) is not Hermitian"
+    end
 
     # Check that Hamiltonian is Hermitian for sample control values
     u_test_controls = [b isa Tuple ? (b[1] + b[2]) / 2 : 0.0 for b in drive_bounds]
@@ -97,7 +100,9 @@ function QuantumSystem(
         n_globals > 0 ? vcat(u_test_controls, collect(values(global_params))) :
         u_test_controls
     H_test = H(u_test, 0.0)
-    @assert is_hermitian(H_test) "Hamiltonian H(u, t=0) is not Hermitian for test control values u=$u_test"
+    if hermitian
+        @assert is_hermitian(H_test) "Hamiltonian H(u, t=0) is not Hermitian for test control values u=$u_test"
+    end
 
     return QuantumSystem(
         (u, t) -> H(u, t),
@@ -151,11 +156,14 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     drive_bounds = [b isa Tuple ? b : (-b, b) for b in drive_bounds]
 
     # Check that H_drift is Hermitian
-    @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
+    if hermitian
+        @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
+    end
 
     # Check that all drive Hamiltonians are Hermitian
     for (i, H_drive) in enumerate(H_drives)
@@ -221,6 +229,7 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 ) where {ℂ<:Number}
     @assert !isempty(H_drives) "At least one drive is required"
     return QuantumSystem(
@@ -229,6 +238,7 @@ function QuantumSystem(
         drive_bounds;
         time_dependent = time_dependent,
         global_params = global_params,
+        hermitian = hermitian,
     )
 end
 
@@ -247,6 +257,7 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     @assert !isempty(drives) "At least one drive is required"
     levels = drive_dim(first(drives))
@@ -256,6 +267,7 @@ function QuantumSystem(
         drive_bounds;
         time_dependent = time_dependent,
         global_params = global_params,
+        hermitian = hermitian,
     )
 end
 
@@ -273,6 +285,7 @@ function QuantumSystem(
     H_drift::AbstractMatrix{ℂ};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 ) where {ℂ<:Number}
     QuantumSystem(
         H_drift,
@@ -280,6 +293,7 @@ function QuantumSystem(
         Float64[];
         time_dependent = time_dependent,
         global_params = global_params,
+        hermitian = hermitian,
     )
 end
 
@@ -330,11 +344,14 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
     # Check that H_drift is Hermitian
-    @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
+    if hermitian
+        @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
+    end
 
     # Check that all drive operators are Hermitian
     for (i, d) in enumerate(drives)
@@ -417,11 +434,12 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     # Only dispatch here for non-AbstractMatrix types; matrices use the method above
     H_drift_op isa AbstractMatrix && return QuantumSystem(
         convert(AbstractMatrix{ComplexF64}, H_drift_op), drives, drive_bounds;
-        time_dependent=time_dependent, global_params=global_params
+        time_dependent=time_dependent, global_params=global_params, hermitian=hermitian
     )
 
     drive_bounds = normalize_drive_bounds(drive_bounds)
@@ -584,6 +602,19 @@ end
     H_good = (u, t) -> PAULIS.Z + u[1] * PAULIS.X
     sys2 = QuantumSystem(H_good, [1.0])
     @test sys2 isa QuantumSystem
+
+    # Non-Hermitian drift with hermitian=false should succeed
+    H_drift_nh = ComplexF64[0 1; 1 0] + ComplexF64[-0.5im 0; 0 0]
+    H_drives_nh = [ComplexF64[0 1; 1 0]]
+    bounds_nh = [(-1.0, 1.0)]
+    sys_nh = QuantumSystem(H_drift_nh, H_drives_nh, bounds_nh; hermitian=false)
+    @test sys_nh isa QuantumSystem
+    @test sys_nh.n_drives == 1
+    @test sys_nh.levels == 2
+
+    # Non-Hermitian drift with hermitian=true (default) should still fail
+    @test_throws AssertionError QuantumSystem(H_drift_nh, H_drives_nh, bounds_nh)
+    @test_throws AssertionError QuantumSystem(H_drift_nh, H_drives_nh, bounds_nh; hermitian=true)
 end
 
 @testitem "System creation variants" begin
