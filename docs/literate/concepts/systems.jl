@@ -242,19 +242,25 @@ sys_linear.drives  ## auto-populated LinearDrives
 omega = 2π * 0.1  # modulation frequency (GHz)
 
 ## Modulated drive channel: H_x oscillates at ω
-sys_mod = QuantumSystem(PAULIS[:Z], [PAULIS[:X] => t -> cos(omega * t), PAULIS[:Y]], [1.0, 1.0])
+sys_mod =
+    QuantumSystem(PAULIS[:Z], [PAULIS[:X] => t -> cos(omega * t), PAULIS[:Y]], [1.0, 1.0])
 sys_mod.time_dependent
 
 #-
 
 ## Modulated drift: time-varying drift term
-sys_mod_drift = QuantumSystem(PAULIS[:Z] => t -> cos(omega * t), [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+sys_mod_drift =
+    QuantumSystem(PAULIS[:Z] => t -> cos(omega * t), [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
 sys_mod_drift.time_dependent
 
 #-
 
 ## Mixed: static + modulated drift terms as a vector
-sys_mixed = QuantumSystem([PAULIS[:Z], 0.05 * PAULIS[:X] => t -> cos(omega * t)], [PAULIS[:Y]], [1.0])
+sys_mixed = QuantumSystem(
+    [PAULIS[:Z], 0.05 * PAULIS[:X] => t -> cos(omega * t)],
+    [PAULIS[:Y]],
+    [1.0],
+)
 length(sys_mixed.drift_terms)
 
 # When any modulation is present, Piccolo automatically sets `time_dependent = true`.
