@@ -90,7 +90,7 @@ H_d = get_drift(sys)
 H_dr = get_drives(sys)
 H_d
 
-# ## Nonlinear Drives
+# ## [Nonlinear Drives](@id nonlinear-drives)
 #
 # When the Hamiltonian contains terms whose coefficient is a nonlinear function of
 # the controls — for example ``|\alpha|^2`` terms in a displaced frame or products
@@ -207,6 +207,105 @@ get_drives(sys_nl)
 
 sys_linear = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
 sys_linear.drives  ## auto-populated LinearDrives
+
+# ## Modulated Drives
+#
+# When the coefficient of a drive or drift term is a **known function of time** —
+# rather than an unknown control amplitude to be optimized — use `ModulatedDrive`
+# or a modulated `DriftTerm`.
+#
+# Common use cases:
+# - Rotating-frame oscillation: `cos(ωt)` carrier on a drive channel
+# - Floquet modulation: periodic envelope on drift or drive terms
+# - AC Stark shifts: time-varying correction to the drift Hamiltonian
+# - Sideband envelopes: analytically known time-dependent coupling profile
+#
+# This is distinct from [`NonlinearDrive`](@ref): a `NonlinearDrive` coefficient
+# is an *unknown function of the controls* that the optimizer finds. Here the
+# time dependence is specified analytically — Piccolo evaluates it at each
+# timestep, not optimizes over it.
+#
+# ### Hamiltonian Term Types
+#
+# | Type | Coefficient | Use case |
+# |------|-------------|----------|
+# | `LinearDrive(H, i)` | ``u_i`` | Standard bilinear control |
+# | `NonlinearDrive(H, f)` | ``f(\boldsymbol{u})`` | Displaced frames, cross-Kerr |
+# | `ModulatedDrive(base, t->b(t))` | ``b(t) \cdot c_{\text{base}}(\boldsymbol{u})`` | Rotating frame, sideband drives |
+# | `DriftTerm(H, t->b(t))` | ``b(t)`` (drift only) | Time-varying drift (AC Stark, Floquet) |
+#
+# ### Pair-Based Constructor Syntax
+#
+# The simplest way to build a modulated system is `H => t -> b(t)` in the drives
+# vector, or the same for the drift argument:
+
+omega = 2π * 0.1  # modulation frequency (GHz)
+
+## Modulated drive channel: H_x oscillates at ω
+sys_mod =
+    QuantumSystem(PAULIS[:Z], [PAULIS[:X] => t -> cos(omega * t), PAULIS[:Y]], [1.0, 1.0])
+sys_mod.time_dependent
+
+#-
+
+## Modulated drift: time-varying drift term
+sys_mod_drift =
+    QuantumSystem(PAULIS[:Z] => t -> cos(omega * t), [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+sys_mod_drift.time_dependent
+
+#-
+
+## Mixed: static + modulated drift terms as a vector
+sys_mixed = QuantumSystem(
+    [PAULIS[:Z], 0.05 * PAULIS[:X] => t -> cos(omega * t)],
+    [PAULIS[:Y]],
+    [1.0],
+)
+length(sys_mixed.drift_terms)
+
+# When any modulation is present, Piccolo automatically sets `time_dependent = true`.
+# When you subsequently build a trajectory integrator, it will then dispatch
+# `TimeDependentBilinearIntegrator` automatically — no manual configuration needed.
+#
+# ### Wrapping Typed Drives
+#
+# `NonlinearDrive` can also be modulated using the same `Pair` syntax:
+
+nd_mod = NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2)
+sys_nl_mod = QuantumSystem(PAULIS[:Z], [nd_mod => t -> cos(omega * t)], [1.0, 1.0])
+sys_nl_mod.H_drives[1]
+
+# Or wrap explicitly: `ModulatedDrive(nd_mod, t -> cos(omega * t))`.
+#
+# ### Physical Example: Lab-Frame Drive
+#
+# In the lab frame a microwave drive on a transmon takes the form
+# ``\Omega(t)\cos(\omega_d t)\,\sigma_x``. Before applying the rotating-wave
+# approximation you can model it directly:
+#
+# ```math
+# H(t) = \tfrac{\omega_q}{2}\,\sigma_z
+#        + u(t)\,\cos(\omega_d t)\,\sigma_x
+# ```
+#
+# where ``u(t)`` is the envelope amplitude the optimizer finds and
+# ``\cos(\omega_d t)`` is the known carrier:
+
+omega_q_lab = 5.0   # qubit frequency (GHz)
+omega_d_lab = 5.0   # drive frequency, on resonance
+
+sys_lab = QuantumSystem(
+    (omega_q_lab / 2) * PAULIS[:Z],
+    [PAULIS[:X] => t -> cos(omega_d_lab * t)],
+    [0.5],
+)
+sys_lab.time_dependent
+
+# The optimizer finds the envelope ``u(t)`` while the carrier is evaluated
+# exactly at each timestep, enabling sub-RWA modeling for short high-power gates.
+# See also [Nonlinear Drives](@ref nonlinear-drives) for the case where the coefficient
+# is an unknown function of the controls, and [Trapped Ions](@ref trapped-ion-systems)
+# for a physical system that uses time-dependent Hamiltonians in practice.
 
 # ## OpenQuantumSystem
 #
