@@ -90,7 +90,7 @@ H_d = get_drift(sys)
 H_dr = get_drives(sys)
 H_d
 
-# ## Nonlinear Drives
+# ## [Nonlinear Drives](@id nonlinear-drives)
 #
 # When the Hamiltonian contains terms whose coefficient is a nonlinear function of
 # the controls — for example ``|\alpha|^2`` terms in a displaced frame or products
@@ -225,7 +225,7 @@ sys_linear.drives  ## auto-populated LinearDrives
 # time dependence is specified analytically — Piccolo evaluates it at each
 # timestep, not optimizes over it.
 #
-# ### Drive Types
+# ### Hamiltonian Term Types
 #
 # | Type | Coefficient | Use case |
 # |------|-------------|----------|
@@ -257,8 +257,9 @@ sys_mod_drift.time_dependent
 sys_mixed = QuantumSystem([PAULIS[:Z], 0.05 * PAULIS[:X] => t -> cos(omega * t)], [PAULIS[:Y]], [1.0])
 length(sys_mixed.drift_terms)
 
-# When any modulation is present, Piccolo automatically sets `time_dependent = true`
-# and dispatches `TimeDependentBilinearIntegrator` — no manual configuration needed.
+# When any modulation is present, Piccolo automatically sets `time_dependent = true`.
+# When you subsequently build a trajectory integrator, it will then dispatch
+# `TimeDependentBilinearIntegrator` automatically — no manual configuration needed.
 #
 # ### Wrapping Typed Drives
 #
@@ -284,24 +285,21 @@ sys_nl_mod.H_drives[1]
 # where ``u(t)`` is the envelope amplitude the optimizer finds and
 # ``\cos(\omega_d t)`` is the known carrier:
 
-omega_q = 5.0   # qubit frequency (GHz)
-omega_d = 5.0   # drive frequency, on resonance
+omega_q_lab = 5.0   # qubit frequency (GHz)
+omega_d_lab = 5.0   # drive frequency, on resonance
 
 sys_lab = QuantumSystem(
-    (omega_q / 2) * PAULIS[:Z],
-    [PAULIS[:X] => t -> cos(omega_d * t)],
+    (omega_q_lab / 2) * PAULIS[:Z],
+    [PAULIS[:X] => t -> cos(omega_d_lab * t)],
     [0.5],
 )
 sys_lab.time_dependent
 
 # The optimizer finds the envelope ``u(t)`` while the carrier is evaluated
 # exactly at each timestep, enabling sub-RWA modeling for short high-power gates.
-#
-# ## See Also
-#
-# - [Nonlinear Drives](@ref) — coefficient is an unknown function of the controls
-# - [Trapped Ions](@ref trapped-ion-systems) — `RadialMSGateSystem` uses time-dependent
-#   Hamiltonians as a canonical physical example
+# See also [Nonlinear Drives](@ref nonlinear-drives) for the case where the coefficient
+# is an unknown function of the controls, and [Trapped Ions](@ref trapped-ion-systems)
+# for a physical system that uses time-dependent Hamiltonians in practice.
 
 # ## OpenQuantumSystem
 #
