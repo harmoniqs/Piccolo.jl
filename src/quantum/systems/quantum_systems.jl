@@ -46,7 +46,8 @@ sys = QuantumSystem([H_z, H_x => t -> cos(ω*t)], [H_y], [1.0])
 
 See also [`OpenQuantumSystem`](@ref), [`VariationalQuantumSystem`](@ref).
 """
-struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple,DT,HD} <: AbstractQuantumSystem
+struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple,DT,HD} <:
+       AbstractQuantumSystem
     H::F1
     G::F2
     H_drift::HD
