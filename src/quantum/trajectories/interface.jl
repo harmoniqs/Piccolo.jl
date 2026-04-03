@@ -144,7 +144,7 @@ See also: `rollout`
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -153,6 +153,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
@@ -188,7 +191,7 @@ See also: `rollout`
 """
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -198,6 +201,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -220,7 +226,7 @@ See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout!(
     qtraj::KetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -229,6 +235,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
@@ -244,7 +253,7 @@ See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout!(
     qtraj::KetTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -254,6 +263,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -276,7 +288,7 @@ See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout!(
     qtraj::MultiKetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -290,6 +302,9 @@ function Rollouts.rollout!(
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -312,7 +327,7 @@ See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout!(
     qtraj::MultiKetTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -327,6 +342,9 @@ function Rollouts.rollout!(
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -360,6 +378,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
@@ -386,6 +407,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -421,6 +445,9 @@ function Rollouts.rollout!(
     base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -457,6 +484,9 @@ function Rollouts.rollout!(
     base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -480,7 +510,7 @@ Delegates to the base trajectory's rollout! method.
 function Rollouts.rollout!(
     qtraj::SamplingTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -504,7 +534,7 @@ Delegates to the base trajectory's rollout! method.
 """
 function Rollouts.rollout!(
     qtraj::SamplingTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -553,7 +583,7 @@ See also: `extract_pulse`, `rollout!`, `fidelity`
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -562,6 +592,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return UnitaryTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
@@ -575,7 +608,7 @@ See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout(
     qtraj::KetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -584,6 +617,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return KetTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
@@ -597,7 +633,7 @@ See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -611,6 +647,9 @@ function Rollouts.rollout(
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -649,6 +688,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return DensityTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
@@ -675,6 +717,9 @@ function Rollouts.rollout(
     base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -725,7 +770,7 @@ See also: [`rollout!`](@ref)
 """
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -735,6 +780,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -754,7 +802,7 @@ See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::KetTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -764,6 +812,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -783,7 +834,7 @@ See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -798,6 +849,9 @@ function Rollouts.rollout(
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -837,6 +891,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -870,6 +927,9 @@ function Rollouts.rollout(
     base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;

@@ -40,7 +40,17 @@ struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple,HD} <: AbstractQua
     levels::Int
     time_dependent::Bool
     global_params::PT
+    hermitian::Bool
 end
+
+"""
+    default_algorithm(sys::AbstractQuantumSystem)
+
+Return the default ODE algorithm for trajectory rollouts.
+Uses `Tsit5()` for non-Hermitian systems (where Magnus adaptive error
+control fails), `MagnusAdapt4()` for Hermitian systems.
+"""
+function default_algorithm end
 
 """
     QuantumSystem(H::Function, drive_bounds::Vector; time_dependent::Bool=false)
@@ -114,6 +124,7 @@ function QuantumSystem(
         levels,
         time_dependent,
         _float_params(global_params),
+        hermitian,
     )
 end
 
@@ -202,6 +213,7 @@ function QuantumSystem(
         levels,
         time_dependent,
         _float_params(global_params),
+        hermitian,
     )
 end
 
@@ -402,6 +414,7 @@ function QuantumSystem(
         levels,
         time_dependent,
         _float_params(global_params),
+        hermitian,
     )
 end
 
@@ -493,6 +506,7 @@ function QuantumSystem(
         levels,
         time_dependent,
         _float_params(global_params),
+        hermitian,
     )
 end
 
@@ -611,6 +625,11 @@ end
     @test sys_nh isa QuantumSystem
     @test sys_nh.n_drives == 1
     @test sys_nh.levels == 2
+    @test sys_nh.hermitian == false
+
+    # Hermitian system should have hermitian=true by default
+    sys_h = QuantumSystem(ComplexF64[1 0; 0 -1], [ComplexF64[0 1; 1 0]], [(-1.0, 1.0)])
+    @test sys_h.hermitian == true
 
     # Non-Hermitian drift with hermitian=true (default) should still fail
     @test_throws AssertionError QuantumSystem(H_drift_nh, H_drives_nh, bounds_nh)
