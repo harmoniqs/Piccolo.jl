@@ -121,6 +121,7 @@ function SplinePulseProblem(
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
 )
     sys = get_system(qtraj)
@@ -141,18 +142,31 @@ function SplinePulseProblem(
         nothing
     end
 
-    # Free-phase support: add single-qubit Z-phase variables as globals
+    # Free-phase support: add phase variables as globals
     θ_names = Symbol[]
     U_goal_fn = nothing
+    ket_goal_fn = nothing
     if free_phase
-        goal = qtraj.goal
-        @assert goal isa EmbeddedOperator "free_phase=true requires an EmbeddedOperator goal"
-        n_qubits = length(goal.subsystem_levels)
-        U_goal_fn = _make_free_phase_goal(goal)
-        θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds;
-            initial_phases=initial_phases, verbose=piccolo_options.verbose
-        )
+        if qtraj isa KetTrajectory
+            # Ket free-phase: requires subsystem_levels to build per-subsystem phase rotations
+            @assert !isnothing(subsystem_levels) "free_phase=true for KetTrajectory requires subsystem_levels"
+            n_qubits = length(subsystem_levels)
+            ket_goal_fn = _make_free_phase_ket_goal(qtraj.goal, subsystem_levels)
+            θ_names, global_data, global_bounds = setup_free_phase_globals!(
+                n_qubits, global_data, global_bounds;
+                initial_phases=initial_phases, verbose=piccolo_options.verbose
+            )
+        else
+            # Unitary free-phase: requires EmbeddedOperator goal
+            goal = qtraj.goal
+            @assert goal isa EmbeddedOperator "free_phase=true requires an EmbeddedOperator goal or subsystem_levels"
+            n_qubits = length(goal.subsystem_levels)
+            U_goal_fn = _make_free_phase_goal(goal)
+            θ_names, global_data, global_bounds = setup_free_phase_globals!(
+                n_qubits, global_data, global_bounds;
+                initial_phases=initial_phases, verbose=piccolo_options.verbose
+            )
+        end
     end
 
     # Convert quantum trajectory to NamedTrajectory
@@ -228,7 +242,9 @@ function SplinePulseProblem(
     du_sym = Symbol(:d, control_sym)
 
     # Build objective: type-specific infidelity + regularization
-    J = if free_phase && !isnothing(U_goal_fn)
+    J = if free_phase && !isnothing(ket_goal_fn)
+        KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj; Q = Q)
+    elseif free_phase && !isnothing(U_goal_fn)
         UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj; Q = Q)
     else
         _state_objective(qtraj, traj, state_sym, Q)
