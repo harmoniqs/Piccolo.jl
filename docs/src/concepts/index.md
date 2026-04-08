@@ -1,3 +1,6 @@
+```@copybutton
+```
+
 # [Concepts Overview](@id concepts-overview)
 
 Piccolo.jl solves **quantum optimal control problems** via direct trajectory optimization. This page describes the mathematical problem and how Piccolo.jl's components map onto it.
@@ -14,7 +17,7 @@ where each ``c_d(\boldsymbol{u})`` is a scalar coefficient — typically linear 
 
 ```math
 \begin{aligned}
-\min_{\boldsymbol{u},\, \Delta t} \quad & Q \cdot \ell(x_N,\, x_{\text{goal}}) \;+\; \sum_{k=1}^{N}\left( R_u \lVert \boldsymbol{u}_k \rVert^2 + R_{du} \lVert \Delta\boldsymbol{u}_k \rVert^2 + R_{ddu} \lVert \Delta^2\boldsymbol{u}_k \rVert^2 \right) \\[6pt]
+\min_{x_1, \dots, x_N,\, \boldsymbol{u},\, \Delta t} \quad & Q \cdot \ell(x_N,\, x_{\text{goal}}) \;+\; \sum_{k=1}^{N}\left( R_u \lVert \boldsymbol{u}_k \rVert^2 + R_{du} \lVert \Delta\boldsymbol{u}_k \rVert^2 + R_{ddu} \lVert \Delta^2\boldsymbol{u}_k \rVert^2 \right) \\[6pt]
 \text{s.t.} \quad & x_{k+1} = \exp\!\bigl(\Delta t_k \cdot G(\boldsymbol{u}_k)\bigr)\, x_k, \qquad k = 1,\dots, N-1 \\
 & x_1 = x_{\text{init}} \\
 & \boldsymbol{u}_{\min} \;\leq\; \boldsymbol{u}_k \;\leq\; \boldsymbol{u}_{\max}

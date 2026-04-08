@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/systems/rydberg_atoms.jl
+# ```
+#
 # # [Rydberg Atoms](@id rydberg-atom-systems)
 #
 # Rydberg atom arrays use highly excited atomic states with strong van der Waals

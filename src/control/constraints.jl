@@ -157,7 +157,7 @@ function FinalCoherentKetFidelityConstraint(
 
     function terminal_constraint(z)
         x = z[1:total_state_dim]
-        θ = z[total_state_dim+1:end]
+        θ = z[(total_state_dim+1):end]
 
         # Extract each state from the concatenated vector
         ψ̃s = Vector{Vector{eltype(x)}}(undef, n_states)

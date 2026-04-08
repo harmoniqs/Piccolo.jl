@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/problem-templates/bang_bang_pulse.jl
+# ```
+#
 # # [BangBangPulseProblem](@id bang-bang-pulse)
 #
 # `BangBangPulseProblem` promotes **bang-bang** (piecewise-constant, few-switch) controls by penalizing ``\|du\|_1`` via an **exact slack reformulation**. Unlike `SmoothPulseProblem` (which uses 2 derivative levels with L2 regularization), this stores only 1 derivative (`du`) and uses slack variables to impose an exact L1 penalty, promoting sparsity in `du` and thus fewer switches.

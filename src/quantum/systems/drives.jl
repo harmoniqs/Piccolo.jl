@@ -137,7 +137,13 @@ function NonlinearDrive(
 ) where {F}
     coeff_jac = _forwarddiff_jacobian(coeff)
     coeff_hess = _forwarddiff_hessian(coeff)
-    return NonlinearDrive(sparse(ComplexF64.(H)), coeff, coeff_jac, coeff_hess, active_controls)
+    return NonlinearDrive(
+        sparse(ComplexF64.(H)),
+        coeff,
+        coeff_jac,
+        coeff_hess,
+        active_controls,
+    )
 end
 
 # ── Generic constructors (for structured operators or any non-matrix Hamiltonian) ──
@@ -148,11 +154,7 @@ end
 Construct a `NonlinearDrive` with any Hamiltonian type (e.g., `AbstractDynamicsOperator`).
 The Hamiltonian is stored as-is (not materialized or sparsified).
 """
-function NonlinearDrive(
-    H,
-    coeff::F;
-    active_controls::Vector{Int} = Int[],
-) where {F}
+function NonlinearDrive(H, coeff::F; active_controls::Vector{Int} = Int[]) where {F}
     coeff_jac = _forwarddiff_jacobian(coeff)
     coeff_hess = _forwarddiff_hessian(coeff)
     return NonlinearDrive(H, coeff, coeff_jac, coeff_hess, active_controls)
@@ -224,7 +226,8 @@ For `LinearDrive`: always returns 0.0 (linear coefficient has zero Hessian).
 For `NonlinearDrive`: evaluates the Hessian function (user-provided or auto-generated).
 """
 @inline drive_coeff_hess(d::LinearDrive, ::AbstractVector, ::Int, ::Int) = 0.0
-@inline drive_coeff_hess(d::NonlinearDrive, u::AbstractVector, i::Int, j::Int) = d.coeff_hess(u, i, j)
+@inline drive_coeff_hess(d::NonlinearDrive, u::AbstractVector, i::Int, j::Int) =
+    d.coeff_hess(u, i, j)
 
 """
     active_controls(d::AbstractDrive) -> Vector{Int}

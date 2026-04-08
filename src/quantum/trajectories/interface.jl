@@ -992,9 +992,8 @@ function Rollouts.fidelity(
             phase_diag = map(1:n_sub) do i
                 bits = i - 1
                 phase = sum(
-                    phases[j] for j in 1:n_qubits
-                    if (bits >> (n_qubits - j)) & 1 == 1;
-                    init = 0.0
+                    phases[j] for j = 1:n_qubits if (bits >> (n_qubits - j)) & 1 == 1;
+                    init = 0.0,
                 )
                 return exp(im * phase)
             end
@@ -1040,9 +1039,7 @@ requiring all state overlaps to have aligned phases (necessary for gates).
 """
 function Rollouts.fidelity(qtraj::MultiKetTrajectory)
     n = length(qtraj.goals)
-    overlap_sum = sum(
-        qtraj.goals[i]' * qtraj.solution[i].u[end] for i in 1:n
-    )
+    overlap_sum = sum(qtraj.goals[i]' * qtraj.solution[i].u[end] for i = 1:n)
     return abs2(overlap_sum / n)
 end
 
@@ -1070,8 +1067,7 @@ global phase ambiguity, so we use an incoherent weighted average.
 function Rollouts.fidelity(qtraj::MultiDensityTrajectory)
     n = length(qtraj.goals)
     return sum(
-        qtraj.weights[i] * real(tr(qtraj.solution[i].u[end] * qtraj.goals[i]))
-        for i in 1:n
+        qtraj.weights[i] * real(tr(qtraj.solution[i].u[end] * qtraj.goals[i])) for i = 1:n
     )
 end
 

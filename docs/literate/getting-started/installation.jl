@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/getting-started/installation.jl
+# ```
+#
 # # [Installation](@id installation)
 #
 # ## Requirements

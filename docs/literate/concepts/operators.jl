@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/concepts/operators.jl
+# ```
+#
 # # [Operators](@id operators-concept)
 #
 # Piccolo.jl provides specialized operator types for working with composite and

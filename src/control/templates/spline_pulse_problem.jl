@@ -24,9 +24,8 @@ function _make_free_phase_goal(op::EmbeddedOperator)
         phase_diag = map(1:n_sub) do i
             bits = i - 1
             phase = sum(
-                θ[j] for j in 1:n_qubits
-                if (bits >> (n_qubits - j)) & 1 == 1;
-                init = zero(eltype(θ))
+                θ[j] for j = 1:n_qubits if (bits >> (n_qubits - j)) & 1 == 1;
+                init = zero(eltype(θ)),
             )
             return exp(im * phase)
         end
@@ -100,6 +99,9 @@ qcp = SplinePulseProblem(qtraj; Q=100.0, du_bound=10.0)
 # Or resample to different number of knots
 qcp = SplinePulseProblem(qtraj, 50; Q=100.0, du_bound=10.0)
 
+# Per-drive bounds (takes precedence over du_bound)
+qcp = SplinePulseProblem(qtraj; Q=100.0, du_bounds=[5.0, 2.0])
+
 solve!(qcp; max_iter=100)
 ```
 
@@ -135,9 +137,7 @@ function SplinePulseProblem(
 
     # Build global_data from system's global_params if present
     global_data = if !isempty(sys.global_params)
-        Dict{Symbol,Vector{Float64}}(
-            name => [val] for (name, val) in pairs(sys.global_params)
-        )
+        Dict{Symbol,Vector{Float64}}(name => [val] for (name, val) in pairs(sys.global_params))
     else
         nothing
     end
@@ -153,8 +153,11 @@ function SplinePulseProblem(
             n_qubits = length(subsystem_levels)
             ket_goal_fn = _make_free_phase_ket_goal(qtraj.goal, subsystem_levels)
             θ_names, global_data, global_bounds = setup_free_phase_globals!(
-                n_qubits, global_data, global_bounds;
-                initial_phases=initial_phases, verbose=piccolo_options.verbose
+                n_qubits,
+                global_data,
+                global_bounds;
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
             )
         else
             # Unitary free-phase: requires EmbeddedOperator goal
@@ -163,8 +166,11 @@ function SplinePulseProblem(
             n_qubits = length(goal.subsystem_levels)
             U_goal_fn = _make_free_phase_goal(goal)
             θ_names, global_data, global_bounds = setup_free_phase_globals!(
-                n_qubits, global_data, global_bounds;
-                initial_phases=initial_phases, verbose=piccolo_options.verbose
+                n_qubits,
+                global_data,
+                global_bounds;
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
             )
         end
     end
@@ -296,7 +302,7 @@ Create a spline-based trajectory optimization problem for ensemble ket state tra
 
 Uses coherent fidelity objective (phases must align) for gate implementation.
 
-# Arguments  
+# Arguments
 - `qtraj::MultiKetTrajectory{<:AbstractSplinePulse}`: Ensemble trajectory with spline pulse
 - `N_or_times`: One of:
   - `nothing` (default): Use native knot times from spline pulse
@@ -304,7 +310,14 @@ Uses coherent fidelity objective (phases must align) for gate implementation.
   - `times::AbstractVector`: Specific sample times
 
 # Keyword Arguments
-Same as the base `SplinePulseProblem` method.
+Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method, plus:
+- `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
+- `free_phase::Bool=false`: Optimize a per-subsystem frame phase alongside the pulse. Applies number-operator rotation `e^{iθ n̂}` to goal states — level `s` acquires phase `s·θ`. Requires `subsystem_levels`.
+- `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
+- `initial_phases::Union{Nothing, Vector{Float64}}=nothing`: Initial values for the per-subsystem phase variables when `free_phase=true`. Length must equal the number of subsystems.
+- `coherent::Bool=true`: If `true`, uses a coherent fidelity objective (phases must align across state pairs). If `false`, uses per-state fidelity.
+- `integrator_type::Symbol=:spline`: Integrator backend (`:spline` or `:ensemble`).
+- `parallel_backend::Symbol=:manual`: Parallelism strategy (`:manual`, `:threads`, or `:gpu`).
 """
 function SplinePulseProblem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
@@ -357,8 +370,11 @@ function SplinePulseProblem(
         n_qubits = length(subsystem_levels)
         goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds;
-            initial_phases=initial_phases, verbose=piccolo_options.verbose
+            n_qubits,
+            global_data,
+            global_bounds;
+            initial_phases = initial_phases,
+            verbose = piccolo_options.verbose,
         )
     end
 
@@ -448,7 +464,7 @@ function SplinePulseProblem(
     J = if free_phase && !isnothing(goals_fn)
         CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj; Q = Q)
     else
-        _ensemble_ket_objective(qtraj, traj, snames, weights, goals, Q; coherent=coherent)
+        _ensemble_ket_objective(qtraj, traj, snames, weights, goals, Q; coherent = coherent)
     end
 
     # Add regularization for control and derivative
@@ -920,8 +936,10 @@ end
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     qcp = SplinePulseProblem(
-        qtraj, N;
-        Q = 100.0, R = 1e-2,
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
         free_phase = true,
         subsystem_levels = [2],
     )
@@ -966,7 +984,8 @@ end
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     @test_throws AssertionError SplinePulseProblem(
-        qtraj, N;
+        qtraj,
+        N;
         free_phase = true,
         subsystem_levels = nothing,
     )

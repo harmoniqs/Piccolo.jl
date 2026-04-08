@@ -397,7 +397,10 @@ function QuantumSystem(
         H_fn = (u, t) -> H_drift
         G_fn = (u, t) -> G_drift
     else
-        H_fn = (u, t) -> H_drift + sum(drive_coeff(d, u) * H_d for (d, H_d) in zip(drives, H_drive_mats))
+        H_fn =
+            (u, t) ->
+                H_drift +
+                sum(drive_coeff(d, u) * H_d for (d, H_d) in zip(drives, H_drive_mats))
         G_fn =
             (u, t) ->
                 G_drift +
@@ -451,8 +454,12 @@ function QuantumSystem(
 )
     # Only dispatch here for non-AbstractMatrix types; matrices use the method above
     H_drift_op isa AbstractMatrix && return QuantumSystem(
-        convert(AbstractMatrix{ComplexF64}, H_drift_op), drives, drive_bounds;
-        time_dependent=time_dependent, global_params=global_params, hermitian=hermitian
+        convert(AbstractMatrix{ComplexF64}, H_drift_op),
+        drives,
+        drive_bounds;
+        time_dependent = time_dependent,
+        global_params = global_params,
+        hermitian = hermitian,
     )
 
     drive_bounds = normalize_drive_bounds(drive_bounds)
@@ -489,7 +496,10 @@ function QuantumSystem(
         H_fn = (u, t) -> H_drift_mat
         G_fn = (u, t) -> G_drift
     else
-        H_fn = (u, t) -> H_drift_mat + sum(drive_coeff(d, u) * H_d for (d, H_d) in zip(drives, H_drive_mats))
+        H_fn =
+            (u, t) ->
+                H_drift_mat +
+                sum(drive_coeff(d, u) * H_d for (d, H_d) in zip(drives, H_drive_mats))
         G_fn =
             (u, t) ->
                 G_drift +

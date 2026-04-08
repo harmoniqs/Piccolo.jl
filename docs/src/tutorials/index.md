@@ -1,3 +1,6 @@
+```@copybutton
+```
+
 # [Tutorials](@id tutorials-overview)
 
 Step-by-step tutorials for learning Piccolo.jl. Each tutorial builds on previous ones, introducing new concepts progressively.

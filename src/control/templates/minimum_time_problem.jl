@@ -118,9 +118,12 @@ function MinimumTimeProblem(
     end
 
     # Add final fidelity constraint - dispatches on QT type parameter!
-    fidelity_constraint =
-        _final_fidelity_constraint(qtraj_for_constraint, final_fidelity, traj;
-            subsystem_levels=subsystem_levels)
+    fidelity_constraint = _final_fidelity_constraint(
+        qtraj_for_constraint,
+        final_fidelity,
+        traj;
+        subsystem_levels = subsystem_levels,
+    )
 
     # Handle single constraint or multiple constraints
     if fidelity_constraint isa AbstractVector
@@ -168,8 +171,7 @@ function _final_fidelity_constraint(
 
     # Detect free-phase variables (φ_1, φ_2, ...) in global components
     θ_names = Symbol[
-        name for name in keys(traj.global_components)
-        if startswith(string(name), "φ_")
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
     ]
     sort!(θ_names)  # ensure consistent ordering
 
@@ -177,7 +179,11 @@ function _final_fidelity_constraint(
         # Free-phase: use callable U_goal(θ) with phase-adjusted gate
         U_goal_fn = _make_free_phase_goal(U_goal)
         return FinalUnitaryFidelityConstraint(
-            U_goal_fn, state_sym, θ_names, final_fidelity, traj
+            U_goal_fn,
+            state_sym,
+            θ_names,
+            final_fidelity,
+            traj,
         )
     else
         # Fixed-phase: use static U_goal
@@ -250,8 +256,7 @@ function _final_fidelity_constraint(
 
     # Detect free-phase variables (φ_1, φ_2, ...) in global components
     θ_names = Symbol[
-        name for name in keys(traj.global_components)
-        if startswith(string(name), "φ_")
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
     ]
     sort!(θ_names)  # ensure consistent ordering
 
@@ -263,7 +268,11 @@ function _final_fidelity_constraint(
         )
         goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
         return FinalCoherentKetFidelityConstraint(
-            goals_fn, snames, θ_names, final_fidelity, traj
+            goals_fn,
+            snames,
+            θ_names,
+            final_fidelity,
+            traj,
         )
     else
         # Fixed-phase: use static goals

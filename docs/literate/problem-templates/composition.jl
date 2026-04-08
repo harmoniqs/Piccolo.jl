@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/problem-templates/composition.jl
+# ```
+#
 # # [Composing Templates](@id composition)
 #
 # Problem templates in Piccolo.jl are designed to be composable. You can chain them together to build sophisticated optimization pipelines that combine multiple capabilities.

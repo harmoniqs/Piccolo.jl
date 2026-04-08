@@ -17,7 +17,12 @@ All pulses are callable: `pulse(t)` returns the control vector at time `t`.
 
 export AbstractPulse, AbstractSplinePulse
 export ZeroOrderPulse,
-    LinearSplinePulse, CubicSplinePulse, GaussianPulse, ErfPulse, CompositePulse, FunctionPulse
+    LinearSplinePulse,
+    CubicSplinePulse,
+    GaussianPulse,
+    ErfPulse,
+    CompositePulse,
+    FunctionPulse
 export duration, n_drives, sample, drive_name
 
 using DataInterpolations: ConstantInterpolation, LinearInterpolation, CubicHermiteSpline
@@ -834,7 +839,7 @@ struct FunctionPulse{F<:Function} <: AbstractPulse
     drive_name::Symbol
 end
 
-function FunctionPulse(f::Function, duration::Real, n_drives::Int; drive_name::Symbol=:u)
+function FunctionPulse(f::Function, duration::Real, n_drives::Int; drive_name::Symbol = :u)
     return FunctionPulse(f, Float64(duration), n_drives, drive_name)
 end
 

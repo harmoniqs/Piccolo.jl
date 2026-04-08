@@ -208,7 +208,7 @@ end
     using OrdinaryDiffEqLinear: MagnusGL4, MagnusAdapt4
 
     # Strong-driving system where 101 fixed steps may be inaccurate
-    ω = 50.0
+    ω = 520.0
     sys = QuantumSystem(ω * PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 2π / ω * 5  # 5 full rotations
@@ -262,8 +262,8 @@ end
     )
 
     for U in qtraj.solution.u
-        @test U' * U ≈ I atol=1e-8
-        @test U * U' ≈ I atol=1e-8
+        @test U' * U ≈ I atol = 1e-8
+        @test U * U' ≈ I atol = 1e-8
     end
 end
 
@@ -313,5 +313,5 @@ end
         UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 10001),
     )
 
-    @test fid_adapt ≈ fid_gl4_fine atol=1e-6
+    @test fid_adapt ≈ fid_gl4_fine atol = 1e-6
 end
