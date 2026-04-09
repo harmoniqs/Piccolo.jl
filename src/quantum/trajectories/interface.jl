@@ -1028,18 +1028,44 @@ function Rollouts.fidelity(qtraj::KetTrajectory)
 end
 
 """
-    fidelity(qtraj::MultiKetTrajectory)
+    fidelity(qtraj::MultiKetTrajectory; phases=nothing, subsystem_levels=nothing)
 
 Compute the coherent fidelity across all state transfers:
 
-    F = |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|²
+    F = |1/n ∑ᵢ ⟨ψᵢ_goal(θ)|ψᵢ⟩|²
 
-This matches the `CoherentKetInfidelityObjective` used by the optimizer,
-requiring all state overlaps to have aligned phases (necessary for gates).
+When `phases` is provided (a vector of per-qubit Z-phases), each goal is
+phase-rotated before computing the overlap. This matches the
+`CoherentKetFreePhaseInfidelityObjective` used during optimization.
+
+`subsystem_levels` specifies the Hilbert space dimensions of each subsystem
+(e.g., [2, 2, 2, 2] for 4 qubits). Required when `phases` is provided.
 """
-function Rollouts.fidelity(qtraj::MultiKetTrajectory)
+function Rollouts.fidelity(
+    qtraj::MultiKetTrajectory;
+    phases::Union{Nothing,AbstractVector{<:Real}} = nothing,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+)
     n = length(qtraj.goals)
-    overlap_sum = sum(qtraj.goals[i]' * qtraj.solution[i].u[end] for i = 1:n)
+    goals = if !isnothing(phases)
+        @assert !isnothing(subsystem_levels) "subsystem_levels required when phases is provided"
+        n_qubits = length(phases)
+        dim = prod(subsystem_levels)
+        # Build phase diagonal: for each basis state, accumulate phases for qubits in |1⟩
+        phase_diag = map(1:dim) do i
+            bits = i - 1
+            phase = sum(
+                phases[j] for j in 1:n_qubits
+                if (bits >> (n_qubits - j)) & 1 == 1;
+                init = 0.0
+            )
+            return exp(im * phase)
+        end
+        [phase_diag .* g for g in qtraj.goals]
+    else
+        qtraj.goals
+    end
+    overlap_sum = sum(goals[i]' * qtraj.solution[i].u[end] for i = 1:n)
     return abs2(overlap_sum / n)
 end
 
