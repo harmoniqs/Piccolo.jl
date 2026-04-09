@@ -22,6 +22,7 @@ export get_c_ops
 export compact_lindbladian_generators
 
 using ..Isomorphisms
+using ..Pulses
 using ..QuantumObjectUtils
 using ..LiftedOperators
 
@@ -147,6 +148,49 @@ end
 
 function Base.show(io::IO, sys::AbstractQuantumSystem)
     print(io, "$(nameof(typeof(sys))): levels = $(sys.levels), n_drives = $(sys.n_drives)")
+end
+
+# ----------------------------------------------------------------------------- #
+# Build Pulses from Systems
+# ----------------------------------------------------------------------------- #
+
+function build_pulse(
+    ::Type{P},
+    sys::AbstractQuantumSystem, 
+    T::Real; 
+    n_samples::Int = Pulses.DEFAULT_SAMPLES,
+    kwargs...
+) where P <: AbstractPulse
+    controls = Pulses.sample(sys.drive_bounds, n_samples)
+    times = LinRange(0, T, n_samples)
+    return P(controls, times; kwargs...)
+end
+
+function Pulses.ZeroOrderPulse(
+    sys::AbstractQuantumSystem,
+    T::Real;
+    n_samples::Int = Pulses.DEFAULT_SAMPLES,
+    kwargs...
+)
+    return build_pulse(ZeroOrderPulse, sys, T; n_samples=n_samples, kwargs...)
+end
+
+function Pulses.LinearSplinePulse(
+    sys::AbstractQuantumSystem,
+    T::Real;
+    n_samples::Int = Pulses.DEFAULT_SAMPLES,
+    kwargs...
+)
+    return build_pulse(LinearSplinePulse, sys, T; n_samples=n_samples, kwargs...)
+end
+
+function Pulses.CubicSplinePulse(
+    sys::AbstractQuantumSystem,
+    T::Real;
+    n_samples::Int = Pulses.DEFAULT_SAMPLES,
+    kwargs...
+)
+    return build_pulse(CubicSplinePulse, sys, T; n_samples=n_samples, kwargs...)
 end
 
 # ----------------------------------------------------------------------------- #
