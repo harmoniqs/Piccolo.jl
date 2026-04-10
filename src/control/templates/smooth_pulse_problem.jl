@@ -132,6 +132,8 @@ function SmoothPulseProblem(
     R_ddu::Union{Float64,Vector{Float64}} = R,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
+    free_phase::Bool = false,
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
 )
     if piccolo_options.verbose
         traj_type = split(string(typeof(qtraj).name.name), ".")[end]
@@ -148,6 +150,26 @@ function SmoothPulseProblem(
         Dict(name => [val] for (name, val) in pairs(sys.global_params))
     else
         nothing
+    end
+
+    # Free-phase support: add per-qubit phase variables as globals
+    θ_names = Symbol[]
+    U_goal_fn = nothing
+    ket_goal_fn = nothing
+    if free_phase
+        if qtraj isa KetTrajectory
+            error("free_phase for KetTrajectory in SmoothPulseProblem requires subsystem_levels; use the MultiKetTrajectory method instead")
+        else
+            goal = qtraj.goal
+            @assert goal isa EmbeddedOperator "free_phase=true requires an EmbeddedOperator goal"
+            n_qubits = length(goal.subsystem_levels)
+            U_goal_fn = _make_free_phase_goal(goal)
+            θ_names, global_data, global_bounds = setup_free_phase_globals!(
+                n_qubits, global_data, global_bounds;
+                initial_phases=initial_phases,
+                verbose=piccolo_options.verbose,
+            )
+        end
     end
 
     # Convert quantum trajectory to NamedTrajectory
@@ -168,19 +190,26 @@ function SmoothPulseProblem(
         derivative_bounds = (du_bounds, ddu_bounds),
     )
 
-    # Initialize dynamics integrators - handle both single integrator and vector of integrators
+    # Combine user-specified global_names with free_phase θ_names for integrator
+    all_global_names = if !isempty(θ_names)
+        gn = isnothing(global_names) ? Symbol[] : copy(global_names)
+        append!(gn, θ_names)
+        gn
+    else
+        global_names
+    end
+
+    # Initialize dynamics integrators
     if isnothing(integrator)
-        # Check for global_names without integrator
-        if !isnothing(global_names) && !isempty(global_names)
+        if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
-                "global_names requires a custom integrator that supports global variables. " *
+                "free_phase=true or global_names requires a custom integrator that supports global variables. " *
                 "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
                 "  using Piccolissimo\n" *
-                "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$global_names)\n" *
+                "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = SmoothPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        # Use default BilinearIntegrator for the trajectory type
         default_int = BilinearIntegrator(qtraj, N)
         if default_int isa AbstractVector
             dynamics_integrators = AbstractIntegrator[default_int...]
@@ -188,10 +217,8 @@ function SmoothPulseProblem(
             dynamics_integrators = AbstractIntegrator[default_int]
         end
     elseif integrator isa AbstractIntegrator
-        # Single custom integrator provided
         dynamics_integrators = AbstractIntegrator[integrator]
     else
-        # Vector of custom integrators provided
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
 
@@ -200,7 +227,13 @@ function SmoothPulseProblem(
         [name for name ∈ traj_smooth.names if endswith(string(name), string(control_sym))]
 
     # Build objective: type-specific infidelity + regularization
-    J = _state_objective(qtraj, traj_smooth, state_sym, Q)
+    J = if free_phase && !isnothing(U_goal_fn)
+        UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj_smooth; Q=Q)
+    elseif free_phase && !isnothing(ket_goal_fn)
+        KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj_smooth; Q=Q)
+    else
+        _state_objective(qtraj, traj_smooth, state_sym, Q)
+    end
 
     # Add regularization for control and derivatives
     J += QuadraticRegularizer(control_names[1], traj_smooth, R_u)
