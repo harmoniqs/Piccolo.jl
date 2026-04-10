@@ -102,7 +102,7 @@ end
 Sample the bounds uniformly with `n_samples` points.
 """
 function sample(bounds::AbstractVector{Tuple{Float64,Float64}}, n_samples::Int)
-    return [(high - low) * rand() + low for (low, high) in bounds, _ in 1:n_samples]
+    return [(high - low) * rand() + low for (low, high) in bounds, _ = 1:n_samples]
 end
 
 """
@@ -119,8 +119,11 @@ end
 Base.summary(io::IO, p::AbstractPulse) = print(
     io,
     "$(nameof(typeof(p)))(Number of drives = ",
-    n_drives(p), ", ",
-    "T = ", duration(p), ")"
+    n_drives(p),
+    ", ",
+    "T = ",
+    duration(p),
+    ")",
 )
 
 Base.show(io::IO, p::AbstractPulse) = summary(io, p)
@@ -512,7 +515,7 @@ function CubicSplinePulse(
     final_value::Union{Nothing,Vector{<:Real}} = nothing,
 )
     controls = sample(pulse, times)
-    derivatives = stack(map(t ->derivative(pulse, t), times))
+    derivatives = stack(map(t -> derivative(pulse, t), times))
 
     init_val = isnothing(initial_value) ? pulse(times[1]) : initial_value
     final_val = isnothing(final_value) ? pulse(times[end]) : final_value

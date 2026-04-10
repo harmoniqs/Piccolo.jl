@@ -156,11 +156,11 @@ end
 
 function build_pulse(
     ::Type{P},
-    sys::AbstractQuantumSystem, 
-    T::Real; 
+    sys::AbstractQuantumSystem,
+    T::Real;
     n_samples::Int = Pulses.DEFAULT_SAMPLES,
-    kwargs...
-) where P <: AbstractPulse
+    kwargs...,
+) where {P<:AbstractPulse}
     controls = Pulses.sample(sys.drive_bounds, n_samples)
     times = LinRange(0, T, n_samples)
     return P(controls, times; kwargs...)
@@ -170,27 +170,27 @@ function Pulses.ZeroOrderPulse(
     sys::AbstractQuantumSystem,
     T::Real;
     n_samples::Int = Pulses.DEFAULT_SAMPLES,
-    kwargs...
+    kwargs...,
 )
-    return build_pulse(ZeroOrderPulse, sys, T; n_samples=n_samples, kwargs...)
+    return build_pulse(ZeroOrderPulse, sys, T; n_samples = n_samples, kwargs...)
 end
 
 function Pulses.LinearSplinePulse(
     sys::AbstractQuantumSystem,
     T::Real;
     n_samples::Int = Pulses.DEFAULT_SAMPLES,
-    kwargs...
+    kwargs...,
 )
-    return build_pulse(LinearSplinePulse, sys, T; n_samples=n_samples, kwargs...)
+    return build_pulse(LinearSplinePulse, sys, T; n_samples = n_samples, kwargs...)
 end
 
 function Pulses.CubicSplinePulse(
     sys::AbstractQuantumSystem,
     T::Real;
     n_samples::Int = Pulses.DEFAULT_SAMPLES,
-    kwargs...
+    kwargs...,
 )
-    return build_pulse(CubicSplinePulse, sys, T; n_samples=n_samples, kwargs...)
+    return build_pulse(CubicSplinePulse, sys, T; n_samples = n_samples, kwargs...)
 end
 
 # ----------------------------------------------------------------------------- #
