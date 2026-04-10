@@ -154,13 +154,22 @@ function BangBangPulseProblem(
     )
 
     # Initialize dynamics integrators
+    # Combine user-specified global_names with free_phase θ_names for integrator
+    all_global_names = if !isempty(θ_names)
+        gn = isnothing(global_names) ? Symbol[] : copy(global_names)
+        append!(gn, θ_names)
+        gn
+    else
+        global_names
+    end
+
     if isnothing(integrator)
-        if !isnothing(global_names) && !isempty(global_names)
+        if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
-                "global_names requires a custom integrator that supports global variables. " *
+                "free_phase=true or global_names requires a custom integrator that supports global variables. " *
                 "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
                 "  using Piccolissimo\n" *
-                "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$global_names)\n" *
+                "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = BangBangPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
@@ -333,14 +342,23 @@ function BangBangPulseProblem(
     # Apply piccolo options for each state
     J += _apply_piccolo_options(qtraj, piccolo_options, constraints, traj_bb, snames)
 
+    # Combine user-specified global_names with free_phase θ_names for integrator
+    all_global_names = if !isempty(θ_names)
+        gn = isnothing(global_names) ? Symbol[] : copy(global_names)
+        append!(gn, θ_names)
+        gn
+    else
+        global_names
+    end
+
     # Build integrators
     if isnothing(integrator)
-        if !isnothing(global_names) && !isempty(global_names)
+        if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
-                "global_names requires a custom integrator that supports global variables. " *
+                "free_phase=true or global_names requires a custom integrator that supports global variables. " *
                 "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
                 "  using Piccolissimo\n" *
-                "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$global_names)\n" *
+                "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = BangBangPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
