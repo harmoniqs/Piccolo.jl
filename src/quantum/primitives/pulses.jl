@@ -138,12 +138,26 @@ function ZeroOrderPulse(
     controls::AbstractMatrix,
     times::AbstractVector;
     drive_name::Symbol = :u,
-    initial_value::Union{Nothing,Vector{<:Real}} = nothing,
-    final_value::Union{Nothing,Vector{<:Real}} = nothing,
+    initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
     n_drives = size(controls, 1)
-    init_val = isnothing(initial_value) ? zeros(n_drives) : Vector{Float64}(initial_value)
-    final_val = isnothing(final_value) ? zeros(n_drives) : Vector{Float64}(final_value)
+    # :free means "no boundary constraint" (stored as NaN sentinel)
+    # nothing defaults to zeros for backward compatibility
+    init_val = if initial_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(initial_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(initial_value)
+    end
+    final_val = if final_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(final_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(final_value)
+    end
     # Materialize to Matrix/Vector to ensure consistent type parameters
     interp = ConstantInterpolation(Matrix(controls), collect(times))
     return ZeroOrderPulse(
@@ -202,12 +216,24 @@ function LinearSplinePulse(
     controls::AbstractMatrix,
     times::AbstractVector;
     drive_name::Symbol = :u,
-    initial_value::Union{Nothing,Vector{<:Real}} = nothing,
-    final_value::Union{Nothing,Vector{<:Real}} = nothing,
+    initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
     n_drives = size(controls, 1)
-    init_val = isnothing(initial_value) ? zeros(n_drives) : Vector{Float64}(initial_value)
-    final_val = isnothing(final_value) ? zeros(n_drives) : Vector{Float64}(final_value)
+    init_val = if initial_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(initial_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(initial_value)
+    end
+    final_val = if final_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(final_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(final_value)
+    end
     # Materialize to Matrix/Vector to ensure consistent type parameters
     interp = LinearInterpolation(Matrix(controls), collect(times))
     return LinearSplinePulse(
@@ -269,12 +295,24 @@ function CubicSplinePulse(
     derivatives::AbstractMatrix,
     times::AbstractVector;
     drive_name::Symbol = :u,
-    initial_value::Union{Nothing,Vector{<:Real}} = nothing,
-    final_value::Union{Nothing,Vector{<:Real}} = nothing,
+    initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
     n_drives = size(controls, 1)
-    init_val = isnothing(initial_value) ? zeros(n_drives) : Vector{Float64}(initial_value)
-    final_val = isnothing(final_value) ? zeros(n_drives) : Vector{Float64}(final_value)
+    init_val = if initial_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(initial_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(initial_value)
+    end
+    final_val = if final_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(final_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(final_value)
+    end
     # Materialize to Matrix to ensure consistent type parameters across construction methods
     interp = CubicHermiteSpline(Matrix(derivatives), Matrix(controls), collect(times))
     return CubicSplinePulse(

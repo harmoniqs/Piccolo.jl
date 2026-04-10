@@ -119,12 +119,13 @@ function _get_control_data(
     u = hcat([pulse(t) for t in times]...)
     u_bounds = _get_drive_bounds(sys)
 
-    # Extract boundary conditions from pulse (default zeros if not specified)
+    # Extract boundary conditions from pulse
+    # NaN sentinel means "no boundary constraint" (set via initial_value=:free)
     initial_u = pulse.initial_value
     final_u = pulse.final_value
 
-    initial_constraints = _named_tuple(u_name => initial_u)
-    final_constraints = _named_tuple(u_name => final_u)
+    initial_constraints = any(isnan, initial_u) ? NamedTuple() : _named_tuple(u_name => initial_u)
+    final_constraints = any(isnan, final_u) ? NamedTuple() : _named_tuple(u_name => final_u)
 
     return _named_tuple(u_name => u),
     (u_name,),
@@ -191,15 +192,26 @@ function _get_control_data(
     # du bounds are typically unbounded (controlled by regularization)
     du_bounds = (-Inf * ones(n), Inf * ones(n))
 
-    # Extract boundary conditions from pulse (default zeros if not specified)
+    # Extract boundary conditions from pulse
+    # NaN sentinel means "no boundary constraint" (set via initial_value=:free)
     initial_u = pulse.initial_value
     final_u = pulse.final_value
-    # For spline pulses, also constrain derivatives to zero at boundaries
     initial_du = zeros(n)
     final_du = zeros(n)
 
-    initial_constraints = _named_tuple(u_name => initial_u, du_name => initial_du)
-    final_constraints = _named_tuple(u_name => final_u, du_name => final_du)
+    # Build initial constraints (skip u/du if free)
+    u_free_init = any(isnan, initial_u)
+    u_free_final = any(isnan, final_u)
+    initial_constraints = if u_free_init
+        NamedTuple()
+    else
+        _named_tuple(u_name => initial_u, du_name => initial_du)
+    end
+    final_constraints = if u_free_final
+        NamedTuple()
+    else
+        _named_tuple(u_name => final_u, du_name => final_du)
+    end
 
     return _named_tuple(u_name => u, du_name => du),
     (u_name, du_name),
