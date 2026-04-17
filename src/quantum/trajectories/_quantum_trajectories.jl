@@ -38,13 +38,13 @@ import NamedTrajectories: NamedTrajectory, get_times
 import ..QuantumSystems: default_algorithm
 
 """
-    default_algorithm(sys::QuantumSystem)
+    default_algorithm(sys::AbstractQuantumSystem)
 
 Return the default ODE algorithm for trajectory rollouts.
 Uses `Tsit5()` for non-Hermitian systems (where Magnus adaptive error
 control fails), `MagnusAdapt4()` for Hermitian systems.
 """
-function default_algorithm(sys::QuantumSystem)
+function default_algorithm(sys::AbstractQuantumSystem)
     return sys.hermitian ? MagnusAdapt4() : Tsit5()
 end
 

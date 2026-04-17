@@ -109,13 +109,13 @@ EmbeddedOperator(
 ) = EmbeddedOperator(subspace_operator, subspace, [levels])
 
 @doc raw"""
-    EmbeddedOperator(subspace_operator::AbstractMatrix{<:Number}, system::QuantumSystem; kwargs...)
+    EmbeddedOperator(subspace_operator::AbstractMatrix{<:Number}, system::AbstractQuantumSystem; kwargs...)
 
 Embed the `subspace_operator` into a quantum `system`.
 """
 function EmbeddedOperator(
     subspace_operator::AbstractMatrix{<:Number},
-    system::QuantumSystem;
+    system::AbstractQuantumSystem;
     subspace = 1:size(subspace_operator, 1),
     levels = system.levels,
 )
@@ -123,6 +123,28 @@ function EmbeddedOperator(
         subspace_operator,
         get_subspace_indices(subspace, levels),
         [system.levels],
+    )
+end
+
+@doc raw"""
+    EmbeddedOperator(subspace_operator::AbstractMatrix{<:Number}, system::CompositeQuantumSystem; subspaces=<1:2 per subsystem>)
+
+Embed a qubit-level operator into the full multi-level Hilbert space of a
+`CompositeQuantumSystem`, using the composite's `subsystem_levels` and a
+per-subsystem `subspaces` selection. By default each subsystem contributes
+its computational subspace (levels 1:2), which is the common case for
+transmon / Rydberg / fluxonium circuit-compilation targets.
+"""
+function EmbeddedOperator(
+    subspace_operator::AbstractMatrix{<:Number},
+    system::CompositeQuantumSystem;
+    subspaces::AbstractVector{<:AbstractVector{Int}} = [collect(1:2) for _ in system.subsystem_levels],
+)
+    @assert length(subspaces) == length(system.subsystem_levels) "subspaces must have one entry per subsystem"
+    return EmbeddedOperator(
+        subspace_operator,
+        get_subspace_indices(subspaces, system.subsystem_levels),
+        system.subsystem_levels,
     )
 end
 

@@ -33,16 +33,21 @@ H_coupling = 0.1 * kron(PAULIS[:Z], PAULIS[:Z])
 csys = CompositeQuantumSystem(H_coupling, [sys1, sys2], Float64[])
 ```
 """
-struct CompositeQuantumSystem{F1<:Function,F2<:Function} <: AbstractQuantumSystem
+struct CompositeQuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple} <: AbstractQuantumSystem
     H::F1
     G::F2
     H_drift::SparseMatrixCSC{ComplexF64,Int}
-    H_drives::Vector{SparseMatrixCSC{ComplexF64,Int}}
+    H_drives::Vector{AbstractDrive}
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
     subsystem_levels::Vector{Int}
     subsystems::Vector{QuantumSystem}
+    # Shared AbstractQuantumSystem interface (mirrors QuantumSystem fields so
+    # downstream code can treat composite systems uniformly)
+    time_dependent::Bool
+    global_params::PT
+    hermitian::Bool
 end
 
 """
@@ -111,16 +116,36 @@ function CompositeQuantumSystem(
         G = (u, t) -> G_drift + sum(u .* G_drives)
     end
 
-    return CompositeQuantumSystem{typeof(H),typeof(G)}(
+    # Assemble drive_bounds to span all n_drives in H_drives order:
+    # coupling drives first (already in `drive_bounds`), then each subsystem's
+    # drive bounds in the order they were lifted above.
+    full_drive_bounds = copy(drive_bounds)
+    for sys ∈ subsystems
+        append!(full_drive_bounds, sys.drive_bounds)
+    end
+    @assert length(full_drive_bounds) == n_drives "drive_bounds length ($(length(full_drive_bounds))) does not match n_drives ($n_drives)"
+
+    # Wrap drive matrices as AbstractDrive for external consumption (parity
+    # with QuantumSystem.H_drives; closures H/G capture the raw sparse
+    # matrices already).
+    linear_drives = AbstractDrive[LinearDrive(H_drives[i], i) for i = 1:n_drives]
+
+    global_params = NamedTuple()
+    hermitian = all(sys.hermitian for sys ∈ subsystems)
+
+    return CompositeQuantumSystem{typeof(H),typeof(G),typeof(global_params)}(
         H,
         G,
         H_drift,
-        H_drives,
-        drive_bounds,
+        linear_drives,
+        full_drive_bounds,
         n_drives,
         levels,
         subsystem_levels,
         subsystems,
+        false,            # time_dependent
+        global_params,
+        hermitian,
     )
 end
 
@@ -322,3 +347,4 @@ end
     @test csys_mixed.drive_bounds[1] == (-0.5, 0.5)
     @test csys_mixed.drive_bounds[2] == (-0.2, 0.8)
 end
+

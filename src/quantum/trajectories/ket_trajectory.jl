@@ -17,9 +17,9 @@ Trajectory for quantum state transfer. The ODE solution is computed at construct
 # Callable
 `traj(t)` returns the state at time `t` by interpolating the solution.
 """
-mutable struct KetTrajectory{P<:AbstractPulse,S<:ODESolution} <:
+mutable struct KetTrajectory{P<:AbstractPulse,S<:ODESolution,Q<:AbstractQuantumSystem} <:
                AbstractQuantumTrajectory{P}
-    system::QuantumSystem
+    system::Q
     pulse::P
     initial::Vector{ComplexF64}
     goal::Vector{ComplexF64}
@@ -44,7 +44,7 @@ Create a ket trajectory by solving the Schrödinger equation.
 - `n_save`: Number of output time points (default: 101)
 """
 function KetTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     pulse::AbstractPulse,
     initial::AbstractVector{<:Number},
     goal::AbstractVector{<:Number};
@@ -67,7 +67,7 @@ function KetTrajectory(
     prob = KetOperatorODEProblem(system, pulse, ψ0, tstops)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
-    return KetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0, ψg, sol)
+    return KetTrajectory{typeof(pulse),typeof(sol),typeof(system)}(system, pulse, ψ0, ψg, sol)
 end
 
 """
@@ -88,7 +88,7 @@ Convenience constructor that creates a zero pulse of duration T.
 - `reltol`: Relative tolerance (default: 1e-8)
 """
 function KetTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     initial::AbstractVector{<:Number},
     goal::AbstractVector{<:Number},
     T::Real;

@@ -20,9 +20,9 @@ Trajectory for unitary gate synthesis. The ODE solution is computed at construct
 # Conversion to NamedTrajectory
 Use `NamedTrajectory(traj, N)` or `NamedTrajectory(traj, times)` for optimization.
 """
-mutable struct UnitaryTrajectory{P<:AbstractPulse,S<:ODESolution,G} <:
+mutable struct UnitaryTrajectory{P<:AbstractPulse,S<:ODESolution,G,Q<:AbstractQuantumSystem} <:
                AbstractQuantumTrajectory{P}
-    system::QuantumSystem
+    system::Q
     pulse::P
     initial::Matrix{ComplexF64}
     goal::G
@@ -47,7 +47,7 @@ Create a unitary trajectory by solving the Schrödinger equation.
 - `n_save`: Number of output time points for plotting/interpolation (default: 101)
 """
 function UnitaryTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     pulse::AbstractPulse,
     goal::G;
     initial::AbstractMatrix{<:Number} = Matrix{ComplexF64}(I, system.levels, system.levels),
@@ -69,7 +69,7 @@ function UnitaryTrajectory(
     prob = UnitaryOperatorODEProblem(system, pulse, tstops; U0 = U0)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
-    return UnitaryTrajectory{typeof(pulse),typeof(sol),G}(system, pulse, U0, goal, sol)
+    return UnitaryTrajectory{typeof(pulse),typeof(sol),G,typeof(system)}(system, pulse, U0, goal, sol)
 end
 
 """
@@ -89,7 +89,7 @@ Convenience constructor that creates a zero pulse of duration T.
 - `reltol`: Relative tolerance (default: 1e-8)
 """
 function UnitaryTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     goal::G,
     T::Real;
     drive_name::Symbol = :u,
@@ -178,6 +178,38 @@ end
     # Fidelity should be high
     fid = fidelity(qtraj)
     @test fid > 0.99
+end
+
+@testitem "UnitaryTrajectory accepts CompositeQuantumSystem" begin
+    using LinearAlgebra
+
+    # Two single-qubit subsystems with a dispersive-style coupling drift
+    sys1 = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
+    sys2 = QuantumSystem(0.4 * PAULIS[:Z], [PAULIS[:Y]], [(-1.0, 1.0)])
+    g12 = 0.1 * kron(PAULIS[:X], PAULIS[:X])
+    csys = CompositeQuantumSystem(g12, [sys1, sys2], Float64[])
+
+    # The composite now satisfies the AbstractQuantumSystem interface UnitaryTrajectory needs
+    @test csys.hermitian == true
+    @test csys.time_dependent == false
+    @test isempty(csys.global_params)
+
+    # Build a small pulse matching csys.n_drives and verify the trajectory constructs
+    T = 0.5
+    pulse = ZeroOrderPulse(zeros(csys.n_drives, 2), [0.0, T])
+    U_goal = Matrix{ComplexF64}(I, csys.levels, csys.levels)
+    qtraj = UnitaryTrajectory(csys, pulse, U_goal)
+
+    @test qtraj isa UnitaryTrajectory
+    @test qtraj.system === csys
+    @test size(qtraj(0.0)) == (csys.levels, csys.levels)
+    @test size(qtraj(T)) == (csys.levels, csys.levels)
+
+    # EmbeddedOperator convenience for composite: uses subsystem_levels directly
+    X_target = kron(PAULIS[:X], Matrix{ComplexF64}(I, 2, 2))
+    emb = EmbeddedOperator(X_target, csys)
+    @test emb isa EmbeddedOperator
+    @test emb.subsystem_levels == csys.subsystem_levels
 end
 
 @testitem "UnitaryTrajectory with EmbeddedOperator goal" begin

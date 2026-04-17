@@ -78,8 +78,11 @@ function TransmonSystem(;
 
     if drives
         H_drives = [a + a', 1.0im * (a - a')]
+        sys_drive_bounds = drive_bounds
     else
         H_drives = Matrix{ComplexF64}[]
+        # No drives → no drive bounds (keeps QuantumSystem bounds length == n_drives)
+        sys_drive_bounds = eltype(drive_bounds)[]
     end
 
     if multiply_by_2π
@@ -87,7 +90,7 @@ function TransmonSystem(;
         H_drives .*= 2π
     end
 
-    return QuantumSystem(H_drift, H_drives, drive_bounds)
+    return QuantumSystem(H_drift, H_drives, sys_drive_bounds)
 end
 
 struct QuantumSystemCoupling
@@ -207,11 +210,15 @@ function MultiTransmonSystem(
     @assert length(δs) == n_subsystems
     @assert size(gs) == (n_subsystems, n_subsystems)
 
-    # Convert drive_bounds to vector if scalar
-    if drive_bounds isa Float64
-        drive_bounds_vec = fill(drive_bounds, 2)
+    # Per-subsystem drive_bounds: two drives (real + imag) per transmon, so we
+    # always pass a length-2 vector to each TransmonSystem regardless of the
+    # caller-facing `drive_bounds` shape.
+    subsys_bounds = if drive_bounds isa Float64
+        fill(drive_bounds, 2)
+    elseif length(drive_bounds) == 2
+        drive_bounds
     else
-        drive_bounds_vec = drive_bounds
+        fill(first(drive_bounds), 2)
     end
 
     systems = QuantumSystem[]
@@ -219,7 +226,7 @@ function MultiTransmonSystem(
     for (i, (ω, δ, levels)) ∈ enumerate(zip(ωs, δs, subsystem_levels))
         if i ∈ subsystems
             sysᵢ = TransmonSystem(
-                drive_bounds = drive_bounds_vec,
+                drive_bounds = subsys_bounds,
                 levels = levels,
                 ω = ω,
                 δ = δ,
@@ -250,7 +257,10 @@ function MultiTransmonSystem(
 
     levels = prod([sys.levels for sys in systems])
     H_drift = sum(c -> c.op, couplings; init = zeros(ComplexF64, levels, levels))
-    return CompositeQuantumSystem(H_drift, systems, drive_bounds_vec)
+    # No coupling drives at the MultiTransmonSystem layer — pass empty
+    # coupling-drive bounds; CompositeQuantumSystem will compose each
+    # subsystem's drive_bounds automatically.
+    return CompositeQuantumSystem(H_drift, systems, Tuple{Float64,Float64}[])
 end
 
 # *************************************************************************** #

@@ -20,8 +20,8 @@ problems with multiple initial/goal pairs.
 `traj(t)` returns a vector of states at time `t`.
 `traj[i]` returns the i-th trajectory's solution.
 """
-mutable struct MultiKetTrajectory{P<:AbstractPulse,S} <: AbstractQuantumTrajectory{P}
-    system::QuantumSystem
+mutable struct MultiKetTrajectory{P<:AbstractPulse,S,Q<:AbstractQuantumSystem} <: AbstractQuantumTrajectory{P}
+    system::Q
     pulse::P
     initials::Vector{Vector{ComplexF64}}
     goals::Vector{Vector{ComplexF64}}
@@ -48,7 +48,7 @@ Create a multi-ket trajectory by solving multiple Schrödinger equations.
 - `n_save`: Number of output time points (default: 101)
 """
 function MultiKetTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     pulse::AbstractPulse,
     initials::Vector{<:AbstractVector{<:Number}},
     goals::Vector{<:AbstractVector{<:Number}};
@@ -87,7 +87,7 @@ function MultiKetTrajectory(
         reltol = reltol,
     )
 
-    return MultiKetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0s, ψgs, ws, sol)
+    return MultiKetTrajectory{typeof(pulse),typeof(sol),typeof(system)}(system, pulse, ψ0s, ψgs, ws, sol)
 end
 
 """
@@ -109,7 +109,7 @@ Convenience constructor that creates a zero pulse of duration T.
 - `reltol`: Relative tolerance (default: 1e-8)
 """
 function MultiKetTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     initials::Vector{<:AbstractVector{<:Number}},
     goals::Vector{<:AbstractVector{<:Number}},
     T::Real;
