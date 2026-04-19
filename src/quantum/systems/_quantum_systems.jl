@@ -12,6 +12,11 @@ export active_controls
 export has_nonlinear_drives
 export validate_drive_jacobian
 
+export AbstractDissipator, LinearDissipator, NonlinearDissipator
+export rate_coeff, rate_coeff_jac, rate_coeff_hess
+export dissipator_matrix
+export has_nonlinear_dissipators
+
 export get_drift
 export get_drives
 export get_drive_terms
@@ -169,6 +174,7 @@ _float_params(nt::NamedTuple{K}) where {K} = NamedTuple{K}(float.(values(nt)))
 # ----------------------------------------------------------------------------- #
 
 include("drives.jl")
+include("dissipators.jl")
 include("quantum_systems.jl")
 include("open_quantum_systems.jl")
 include("variational_quantum_systems.jl")
