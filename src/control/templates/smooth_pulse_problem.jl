@@ -141,6 +141,7 @@ function SmoothPulseProblem(
         AbstractVector{Int},
         AbstractVector{<:AbstractVector{Int}},
     } = nothing,
+    phase_sensitive::Bool = false,
 )
     if piccolo_options.verbose
         traj_type = split(string(typeof(qtraj).name.name), ".")[end]
@@ -243,7 +244,7 @@ function SmoothPulseProblem(
     elseif free_phase && !isnothing(ket_goal_fn)
         KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj_smooth; Q = Q)
     else
-        _state_objective(qtraj, traj_smooth, state_sym, Q)
+        _state_objective(qtraj, traj_smooth, state_sym, Q; phase_sensitive = phase_sensitive)
     end
 
     # Add regularization for control and derivatives
@@ -529,10 +530,17 @@ function _state_objective(
     qtraj::UnitaryTrajectory,
     traj::NamedTrajectory,
     state_sym::Symbol,
-    Q::Float64,
+    Q::Float64;
+    phase_sensitive::Bool = false,
 )
     U_goal = qtraj.goal
-    return UnitaryInfidelityObjective(U_goal, state_sym, traj; Q = Q)
+    return UnitaryInfidelityObjective(
+        U_goal,
+        state_sym,
+        traj;
+        Q = Q,
+        phase_sensitive = phase_sensitive,
+    )
 end
 
 # Ket trajectory: single infidelity objective
@@ -540,7 +548,8 @@ function _state_objective(
     qtraj::KetTrajectory,
     traj::NamedTrajectory,
     state_sym::Symbol,
-    Q::Float64,
+    Q::Float64;
+    phase_sensitive::Bool = false,
 )
     return KetInfidelityObjective(state_sym, traj; Q = Q)
 end
@@ -550,7 +559,8 @@ function _state_objective(
     qtraj::DensityTrajectory,
     traj::NamedTrajectory,
     state_sym::Symbol,
-    Q::Float64,
+    Q::Float64;
+    phase_sensitive::Bool = false,
 )
     ρ_goal = Matrix{ComplexF64}(qtraj.goal)
     return DensityMatrixInfidelityObjective(state_sym, ρ_goal, traj; Q = Q)
