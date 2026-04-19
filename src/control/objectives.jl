@@ -276,12 +276,23 @@ end
 
 function UnitaryInfidelityObjective(
     U_goal::AbstractPiccoloOperator,
-    Ũ⃗_name::Symbol,
+    Ũ⃗_name::Symbol,
     traj::NamedTrajectory;
     Q = 100.0,
+    phase_sensitive::Bool = false,
 )
-    ℓ = Ũ⃗ -> abs(1 - unitary_fidelity_loss(Ũ⃗, U_goal))
-    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
+    if phase_sensitive
+        U_goal isa AbstractMatrix || throw(ArgumentError(
+            "phase_sensitive=true requires a dense matrix goal; EmbeddedOperator not supported."
+        ))
+        n = size(U_goal, 1)
+        d = det(U_goal)
+        U_goal_sun = abs(d - 1) < 1e-10 ? U_goal : U_goal / d^(1 / n)
+        ℓ = Ũ⃗ -> 1 - real(tr(U_goal_sun' * iso_vec_to_operator(Ũ⃗))) / n
+    else
+        ℓ = Ũ⃗ -> abs(1 - unitary_fidelity_loss(Ũ⃗, U_goal))
+    end
+    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
 end
 
 function UnitaryFreePhaseInfidelityObjective(
@@ -489,6 +500,52 @@ using TestItems
     # overlap_sum = ⟨ψ1|ψ1⟩ + ⟨ψ0|(-ψ0)⟩ = 1 + (-1) = 0
     # F_coherent = |0/2|² = 0
     @test J_phase > 50.0  # Should be high infidelity (close to Q * 1.0)
+end
+
+@testitem "UnitaryInfidelityObjective phase_sensitive kwarg" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # U(2) target with det=-1 (X gate); SU(2) reps are ±iX
+    U_target = ComplexF64[0 1; 1 0]
+    U_goal_sun = im * U_target  # chosen SU(2) rep → selected basin
+
+    # Minimal trajectory with a unitary state variable Ũ⃗
+    N = 5
+    Ũ⃗_I = operator_to_iso_vec(ComplexF64.(Matrix(I, 2, 2)))
+    Ũ⃗_plus = operator_to_iso_vec(U_goal_sun)
+    Ũ⃗_minus = operator_to_iso_vec(-U_goal_sun)
+
+    Ũ⃗_traj_plus = hcat(Ũ⃗_I, Ũ⃗_plus, Ũ⃗_plus, Ũ⃗_plus, Ũ⃗_plus)
+    Ũ⃗_traj_minus = hcat(Ũ⃗_I, Ũ⃗_minus, Ũ⃗_minus, Ũ⃗_minus, Ũ⃗_minus)
+    u = zeros(1, N)
+    Δt = fill(0.1, N)
+
+    traj_plus = NamedTrajectory(
+        (Ũ⃗ = Ũ⃗_traj_plus, u = u, Δt = Δt); timestep = :Δt, controls = :u
+    )
+    traj_minus = NamedTrajectory(
+        (Ũ⃗ = Ũ⃗_traj_minus, u = u, Δt = Δt); timestep = :Δt, controls = :u
+    )
+
+    # phase_sensitive=false (default): both ±iU minimize |tr|²/n²
+    obj_blind = UnitaryInfidelityObjective(U_target, :Ũ⃗, traj_plus; Q = 1.0)
+    @test objective_value(obj_blind, traj_plus) < 1e-10
+    @test objective_value(obj_blind, traj_minus) < 1e-10
+
+    # phase_sensitive=true: +iU is 0, −iU is ≈ 2 (worst case for 1 − Re(tr)/n)
+    obj_sens = UnitaryInfidelityObjective(
+        U_target, :Ũ⃗, traj_plus; Q = 1.0, phase_sensitive = true
+    )
+    @test objective_value(obj_sens, traj_plus) < 1e-10
+    @test objective_value(obj_sens, traj_minus) ≈ 2.0 atol = 1e-8
+
+    # Non-matrix goal should error under phase_sensitive
+    if @isdefined EmbeddedOperator
+        # smoke; actual EmbeddedOperator construction not available here
+    end
 end
 
 @testitem "coherent_ket_fidelity accepts generic Complex types" begin
