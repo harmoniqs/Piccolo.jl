@@ -155,5 +155,19 @@ end
     @test lift_operator(UU, [1, 3], 3) ≈ kron(U, I2, U)
 end
 
+@testitem "lift_operator full-span operator (empty complement)" begin
+    using LinearAlgebra
+
+    # When indices span every subsystem, the complement is empty and the
+    # implementation must short-circuit `kron(operator, ...)` — 1-arg kron
+    # has no method in LinearAlgebra, SparseArrays, or SciMLOperators.
+    XY = kron(PAULIS.X, PAULIS.Y)
+    @test lift_operator(XY, [1, 2], [2, 2]) ≈ XY
+    @test lift_operator(XY, [2, 1], [2, 2]) ≈ kron(PAULIS.Y, PAULIS.X)
+
+    # Qubit interface: same full-span path
+    @test lift_operator(XY, [1, 2], 2) ≈ XY
+end
+
 
 end
