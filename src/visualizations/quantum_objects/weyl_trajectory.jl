@@ -15,7 +15,7 @@ function c1c2c3(U)
     end
     S = sort(two_S / 2.0, rev = true)
     n = Int(round(sum(S)))
-    S -= vcat(ones(n), zeros(4-n))
+    S -= vcat(ones(n), zeros(4 - n))
     S = circshift(S, -n)
     M = [1 1 0; 1 0 1; 0 1 1]
     c1, c2, c3 = M * S[1:3]

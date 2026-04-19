@@ -156,6 +156,7 @@ function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
         sys.H,
         sys.G,
         sys.H_drift,
+        sys.drift_terms,
         sys.H_drives,
         sys.drive_bounds,
         sys.n_drives,

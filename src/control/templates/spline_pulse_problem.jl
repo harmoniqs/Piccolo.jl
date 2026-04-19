@@ -80,22 +80,22 @@ See also: [`SmoothPulseProblem`](@ref) for piecewise constant pulses with discre
 """
 function SplinePulseProblem(
     qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse},
-    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}}=nothing;
-    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}}=nothing,
-    global_names::Union{Nothing,Vector{Symbol}}=nothing,
-    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}}=nothing,
-    du_bound::Float64=Inf,
-    du_bounds::Union{Nothing,Vector{Float64}}=nothing,
-    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}}=nothing,
-    Q::Float64=100.0,
-    R::Float64=1e-2,
-    R_u::Union{Float64,Vector{Float64}}=R,
-    R_du::Union{Float64,Vector{Float64}}=R,
-    constraints::Vector{<:AbstractConstraint}=AbstractConstraint[],
-    piccolo_options::PiccoloOptions=PiccoloOptions(),
-    free_phase::Bool=false,
-    subsystem_levels::Union{Nothing,Vector{Int}}=nothing,
-    initial_phases::Union{Nothing,Vector{Float64}}=nothing,
+    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
+    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    global_names::Union{Nothing,Vector{Symbol}} = nothing,
+    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    du_bound::Float64 = Inf,
+    du_bounds::Union{Nothing,Vector{Float64}} = nothing,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    Q::Float64 = 100.0,
+    R::Float64 = 1e-2,
+    R_u::Union{Float64,Vector{Float64}} = R,
+    R_du::Union{Float64,Vector{Float64}} = R,
+    constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
+    piccolo_options::PiccoloOptions = PiccoloOptions(),
+    free_phase::Bool = false,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -127,8 +127,8 @@ function SplinePulseProblem(
                 n_qubits,
                 global_data,
                 global_bounds;
-                initial_phases=initial_phases,
-                verbose=piccolo_options.verbose,
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
             )
         else
             # Unitary free-phase: requires EmbeddedOperator goal
@@ -140,8 +140,8 @@ function SplinePulseProblem(
                 n_qubits,
                 global_data,
                 global_bounds;
-                initial_phases=initial_phases,
-                verbose=piccolo_options.verbose,
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
             )
         end
     end
@@ -182,8 +182,8 @@ function SplinePulseProblem(
             add_control_derivatives(
                 base_traj,
                 1;  # Only 1 derivative for spline pulses
-                control_name=control_sym,
-                derivative_bounds=(_du_bounds_vec,),
+                control_name = control_sym,
+                derivative_bounds = (_du_bounds_vec,),
             )
         else
             add_control_derivatives(base_traj, 1; control_name=control_sym)
@@ -292,25 +292,25 @@ Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method,
 """
 function SplinePulseProblem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
-    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}}=nothing;
-    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}}=nothing,
-    integrator_type::Symbol=:spline,  # :spline or :ensemble
-    parallel_backend::Symbol=:manual,  # :manual (default), :threads, :gpu
-    global_names::Union{Nothing,Vector{Symbol}}=nothing,
-    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}}=nothing,
-    du_bound::Float64=Inf,
-    du_bounds::Union{Nothing,Vector{Float64}}=nothing,
-    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}}=nothing,
-    Q::Float64=100.0,
-    R::Float64=1e-2,
-    R_u::Union{Float64,Vector{Float64}}=R,
-    R_du::Union{Float64,Vector{Float64}}=R,
-    constraints::Vector{<:AbstractConstraint}=AbstractConstraint[],
-    piccolo_options::PiccoloOptions=PiccoloOptions(),
-    free_phase::Bool=false,
-    subsystem_levels::Union{Nothing,Vector{Int}}=nothing,
-    initial_phases::Union{Nothing,Vector{Float64}}=nothing,
-    coherent::Bool=true,
+    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
+    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    integrator_type::Symbol = :spline,  # :spline or :ensemble
+    parallel_backend::Symbol = :manual,  # :manual (default), :threads, :gpu
+    global_names::Union{Nothing,Vector{Symbol}} = nothing,
+    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    du_bound::Float64 = Inf,
+    du_bounds::Union{Nothing,Vector{Float64}} = nothing,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    Q::Float64 = 100.0,
+    R::Float64 = 1e-2,
+    R_u::Union{Float64,Vector{Float64}} = R,
+    R_du::Union{Float64,Vector{Float64}} = R,
+    constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
+    piccolo_options::PiccoloOptions = PiccoloOptions(),
+    free_phase::Bool = false,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
+    coherent::Bool = true,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -344,8 +344,8 @@ function SplinePulseProblem(
             n_qubits,
             global_data,
             global_bounds;
-            initial_phases=initial_phases,
-            verbose=piccolo_options.verbose,
+            initial_phases = initial_phases,
+            verbose = piccolo_options.verbose,
         )
     end
 
@@ -385,8 +385,8 @@ function SplinePulseProblem(
             add_control_derivatives(
                 base_traj,
                 1;  # Only 1 derivative for spline pulses
-                control_name=control_sym,
-                derivative_bounds=(_du_bounds_vec,),
+                control_name = control_sym,
+                derivative_bounds = (_du_bounds_vec,),
             )
         else
             add_control_derivatives(base_traj, 1; control_name=control_sym)

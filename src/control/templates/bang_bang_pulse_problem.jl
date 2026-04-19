@@ -502,7 +502,7 @@ end
     @test_throws ErrorException BangBangPulseProblem(qtraj_linear, N)
 end
 
-@testitem "BangBangPulseProblem with MultiKetTrajectory" tags=[:experimental] begin
+@testitem "BangBangPulseProblem with MultiKetTrajectory" tags = [:experimental] begin
     using DirectTrajOpt
     using LinearAlgebra
 
