@@ -124,7 +124,8 @@ function _get_control_data(
     initial_u = pulse.initial_value
     final_u = pulse.final_value
 
-    initial_constraints = any(isnan, initial_u) ? NamedTuple() : _named_tuple(u_name => initial_u)
+    initial_constraints =
+        any(isnan, initial_u) ? NamedTuple() : _named_tuple(u_name => initial_u)
     final_constraints = any(isnan, final_u) ? NamedTuple() : _named_tuple(u_name => final_u)
 
     return _named_tuple(u_name => u),

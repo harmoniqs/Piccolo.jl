@@ -170,7 +170,7 @@ function _make_free_phase_goal(op::EmbeddedOperator)
             bits = i - 1
             phase = sum(
                 θ[j] for j = 1:n_qubits if (bits >> (n_qubits - j)) & 1 == 1;
-                init=zero(eltype(θ)),
+                init = zero(eltype(θ)),
             )
             return exp(im * phase)
         end

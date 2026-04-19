@@ -98,9 +98,11 @@ function BangBangPulseProblem(
             n_qubits = length(subsystem_levels)
             ket_goal_fn = _make_free_phase_ket_goal(qtraj.goal, subsystem_levels)
             θ_names, global_data, global_bounds = setup_free_phase_globals!(
-                n_qubits, global_data, global_bounds;
-                initial_phases=initial_phases,
-                verbose=piccolo_options.verbose,
+                n_qubits,
+                global_data,
+                global_bounds;
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
             )
         else
             goal = qtraj.goal
@@ -108,9 +110,11 @@ function BangBangPulseProblem(
             n_qubits = length(goal.subsystem_levels)
             U_goal_fn = _make_free_phase_goal(goal)
             θ_names, global_data, global_bounds = setup_free_phase_globals!(
-                n_qubits, global_data, global_bounds;
-                initial_phases=initial_phases,
-                verbose=piccolo_options.verbose,
+                n_qubits,
+                global_data,
+                global_bounds;
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
             )
         end
     end
@@ -187,9 +191,9 @@ function BangBangPulseProblem(
 
     # Build objective: type-specific infidelity + regularization
     J = if free_phase && !isnothing(ket_goal_fn)
-        KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj_bb; Q=Q)
+        KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj_bb; Q = Q)
     elseif free_phase && !isnothing(U_goal_fn)
-        UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj_bb; Q=Q)
+        UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj_bb; Q = Q)
     else
         _state_objective(qtraj, traj_bb, state_sym, Q)
     end
@@ -282,9 +286,11 @@ function BangBangPulseProblem(
         n_qubits = length(subsystem_levels)
         goals_fn = _make_free_phase_ket_goals(goals, subsystem_levels)
         θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits, global_data, global_bounds;
-            initial_phases=initial_phases,
-            verbose=piccolo_options.verbose,
+            n_qubits,
+            global_data,
+            global_bounds;
+            initial_phases = initial_phases,
+            verbose = piccolo_options.verbose,
         )
     end
 
@@ -328,9 +334,9 @@ function BangBangPulseProblem(
 
     # Build objective: weighted sum of infidelities for each state
     J = if free_phase && !isnothing(goals_fn)
-        CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj_bb; Q=Q)
+        CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj_bb; Q = Q)
     else
-        _ensemble_ket_objective(qtraj, traj_bb, snames, weights, goals, Q; coherent=coherent)
+        _ensemble_ket_objective(qtraj, traj_bb, snames, weights, goals, Q; coherent = coherent)
     end
 
     # L2 on control amplitude
@@ -560,9 +566,9 @@ end
     subspace = get_subspace_indices([1, 2], 3)
     U_goal = EmbeddedOperator(σx, subspace, [3])
 
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    qcp = BangBangPulseProblem(qtraj, N; Q=100.0, R_du=1e-1, free_phase=true)
+    qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1e-1, free_phase = true)
 
     @test qcp isa QuantumControlProblem
 
@@ -583,14 +589,16 @@ end
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
 
-    pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length = N)))
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     qcp = BangBangPulseProblem(
-        qtraj, N;
-        Q=100.0, R_du=1e-1,
-        free_phase=true,
-        subsystem_levels=[2],
+        qtraj,
+        N;
+        Q = 100.0,
+        R_du = 1e-1,
+        free_phase = true,
+        subsystem_levels = [2],
     )
 
     @test qcp isa QuantumControlProblem
@@ -607,10 +615,10 @@ end
     N = 50
     sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
 
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     U_goal = GATES[:X]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    @test_throws AssertionError BangBangPulseProblem(qtraj, N; free_phase=true)
+    @test_throws AssertionError BangBangPulseProblem(qtraj, N; free_phase = true)
 end
 
 @testitem "BangBangPulseProblem MultiKet free_phase requires subsystem_levels" begin
@@ -622,10 +630,13 @@ end
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
-    pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length = N)))
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     @test_throws AssertionError BangBangPulseProblem(
-        qtraj, N; free_phase=true, subsystem_levels=nothing,
+        qtraj,
+        N;
+        free_phase = true,
+        subsystem_levels = nothing,
     )
 end

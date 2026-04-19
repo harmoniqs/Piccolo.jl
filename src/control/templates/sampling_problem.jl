@@ -61,7 +61,13 @@ function sampling_state_objective(
     if traj.global_dim > 0 && goal isa EmbeddedOperator
         θ_names = collect(traj.global_names)
         U_goal_fn = _make_free_phase_goal(goal)
-        return UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj; Q = Q)
+        return UnitaryFreePhaseInfidelityObjective(
+            U_goal_fn,
+            state_sym,
+            θ_names,
+            traj;
+            Q = Q,
+        )
     else
         return UnitaryInfidelityObjective(goal, state_sym, traj; Q = Q)
     end
@@ -121,7 +127,7 @@ function SamplingProblem(
     systems::Vector{<:AbstractQuantumSystem};
     weights::Vector{Float64} = fill(1.0, length(systems)),
     Q::Float64 = 100.0,
-    integrator::Union{Nothing, Function} = nothing,
+    integrator::Union{Nothing,Function} = nothing,
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
     if piccolo_options.verbose
@@ -195,12 +201,8 @@ function SamplingProblem(
 
     # 5. Construct problem (TimeConsistencyConstraint auto-applied)
     constraints = AbstractConstraint[]
-    prob = DirectTrajOptProblem(
-        new_traj,
-        J_total,
-        all_integrators;
-        constraints = constraints,
-    )
+    prob =
+        DirectTrajOptProblem(new_traj, J_total, all_integrators; constraints = constraints)
 
     return QuantumControlProblem(sampling_qtraj, prob)
 end
@@ -446,10 +448,8 @@ end
     # Custom integrator factory — reimplements default BilinearIntegrator logic
     custom_factory(sqtraj, n) = BilinearIntegrator(sqtraj, n)
 
-    sampling_prob = SamplingProblem(
-        qcp, [sys_nominal, sys_perturbed];
-        integrator = custom_factory,
-    )
+    sampling_prob =
+        SamplingProblem(qcp, [sys_nominal, sys_perturbed]; integrator = custom_factory)
 
     @test sampling_prob isa QuantumControlProblem
     @test length(sampling_prob.prob.integrators) == 2

@@ -58,7 +58,7 @@ function FinalKetFreePhaseConstraint(
 
     function terminal_constraint(z)
         ψ̃ = z[1:d_state]
-        θ = z[d_state+1:end]
+        θ = z[(d_state+1):end]
         phased_goal = goal_fn(θ)
         return [final_fidelity - ket_fidelity_loss(ψ̃, phased_goal)]
     end

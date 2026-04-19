@@ -158,16 +158,20 @@ function SmoothPulseProblem(
     ket_goal_fn = nothing
     if free_phase
         if qtraj isa KetTrajectory
-            error("free_phase for KetTrajectory in SmoothPulseProblem requires subsystem_levels; use the MultiKetTrajectory method instead")
+            error(
+                "free_phase for KetTrajectory in SmoothPulseProblem requires subsystem_levels; use the MultiKetTrajectory method instead",
+            )
         else
             goal = qtraj.goal
             @assert goal isa EmbeddedOperator "free_phase=true requires an EmbeddedOperator goal"
             n_qubits = length(goal.subsystem_levels)
             U_goal_fn = _make_free_phase_goal(goal)
             θ_names, global_data, global_bounds = setup_free_phase_globals!(
-                n_qubits, global_data, global_bounds;
-                initial_phases=initial_phases,
-                verbose=piccolo_options.verbose,
+                n_qubits,
+                global_data,
+                global_bounds;
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
             )
         end
     end
@@ -228,9 +232,9 @@ function SmoothPulseProblem(
 
     # Build objective: type-specific infidelity + regularization
     J = if free_phase && !isnothing(U_goal_fn)
-        UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj_smooth; Q=Q)
+        UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj_smooth; Q = Q)
     elseif free_phase && !isnothing(ket_goal_fn)
-        KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj_smooth; Q=Q)
+        KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj_smooth; Q = Q)
     else
         _state_objective(qtraj, traj_smooth, state_sym, Q)
     end

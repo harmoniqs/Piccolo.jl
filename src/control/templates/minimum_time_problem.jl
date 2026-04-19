@@ -202,15 +202,20 @@ function _final_fidelity_constraint(
 
     # Detect free-phase variables (φ_1, φ_2, ...) in global components
     θ_names = Symbol[
-        name for name in keys(traj.global_components)
-        if startswith(string(name), "φ_")
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
     ]
     sort!(θ_names)
 
     if !isempty(θ_names) && !isnothing(subsystem_levels)
         # Free-phase constraint: build goal_fn from subsystem_levels
         goal_fn = _make_free_phase_ket_goal(ψ_goal, subsystem_levels)
-        return FinalKetFreePhaseConstraint(goal_fn, state_sym, θ_names, final_fidelity, traj)
+        return FinalKetFreePhaseConstraint(
+            goal_fn,
+            state_sym,
+            θ_names,
+            final_fidelity,
+            traj,
+        )
     else
         return FinalKetFidelityConstraint(ψ_goal, state_sym, final_fidelity, traj)
     end
