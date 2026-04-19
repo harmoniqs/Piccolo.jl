@@ -37,12 +37,19 @@ struct CompositeQuantumSystem{F1<:Function,F2<:Function} <: AbstractQuantumSyste
     H::F1
     G::F2
     H_drift::SparseMatrixCSC{ComplexF64,Int}
-    H_drives::Vector{SparseMatrixCSC{ComplexF64,Int}}
+    # Parity with QuantumSystem: drives are AbstractDrive, not raw matrices,
+    # so Piccolissimo's SplineIntegrator can call dynamics_operator(::AbstractDrive)
+    # on each entry.
+    H_drives::Vector{AbstractDrive}
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
     subsystem_levels::Vector{Int}
     subsystems::Vector{QuantumSystem}
+    # Parity fields with QuantumSystem so downstream code can rely on the
+    # AbstractQuantumSystem interface without `hasproperty` guards.
+    time_dependent::Bool
+    global_params::NamedTuple
 end
 
 """
@@ -91,36 +98,51 @@ function CompositeQuantumSystem(
         H_drift += lift_operator(get_drift(sys), i, subsystem_levels)
     end
 
-    H_drives = sparse.(H_drives)
+    # Build the full matrix list (coupling drives + lifted subsystem drives).
+    # We keep plain matrices here for the H(u,t)/G(u,t) closures below;
+    # the struct field stores LinearDrive wrappers for the AbstractDrive interface.
+    H_drive_matrices = SparseMatrixCSC{ComplexF64,Int}[sparse(H) for H in H_drives]
     for (i, sys) ∈ enumerate(subsystems)
         for H_drive ∈ get_drives(sys)
-            push!(H_drives, lift_operator(H_drive, i, subsystem_levels))
+            push!(H_drive_matrices, lift_operator(H_drive, i, subsystem_levels))
         end
+        # Extend drive_bounds with this subsystem's bounds so the count matches
+        # the number of drives after lifting. Without this, n_drives ≠ length(drive_bounds)
+        # and downstream NamedTrajectory construction errors with `Invalid bound u: ...`.
+        append!(drive_bounds, sys.drive_bounds)
     end
 
-    n_drives = length(H_drives)
-    H_drives = sparse.(H_drives)
+    n_drives = length(H_drive_matrices)
     G_drift = sparse(Isomorphisms.G(H_drift))
-    G_drives = sparse.(Isomorphisms.G.(H_drives))
+    G_drive_matrices = sparse.(Isomorphisms.G.(H_drive_matrices))
 
     if n_drives == 0
         H = (u, t) -> H_drift
         G = (u, t) -> G_drift
     else
-        H = (u, t) -> H_drift + sum(u .* H_drives)
-        G = (u, t) -> G_drift + sum(u .* G_drives)
+        H = (u, t) -> H_drift + sum(u .* H_drive_matrices)
+        G = (u, t) -> G_drift + sum(u .* G_drive_matrices)
     end
+
+    # Wrap each drive matrix in a LinearDrive so Piccolissimo's SplineIntegrator
+    # (and anything else consuming the AbstractDrive interface) works uniformly
+    # across QuantumSystem and CompositeQuantumSystem.
+    H_drives_wrapped = AbstractDrive[
+        LinearDrive(H_drive_matrices[idx], idx) for idx in 1:n_drives
+    ]
 
     return CompositeQuantumSystem{typeof(H),typeof(G)}(
         H,
         G,
         H_drift,
-        H_drives,
+        H_drives_wrapped,
         drive_bounds,
         n_drives,
         levels,
         subsystem_levels,
         subsystems,
+        false,          # time_dependent — composite systems are time-independent by default
+        NamedTuple(),   # global_params — empty; composites don't carry globals of their own
     )
 end
 

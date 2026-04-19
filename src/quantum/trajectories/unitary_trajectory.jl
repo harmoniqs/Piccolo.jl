@@ -22,7 +22,7 @@ Use `NamedTrajectory(traj, N)` or `NamedTrajectory(traj, times)` for optimizatio
 """
 mutable struct UnitaryTrajectory{P<:AbstractPulse,S<:ODESolution,G} <:
                AbstractQuantumTrajectory{P}
-    system::QuantumSystem
+    system::AbstractQuantumSystem
     pulse::P
     initial::Matrix{ComplexF64}
     goal::G
@@ -47,7 +47,7 @@ Create a unitary trajectory by solving the Schrödinger equation.
 - `n_save`: Number of output time points for plotting/interpolation (default: 101)
 """
 function UnitaryTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     pulse::AbstractPulse,
     goal::G;
     initial::AbstractMatrix{<:Number} = Matrix{ComplexF64}(I, system.levels, system.levels),

@@ -75,7 +75,13 @@ function lift_operator(
     # Start with operator at the leading position
     shape = vcat(L, Lᶜ)
     array_shape = reverse(vcat(shape, shape))
-    full_operator = kron(operator, [Matrix{T}(I(l)) for l ∈ Lᶜ]...)
+    full_operator = if isempty(Lᶜ)
+        # No complement subsystems — operator already spans the full space.
+        # Guard against `kron(operator)` (1-arg kron has no method).
+        Matrix{T}(operator)
+    else
+        kron(operator, [Matrix{T}(I(l)) for l ∈ Lᶜ]...)
+    end
 
     # Permute the array to match the actual subsystem order
     order = vcat(indices, [i for i ∈ setdiff(1:N, indices)])
