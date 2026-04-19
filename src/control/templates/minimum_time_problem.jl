@@ -18,7 +18,7 @@ through the final fidelity constraint.
 Automatically handles different quantum trajectory types through the type parameter:
 - `QuantumControlProblem{UnitaryTrajectory}` → Uses `FinalUnitaryFidelityConstraint`
 - `QuantumControlProblem{KetTrajectory}` → Uses `FinalKetFidelityConstraint`
-- `QuantumControlProblem{DensityTrajectory}` → Not yet implemented
+- `QuantumControlProblem{DensityTrajectory}` → Uses `FinalDensityFidelityConstraint`
 
 The optimization problem is:
 
@@ -222,12 +222,9 @@ function _final_fidelity_constraint(
     traj::NamedTrajectory;
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
-    # TODO: Implement density matrix fidelity constraint when available
-    throw(
-        ArgumentError(
-            "Final fidelity constraint for DensityTrajectory not yet implemented",
-        ),
-    )
+    ρ_goal = qtraj.goal
+    state_sym = state_name(qtraj)
+    return FinalDensityFidelityConstraint(ρ_goal, state_sym, final_fidelity, traj)
 end
 
 # ============================================================================= #

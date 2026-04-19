@@ -6,12 +6,14 @@ using ..QuantumObjectives: ket_fidelity_loss, unitary_fidelity_loss, coherent_ke
 using DirectTrajOpt
 using LinearAlgebra
 using NamedTrajectories
+using TestItems
 using ...Quantum
 
 export FinalKetFidelityConstraint
 export FinalKetFreePhaseConstraint
 export FinalUnitaryFidelityConstraint
 export FinalCoherentKetFidelityConstraint
+export FinalDensityFidelityConstraint
 export LeakageConstraint
 
 # ---------------------------------------------------------
@@ -226,6 +228,63 @@ function FinalUnitaryFidelityConstraint(
 end
 
 # ---------------------------------------------------------
+#                     Density Matrices
+# ---------------------------------------------------------
+
+@doc raw"""
+    FinalDensityFidelityConstraint(ρ_goal, ρ̃_name, final_fidelity, traj)
+
+Enforce a minimum state-transfer fidelity on the final density matrix of a
+`DensityTrajectory` knot-point variable.
+
+The trajectory stores the density matrix in the compact real isomorphism
+representation (see `density_to_compact_iso` / `compact_iso_to_density`): a
+real vector of length ``n^2`` for a Hermitian ``n \times n`` density matrix.
+
+The constraint enforces
+
+```math
+F(\rho_{\text{final}}) = \mathrm{Re}\,\mathrm{tr}(\rho_{\text{goal}}\, \rho_{\text{final}}) \geq F_{\text{threshold}},
+```
+
+which is the exact state-transfer fidelity when ``\rho_{\text{goal}}`` is pure.
+``F`` is real-linear (but not complex-linear) in the compact-iso vector, so the
+Jacobian is a constant row vector; `NonlinearKnotPointConstraint` recovers it
+via automatic differentiation at constraint construction.
+
+# Arguments
+- `ρ_goal::AbstractMatrix{<:Number}`: Target density matrix (``n \times n``,
+  Hermitian).
+- `ρ̃_name::Symbol`: Name of the compact-iso density component in the
+  trajectory (e.g. `:ρ⃗̃`).
+- `final_fidelity::Float64`: Minimum fidelity threshold
+  (constraint: ``F \geq F_{\text{threshold}}``).
+- `traj::NamedTrajectory`: The trajectory carrying the density component.
+"""
+function FinalDensityFidelityConstraint(
+    ρ_goal::AbstractMatrix{<:Number},
+    ρ̃_name::Symbol,
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    ρ_goal_c = Matrix{ComplexF64}(ρ_goal)
+
+    function terminal_constraint(ρ̃)
+        ρ = compact_iso_to_density(ρ̃)
+        F = real(tr(ρ_goal_c * ρ))
+        return [final_fidelity - F]
+    end
+
+    return NonlinearKnotPointConstraint(
+        terminal_constraint,
+        ρ̃_name,
+        traj,
+        equality = false,
+        times = [traj.N],
+    )
+end
+
+# ---------------------------------------------------------
 # Leakage Constraint
 # ---------------------------------------------------------
 
@@ -251,6 +310,86 @@ function LeakageConstraint(
         equality = false,
         times = times,
     )
+end
+
+# ---------------------------------------------------------
+#                         Tests
+# ---------------------------------------------------------
+
+@testitem "FinalDensityFidelityConstraint via MinimumTimeProblem" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using NamedTrajectories
+
+    # 2-level open system, no dissipation, σx drive: |0⟩⟨0| → |1⟩⟨1|
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [PAULIS.X], [1.0])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    T = 10.0
+    N = 50
+
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
+
+    qcp_smooth = SmoothPulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        Δt_bounds = (0.01, 0.5),
+    )
+    solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
+
+    # Convert to minimum-time — this is the path the dispatch stub used to block
+    qcp_mintime =
+        MinimumTimeProblem(qcp_smooth; final_fidelity = 0.95, D = 50.0)
+
+    @test qcp_mintime isa QuantumControlProblem{<:DensityTrajectory}
+
+    # Solve minimum-time problem
+    solve!(qcp_mintime; max_iter = 100, verbose = false, print_level = 1)
+
+    # Roll out with the optimized pulse and verify the fidelity constraint is respected
+    traj = get_trajectory(qcp_mintime)
+    ρ̃_final = traj[end][:ρ⃗̃]
+    ρ_final = compact_iso_to_density(ρ̃_final)
+
+    # Final density matrix should be Hermitian and trace-preserving
+    @test ρ_final ≈ ρ_final' atol = 1e-6
+    @test real(tr(ρ_final)) ≈ 1.0 atol = 1e-2
+
+    # The constraint enforces F = Re tr(ρ_goal · ρ_final) ≥ 0.95 at the final knot
+    fid = real(tr(ρg * ρ_final))
+    @test fid ≥ 0.94  # small tolerance for solver feasibility slack
+end
+
+@testitem "FinalDensityFidelityConstraint direct construction" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Smoke test the constructor independently of the minimum-time path.
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [PAULIS.X], [1.0])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.5 0.5; 0.5 0.5]  # |+⟩⟨+|
+
+    T = 2.0
+    N = 10
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 10.0, R = 1e-2)
+    traj = get_trajectory(qcp)
+
+    constraint = FinalDensityFidelityConstraint(ρg, :ρ⃗̃, 0.9, traj)
+
+    @test constraint isa DirectTrajOpt.AbstractNonlinearConstraint
+    # Inequality constraint, evaluated only at final knot
+    @test constraint.equality == false
+    @test constraint.times == [traj.N]
+    @test constraint.g_dim == 1
 end
 
 end
