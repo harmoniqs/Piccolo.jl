@@ -294,18 +294,11 @@ end
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
 
-    qcp_smooth = SmoothPulseProblem(
-        qtraj,
-        N;
-        Q = 100.0,
-        R = 1e-2,
-        Δt_bounds = (0.01, 0.5),
-    )
+    qcp_smooth = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
     solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
 
     # Convert to minimum-time — this is the path the dispatch stub used to block
-    qcp_mintime =
-        MinimumTimeProblem(qcp_smooth; final_fidelity = 0.95, D = 50.0)
+    qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.95, D = 50.0)
 
     @test qcp_mintime isa QuantumControlProblem{<:DensityTrajectory}
 
