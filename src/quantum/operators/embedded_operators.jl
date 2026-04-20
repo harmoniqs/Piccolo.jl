@@ -141,10 +141,11 @@ each contributing a `1:2` qubit subspace.
 function EmbeddedOperator(
     subspace_operator::AbstractMatrix{<:Number},
     system::CompositeQuantumSystem;
-    subsystem_indices::AbstractVector{Int} =
-        collect(1:length(system.subsystem_levels)),
-    subspaces::AbstractVector{<:AbstractVector{Int}} =
-        fill(1:2, length(system.subsystem_levels)),
+    subsystem_indices::AbstractVector{Int} = collect(1:length(system.subsystem_levels)),
+    subspaces::AbstractVector{<:AbstractVector{Int}} = fill(
+        1:2,
+        length(system.subsystem_levels),
+    ),
 )
     return EmbeddedOperator(subspace_operator, subsystem_indices, subspaces, system)
 end

@@ -129,9 +129,8 @@ function CompositeQuantumSystem(
     # Wrap each drive matrix in a LinearDrive so Piccolissimo's SplineIntegrator
     # (and anything else consuming the AbstractDrive interface) works uniformly
     # across QuantumSystem and CompositeQuantumSystem.
-    H_drives_wrapped = AbstractDrive[
-        LinearDrive(H_drive_matrices[idx], idx) for idx in 1:n_drives
-    ]
+    H_drives_wrapped =
+        AbstractDrive[LinearDrive(H_drive_matrices[idx], idx) for idx = 1:n_drives]
 
     return CompositeQuantumSystem{typeof(H),typeof(G)}(
         H,
