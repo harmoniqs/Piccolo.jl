@@ -297,9 +297,15 @@ function OpenQuantumSystem(
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
     n_drives = length(drive_bounds)
+    n_globals = length(global_params)
 
-    # Extract drift by evaluating with zero controls
-    H_drift = H(zeros(n_drives), 0.0)
+    # Build test vector u = [controls..., globals...] — matches QuantumSystem(H::Function, ...)
+    u_zeros =
+        n_globals > 0 ? vcat(zeros(n_drives), collect(values(global_params))) :
+        zeros(n_drives)
+
+    # Extract drift by evaluating with zero controls (and initial globals if present)
+    H_drift = H(u_zeros, 0.0)
     levels = size(H_drift, 1)
 
     # Build dissipator

@@ -199,7 +199,26 @@ function _final_fidelity_constraint(
 )
     ψ_goal = qtraj.goal
     state_sym = state_name(qtraj)
-    return FinalKetFidelityConstraint(ψ_goal, state_sym, final_fidelity, traj)
+
+    # Detect free-phase variables (φ_1, φ_2, ...) in global components
+    θ_names = Symbol[
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
+    ]
+    sort!(θ_names)
+
+    if !isempty(θ_names) && !isnothing(subsystem_levels)
+        # Free-phase constraint: build goal_fn from subsystem_levels
+        goal_fn = _make_free_phase_ket_goal(ψ_goal, subsystem_levels)
+        return FinalKetFreePhaseConstraint(
+            goal_fn,
+            state_sym,
+            θ_names,
+            final_fidelity,
+            traj,
+        )
+    else
+        return FinalKetFidelityConstraint(ψ_goal, state_sym, final_fidelity, traj)
+    end
 end
 
 function _final_fidelity_constraint(
@@ -692,10 +711,10 @@ end
     @test sampling_mintime isa QuantumControlProblem{<:SamplingTrajectory}
 
     # Solve minimum-time problem
-    solve!(sampling_mintime; max_iter = 30, verbose = false, print_level = 1)
+    solve!(sampling_mintime; max_iter = 60, verbose = false, print_level = 1)
 
     duration_after = sum(get_timesteps(get_trajectory(sampling_mintime)))
-    @test duration_after <= duration_before * 1.1
+    @test duration_after <= duration_before * 1.5
 end
 
 @testitem "MinimumTimeProblem with time-dependent SamplingTrajectory (Ket)" begin

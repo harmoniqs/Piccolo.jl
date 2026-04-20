@@ -1,0 +1,79 @@
+[ingest]
+last_ingest = "2026-03-25T00:00:00"
+ingested_by = "manual"
+session_id = "manual-ingest-20260325"
+
+[[files]]
+path = "multilevel_transmon.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/experiments/exp-20260325-ingest-transmon-X-multilevel.md",
+    "amico/vault/experiments/exp-20260325-ingest-transmon-X-leakage-suppressed.md",
+]
+
+[[files]]
+path = "robust_control.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/experiments/exp-20260325-ingest-transmon-X-robust.md",
+]
+
+[[files]]
+path = "problem-templates/bang_bang_pulse.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/experiments/exp-20260325-ingest-transmon-bangbang.md",
+    "amico/vault/methods/method-20260325-ingest-bang-bang-pulse.md",
+]
+
+[[files]]
+path = "problem-templates/minimum_time.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/experiments/exp-20260325-ingest-transmon-mintime.md",
+]
+
+[[files]]
+path = "guides/leakage_suppression.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/experiments/exp-20260325-ingest-transmon-leakage-guide.md",
+]
+
+[[files]]
+path = "guides/global_variables.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/experiments/exp-20260325-ingest-transmon-global-vars.md",
+]
+
+[[files]]
+path = "problem-templates/composition.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/methods/method-20260325-ingest-composition-multi-phase.md",
+]
+
+[[files]]
+path = "problem-templates/spline_pulse.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/methods/method-20260324-160200-cubic-spline-pulse-design.md",
+]
+augmented = true
+augmentation_note = "Added SplinePulseProblem section to existing cubic-spline method note"
+
+[[files]]
+path = "systems/cat_qubits.jl"
+status = "ingested"
+vault_notes = [
+    "amico/vault/qubit-hardware-context/cat-qubit-two-mode.md",
+    "amico/vault/papers/paper-20260325-mirrahimi-2014-cat-qubits.md",
+    "amico/vault/papers/paper-20260325-grimm-2020-kerr-cat.md",
+    "amico/vault/papers/paper-20260325-lescanne-2020-bit-flip-suppression.md",
+]
+
+[[files]]
+path = "systems/silicon_spins.jl"
+status = "skipped"
+reason = "Coming Soon stub — no substantive content"

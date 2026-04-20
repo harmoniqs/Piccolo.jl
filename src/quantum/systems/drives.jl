@@ -332,7 +332,8 @@ For `NonlinearDrive`: evaluates the Hessian function (user-provided or auto-gene
 @inline drive_coeff_hess(d::LinearDrive, ::AbstractVector, ::Int, ::Int) = 0.0
 @inline drive_coeff_hess(d::NonlinearDrive, u::AbstractVector, i::Int, j::Int) =
     d.coeff_hess(u, i, j)
-
+@inline drive_coeff_hess(d::ModulatedDrive, u::AbstractVector, i::Int, j::Int) =
+    drive_coeff_hess(d.base, u, i, j) * d.modulation(0.0)
 
 """
     active_controls(d::AbstractDrive) -> Vector{Int}

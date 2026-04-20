@@ -9,6 +9,7 @@ using NamedTrajectories
 using ...Quantum
 
 export FinalKetFidelityConstraint
+export FinalKetFreePhaseConstraint
 export FinalUnitaryFidelityConstraint
 export FinalCoherentKetFidelityConstraint
 export LeakageConstraint
@@ -28,6 +29,44 @@ function FinalKetFidelityConstraint(
     return NonlinearKnotPointConstraint(
         terminal_constraint,
         ψ̃_name,
+        traj,
+        equality = false,
+        times = [traj.N],
+    )
+end
+
+"""
+    FinalKetFreePhaseConstraint(goal_fn, ψ̃_name, θ_names, final_fidelity, traj)
+
+Free-phase version of `FinalKetFidelityConstraint` for single-ket trajectories.
+
+`goal_fn(θ)` returns the phase-rotated goal ket. The constraint enforces
+F(θ) = |⟨goal(θ)|ψ_final⟩|² ≥ final_fidelity, where θ are optimizable
+per-subsystem phase variables stored in the trajectory's global_data.
+
+Uses `NonlinearGlobalKnotPointConstraint` to include global phase variables
+in the constraint evaluation.
+"""
+function FinalKetFreePhaseConstraint(
+    goal_fn::Function,
+    ψ̃_name::Symbol,
+    θ_names::AbstractVector{Symbol},
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    d_state = traj.dims[ψ̃_name]
+
+    function terminal_constraint(z)
+        ψ̃ = z[1:d_state]
+        θ = z[(d_state+1):end]
+        phased_goal = goal_fn(θ)
+        return [final_fidelity - ket_fidelity_loss(ψ̃, phased_goal)]
+    end
+
+    return NonlinearGlobalKnotPointConstraint(
+        terminal_constraint,
+        [ψ̃_name],
+        collect(θ_names),
         traj,
         equality = false,
         times = [traj.N],

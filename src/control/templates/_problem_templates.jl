@@ -150,6 +150,37 @@ function setup_free_phase_globals!(
 end
 
 """
+    _make_free_phase_goal(op::EmbeddedOperator)
+
+Build a function `θ -> EmbeddedOperator` that applies single-qubit Z-phase rotations
+to the goal gate. For an N-qubit gate, `θ` has N elements (one phase per qubit).
+
+The phase-adjusted gate is `(Z(θ₁) ⊗ Z(θ₂) ⊗ ⋯) ⋅ U_goal`, where `Z(θ) = diag(1, e^{iθ})`.
+"""
+function _make_free_phase_goal(op::EmbeddedOperator)
+    U_base = unembed(op)
+    subspace = op.subspace
+    levels = op.subsystem_levels
+    n_qubits = length(levels)
+    n_sub = size(U_base, 1)
+
+    # Type-generic for ForwardDiff compatibility (θ may contain Dual numbers)
+    function U_goal_fn(θ)
+        phase_diag = map(1:n_sub) do i
+            bits = i - 1
+            phase = sum(
+                θ[j] for j = 1:n_qubits if (bits >> (n_qubits - j)) & 1 == 1;
+                init = zero(eltype(θ)),
+            )
+            return exp(im * phase)
+        end
+        phased = Diagonal(phase_diag) * U_base
+        return EmbeddedOperator(Matrix(phased), subspace, levels)
+    end
+    return U_goal_fn
+end
+
+"""
     add_global_bounds_constraints!(constraints, global_bounds, traj; verbose=false)
 
 Add GlobalBoundsConstraint entries for each global variable specified in `global_bounds`.

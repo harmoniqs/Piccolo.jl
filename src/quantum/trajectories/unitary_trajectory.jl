@@ -51,12 +51,16 @@ function UnitaryTrajectory(
     pulse::AbstractPulse,
     goal::G;
     initial::AbstractMatrix{<:Number} = Matrix{ComplexF64}(I, system.levels, system.levels),
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
 ) where {G}
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
+
+    if isnothing(algorithm)
+        algorithm = default_algorithm(system)
+    end
 
     U0 = Matrix{ComplexF64}(initial)
     knot_times = get_knot_times(pulse)
@@ -89,7 +93,7 @@ function UnitaryTrajectory(
     goal::G,
     T::Real;
     drive_name::Symbol = :u,
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
 ) where {G}
