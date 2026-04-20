@@ -15,12 +15,14 @@ full tensor product space, and subsystem drives are appended to any coupling dri
 - `H::Function`: The total Hamiltonian function: (u, t) -> H(u, t)
 - `G::Function`: The isomorphic generator function: (u, t) -> G(u, t)
 - `H_drift::SparseMatrixCSC{ComplexF64, Int}`: The total drift Hamiltonian including subsystem drifts and couplings
-- `H_drives::Vector{SparseMatrixCSC{ComplexF64, Int}}`: All drive Hamiltonians (coupling drives + subsystem drives)
-- `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds for each control
+- `H_drives::Vector{AbstractDrive}`: All drive Hamiltonians (coupling drives followed by lifted subsystem drives), each wrapped as an `AbstractDrive` for parity with `QuantumSystem`
+- `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds with length `n_drives` — coupling bounds followed by subsystem bounds appended during construction
 - `n_drives::Int`: Total number of control drives
 - `levels::Int`: Total dimension of the composite system (product of subsystem dimensions)
 - `subsystem_levels::Vector{Int}`: Dimensions of each subsystem
 - `subsystems::Vector{QuantumSystem}`: The individual quantum subsystems
+- `time_dependent::Bool`: Whether the Hamiltonian has explicit time dependence (always `false` for composite systems)
+- `global_params::NamedTuple`: Parity field with `QuantumSystem`; composite systems carry no globals of their own
 
 See also [Lifted Operators](@ref lib-lifted-operators), [`lift_operator`](@ref).
 
