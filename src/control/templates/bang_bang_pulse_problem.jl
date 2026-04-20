@@ -569,7 +569,11 @@ end
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
     @test_throws ErrorException BangBangPulseProblem(
-        qtraj, N; Q = 100.0, R_du = 1e-1, free_phase = true,
+        qtraj,
+        N;
+        Q = 100.0,
+        R_du = 1e-1,
+        free_phase = true,
     )
 end
 
