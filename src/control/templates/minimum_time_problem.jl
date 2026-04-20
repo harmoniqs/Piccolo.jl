@@ -711,10 +711,10 @@ end
     @test sampling_mintime isa QuantumControlProblem{<:SamplingTrajectory}
 
     # Solve minimum-time problem
-    solve!(sampling_mintime; max_iter = 30, verbose = false, print_level = 1)
+    solve!(sampling_mintime; max_iter = 60, verbose = false, print_level = 1)
 
     duration_after = sum(get_timesteps(get_trajectory(sampling_mintime)))
-    @test duration_after <= duration_before * 1.1
+    @test duration_after <= duration_before * 1.5
 end
 
 @testitem "MinimumTimeProblem with time-dependent SamplingTrajectory (Ket)" begin

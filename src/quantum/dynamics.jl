@@ -527,6 +527,10 @@ function rollout_fidelity(
     tmp0 = zeros(ComplexF64, sys.levels)
     rollout = KetOperatorODEProblem(sys, u, tmp0, times, state_name = state_name)
 
+    if isnothing(algorithm)
+        algorithm = QuantumSystems.default_algorithm(sys)
+    end
+
     # Ensemble over initial states
     prob_func(prob, i, repeat) = remake(prob, u0 = iso_to_ket(traj.initial[state_names[i]]))
     ensemble_prob = EnsembleProblem(rollout, prob_func = prob_func)
@@ -575,6 +579,9 @@ function unitary_rollout_fidelity(
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
     rollout = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
+    if isnothing(algorithm)
+        algorithm = QuantumSystems.default_algorithm(sys)
+    end
     sol = solve(rollout, algorithm; saveat = [times[end]], abstol = abstol, reltol = reltol)
     xf = sol[state_name][end]
     xg = iso_vec_to_operator(traj.goal[state_name])

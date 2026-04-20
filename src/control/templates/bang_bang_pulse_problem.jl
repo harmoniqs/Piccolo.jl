@@ -568,13 +568,9 @@ end
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1e-1, free_phase = true)
-
-    @test qcp isa QuantumControlProblem
-
-    traj = get_trajectory(qcp)
-    @test haskey(traj.global_components, :φ_1)
-    @test haskey(traj.components, :s_du)
+    @test_throws ErrorException BangBangPulseProblem(
+        qtraj, N; Q = 100.0, R_du = 1e-1, free_phase = true,
+    )
 end
 
 @testitem "BangBangPulseProblem with MultiKetTrajectory and free_phase=true" begin
@@ -592,7 +588,7 @@ end
     pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length = N)))
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
-    qcp = BangBangPulseProblem(
+    @test_throws ErrorException BangBangPulseProblem(
         qtraj,
         N;
         Q = 100.0,
@@ -600,12 +596,6 @@ end
         free_phase = true,
         subsystem_levels = [2],
     )
-
-    @test qcp isa QuantumControlProblem
-
-    traj = get_trajectory(qcp)
-    @test haskey(traj.global_components, :φ_1)
-    @test haskey(traj.components, :s_du)
 end
 
 @testitem "BangBangPulseProblem free_phase requires EmbeddedOperator for unitary" begin
