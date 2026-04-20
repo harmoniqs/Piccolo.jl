@@ -472,6 +472,182 @@ function SmoothPulseProblem(
 end
 
 # ============================================================================= #
+# MultiDensityTrajectory Constructor
+# ============================================================================= #
+
+@doc raw"""
+    SmoothPulseProblem(qtraj::MultiDensityTrajectory{<:ZeroOrderPulse}, N::Int; kwargs...)
+
+Construct a `QuantumControlProblem` for smooth pulse optimization over an ensemble of
+density matrix transfers with piecewise constant controls.
+
+This is the density-matrix analogue of the [`MultiKetTrajectory`](@ref) constructor.
+It optimizes a single shared pulse that simultaneously drives multiple initial
+density matrices to their corresponding targets under the same Lindblad master
+equation.
+
+**Note**: This problem template is for `ZeroOrderPulse` only. For spline-based pulses,
+use `SplinePulseProblem` instead.
+
+Density matrices encode coherence directly, so there is no "free-phase" concept here
+(unlike `MultiKetTrajectory`): the density fidelity `tr(ρ_goal * ρ_final)` is already
+phase-invariant for pure goals.
+
+The ensemble objective is a weighted sum of `DensityMatrixInfidelityObjective`s, one
+per `(ρ_init, ρ_goal)` pair.
+
+# Arguments
+- `qtraj::MultiDensityTrajectory{<:ZeroOrderPulse}`: Ensemble of density matrix transfers with piecewise constant pulse
+- `N::Int`: Number of timesteps for the discretization
+
+# Keyword Arguments
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, the default `BilinearIntegrator` (one per density matrix, sharing the compact Lindbladian generator) is used.
+- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator that supports global variables.
+- `global_bounds`: Bounds for global variables.
+- `du_bound::Float64=Inf`: Bound on discrete first derivative
+- `ddu_bound::Float64=1.0`: Bound on discrete second derivative
+- `Q::Float64=100.0`: Weight on infidelity/objective
+- `R::Float64=1e-2`: Default regularization weight
+- `R_u, R_du, R_ddu`: Per-derivative regularization weights
+- `constraints`: Additional constraints
+- `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
+
+# Returns
+- `QuantumControlProblem{<:MultiDensityTrajectory}`: Wrapper containing ensemble trajectory and optimization problem
+
+# Examples
+```julia
+# Create ensemble for X gate under dephasing via density-matrix state transfer
+L = ComplexF64[0.1 0.0; 0.0 0.0]
+sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0];
+                        dissipation_operators = [L])
+
+ρ00 = ComplexF64[1.0 0.0; 0.0 0.0]
+ρ11 = ComplexF64[0.0 0.0; 0.0 1.0]
+
+pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length=N)))
+qtraj = MultiDensityTrajectory(sys, pulse, [ρ00, ρ11], [ρ11, ρ00])
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
+solve!(qcp; max_iter=100)
+```
+
+See also: [`SmoothPulseProblem(::MultiKetTrajectory, ...)`](@ref) for the closed-system analogue.
+"""
+function SmoothPulseProblem(
+    qtraj::MultiDensityTrajectory{<:ZeroOrderPulse},
+    N::Int;
+    integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    global_names::Union{Nothing,Vector{Symbol}} = nothing,
+    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    du_bound::Float64 = Inf,
+    ddu_bound::Float64 = 1.0,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    Q::Float64 = 100.0,
+    R::Float64 = 1e-2,
+    R_u::Union{Float64,Vector{Float64}} = R,
+    R_du::Union{Float64,Vector{Float64}} = R,
+    R_ddu::Union{Float64,Vector{Float64}} = R,
+    constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
+    piccolo_options::PiccoloOptions = PiccoloOptions(),
+)
+    if piccolo_options.verbose
+        println(
+            "    constructing SmoothPulseProblem for MultiDensityTrajectory ($(length(qtraj.initials)) states)...",
+        )
+    end
+
+    # Extract info from ensemble trajectory
+    sys = get_system(qtraj)
+    control_sym = drive_name(qtraj)
+    snames = state_names(qtraj)
+    weights = qtraj.weights
+    goals = qtraj.goals
+
+    # Build global_data from system's global_params if present
+    global_data = if !isempty(sys.global_params)
+        Dict(name => [val] for (name, val) in pairs(sys.global_params))
+    else
+        nothing
+    end
+
+    # Convert quantum trajectory to NamedTrajectory
+    base_traj = NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+
+    # Add control derivatives to trajectory
+    du_bounds = fill(du_bound, sys.n_drives)
+    ddu_bounds = fill(ddu_bound, sys.n_drives)
+
+    traj_smooth = add_control_derivatives(
+        base_traj,
+        2;  # Always use 2 derivatives
+        control_name = control_sym,
+        derivative_bounds = (du_bounds, ddu_bounds),
+    )
+
+    # Get control derivative names
+    control_names =
+        [name for name ∈ traj_smooth.names if endswith(string(name), string(control_sym))]
+
+    # Build objective: weighted sum of density infidelities
+    J = _ensemble_density_objective(qtraj, traj_smooth, snames, weights, goals, Q)
+
+    # Add regularization for control and derivatives
+    J += QuadraticRegularizer(control_names[1], traj_smooth, R_u)
+    J += QuadraticRegularizer(control_names[2], traj_smooth, R_du)
+    J += QuadraticRegularizer(control_names[3], traj_smooth, R_ddu)
+
+    # Apply piccolo options (density matrices have no "leakage subspace" concept,
+    # so this is effectively a no-op for MultiDensityTrajectory)
+    J += _apply_piccolo_options(qtraj, piccolo_options, constraints, traj_smooth, snames)
+
+    # Build integrators: one dynamics integrator per density matrix
+    if isnothing(integrator)
+        # Check for global_names without integrator
+        if !isnothing(global_names) && !isempty(global_names)
+            error(
+                "global_names requires a custom integrator that supports global variables. " *
+                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
+                "  using Piccolissimo\n" *
+                "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$global_names)\n" *
+                "  qcp = SmoothPulseProblem(qtraj, N; integrator=integrator, ...)",
+            )
+        end
+        dynamics_integrators = BilinearIntegrator(qtraj, N)
+    elseif integrator isa AbstractIntegrator
+        dynamics_integrators = AbstractIntegrator[integrator]
+    else
+        dynamics_integrators = AbstractIntegrator[integrator...]
+    end
+
+    integrators = AbstractIntegrator[dynamics_integrators...]
+
+    # Add derivative integrators (always 2 for smooth pulses)
+    push!(
+        integrators,
+        DerivativeIntegrator(control_names[1], control_names[2], traj_smooth),
+    )
+    push!(
+        integrators,
+        DerivativeIntegrator(control_names[2], control_names[3], traj_smooth),
+    )
+
+    # Note: TimeConsistencyConstraint is auto-applied by DirectTrajOpt when :t and :Δt present
+
+    # Add global bounds constraints if specified
+    all_constraints = copy(constraints)
+    add_global_bounds_constraints!(
+        all_constraints,
+        global_bounds,
+        traj_smooth;
+        verbose = piccolo_options.verbose,
+    )
+
+    prob = DirectTrajOptProblem(traj_smooth, J, integrators; constraints = all_constraints)
+
+    return QuantumControlProblem(qtraj, prob)
+end
+
+# ============================================================================= #
 # Type-specific helper functions
 # ============================================================================= #
 
@@ -628,6 +804,66 @@ function _apply_piccolo_options(
         traj;
         state_names = snames,
         state_leakage_indices = leakage_indices,
+    )
+end
+
+# ----------------------------------------------------------------------------- #
+# Ensemble density trajectory objectives
+# ----------------------------------------------------------------------------- #
+
+"""
+    _ensemble_density_objective(qtraj::MultiDensityTrajectory, traj, state_names, weights, goals, Q)
+
+Create a weighted-sum density-matrix infidelity objective for ensemble density
+matrix transfers:
+
+    J = ∑ᵢ wᵢ · (1 - tr(ρᵢ · ρᵢ_goal))
+
+Each term is a [`DensityMatrixInfidelityObjective`](@ref) scaled by its weight.
+
+Unlike `_ensemble_ket_objective`, density matrices have no global phase
+ambiguity, so we use an incoherent weighted sum — the same convention used in
+`fidelity(qtraj::MultiDensityTrajectory)`.
+"""
+function _ensemble_density_objective(
+    qtraj::MultiDensityTrajectory,
+    traj::NamedTrajectory,
+    snames::Vector{Symbol},
+    weights::Vector{Float64},
+    goals::Vector,
+    Q::Float64,
+)
+    return sum(
+        DensityMatrixInfidelityObjective(
+            snames[i],
+            Matrix{ComplexF64}(goals[i]),
+            traj;
+            Q = weights[i] * Q,
+        ) for i in eachindex(goals)
+    )
+end
+
+# ----------------------------------------------------------------------------- #
+# Ensemble density piccolo options
+# ----------------------------------------------------------------------------- #
+
+function _apply_piccolo_options(
+    qtraj::MultiDensityTrajectory,
+    piccolo_options::PiccoloOptions,
+    constraints::Vector{<:AbstractConstraint},
+    traj::NamedTrajectory,
+    snames::Vector{Symbol},
+)
+    # Density matrices live in the computational space by construction —
+    # there is no "leakage subspace" analogue to the transmon ket case.
+    # Applying piccolo options therefore reduces to the default (leakage
+    # constraint silently ignored; other options like timesteps_all_equal
+    # still handled by apply_piccolo_options!).
+    return apply_piccolo_options!(
+        piccolo_options,
+        constraints,
+        traj;
+        state_names = snames,
     )
 end
 
@@ -816,6 +1052,72 @@ end
     δ = zeros(dynamics_integrator.dim)
     DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
     @test norm(δ, Inf) < 1e-3
+end
+
+@testitem "SmoothPulseProblem with MultiDensityTrajectory" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # 2-level open system with σx drive and weak dephasing
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X, PAULIS.Y],
+        [1.0, 1.0];
+        dissipation_operators = [L],
+    )
+
+    # 2 state-transfer pairs: |0⟩⟨0| → |1⟩⟨1| and |1⟩⟨1| → |0⟩⟨0|
+    ρ00 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ11 = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    T = 10.0
+    N = 50
+
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiDensityTrajectory(sys, pulse, [ρ00, ρ11], [ρ11, ρ00])
+    snames = state_names(qtraj)
+    goals = qtraj.goals
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+
+    @test qcp isa QuantumControlProblem
+    @test qcp.qtraj isa MultiDensityTrajectory
+
+    # Check trajectory components: 2 density states + controls + derivatives
+    @test haskey(qcp.prob.trajectory.components, :ρ⃗̃1)
+    @test haskey(qcp.prob.trajectory.components, :ρ⃗̃2)
+    @test haskey(qcp.prob.trajectory.components, :u)
+    @test haskey(qcp.prob.trajectory.components, :du)
+    @test haskey(qcp.prob.trajectory.components, :ddu)
+
+    # Compact iso: each state dim should be n² (not 2n²)
+    n = sys.levels
+    @test qcp.prob.trajectory.dims[:ρ⃗̃1] == n^2
+    @test qcp.prob.trajectory.dims[:ρ⃗̃2] == n^2
+
+    # Integrators: 2 dynamics (one per density) + 2 derivatives = 4
+    @test length(qcp.prob.integrators) == 4
+
+    # Solve and verify average fidelity > 0.9
+    solve!(qcp; max_iter = 200, print_level = 1, verbose = false)
+
+    traj = get_trajectory(qcp)
+    fids = Float64[]
+    for (name, goal) in zip(snames, goals)
+        ρ̃_final = traj[end][name]
+        ρ_final = compact_iso_to_density(ρ̃_final)
+        push!(fids, real(tr(ρ_final * goal)))
+    end
+    avg_fid = sum(qtraj.weights .* fids)
+    @test avg_fid > 0.9
+
+    # Dynamics constraints should be satisfied for both integrators
+    for integrator in qcp.prob.integrators[1:2]
+        δ = zeros(integrator.dim)
+        DirectTrajOpt.evaluate!(δ, integrator, traj)
+        @test norm(δ, Inf) < 1e-3
+    end
 end
 
 @testitem "SmoothPulseProblem with MultiKetTrajectory" tags = [:experimental] begin

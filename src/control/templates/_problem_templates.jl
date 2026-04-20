@@ -13,6 +13,7 @@ using ...Quantum
 using ...Quantum:
     SamplingTrajectory,
     MultiKetTrajectory,
+    MultiDensityTrajectory,
     state_names,
     get_weights,
     AbstractSplinePulse,

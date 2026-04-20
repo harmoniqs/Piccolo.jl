@@ -5,7 +5,13 @@ using NamedTrajectories
 using DirectTrajOpt
 using ...Quantum
 using ...Quantum:
-    SamplingTrajectory, MultiKetTrajectory, state_name, state_names, drive_name
+    SamplingTrajectory,
+    MultiKetTrajectory,
+    MultiDensityTrajectory,
+    state_name,
+    state_names,
+    drive_name,
+    compact_lindbladian_generators
 using SparseArrays
 using TestItems
 
@@ -78,6 +84,31 @@ function BilinearIntegrator(qtraj::MultiKetTrajectory, N::Int)
     snames = state_names(qtraj)
 
     return [BilinearIntegrator(Ĝ, name, control_sym, traj) for name in snames]
+end
+
+"""
+    BilinearIntegrator(qtraj::MultiDensityTrajectory, N::Int)
+
+Create a vector of BilinearIntegrators (one per density matrix) for a
+`MultiDensityTrajectory`. All integrators share the same compact Lindbladian
+generator (n² × n²) built from the underlying `OpenQuantumSystem`.
+"""
+function BilinearIntegrator(qtraj::MultiDensityTrajectory, N::Int)
+    sys = get_system(qtraj)
+    traj = NamedTrajectory(qtraj, N)
+
+    # Build compact generator function: u -> 𝒢c_drift + Σ uᵢ 𝒢c_drives[i]
+    𝒢c_drift, 𝒢c_drives = compact_lindbladian_generators(sys)
+    if isempty(𝒢c_drives)
+        𝒢c = u -> 𝒢c_drift
+    else
+        𝒢c = u -> 𝒢c_drift + sum(u .* 𝒢c_drives)
+    end
+
+    control_sym = drive_name(qtraj)
+    snames = state_names(qtraj)
+
+    return [BilinearIntegrator(𝒢c, name, control_sym, traj) for name in snames]
 end
 
 # ----------------------------------------------------------------------------- #
@@ -352,6 +383,43 @@ end
     @test length(integrators) == 2
 
     for integrator in integrators
+        test_integrator(integrator, traj; atol = 1e-3)
+    end
+end
+
+@testitem "BilinearIntegrator dispatch on MultiDensityTrajectory" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # Open system with σ₋-like dissipator
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    # Non-zero controls so that dynamics is non-trivial for both density states
+    # (zero controls + σz drift would leave |0⟩⟨0| and |1⟩⟨1| as steady states,
+    # which makes test_integrator's feasibility check assert false)
+    controls = 0.5 * ones(1, N)
+    pulse = ZeroOrderPulse(controls, times)
+
+    # Create multi-density trajectory: |0⟩⟨0| → |1⟩⟨1| and |1⟩⟨1| → |0⟩⟨0|
+    qtraj = MultiDensityTrajectory(sys, pulse, [ρ0, ρ1], [ρ1, ρ0])
+    traj = NamedTrajectory(qtraj, N)
+
+    integrators = BilinearIntegrator(qtraj, N)
+
+    @test integrators isa Vector{<:BilinearIntegrator}
+    @test length(integrators) == 2
+
+    # State dimension per integrator should be n² (compact iso)
+    n = sys.levels
+    for integrator in integrators
+        @test integrator.x_dim == n^2
         test_integrator(integrator, traj; atol = 1e-3)
     end
 end
