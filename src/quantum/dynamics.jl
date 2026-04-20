@@ -163,6 +163,7 @@ function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
         sys.levels,
         sys.time_dependent,
         new_global_params,
+        sys.hermitian,
     )
 end
 
@@ -500,7 +501,7 @@ function rollout_fidelity(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :ψ̃,
     control_name::Symbol = :u,
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
@@ -525,6 +526,10 @@ function rollout_fidelity(
     # Blank initial state
     tmp0 = zeros(ComplexF64, sys.levels)
     rollout = KetOperatorODEProblem(sys, u, tmp0, times, state_name = state_name)
+
+    if isnothing(algorithm)
+        algorithm = QuantumSystems.default_algorithm(sys)
+    end
 
     # Ensemble over initial states
     prob_func(prob, i, repeat) = remake(prob, u0 = iso_to_ket(traj.initial[state_names[i]]))
@@ -551,7 +556,7 @@ function unitary_rollout_fidelity(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :Ũ⃗,
     control_name::Symbol = :u,
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
@@ -574,6 +579,9 @@ function unitary_rollout_fidelity(
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
     rollout = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
+    if isnothing(algorithm)
+        algorithm = QuantumSystems.default_algorithm(sys)
+    end
     sol = solve(rollout, algorithm; saveat = [times[end]], abstol = abstol, reltol = reltol)
     xf = sol[state_name][end]
     xg = iso_vec_to_operator(traj.goal[state_name])
@@ -585,7 +593,7 @@ function unitary_rollout(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :Ũ⃗,
     control_name::Symbol = :u,
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
@@ -608,6 +616,9 @@ function unitary_rollout(
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
     prob = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
+    if isnothing(algorithm)
+        algorithm = QuantumSystems.default_algorithm(sys)
+    end
     sol = solve(prob, algorithm; saveat = times, abstol = abstol, reltol = reltol)
 
     # Extract and convert to iso-vec trajectory
@@ -621,7 +632,7 @@ function ket_rollout_fidelity(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :ψ̃,
     control_name::Symbol = :u,
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
@@ -643,7 +654,7 @@ function ket_rollout(
     sys::AbstractQuantumSystem;
     state_name::Symbol = :ψ̃,
     control_name::Symbol = :u,
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
@@ -666,6 +677,9 @@ function ket_rollout(
 
     ψ0 = iso_to_ket(traj.initial[state_name])
     prob = KetOperatorODEProblem(sys, u, ψ0, times, state_name = state_name)
+    if isnothing(algorithm)
+        algorithm = QuantumSystems.default_algorithm(sys)
+    end
     sol = solve(prob, algorithm; saveat = times, abstol = abstol, reltol = reltol)
 
     # Extract and convert to iso-vec trajectory
