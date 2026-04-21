@@ -37,7 +37,7 @@ PiccoloQuantumToolboxExt = ["QuantumToolbox", "Makie"]
 
 [compat]
 DataInterpolations = "8.9"
-DirectTrajOpt = "0.8"
+DirectTrajOpt = "0.8, 0.9"
 Distributions = "0.25"
 ExponentialAction = "0.2"
 ForwardDiff = "1.3"
