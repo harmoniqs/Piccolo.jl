@@ -15,9 +15,15 @@ A struct for storing open quantum dynamics.
 - `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds
 - `n_drives::Int`: The number of control drives
 - `levels::Int`: The number of levels in the system
-- `dissipation_operators::Vector{SparseMatrixCSC{ComplexF64, Int}}`: The dissipation operators
+- `dissipators::Vector{AbstractDissipator}`: The typed dissipator terms, each pairing a jump operator with a scalar rate coefficient function. Matrix-based constructors auto-wrap as `LinearDissipator` with unit rate.
 - `time_dependent::Bool`: Whether the Hamiltonian has explicit time dependence
 - `global_params::NamedTuple`: Global parameters stored with the system (e.g., physical constants)
+
+!!! note
+    `dissipation_operators` is available as a derived read-only property via
+    `Base.getproperty` shim (materializing a `Vector{SparseMatrixCSC{ComplexF64,Int}}`
+    from `dissipators` on demand), not a stored field. It exists for backward
+    compatibility; new code should consume `sys.dissipators` directly.
 
 See also [`QuantumSystem`](@ref Piccolo.Quantum.QuantumSystems.QuantumSystem).
 """
@@ -29,9 +35,69 @@ struct OpenQuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple} <: AbstractQu
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
-    dissipation_operators::Vector{SparseMatrixCSC{ComplexF64,Int}}
+    dissipators::Vector{AbstractDissipator}
     time_dependent::Bool
     global_params::PT
+end
+
+# Backward-compatible property access: `sys.dissipation_operators` returns a
+# fresh Vector{SparseMatrixCSC{ComplexF64,Int}} materialized from the typed
+# dissipators. Read-only — mutations do not propagate back.
+function Base.getproperty(sys::OpenQuantumSystem, s::Symbol)
+    if s === :dissipation_operators
+        return SparseMatrixCSC{ComplexF64,Int}[
+            sparse(ComplexF64.(dissipator_matrix(d)))
+            for d in getfield(sys, :dissipators)
+        ]
+    end
+    return getfield(sys, s)
+end
+
+# Propertynames: expose both the real field and the derived view for discoverability
+Base.propertynames(::OpenQuantumSystem) = (
+    :H, :𝒢, :H_drift, :H_drives, :drive_bounds, :n_drives, :levels,
+    :dissipators, :dissipation_operators, :time_dependent, :global_params,
+)
+
+"""
+    _normalize_dissipators(arg) -> Vector{AbstractDissipator}
+
+Coerce a dissipator-list argument (matrices OR typed dissipators) to a
+canonical `Vector{AbstractDissipator}`. Matrix inputs are auto-wrapped as
+`LinearDissipator` with unit rate.
+"""
+function _normalize_dissipators(arg::AbstractVector)
+    out = AbstractDissipator[]
+    for x in arg
+        if x isa AbstractDissipator
+            push!(out, x)
+        elseif x isa AbstractMatrix
+            push!(out, LinearDissipator(sparse(ComplexF64.(x))))
+        else
+            error("_normalize_dissipators: expected AbstractDissipator or AbstractMatrix, got $(typeof(x))")
+        end
+    end
+    return out
+end
+_normalize_dissipators(::Nothing) = AbstractDissipator[]
+
+"""
+    _select_dissipators(dissipation_operators, dissipators) -> Vector{AbstractDissipator}
+
+Internal helper: enforce "pass at most one of `dissipation_operators=` / `dissipators=`",
+normalize the chosen input to `Vector{AbstractDissipator}`.
+"""
+function _select_dissipators(dissipation_operators, dissipators)
+    if !isnothing(dissipation_operators) && !isnothing(dissipators)
+        error("Pass either `dissipation_operators=` or `dissipators=`, not both.")
+    end
+    if !isnothing(dissipators)
+        return _normalize_dissipators(dissipators)
+    elseif !isnothing(dissipation_operators)
+        return _normalize_dissipators(dissipation_operators)
+    else
+        return AbstractDissipator[]
+    end
 end
 
 """
@@ -80,11 +146,17 @@ function OpenQuantumSystem(
     H_drift::AbstractMatrix{<:Number},
     H_drives::Vector{<:AbstractMatrix{<:Number}},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
-    dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
+    dissipation_operators = nothing,
+    dissipators = nothing,
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
+
+    diss_list = _select_dissipators(dissipation_operators, dissipators)
+    diss_mats = SparseMatrixCSC{ComplexF64,Int}[
+        sparse(ComplexF64.(dissipator_matrix(d))) for d in diss_list
+    ]
 
     H_drift_sparse = sparse(H_drift)
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(H_drift_sparse))
@@ -93,25 +165,45 @@ function OpenQuantumSystem(
     H_drives_sparse = sparse.(H_drives)
     𝒢_drives = [Isomorphisms.G(Isomorphisms.ad_vec(H_drive)) for H_drive in H_drives_sparse]
 
-    # Build dissipator
-    if isempty(dissipation_operators)
-        𝒟 = spzeros(size(𝒢_drift))
-    else
-        𝒟 = sum(Isomorphisms.iso_D(sparse(L)) for L in dissipation_operators)
-    end
-
-    if n_drives == 0
-        H = (u, t) -> H_drift_sparse
-        𝒢 = u -> 𝒢_drift + 𝒟
-    else
-        H = (u, t) -> H_drift_sparse + sum(u .* H_drives_sparse)
-        𝒢 = u -> 𝒢_drift + sum(u .* 𝒢_drives) + 𝒟
-    end
-
     levels = size(H_drift, 1)
 
     # Build LinearDrive objects from H_drives matrices
     linear_drives = AbstractDrive[LinearDrive(H_drives_sparse[i], i) for i = 1:n_drives]
+
+    # Precompute iso_D factors for each dissipator (matched to diss_list)
+    diss_iso_mats = [Isomorphisms.iso_D(L) for L in diss_mats]
+
+    # Build H(u,t) and 𝒢(u) — assembled at call time from drive_coeff + rate_coeff
+    if n_drives == 0
+        H = (u, t) -> H_drift_sparse
+    else
+        H = (u, t) -> begin
+            out = H_drift_sparse
+            for (d, H_d) in zip(linear_drives, H_drives_sparse)
+                out = out + drive_coeff(d, u) * H_d
+            end
+            return out
+        end
+    end
+
+    𝒢 = let 𝒢d = 𝒢_drift,
+             drs = linear_drives,
+             𝒢drs = 𝒢_drives,
+             dss = diss_list,
+             𝒟s = diss_iso_mats
+        u -> begin
+            out = 𝒢d + zero(𝒢d)
+            for (i, d) in enumerate(drs)
+                c = drive_coeff(d, u)
+                out = out + c * 𝒢drs[i]
+            end
+            for (j, diss) in enumerate(dss)
+                γ = rate_coeff(diss, u)
+                out = out + γ * 𝒟s[j]
+            end
+            return out
+        end
+    end
 
     return OpenQuantumSystem(
         H,
@@ -121,7 +213,7 @@ function OpenQuantumSystem(
         drive_bounds,
         n_drives,
         levels,
-        sparse.(dissipation_operators),
+        diss_list,
         time_dependent,
         _float_params(global_params),
     )
@@ -157,11 +249,17 @@ function OpenQuantumSystem(
     H_drift::AbstractMatrix{<:Number},
     drives::Vector{<:AbstractDrive},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
-    dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
+    dissipation_operators = nothing,
+    dissipators = nothing,
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
+
+    diss_list = _select_dissipators(dissipation_operators, dissipators)
+    diss_mats = SparseMatrixCSC{ComplexF64,Int}[
+        sparse(ComplexF64.(dissipator_matrix(d))) for d in diss_list
+    ]
 
     # Check that H_drift is Hermitian
     @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
@@ -172,6 +270,7 @@ function OpenQuantumSystem(
     end
 
     H_drift_sparse = sparse(ComplexF64.(H_drift))
+    H_drive_mats = [d.H for d in drives]
     n_drives = length(drive_bounds)
     levels = size(H_drift, 1)
 
@@ -189,27 +288,40 @@ function OpenQuantumSystem(
         end
     end
 
-    # Build H(u,t) and 𝒢(u) from drives
-    𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(H_drift_sparse))
-    𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(d.H)) for d in drives]
-
-    # Build dissipator
-    if isempty(dissipation_operators)
-        𝒟 = spzeros(size(𝒢_drift))
-    else
-        𝒟 = sum(Isomorphisms.iso_D(sparse(L)) for L in dissipation_operators)
-    end
+    # Build H(u,t) and 𝒢(u) from drives + dissipators
+    𝒢_drift_ham = Isomorphisms.G(Isomorphisms.ad_vec(H_drift_sparse))
+    𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(H_d)) for H_d in H_drive_mats]
+    diss_iso_mats = [Isomorphisms.iso_D(L) for L in diss_mats]
 
     if isempty(drives)
         H_fn = (u, t) -> H_drift_sparse
-        𝒢_fn = u -> 𝒢_drift + 𝒟
     else
-        H_fn = (u, t) -> H_drift_sparse + sum(drive_coeff(d, u) * d.H for d in drives)
-        𝒢_fn =
-            u ->
-                𝒢_drift +
-                sum(drive_coeff(d, u) * 𝒢_d for (d, 𝒢_d) in zip(drives, 𝒢_drive_mats)) +
-                𝒟
+        H_fn = (u, t) -> begin
+            out = H_drift_sparse
+            for (d, H_d) in zip(drives, H_drive_mats)
+                out = out + drive_coeff(d, u) * H_d
+            end
+            return out
+        end
+    end
+
+    𝒢_fn = let 𝒢d = 𝒢_drift_ham,
+               drs = drives,
+               𝒢drs = 𝒢_drive_mats,
+               dss = diss_list,
+               𝒟s = diss_iso_mats
+        u -> begin
+            out = 𝒢d + zero(𝒢d)
+            for (i, d) in enumerate(drs)
+                c = drive_coeff(d, u)
+                out = out + c * 𝒢drs[i]
+            end
+            for (j, diss) in enumerate(dss)
+                γ = rate_coeff(diss, u)
+                out = out + γ * 𝒟s[j]
+            end
+            return out
+        end
     end
 
     return OpenQuantumSystem(
@@ -220,7 +332,7 @@ function OpenQuantumSystem(
         drive_bounds,
         n_drives,
         levels,
-        sparse.(dissipation_operators),
+        diss_list,
         time_dependent,
         _float_params(global_params),
     )
@@ -235,7 +347,8 @@ Construct an OpenQuantumSystem with no drift.
 function OpenQuantumSystem(
     H_drives::Vector{<:AbstractMatrix{ℂ}},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
-    dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
+    dissipation_operators = nothing,
+    dissipators = nothing,
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
 ) where {ℂ<:Number}
@@ -245,6 +358,7 @@ function OpenQuantumSystem(
         H_drives,
         drive_bounds;
         dissipation_operators = dissipation_operators,
+        dissipators = dissipators,
         time_dependent = time_dependent,
         global_params = global_params,
     )
@@ -257,7 +371,8 @@ Construct an OpenQuantumSystem with only drift (no drives).
 """
 function OpenQuantumSystem(
     H_drift::AbstractMatrix{ℂ};
-    dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
+    dissipation_operators = nothing,
+    dissipators = nothing,
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
 ) where {ℂ<:Number}
@@ -266,6 +381,7 @@ function OpenQuantumSystem(
         Matrix{ℂ}[],
         Float64[];
         dissipation_operators = dissipation_operators,
+        dissipators = dissipators,
         time_dependent = time_dependent,
         global_params = global_params,
     )
@@ -279,12 +395,18 @@ Construct an OpenQuantumSystem from a Hamiltonian function.
 function OpenQuantumSystem(
     H::F,
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
-    dissipation_operators::Vector{<:AbstractMatrix{ℂ}} = Matrix{ComplexF64}[],
+    dissipation_operators = nothing,
+    dissipators = nothing,
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
-) where {F<:Function,ℂ<:Number}
+) where {F<:Function}
 
     drive_bounds = normalize_drive_bounds(drive_bounds)
+
+    diss_list = _select_dissipators(dissipation_operators, dissipators)
+    diss_mats = SparseMatrixCSC{ComplexF64,Int}[
+        sparse(ComplexF64.(dissipator_matrix(d))) for d in diss_list
+    ]
 
     n_drives = length(drive_bounds)
 
@@ -292,22 +414,28 @@ function OpenQuantumSystem(
     H_drift = H(zeros(n_drives), 0.0)
     levels = size(H_drift, 1)
 
-    # Build dissipator
-    if isempty(dissipation_operators)
-        𝒟 = spzeros(ComplexF64, levels^2, levels^2)
-    else
-        𝒟 = sum(Isomorphisms.iso_D(sparse(L)) for L in dissipation_operators)
+    diss_iso_mats = [Isomorphisms.iso_D(L) for L in diss_mats]
+
+    𝒢_fn = let 𝒟s = diss_iso_mats, dss = diss_list, H_user = H
+        u -> begin
+            out = Isomorphisms.G(Isomorphisms.ad_vec(sparse(H_user(u, 0.0))))
+            for (j, diss) in enumerate(dss)
+                γ = rate_coeff(diss, u)
+                out = out + γ * 𝒟s[j]
+            end
+            return out
+        end
     end
 
     return OpenQuantumSystem(
         H,
-        u -> Isomorphisms.G(Isomorphisms.ad_vec(sparse(H(u, 0.0)))) + 𝒟,
+        𝒢_fn,
         sparse(H_drift),
         AbstractDrive[],
         drive_bounds,
         n_drives,
         levels,
-        sparse.(dissipation_operators),
+        diss_list,
         time_dependent,
         _float_params(global_params),
     )
@@ -323,7 +451,8 @@ in the resulting `OpenQuantumSystem`.
 """
 function OpenQuantumSystem(
     system::QuantumSystem;
-    dissipation_operators::Vector{<:AbstractMatrix{<:Number}} = Matrix{ComplexF64}[],
+    dissipation_operators = nothing,
+    dissipators = nothing,
 )
     if !isempty(system.H_drives)
         # Use drives-based constructor (handles both linear and nonlinear)
@@ -332,6 +461,7 @@ function OpenQuantumSystem(
             system.H_drives,
             system.drive_bounds;
             dissipation_operators = dissipation_operators,
+            dissipators = dissipators,
             time_dependent = system.time_dependent,
             global_params = system.global_params,
         )
@@ -341,6 +471,7 @@ function OpenQuantumSystem(
             system.H,
             system.drive_bounds;
             dissipation_operators = dissipation_operators,
+            dissipators = dissipators,
             time_dependent = system.time_dependent,
             global_params = system.global_params,
         )
@@ -387,6 +518,31 @@ function compact_lindbladian_generators(sys::OpenQuantumSystem)
 end
 
 # ******************************************************************************* #
+
+@testitem "OpenQuantumSystem: accepts typed dissipators" begin
+    using Piccolo
+
+    # Matrix input → auto-wrapped to LinearDissipator
+    sys_mat = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0];
+        dissipation_operators=[PAULIS.Z])
+    @test length(sys_mat.dissipators) == 1
+    @test sys_mat.dissipators[1] isa LinearDissipator
+    @test sys_mat.dissipators[1].rate == 1.0
+    @test length(sys_mat.dissipation_operators) == 1  # backward-compat view
+
+    # Typed input → preserved as-is
+    diss = NonlinearDissipator(PAULIS.Z, u -> u[2]; active_controls=[2])
+    sys_typed = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0];
+        dissipators=[diss],
+        global_params=(γ=0.1,))
+    @test sys_typed.dissipators[1] === diss
+    @test length(sys_typed.dissipation_operators) == 1
+
+    # Passing both kwargs should error
+    @test_throws ErrorException OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0];
+        dissipation_operators=[PAULIS.Z],
+        dissipators=[LinearDissipator(PAULIS.Z)])
+end
 
 @testitem "Open system creation" begin
 
