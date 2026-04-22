@@ -21,7 +21,7 @@ export get_drift
 export get_drives
 export get_drive_terms
 export get_c_ops
-export compact_lindbladian_generators
+export compact_lindbladian_generators, compact_generator_closure
 
 using ..Isomorphisms
 using ..QuantumObjectUtils
