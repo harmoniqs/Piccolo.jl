@@ -519,6 +519,61 @@ end
 
 # ******************************************************************************* #
 
+@testitem "OpenQuantumSystem.𝒢: respects NonlinearDrive with global-reading coeff" begin
+    using Piccolo
+    using SparseArrays
+
+    # NonlinearDrive with coefficient u[1]*u[2] — the extended control vector
+    # from the integrator will place a "global" read into u[2].
+    # drive_bounds has two entries so validate_drive_jacobian samples u of len 2.
+    drive_global = NonlinearDrive(PAULIS.X, u -> u[1] * u[2]; active_controls=[1,2])
+    sys = OpenQuantumSystem(PAULIS.Z, AbstractDrive[drive_global], [1.0, 1.0];
+        global_params=(θ=1.0,))
+
+    G1 = sys.𝒢([0.3, 1.0])
+    G2 = sys.𝒢([0.3, 2.0])
+    @test !isapprox(G1, G2; atol=1e-10)
+    # Δ = (0.3 * 2.0 - 0.3 * 1.0) · 𝒢_drive(X) = 0.3 · 𝒢_drive(X)
+    𝒢X = Isomorphisms.G(Isomorphisms.ad_vec(sparse(ComplexF64.(PAULIS.X))))
+    @test isapprox(G2 - G1, (2.0 - 1.0) * 0.3 * 𝒢X; atol=1e-10)
+end
+
+@testitem "OpenQuantumSystem.𝒢: respects NonlinearDissipator with global-reading rate" begin
+    using Piccolo
+    using SparseArrays
+
+    L = PAULIS.Z / sqrt(2)
+    diss_global = NonlinearDissipator(L, u -> u[2]; active_controls=[2])
+    sys = OpenQuantumSystem(PAULIS.X, [PAULIS.Y], [1.0];
+        dissipators=[diss_global],
+        global_params=(γ=0.1,))
+
+    G1 = sys.𝒢([0.0, 0.1])
+    G2 = sys.𝒢([0.0, 0.5])
+    @test !isapprox(G1, G2; atol=1e-10)
+    # Δ = (0.5 - 0.1) · iso_D(L)
+    expected_delta = (0.5 - 0.1) * Isomorphisms.iso_D(sparse(ComplexF64.(L)))
+    @test isapprox(G2 - G1, expected_delta; atol=1e-10)
+end
+
+@testitem "OpenQuantumSystem.𝒢: regression — closed-system LinearDrives only" begin
+    using Piccolo
+    using SparseArrays
+    # Before-the-rewrite semantics: linear drives + static dissipators still
+    # yield the correct 𝒢(u) for arbitrary u.
+    γ = 0.3
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0];
+        dissipation_operators=[sqrt(γ) * PAULIS.Z])
+    u = [0.4, -0.2]
+    # Manually assemble: 𝒢_drift + u[1]·𝒢_X + u[2]·𝒢_Y + iso_D(sqrt(γ)·Z)
+    𝒢d = Isomorphisms.G(Isomorphisms.ad_vec(sparse(ComplexF64.(PAULIS.Z))))
+    𝒢x = Isomorphisms.G(Isomorphisms.ad_vec(sparse(ComplexF64.(PAULIS.X))))
+    𝒢y = Isomorphisms.G(Isomorphisms.ad_vec(sparse(ComplexF64.(PAULIS.Y))))
+    𝒟 = Isomorphisms.iso_D(sparse(ComplexF64.(sqrt(γ) * PAULIS.Z)))
+    expected = 𝒢d + u[1]*𝒢x + u[2]*𝒢y + 𝒟
+    @test isapprox(sys.𝒢(u), expected; atol=1e-10)
+end
+
 @testitem "OpenQuantumSystem: accepts typed dissipators" begin
     using Piccolo
 
