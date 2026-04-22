@@ -197,12 +197,15 @@ end
     sys = CatSystem(cat_levels = cat_levels, buffer_levels = buffer_levels)
     n = sys.levels  # 8
 
-    𝒢c_drift, 𝒢c_drives = compact_lindbladian_generators(sys)
+    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_generators(sys)
 
     # Compact generators should be n² × n²
-    @test size(𝒢c_drift) == (n^2, n^2)
+    @test size(𝒢c_drift_ham) == (n^2, n^2)
     @test length(𝒢c_drives) == 2
     @test all(size(𝒢c) == (n^2, n^2) for 𝒢c in 𝒢c_drives)
+    # CatSystem has 2 dissipators (κa*a, κb*b)
+    @test length(𝒢c_dissipators) == 2
+    @test all(size(𝒢c) == (n^2, n^2) for 𝒢c in 𝒢c_dissipators)
 
     # Verify P * L = I identity used in construction
     L = Piccolo.Isomorphisms.density_lift_matrix(n)

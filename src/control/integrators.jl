@@ -54,13 +54,16 @@ function BilinearIntegrator(qtraj::DensityTrajectory, N::Int)
     sys = get_system(qtraj)
     traj = NamedTrajectory(qtraj, N)
 
-    # Build compact generator function: u -> 𝒢c_drift + Σ uᵢ 𝒢c_drives[i]
-    𝒢c_drift, 𝒢c_drives = compact_lindbladian_generators(sys)
-    if isempty(𝒢c_drives)
-        𝒢c = u -> 𝒢c_drift
-    else
-        𝒢c = u -> 𝒢c_drift + sum(u .* 𝒢c_drives)
-    end
+    # Build compact generator via the shared helper — uses drive_coeff and
+    # rate_coeff at call time so NonlinearDrive coefficients (including
+    # global-reading ones) and NonlinearDissipator rates propagate correctly.
+    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_generators(sys)
+    𝒢c = compact_generator_closure(
+        sys,
+        Matrix(𝒢c_drift_ham),
+        [Matrix(M) for M in 𝒢c_drives],
+        [Matrix(M) for M in 𝒢c_dissipators],
+    )
 
     return BilinearIntegrator(𝒢c, state_name(qtraj), drive_name(qtraj), traj)
 end
