@@ -1093,6 +1093,44 @@ end
     @test pulse_zero_deriv(0.5) ≈ [1.0, -1.0]
 end
 
+@testitem "sample interface" begin
+    using .Pulses: sample, duration, n_drives
+
+    controls = [0.0 1.0 0.0; 0.0 -1.0 0.0]
+    times_ctrl = [0.0, 0.5, 1.0]
+
+    for P in (ZeroOrderPulse, LinearSplinePulse, CubicSplinePulse)
+        pulse = P(controls, times_ctrl)
+
+        # sample(pulse, n_samples::Int) -> (values, times)
+        n = 7
+        vals, ts = sample(pulse, n)
+        @test vals isa AbstractMatrix
+        @test size(vals) == (n_drives(pulse), n)
+        @test length(ts) == n
+        @test first(ts) == 0.0
+        @test last(ts) ≈ duration(pulse)
+
+        # sample(pulse, times::AbstractVector) -> values only
+        query_ts = collect(LinRange(0.0, duration(pulse), 4))
+        vals_at_times = sample(pulse, query_ts)
+        @test vals_at_times isa AbstractMatrix
+        @test size(vals_at_times) == (n_drives(pulse), length(query_ts))
+
+        # Locked-in interface: no keyword-argument form, no zero-arg default
+        @test_throws MethodError sample(pulse; n_samples = 5)
+        @test_throws MethodError sample(pulse)
+    end
+
+    # sample(bounds, n_samples) -> random matrix within bounds
+    bounds = [(-1.0, 1.0), (-0.5, 0.5)]
+    rand_ctrls = sample(bounds, 10)
+    @test size(rand_ctrls) == (length(bounds), 10)
+    for (i, (lo, hi)) in enumerate(bounds)
+        @test all(lo .<= rand_ctrls[i, :] .<= hi)
+    end
+end
+
 @testitem "DataInterpolations derivative at boundaries" begin
     using .Pulses: derivative, sample
 
