@@ -25,10 +25,13 @@ export ZeroOrderPulse,
     FunctionPulse
 export duration, n_drives, sample, drive_name
 
+using DataInterpolations
 using DataInterpolations: ConstantInterpolation, LinearInterpolation, CubicHermiteSpline
 using ForwardDiff
 using SpecialFunctions: erf
 using TestItems
+
+const DEFAULT_SAMPLES::Int = 100
 
 # ============================================================================ #
 # Abstract type
@@ -84,13 +87,51 @@ function sample(pulse::AbstractPulse, times::AbstractVector)
 end
 
 """
-    sample(pulse::AbstractPulse; n_samples::Int=100)
+    sample(pulse::AbstractPulse, n_samples::Int)
 
 Sample the pulse uniformly with `n_samples` points. Returns `(controls, times)`.
 """
-function sample(pulse::AbstractPulse; n_samples::Int = 100)
+function sample(pulse::AbstractPulse, n_samples::Int)
     times = collect(range(0.0, duration(pulse), length = n_samples))
     return sample(pulse, times), times
+end
+
+"""
+    sample(bounds::AbstractVector{Tuple}, n_samples::Int)
+
+Sample the bounds uniformly with `n_samples` points.
+"""
+function sample(bounds::AbstractVector{Tuple{Float64,Float64}}, n_samples::Int)
+    return [(high - low) * rand() + low for (low, high) in bounds, _ = 1:n_samples]
+end
+
+"""
+    derivative(pulse::AbstractPulse, time::Real)
+
+Return the time derivative of the pulse at `time`.
+
+Falls back to ForwardDiff for generic pulses. Specialized pulse types may benefit from custom derivative methods (e.g., DataInterpolations.derivative) for better handling of knot points and boundaries.
+"""
+function derivative(pulse::AbstractPulse, time::Real)
+    return ForwardDiff.derivative(pulse, time)
+end
+
+Base.summary(io::IO, p::AbstractPulse) = print(
+    io,
+    "$(nameof(typeof(p)))(Number of drives = ",
+    n_drives(p),
+    ", ",
+    "T = ",
+    duration(p),
+    ")",
+)
+
+Base.show(io::IO, p::AbstractPulse) = summary(io, p)
+
+function Base.show(io::IO, ::MIME"text/plain", p::AbstractPulse)
+    println(io, nameof(typeof(p)))
+    println(io, "  drives: ", n_drives(p))
+    print(io, "  duration: ", duration(p))
 end
 
 # ============================================================================ #
@@ -170,6 +211,8 @@ function ZeroOrderPulse(
     )
 end
 
+derivative(p::ZeroOrderPulse, t::Real) = DataInterpolations.derivative(p.controls, t)
+
 evaluate(p::ZeroOrderPulse, t) = p.controls(t)
 
 # ============================================================================ #
@@ -245,6 +288,8 @@ function LinearSplinePulse(
         final_val,
     )
 end
+
+derivative(p::LinearSplinePulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
 evaluate(p::LinearSplinePulse, t) = p.controls(t)
 
@@ -357,6 +402,9 @@ function CubicSplinePulse(
         final_value,
     )
 end
+
+# TODO: Unimplemented by DataInterpolations
+# derivative(p::CubicSplinePulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
 evaluate(p::CubicSplinePulse, t) = p.controls(t)
 
@@ -505,9 +553,7 @@ function CubicSplinePulse(
     final_value::Union{Nothing,Vector{<:Real}} = nothing,
 )
     controls = sample(pulse, times)
-
-    # Compute derivatives using ForwardDiff
-    derivatives = hcat([ForwardDiff.derivative(pulse, t) for t in times]...)
+    derivatives = stack(map(t -> derivative(pulse, t), times))
 
     init_val = isnothing(initial_value) ? pulse(times[1]) : initial_value
     final_val = isnothing(final_value) ? pulse(times[end]) : final_value
@@ -977,7 +1023,8 @@ end
     @test pulse(1.0) ≈ [0.0, 0.0]
 
     # Test sampling
-    sampled, ts = sample(pulse; n_samples = 5)
+    n_samples = 5
+    sampled, ts = sample(pulse, n_samples)
     @test size(sampled) == (2, 5)
     @test length(ts) == 5
 
@@ -1005,7 +1052,8 @@ end
     @test pulse(1.0) ≈ [0.0, 0.0]
 
     # Test sampling
-    sampled, ts = sample(pulse; n_samples = 5)
+    n_samples = 5
+    sampled, ts = sample(pulse, n_samples)
     @test size(sampled) == (2, 5)
 
     # Test custom drive_name
@@ -1043,6 +1091,41 @@ end
     # Test zero-derivative constructor
     pulse_zero_deriv = CubicSplinePulse(controls, times)
     @test pulse_zero_deriv(0.5) ≈ [1.0, -1.0]
+end
+
+@testitem "DataInterpolations derivative at boundaries" begin
+    using .Pulses: derivative, sample
+
+    n_samples = 100
+    bounds = [(-1e-3, 1e-3), (-1e3, 1e3)]
+    inits = sample(bounds, n_samples)
+    times = LinRange(0, 10.0, n_samples)
+
+    for P in [ZeroOrderPulse, LinearSplinePulse]
+
+        pulse = P(inits, times)
+
+        # The pulse itself should sample cleanly on the closed interval.
+        vals = sample(pulse, times)
+        @test size(vals) == (n_drives(pulse), length(times))
+
+        # The pulse-level derivative API should also work on the closed interval,
+        # including both boundaries.
+        derivs = [derivative(pulse, t) for t in times]
+        @test length(derivs) == length(times)
+        @test all(d -> length(d) == n_drives(pulse), derivs)
+
+        # Explicitly check the endpoints, since these are where ForwardDiff on the
+        # raw interpolation used to fail due to extrapolation.
+        @test derivative(pulse, first(times)) isa AbstractVector
+        @test derivative(pulse, last(times)) isa AbstractVector
+        @test length(derivative(pulse, first(times))) == n_drives(pulse)
+        @test length(derivative(pulse, last(times))) == n_drives(pulse)
+    end
+
+    # CubicHermiteSpline known failure mode
+    pulse = CubicSplinePulse(inits, times)
+    @test_broken derivative(pulse, last(times)) isa AbstractVector
 end
 
 @testitem "GaussianPulse" begin
