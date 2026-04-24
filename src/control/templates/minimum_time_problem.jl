@@ -92,7 +92,9 @@ function MinimumTimeProblem(
 ) where {QT<:AbstractQuantumTrajectory}
 
     if piccolo_options.verbose
-        println("    constructing MinimumTimeProblem from QuantumControlProblem{$QT}...")
+        println(
+            "    constructing MinimumTimeProblem from QuantumControlProblem($(nameof(QT)))...",
+        )
         println("\tfinal fidelity constraint: $(final_fidelity)")
         println("\tminimum-time weight D: $(D)")
     end
