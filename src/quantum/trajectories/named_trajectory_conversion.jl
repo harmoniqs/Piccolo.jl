@@ -294,7 +294,7 @@ function NamedTrajectory(
 )
     times = _sample_times(qtraj, N_or_times)
     T = length(times)
-    s_name = state_name(qtraj)
+    s_name = isomorphism_state_name(qtraj)
 
     # Auto-populate global_data from system if not provided
     if isnothing(global_data) && !isempty(qtraj.system.global_params)
@@ -384,7 +384,7 @@ function NamedTrajectory(
 )
     times = _sample_times(qtraj, N_or_times)
     T = length(times)
-    s_name = state_name(qtraj)
+    s_name = isomorphism_state_name(qtraj)
 
     # Auto-populate global_data from system if not provided
     if isnothing(global_data) && !isempty(qtraj.system.global_params)
@@ -471,7 +471,7 @@ function NamedTrajectory(
     times = _sample_times(qtraj, N_or_times)
     T = length(times)
     n_states = length(qtraj)
-    state_prefix = state_name(qtraj)
+    state_prefix = isomorphism_state_name(qtraj)
 
     # Auto-populate global_data from system if not provided
     if isnothing(global_data) && !isempty(qtraj.system.global_params)
@@ -572,7 +572,7 @@ function NamedTrajectory(
 )
     times = _sample_times(qtraj, N_or_times)
     T = length(times)
-    sname = state_name(qtraj)
+    sname = isomorphism_state_name(qtraj)
 
     # Auto-populate global_data from system if not provided
     if isnothing(global_data) && !isempty(qtraj.system.global_params)
@@ -661,7 +661,7 @@ function NamedTrajectory(
     times = _sample_times(qtraj, N_or_times)
     N = length(times)
     n_states = length(qtraj)
-    state_prefix = state_name(qtraj)
+    state_prefix = isomorphism_state_name(qtraj)
 
     # Auto-populate global_data from system if not provided
     if isnothing(global_data) && !isempty(qtraj.system.global_params)
@@ -746,8 +746,9 @@ end
 
     # Test interface
     @test get_system(qtraj) === system
-    @test get_goal(qtraj) == X_gate
-    @test state_name(qtraj) == :Ũ⃗
+    @test get_goal(qtraj) === X_gate
+    @test state_name(qtraj) == :U
+    @test isomorphism_state_name(qtraj) == :Ũ⃗
     @test drive_name(qtraj) == :u
     @test time_name(qtraj) == :t
     @test timestep_name(qtraj) == :Δt
@@ -810,7 +811,8 @@ end
     @test get_system(qtraj) === system
     @test get_initial(qtraj) == ψ0
     @test get_goal(qtraj) == ψg
-    @test state_name(qtraj) == :ψ̃
+    @test state_name(qtraj) == :ψ
+    @test isomorphism_state_name(qtraj) == :ψ̃
     @test duration(qtraj) ≈ T
 
     # Convert to NamedTrajectory
@@ -835,8 +837,10 @@ end
 
     # Test interface
     @test length(qtraj) == 2
-    @test state_name(qtraj) == :ψ̃
-    @test state_names(qtraj) == [:ψ̃1, :ψ̃2]
+    @test state_name(qtraj) == :ψ
+    @test isomorphism_state_name(qtraj) == :ψ̃
+    @test state_names(qtraj) == [:ψ1, :ψ2]
+    @test isomorphism_state_names(qtraj) == [:ψ̃1, :ψ̃2]
     @test get_initial(qtraj) == qtraj.initials
     @test get_goal(qtraj) == qtraj.goals
 
@@ -869,7 +873,8 @@ end
     @test get_system(qtraj) === system
     @test get_initial(qtraj) == ρ0
     @test get_goal(qtraj) == ρg
-    @test state_name(qtraj) == :ρ⃗̃
+    @test state_name(qtraj) == :ρ
+    @test isomorphism_state_name(qtraj) == :ρ⃗̃
     @test duration(qtraj) ≈ T
 
     # Convert to NamedTrajectory

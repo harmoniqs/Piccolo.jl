@@ -106,7 +106,7 @@ function SplinePulseProblem(
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
-    state_sym = state_name(qtraj)
+    state_sym = isomorphism_state_name(qtraj)
 
     if piccolo_options.verbose
         println(
@@ -344,14 +344,13 @@ function SplinePulseProblem(
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
-    snames = state_names(qtraj)
+    snames = isomorphism_state_names(qtraj)
     weights = qtraj.weights
     goals = qtraj.goals
 
     if piccolo_options.verbose
-        pulse_type = typeof(qtraj.pulse)
         println(
-            "    constructing SplinePulseProblem for MultiKetTrajectory with $(pulse_type)...",
+            "    constructing SplinePulseProblem for $(nameof(typeof(qtraj))) with $(nameof(typeof(qtraj.pulse)))...",
         )
         println("\twith $(length(qtraj.initials)) state transfers")
     end
@@ -529,12 +528,11 @@ function SplinePulseProblem(
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     kwargs...,
 ) where {P<:AbstractPulse}
-    pulse_type = P
     error(
         """
   SplinePulseProblem is only for spline-based pulses (LinearSplinePulse, CubicSplinePulse).
 
-  You provided a trajectory with pulse type: $(pulse_type)
+  You provided a trajectory with pulse type: $(nameof(P))
 
   For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
       qcp = SmoothPulseProblem(qtraj, N; ...)

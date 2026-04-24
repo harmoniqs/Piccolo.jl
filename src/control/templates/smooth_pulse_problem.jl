@@ -150,7 +150,7 @@ function SmoothPulseProblem(
 
     # Extract info from quantum trajectory
     sys = get_system(qtraj)
-    state_sym = state_name(qtraj)
+    state_sym = isomorphism_state_name(qtraj)
     control_sym = drive_name(qtraj)
 
     # Build global_data from system's global_params if present
@@ -381,14 +381,14 @@ function SmoothPulseProblem(
 )
     if piccolo_options.verbose
         println(
-            "    constructing SmoothPulseProblem for MultiKetTrajectory ($(length(qtraj.initials)) states)...",
+            "    constructing SmoothPulseProblem for $(nameof(typeof(qtraj))) ($(length(qtraj.initials)) states)...",
         )
     end
 
     # Extract info from ensemble trajectory
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
-    snames = state_names(qtraj)
+    snames = isomorphism_state_names(qtraj)
     weights = qtraj.weights
     goals = qtraj.goals
 
@@ -759,7 +759,7 @@ end
 
     # Test fidelity after solve
     traj = get_trajectory(qcp)
-    Ũ⃗_final = traj[end][state_name(qtraj)]
+    Ũ⃗_final = traj[end][isomorphism_state_name(qtraj)]
     U_final = iso_vec_to_operator(Ũ⃗_final)
     fid = unitary_fidelity(U_final, U_goal)
     @test fid > 0.9
@@ -817,7 +817,7 @@ end
 
     # Test fidelity after solve
     traj = get_trajectory(qcp)
-    ψ̃_final = traj[end][state_name(qtraj)]
+    ψ̃_final = traj[end][isomorphism_state_name(qtraj)]
     ψ_final = iso_to_ket(ψ̃_final)
     fid = fidelity(ψ_final, ψ_goal)
     @test fid > 0.9
@@ -921,7 +921,7 @@ end
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     ensemble_qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
     goals = ensemble_qtraj.goals
-    snames = state_names(ensemble_qtraj)
+    snames = isomorphism_state_names(ensemble_qtraj)
 
     # Create problem using the new constructor
     qcp = SmoothPulseProblem(ensemble_qtraj, N; Q = 100.0, R = 1e-2)
@@ -986,11 +986,12 @@ end
     ensemble_qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     @test ensemble_qtraj isa MultiKetTrajectory
-    @test state_names(ensemble_qtraj) == [:ψ̃1, :ψ̃2]
+    @test state_names(ensemble_qtraj) == [:ψ1, :ψ2]
+    @test isomorphism_state_names(ensemble_qtraj) == [:ψ̃1, :ψ̃2]
 
     # Convert to NamedTrajectory
     new_traj = NamedTrajectory(ensemble_qtraj, N)
-    snames = state_names(ensemble_qtraj)
+    snames = isomorphism_state_names(ensemble_qtraj)
 
     @test haskey(new_traj.components, :ψ̃1)
     @test haskey(new_traj.components, :ψ̃2)
@@ -1041,7 +1042,7 @@ end
 
     @test get_system(ensemble_qtraj) === sys  # Single system
     @test length(ensemble_qtraj.initials) == 2  # Multiple state transfers
-    @test state_names(ensemble_qtraj) == [:ψ̃1, :ψ̃2]
+    @test isomorphism_state_names(ensemble_qtraj) == [:ψ̃1, :ψ̃2]
 
     # ===== SamplingTrajectory setup =====
     # Same goal, different systems (robust optimization)
@@ -1054,7 +1055,7 @@ end
 
     @test get_system(sampling_qtraj) === sys  # Nominal system
     @test length(sampling_qtraj.systems) == 2  # Multiple systems
-    @test state_names(sampling_qtraj) == [:Ũ⃗1, :Ũ⃗2]
+    @test isomorphism_state_names(sampling_qtraj) == [:Ũ⃗1, :Ũ⃗2]
 
     # Key differences:
     # 1. MultiKetTrajectory has `initials`/`goals` fields (multiple init/goals)
@@ -1096,7 +1097,7 @@ end
 
     # Test fidelity after solve
     traj = get_trajectory(qcp)
-    Ũ⃗_final = traj[end][state_name(qtraj)]
+    Ũ⃗_final = traj[end][isomorphism_state_name(qtraj)]
     U_final = iso_vec_to_operator(Ũ⃗_final)
     fid = unitary_fidelity(U_final, U_goal)
     @test fid > 0.85
@@ -1138,7 +1139,7 @@ end
 
     # Test fidelity after solve
     traj = get_trajectory(qcp)
-    ψ̃_final = traj[end][state_name(qtraj)]
+    ψ̃_final = traj[end][isomorphism_state_name(qtraj)]
     ψ_final = iso_to_ket(ψ̃_final)
     fid = fidelity(ψ_final, ψ_goal)
     @test fid > 0.85
@@ -1263,7 +1264,7 @@ end
 
     # Test fidelity for both states after solve
     traj = get_trajectory(qcp)
-    snames = state_names(ensemble_qtraj)
+    snames = isomorphism_state_names(ensemble_qtraj)
     goals = ensemble_qtraj.goals
 
     for (name, goal) in zip(snames, goals)
