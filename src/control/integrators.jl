@@ -10,6 +10,7 @@ using SparseArrays
 using TestItems
 
 import DirectTrajOpt: BilinearIntegrator
+import DirectTrajOpt: TimeDependentBilinearIntegrator
 
 # Import QuantumTrajectories types (will be loaded before this module)
 using ...Quantum.QuantumTrajectories
@@ -28,8 +29,19 @@ Create a BilinearIntegrator for unitary evolution.
 function BilinearIntegrator(qtraj::UnitaryTrajectory, N::Int)
     sys = get_system(qtraj)
     traj = NamedTrajectory(qtraj, N)
-    Ĝ = u_ -> I(sys.levels) ⊗ sys.G(u_, 0.0)
-    return BilinearIntegrator(Ĝ, state_name(qtraj), drive_name(qtraj), traj)
+    if sys.time_dependent
+        Ĝ = (u_, t) -> I(sys.levels) ⊗ sys.G(u_, t)
+        return TimeDependentBilinearIntegrator(
+            Ĝ,
+            state_name(qtraj),
+            drive_name(qtraj),
+            :t,
+            traj,
+        )
+    else
+        Ĝ = u_ -> I(sys.levels) ⊗ sys.G(u_, 0.0)
+        return BilinearIntegrator(Ĝ, state_name(qtraj), drive_name(qtraj), traj)
+    end
 end
 
 """
@@ -40,8 +52,19 @@ Create a BilinearIntegrator for ket evolution.
 function BilinearIntegrator(qtraj::KetTrajectory, N::Int)
     sys = get_system(qtraj)
     traj = NamedTrajectory(qtraj, N)
-    Ĝ = u_ -> sys.G(u_, 0.0)
-    return BilinearIntegrator(Ĝ, state_name(qtraj), drive_name(qtraj), traj)
+    if sys.time_dependent
+        Ĝ = (u_, t) -> sys.G(u_, t)
+        return TimeDependentBilinearIntegrator(
+            Ĝ,
+            state_name(qtraj),
+            drive_name(qtraj),
+            :t,
+            traj,
+        )
+    else
+        Ĝ = u_ -> sys.G(u_, 0.0)
+        return BilinearIntegrator(Ĝ, state_name(qtraj), drive_name(qtraj), traj)
+    end
 end
 
 """
@@ -76,11 +99,18 @@ Create a vector of BilinearIntegrators for each ket in an MultiKetTrajectory.
 function BilinearIntegrator(qtraj::MultiKetTrajectory, N::Int)
     sys = get_system(qtraj)
     traj = NamedTrajectory(qtraj, N)
-    Ĝ = u_ -> sys.G(u_, 0.0)
     control_sym = drive_name(qtraj)
     snames = state_names(qtraj)
-
-    return [BilinearIntegrator(Ĝ, name, control_sym, traj) for name in snames]
+    if sys.time_dependent
+        Ĝ = (u_, t) -> sys.G(u_, t)
+        return [
+            TimeDependentBilinearIntegrator(Ĝ, name, control_sym, :t, traj) for
+            name in snames
+        ]
+    else
+        Ĝ = u_ -> sys.G(u_, 0.0)
+        return [BilinearIntegrator(Ĝ, name, control_sym, traj) for name in snames]
+    end
 end
 
 # ----------------------------------------------------------------------------- #
@@ -118,8 +148,13 @@ function _sampling_integrator(
     state_sym::Symbol,
     control_sym::Symbol,
 )
-    Ĝ = u_ -> I(sys.levels) ⊗ sys.G(u_, 0.0)
-    return BilinearIntegrator(Ĝ, state_sym, control_sym, traj)
+    if sys.time_dependent
+        Ĝ = (u_, t) -> I(sys.levels) ⊗ sys.G(u_, t)
+        return TimeDependentBilinearIntegrator(Ĝ, state_sym, control_sym, :t, traj)
+    else
+        Ĝ = u_ -> I(sys.levels) ⊗ sys.G(u_, 0.0)
+        return BilinearIntegrator(Ĝ, state_sym, control_sym, traj)
+    end
 end
 
 function _sampling_integrator(
@@ -129,8 +164,13 @@ function _sampling_integrator(
     state_sym::Symbol,
     control_sym::Symbol,
 )
-    Ĝ = u_ -> sys.G(u_, 0.0)
-    return BilinearIntegrator(Ĝ, state_sym, control_sym, traj)
+    if sys.time_dependent
+        Ĝ = (u_, t) -> sys.G(u_, t)
+        return TimeDependentBilinearIntegrator(Ĝ, state_sym, control_sym, :t, traj)
+    else
+        Ĝ = u_ -> sys.G(u_, 0.0)
+        return BilinearIntegrator(Ĝ, state_sym, control_sym, traj)
+    end
 end
 
 function _sampling_integrator(
@@ -478,6 +518,119 @@ end
 
     for integrator in integrators
         test_integrator(integrator, traj; atol = 1e-2)
+    end
+end
+
+@testitem "BilinearIntegrator dispatch on modulated UnitaryTrajectory" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    omega = 2pi * 2.0
+    H_z = GATES[:Z]
+    H_x = GATES[:X]
+
+    # Build modulated system via Pair
+    sys = QuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
+    @test sys.time_dependent
+
+    T = 1.0
+    N = 11
+    times = collect(range(0, T, length = N))
+    controls = zeros(1, N)
+    pulse = LinearSplinePulse(controls, times)
+
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+    integrator = BilinearIntegrator(qtraj, N)
+
+    # Should dispatch to TimeDependentBilinearIntegrator
+    @test integrator isa TimeDependentBilinearIntegrator
+
+    traj = NamedTrajectory(qtraj, N)
+
+    # Validate that evaluate! runs and Jacobian has correct size
+    δ = zeros(integrator.dim)
+    evaluate!(δ, integrator, traj)
+    @test !all(iszero.(δ))
+
+    ∂f = eval_jacobian(integrator, traj)
+    @test size(∂f, 1) == integrator.dim
+    @test size(∂f, 2) == traj.dim * traj.N + traj.global_dim
+end
+
+@testitem "BilinearIntegrator dispatch on modulated KetTrajectory" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    omega = 2pi * 2.0
+    H_z = GATES[:Z]
+    H_x = GATES[:X]
+
+    sys = QuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
+
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+
+    T = 1.0
+    N = 11
+    times = collect(range(0, T, length = N))
+    controls = zeros(1, N)
+    pulse = LinearSplinePulse(controls, times)
+
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+    integrator = BilinearIntegrator(qtraj, N)
+
+    @test integrator isa TimeDependentBilinearIntegrator
+
+    traj = NamedTrajectory(qtraj, N)
+
+    # Validate that evaluate! runs and Jacobian has correct size
+    δ = zeros(integrator.dim)
+    evaluate!(δ, integrator, traj)
+    @test !all(iszero.(δ))
+
+    ∂f = eval_jacobian(integrator, traj)
+    @test size(∂f, 1) == integrator.dim
+    @test size(∂f, 2) == traj.dim * traj.N + traj.global_dim
+end
+
+@testitem "BilinearIntegrator dispatch on modulated SamplingTrajectory (Unitary)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    omega = 2pi * 2.0
+    H_z = GATES[:Z]
+    H_x = GATES[:X]
+
+    sys1 = QuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
+    sys2 = QuantumSystem(1.1 * H_z, [H_x => t -> cos(omega * t)], [1.0])
+
+    T = 1.0
+    N = 11
+    times = collect(range(0, T, length = N))
+    controls = zeros(1, N)
+    pulse = LinearSplinePulse(controls, times)
+
+    base_qtraj = UnitaryTrajectory(sys1, pulse, GATES[:X])
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+
+    traj = NamedTrajectory(sampling_qtraj, N)
+    integrators = BilinearIntegrator(sampling_qtraj, N)
+
+    @test integrators isa Vector
+    @test length(integrators) == 2
+
+    # Validate each integrator: evaluate! and Jacobian dimensions
+    for integrator in integrators
+        δ = zeros(integrator.dim)
+        evaluate!(δ, integrator, traj)
+        @test !all(iszero.(δ))
+
+        ∂f = eval_jacobian(integrator, traj)
+        @test size(∂f, 1) == integrator.dim
+        @test size(∂f, 2) == traj.dim * traj.N + traj.global_dim
     end
 end
 

@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/quickstart.jl
+# ```
+#
 # # [Quickstart Guide](@id quickstart)
 #
 # This guide shows you how to set up and solve a quantum optimal control problem

@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/concepts/constraints.jl
+# ```
+#
 # # [Constraints](@id constraints-concept)
 #
 # Constraints are hard requirements enforced exactly by the NLP solver (Ipopt).

@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/systems/cat_qubits.jl
+# ```
+#
 # # [Cat Qubits](@id cat-qubit-systems)
 #
 # Cat qubits encode quantum information in superpositions of coherent states of

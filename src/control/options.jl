@@ -14,7 +14,11 @@ Options for the Piccolo quantum optimal control library.
 
 # Fields
 - `verbose::Bool = true`: Print verbose output
-- `timesteps_all_equal::Bool = true`: Use equal timesteps
+- `timesteps_all_equal::Bool = false`: Constrain all timesteps to be equal. When
+  `false` (default), each knot-point Δt_k is an independent variable bounded by
+  `Δt_bounds`, letting the optimizer choose a non-uniform grid (concentrating
+  samples where the pulse is changing fast). Set to `true` to force uniform
+  spacing — useful when the target hardware has a fixed sample-rate.
 - `rollout_integrator::Function = expv`: Integrator to use for rollout
 - `geodesic = true`: Use the geodesic to initialize the optimization.
 - `zero_initial_and_final_derivative::Bool=false`: Zero the initial and final control pulse derivatives.
@@ -27,7 +31,7 @@ Options for the Piccolo quantum optimal control library.
 """
 @kwdef mutable struct PiccoloOptions
     verbose::Bool = true
-    timesteps_all_equal::Bool = true
+    timesteps_all_equal::Bool = false
     rollout_integrator::Function = expv
     geodesic::Bool = true
     zero_initial_and_final_derivative::Bool = false

@@ -7,10 +7,13 @@ export VariationalQuantumSystem
 export CompositeQuantumSystem
 
 export AbstractDrive, LinearDrive, NonlinearDrive
-export drive_coeff, drive_coeff_jac
+export DriftTerm, ModulatedDrive
+export has_modulation
+export drive_coeff, drive_coeff_jac, drive_coeff_dt, drive_coeff_hess
+export drive_matrix, drive_dim
 export active_controls
 export has_nonlinear_drives
-export validate_drive_jacobian
+export validate_drive_jacobian, validate_drive_hessian
 
 export AbstractDissipator, LinearDissipator, NonlinearDissipator
 export rate_coeff, rate_coeff_jac, rate_coeff_hess
@@ -24,6 +27,7 @@ export get_c_ops
 export compact_lindbladian_generators, compact_generator_closure
 
 using ..Isomorphisms
+using ..Pulses
 using ..QuantumObjectUtils
 using ..LiftedOperators
 
@@ -122,7 +126,7 @@ basis vector evaluation.
 """
 function get_drives(sys::AbstractQuantumSystem)
     if hasproperty(sys, :H_drives) && !isempty(sys.H_drives)
-        return [d.H for d in sys.H_drives]
+        return [drive_matrix(d) for d in sys.H_drives]
     end
     H_drift = get_drift(sys)
     # Basis vectors for controls will extract drive operators (linear systems only)
@@ -149,6 +153,49 @@ end
 
 function Base.show(io::IO, sys::AbstractQuantumSystem)
     print(io, "$(nameof(typeof(sys))): levels = $(sys.levels), n_drives = $(sys.n_drives)")
+end
+
+# ----------------------------------------------------------------------------- #
+# Build Pulses from Systems
+# ----------------------------------------------------------------------------- #
+
+function build_pulse(
+    ::Type{P},
+    sys::AbstractQuantumSystem,
+    T::Real;
+    n_samples::Int = Pulses.DEFAULT_SAMPLES,
+    kwargs...,
+) where {P<:AbstractPulse}
+    controls = Pulses.sample(sys.drive_bounds, n_samples)
+    times = LinRange(0, T, n_samples)
+    return P(controls, times; kwargs...)
+end
+
+function Pulses.ZeroOrderPulse(
+    sys::AbstractQuantumSystem,
+    T::Real;
+    n_samples::Int = Pulses.DEFAULT_SAMPLES,
+    kwargs...,
+)
+    return build_pulse(ZeroOrderPulse, sys, T; n_samples = n_samples, kwargs...)
+end
+
+function Pulses.LinearSplinePulse(
+    sys::AbstractQuantumSystem,
+    T::Real;
+    n_samples::Int = Pulses.DEFAULT_SAMPLES,
+    kwargs...,
+)
+    return build_pulse(LinearSplinePulse, sys, T; n_samples = n_samples, kwargs...)
+end
+
+function Pulses.CubicSplinePulse(
+    sys::AbstractQuantumSystem,
+    T::Real;
+    n_samples::Int = Pulses.DEFAULT_SAMPLES,
+    kwargs...,
+)
+    return build_pulse(CubicSplinePulse, sys, T; n_samples = n_samples, kwargs...)
 end
 
 # ----------------------------------------------------------------------------- #

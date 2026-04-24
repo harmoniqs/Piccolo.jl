@@ -65,48 +65,48 @@ function SamplingTrajectory(
 end
 
 # Interface implementations for SamplingTrajectory
-get_system(traj::SamplingTrajectory) = get_system(traj.base_trajectory)  # Nominal system
-get_pulse(traj::SamplingTrajectory) = get_pulse(traj.base_trajectory)
-get_initial(traj::SamplingTrajectory) = get_initial(traj.base_trajectory)
-get_goal(traj::SamplingTrajectory) = get_goal(traj.base_trajectory)
-get_solution(traj::SamplingTrajectory) = get_solution(traj.base_trajectory)
-duration(traj::SamplingTrajectory) = duration(traj.base_trajectory)
+get_system(qtraj::SamplingTrajectory) = get_system(qtraj.base_trajectory)  # Nominal system
+get_pulse(qtraj::SamplingTrajectory) = get_pulse(qtraj.base_trajectory)
+get_initial(qtraj::SamplingTrajectory) = get_initial(qtraj.base_trajectory)
+get_goal(qtraj::SamplingTrajectory) = get_goal(qtraj.base_trajectory)
+get_solution(qtraj::SamplingTrajectory) = get_solution(qtraj.base_trajectory)
+duration(qtraj::SamplingTrajectory) = duration(qtraj.base_trajectory)
 
 # Name accessors
-state_name(traj::SamplingTrajectory) = state_name(traj.base_trajectory)
-drive_name(traj::SamplingTrajectory) = drive_name(traj.base_trajectory)
-time_name(traj::SamplingTrajectory) = time_name(traj.base_trajectory)
-timestep_name(traj::SamplingTrajectory) = timestep_name(traj.base_trajectory)
+state_name(qtraj::SamplingTrajectory) = state_name(qtraj.base_trajectory)
+drive_name(qtraj::SamplingTrajectory) = drive_name(qtraj.base_trajectory)
+time_name(qtraj::SamplingTrajectory) = time_name(qtraj.base_trajectory)
+timestep_name(qtraj::SamplingTrajectory) = timestep_name(qtraj.base_trajectory)
 
 """
-    state_names(sampling::SamplingTrajectory)
+    state_names(qtraj::SamplingTrajectory)
 
 Get the state variable names for all systems (e.g., [:Ũ⃗1, :Ũ⃗2, :Ũ⃗3]).
 """
-function state_names(traj::SamplingTrajectory)
-    base = state_name(traj)
-    return [Symbol(base, i) for i = 1:length(traj.systems)]
+function state_names(qtraj::SamplingTrajectory)
+    base = state_name(qtraj)
+    return [Symbol(base, i) for i = 1:length(qtraj.systems)]
 end
 
 """
-    get_systems(sampling::SamplingTrajectory)
+    get_systems(qtraj::SamplingTrajectory)
 
 Get all systems in the sampling trajectory.
 """
-get_systems(traj::SamplingTrajectory) = traj.systems
+get_systems(qtraj::SamplingTrajectory) = qtraj.systems
 
 """
-    get_weights(sampling::SamplingTrajectory)
+    get_weights(qtraj::SamplingTrajectory)
 
 Get the weights for each system.
 """
-get_weights(traj::SamplingTrajectory) = traj.weights
+get_weights(qtraj::SamplingTrajectory) = qtraj.weights
 
 # Length for iteration
-Base.length(traj::SamplingTrajectory) = length(traj.systems)
+Base.length(qtraj::SamplingTrajectory) = length(qtraj.systems)
 
 # Callable - sample base trajectory at time t
-(traj::SamplingTrajectory)(t::Real) = traj.base_trajectory(t)
+(qtraj::SamplingTrajectory)(t::Real) = qtraj.base_trajectory(t)
 
 # ============================================================================ #
 # SamplingTrajectory NamedTrajectory Conversion

@@ -48,12 +48,16 @@ function KetTrajectory(
     pulse::AbstractPulse,
     initial::AbstractVector{<:Number},
     goal::AbstractVector{<:Number};
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
+
+    if isnothing(algorithm)
+        algorithm = default_algorithm(system)
+    end
 
     ψ0 = Vector{ComplexF64}(initial)
     ψg = Vector{ComplexF64}(goal)
@@ -89,7 +93,7 @@ function KetTrajectory(
     goal::AbstractVector{<:Number},
     T::Real;
     drive_name::Symbol = :u,
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
 )
@@ -100,7 +104,7 @@ function KetTrajectory(
 end
 
 # Callable: sample solution at any time
-(traj::KetTrajectory)(t::Real) = traj.solution(t)
+(qtraj::KetTrajectory)(t::Real) = qtraj.solution(t)
 
 # ============================================================================ #
 # Tests

@@ -1,3 +1,6 @@
+```@copybutton
+```
+
 # [Concepts Overview](@id concepts-overview)
 
 Piccolo.jl solves **quantum optimal control problems** via direct trajectory optimization. This page describes the mathematical problem and how Piccolo.jl's components map onto it.
@@ -14,7 +17,7 @@ where each ``c_d(\boldsymbol{u})`` is a scalar coefficient — typically linear 
 
 ```math
 \begin{aligned}
-\min_{\boldsymbol{u},\, \Delta t} \quad & Q \cdot \ell(x_N,\, x_{\text{goal}}) \;+\; \sum_{k=1}^{N}\left( R_u \lVert \boldsymbol{u}_k \rVert^2 + R_{du} \lVert \Delta\boldsymbol{u}_k \rVert^2 + R_{ddu} \lVert \Delta^2\boldsymbol{u}_k \rVert^2 \right) \\[6pt]
+\min_{x_1, \dots, x_N,\, \boldsymbol{u},\, \Delta t} \quad & Q \cdot \ell(x_N,\, x_{\text{goal}}) \;+\; \sum_{k=1}^{N}\left( R_u \lVert \boldsymbol{u}_k \rVert^2 + R_{du} \lVert \Delta\boldsymbol{u}_k \rVert^2 + R_{ddu} \lVert \Delta^2\boldsymbol{u}_k \rVert^2 \right) \\[6pt]
 \text{s.t.} \quad & x_{k+1} = \exp\!\bigl(\Delta t_k \cdot G(\boldsymbol{u}_k)\bigr)\, x_k, \qquad k = 1,\dots, N-1 \\
 & x_1 = x_{\text{init}} \\
 & \boldsymbol{u}_{\min} \;\leq\; \boldsymbol{u}_k \;\leq\; \boldsymbol{u}_{\max}
@@ -24,7 +27,7 @@ where each ``c_d(\boldsymbol{u})`` is a scalar coefficient — typically linear 
 where:
 
 - ``x_k`` is the quantum state at timestep ``k``, represented as a real vector via an [isomorphism](@ref isomorphisms-concept)
-- ``G(\boldsymbol{u}) = G_{\text{drift}} + \sum_i u_i\, G_{\text{drive},i}`` is the generator of the dynamics (see below)
+- ``G(\boldsymbol{u}) = G_{\text{drift}} + \sum_d c_d(\boldsymbol{u})\, G_d`` is the generator of the dynamics (see below)
 - ``\ell(x_N, x_{\text{goal}})`` is an infidelity measure at the final time
 - ``\Delta \boldsymbol{u}_k`` and ``\Delta^2 \boldsymbol{u}_k`` are discrete first and second differences of the controls
 - ``Q``, ``R_u``, ``R_{du}``, ``R_{ddu}`` are scalar weights
@@ -35,8 +38,8 @@ The generator ``G`` depends on the type of evolution:
 
 | Evolution | Generator | Equation |
 |-----------|-----------|----------|
-| **Closed** (Schrödinger) | ``G(\boldsymbol{u}) = -i\bigl(H_{\text{drift}} + \sum_i u_i H_i\bigr)`` | ``\dot{U} = G\, U`` or ``\dot{\psi} = G\, \psi`` |
-| **Open** (Lindblad) | ``\mathcal{G}(\boldsymbol{u}) = \mathcal{L}_{\text{drift}} + \sum_i u_i\, \mathcal{L}_i`` | ``\dot{\rho} = \mathcal{G}\, \text{vec}(\rho)`` |
+| **Closed** (Schrödinger) | ``G(\boldsymbol{u}) = -i\bigl(H_{\text{drift}} + \sum_d c_d(\boldsymbol{u})\, H_d\bigr)`` | ``\dot{U} = G\, U`` or ``\dot{\psi} = G\, \psi`` |
+| **Open** (Lindblad) | ``\mathcal{G}(\boldsymbol{u}) = \mathcal{L}_{\text{drift}} + \sum_d c_d(\boldsymbol{u})\, \mathcal{L}_d`` | ``\dot{\rho} = \mathcal{G}\, \text{vec}(\rho)`` |
 
 For open systems, the Lindbladian superoperator includes dissipation:
 
@@ -132,7 +135,9 @@ The state dimension ``n_x`` depends on the trajectory type and the system dimens
 |------------|-------|---------|
 | `UnitaryTrajectory` | ``\tilde{U} \in \mathbb{R}^{2d^2}`` | ``2d^2`` |
 | `KetTrajectory` | ``\tilde{\psi} \in \mathbb{R}^{2d}`` | ``2d`` |
+| `MultiKetTrajectory` | ``M`` kets ``\tilde{\psi}_m \in \mathbb{R}^{2d}`` | ``2d`` each |
 | `DensityTrajectory` | ``\tilde{\rho} \in \mathbb{R}^{d^2}`` | ``d^2`` (compact) |
+| `MultiDensityTrajectory` | ``M`` densities ``\tilde{\rho}_m \in \mathbb{R}^{d^2}`` | ``d^2`` each |
 
 ## Workflow
 A typical Piccolo.jl workflow follows these steps:
