@@ -6,7 +6,7 @@ using DocumenterCopyButton: CopyButton
 cp(
     joinpath(@__DIR__, "..", "CONTRIBUTING.md"),
     joinpath(@__DIR__, "src", "development", "contributing.md");
-    force=true,
+    force = true,
 )
 
 draft_mode_pages = [
