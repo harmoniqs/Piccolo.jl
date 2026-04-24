@@ -282,7 +282,6 @@ function OpenQuantumSystem(
     end
 
     H_drift_sparse = sparse(ComplexF64.(H_drift))
-    H_drive_mats = [d.H for d in drives]
     n_drives = length(drive_bounds)
     levels = size(H_drift, 1)
 
@@ -302,10 +301,8 @@ function OpenQuantumSystem(
         end
     end
 
-    # Build H(u,t) and 𝒢(u) from drives + dissipators.
-    # Regenerate H_drive_mats here to ensure fully-materialized SparseMatrixCSC
-    # (the upstream list at L273 uses `d.H` directly which can be unmaterialized
-    # for structured drive types like ModulatedDrive).
+    # Build H(u,t) and 𝒢(u) from drives + dissipators. Use drive_matrix(d)
+    # so ModulatedDrive / NonlinearDrive unwrap to their underlying operator.
     H_drive_mats = [sparse(ComplexF64.(drive_matrix(d))) for d in drives]
     𝒢_drift_ham = Isomorphisms.G(Isomorphisms.ad_vec(H_drift_sparse))
     𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(H_d)) for H_d in H_drive_mats]
