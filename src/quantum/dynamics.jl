@@ -1069,12 +1069,16 @@ end
 
 @testitem "update_global_params!: preserves typed dissipators on OpenQuantumSystem" begin
     using Piccolo
-    diss = NonlinearDissipator(PAULIS.Z, u -> u[2]; active_controls=[2])
-    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0];
-        dissipators=[diss],
-        global_params=(γ=0.1,))
+    diss = NonlinearDissipator(PAULIS.Z, u -> u[2]; active_controls = [2])
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipators = [diss],
+        global_params = (γ = 0.1,),
+    )
     # Reconstruct with a new global_params value
-    new_gp = (γ=0.3,)
+    new_gp = (γ = 0.3,)
     new_sys = Piccolo.Quantum.Rollouts._reconstruct_system(sys, new_gp)
     @test new_sys.global_params.γ == 0.3
     @test length(new_sys.dissipators) == 1

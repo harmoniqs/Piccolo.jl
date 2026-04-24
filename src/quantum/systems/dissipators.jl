@@ -100,8 +100,7 @@ function NonlinearDissipator(
     rate_hess = nothing,
 ) where {F,DF}
     hess =
-        isnothing(rate_hess) ? (u, i, j) -> ForwardDiff.hessian(rate, u)[i, j] :
-        rate_hess
+        isnothing(rate_hess) ? (u, i, j) -> ForwardDiff.hessian(rate, u)[i, j] : rate_hess
     return NonlinearDissipator(
         sparse(ComplexF64.(L)),
         rate,
@@ -129,8 +128,7 @@ Scalar rate of this dissipator at controls `u`.
 Partial derivative `∂rate/∂u_j` at controls `u`.
 """
 @inline rate_coeff_jac(::LinearDissipator, ::AbstractVector, ::Int) = 0.0
-@inline rate_coeff_jac(d::NonlinearDissipator, u::AbstractVector, j::Int) =
-    d.rate_jac(u, j)
+@inline rate_coeff_jac(d::NonlinearDissipator, u::AbstractVector, j::Int) = d.rate_jac(u, j)
 
 """
     rate_coeff_hess(d::AbstractDissipator, u::AbstractVector, i::Int, j::Int) -> Number
@@ -191,7 +189,7 @@ end
     L = PAULIS.Z / sqrt(2)
     rate = u -> u[2]
     rate_jac = (u, j) -> j == 2 ? 1.0 : 0.0
-    d = NonlinearDissipator(L, rate, rate_jac; active_controls=[2])
+    d = NonlinearDissipator(L, rate, rate_jac; active_controls = [2])
     @test rate_coeff(d, [0.3, 0.7]) ≈ 0.7
     @test rate_coeff_jac(d, [0.3, 0.7], 2) ≈ 1.0
     @test rate_coeff_jac(d, [0.3, 0.7], 1) ≈ 0.0
@@ -204,7 +202,7 @@ end
     L = PAULIS.Z / sqrt(2)
     # Quadratic rate: γ(u) = u[1]^2 + 2·u[2]
     rate = u -> u[1]^2 + 2 * u[2]
-    d = NonlinearDissipator(L, rate; active_controls=[1, 2])
+    d = NonlinearDissipator(L, rate; active_controls = [1, 2])
     u = [0.3, 0.5]
     @test rate_coeff(d, u) ≈ 0.3^2 + 2 * 0.5
     @test rate_coeff_jac(d, u, 1) ≈ 2 * 0.3
@@ -217,7 +215,7 @@ end
 @testitem "AbstractDissipator: has_nonlinear_dissipators" begin
     using Piccolo
     lin = LinearDissipator(PAULIS.Z)
-    nonlin = NonlinearDissipator(PAULIS.Z, u -> u[1]; active_controls=[1])
+    nonlin = NonlinearDissipator(PAULIS.Z, u -> u[1]; active_controls = [1])
     @test !has_nonlinear_dissipators([lin, lin])
     @test has_nonlinear_dissipators(AbstractDissipator[lin, nonlin])
 end

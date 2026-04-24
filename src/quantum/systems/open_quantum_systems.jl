@@ -46,8 +46,7 @@ end
 function Base.getproperty(sys::OpenQuantumSystem, s::Symbol)
     if s === :dissipation_operators
         return SparseMatrixCSC{ComplexF64,Int}[
-            sparse(ComplexF64.(dissipator_matrix(d)))
-            for d in getfield(sys, :dissipators)
+            sparse(ComplexF64.(dissipator_matrix(d))) for d in getfield(sys, :dissipators)
         ]
     end
     return getfield(sys, s)
@@ -55,8 +54,17 @@ end
 
 # Propertynames: expose both the real field and the derived view for discoverability
 Base.propertynames(::OpenQuantumSystem) = (
-    :H, :𝒢, :H_drift, :H_drives, :drive_bounds, :n_drives, :levels,
-    :dissipators, :dissipation_operators, :time_dependent, :global_params,
+    :H,
+    :𝒢,
+    :H_drift,
+    :H_drives,
+    :drive_bounds,
+    :n_drives,
+    :levels,
+    :dissipators,
+    :dissipation_operators,
+    :time_dependent,
+    :global_params,
 )
 
 """
@@ -74,7 +82,9 @@ function _normalize_dissipators(arg::AbstractVector)
         elseif x isa AbstractMatrix
             push!(out, LinearDissipator(sparse(ComplexF64.(x))))
         else
-            error("_normalize_dissipators: expected AbstractDissipator or AbstractMatrix, got $(typeof(x))")
+            error(
+                "_normalize_dissipators: expected AbstractDissipator or AbstractMatrix, got $(typeof(x))",
+            )
         end
     end
     return out
@@ -186,24 +196,26 @@ function OpenQuantumSystem(
         end
     end
 
-    𝒢 = let 𝒢d = 𝒢_drift,
-             drs = linear_drives,
-             𝒢drs = 𝒢_drives,
-             dss = diss_list,
-             𝒟s = diss_iso_mats
-        u -> begin
-            out = 𝒢d + zero(𝒢d)
-            for (i, d) in enumerate(drs)
-                c = drive_coeff(d, u, 0.0)
-                out = out + c * 𝒢drs[i]
+    𝒢 =
+        let 𝒢d = 𝒢_drift,
+            drs = linear_drives,
+            𝒢drs = 𝒢_drives,
+            dss = diss_list,
+            𝒟s = diss_iso_mats
+
+            u -> begin
+                out = 𝒢d + zero(𝒢d)
+                for (i, d) in enumerate(drs)
+                    c = drive_coeff(d, u, 0.0)
+                    out = out + c * 𝒢drs[i]
+                end
+                for (j, diss) in enumerate(dss)
+                    γ = rate_coeff(diss, u)
+                    out = out + γ * 𝒟s[j]
+                end
+                return out
             end
-            for (j, diss) in enumerate(dss)
-                γ = rate_coeff(diss, u)
-                out = out + γ * 𝒟s[j]
-            end
-            return out
         end
-    end
 
     return OpenQuantumSystem(
         H,
@@ -311,24 +323,26 @@ function OpenQuantumSystem(
         end
     end
 
-    𝒢_fn = let 𝒢d = 𝒢_drift_ham,
-               drs = drives,
-               𝒢drs = 𝒢_drive_mats,
-               dss = diss_list,
-               𝒟s = diss_iso_mats
-        u -> begin
-            out = 𝒢d + zero(𝒢d)
-            for (i, d) in enumerate(drs)
-                c = drive_coeff(d, u, 0.0)
-                out = out + c * 𝒢drs[i]
+    𝒢_fn =
+        let 𝒢d = 𝒢_drift_ham,
+            drs = drives,
+            𝒢drs = 𝒢_drive_mats,
+            dss = diss_list,
+            𝒟s = diss_iso_mats
+
+            u -> begin
+                out = 𝒢d + zero(𝒢d)
+                for (i, d) in enumerate(drs)
+                    c = drive_coeff(d, u, 0.0)
+                    out = out + c * 𝒢drs[i]
+                end
+                for (j, diss) in enumerate(dss)
+                    γ = rate_coeff(diss, u)
+                    out = out + γ * 𝒟s[j]
+                end
+                return out
             end
-            for (j, diss) in enumerate(dss)
-                γ = rate_coeff(diss, u)
-                out = out + γ * 𝒟s[j]
-            end
-            return out
         end
-    end
 
     return OpenQuantumSystem(
         H_fn,
@@ -524,14 +538,13 @@ function compact_lindbladian_generators(sys::OpenQuantumSystem)
     𝒢_drift_ham = Isomorphisms.G(Isomorphisms.ad_vec(sys.H_drift))
     𝒢c_drift_ham = P * 𝒢_drift_ham * L
 
-    𝒢c_drives = [
-        P * Isomorphisms.G(Isomorphisms.ad_vec(drive_matrix(d))) * L
-        for d in sys.H_drives
+    𝒢c_drives = AbstractMatrix[
+        P * Isomorphisms.G(Isomorphisms.ad_vec(drive_matrix(d))) * L for d in sys.H_drives
     ]
 
-    𝒢c_dissipators = [
-        P * Isomorphisms.iso_D(sparse(ComplexF64.(dissipator_matrix(diss)))) * L
-        for diss in getfield(sys, :dissipators)
+    𝒢c_dissipators = AbstractMatrix[
+        P * Isomorphisms.iso_D(sparse(ComplexF64.(dissipator_matrix(diss)))) * L for
+        diss in getfield(sys, :dissipators)
     ]
 
     return 𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators
@@ -563,10 +576,11 @@ function compact_generator_closure(
     drives = sys.H_drives
     dissipators = getfield(sys, :dissipators)
     return let 𝒢d = 𝒢c_drift_ham,
-               drs = drives,
-               𝒢drs = 𝒢c_drives,
-               dss = dissipators,
-               𝒟s = 𝒢c_dissipators
+        drs = drives,
+        𝒢drs = 𝒢c_drives,
+        dss = dissipators,
+        𝒟s = 𝒢c_dissipators
+
         u_ -> begin
             out = 𝒢d + zero(𝒢d)
             @inbounds for i in eachindex(drs)
@@ -593,8 +607,7 @@ end
 
     γ = 0.3
     diss = LinearDissipator(sqrt(γ) * PAULIS.Z)
-    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0];
-        dissipators=[diss])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipators = [diss])
 
     out = compact_lindbladian_generators(sys)
     @test length(out) == 3
@@ -606,16 +619,16 @@ end
     n = sys.levels
     P = Piccolo.Quantum.Isomorphisms.density_projection_matrix(n)
     L = Piccolo.Quantum.Isomorphisms.density_lift_matrix(n)
-    expected_drift_ham = P * Piccolo.Quantum.Isomorphisms.G(
-        Piccolo.Quantum.Isomorphisms.ad_vec(sys.H_drift)
-    ) * L
-    @test isapprox(𝒢c_drift_ham, expected_drift_ham; atol=1e-10)
+    expected_drift_ham =
+        P *
+        Piccolo.Quantum.Isomorphisms.G(Piccolo.Quantum.Isomorphisms.ad_vec(sys.H_drift)) *
+        L
+    @test isapprox(𝒢c_drift_ham, expected_drift_ham; atol = 1e-10)
 
     # Dissipator factor is P · iso_D(sqrt(γ)·Z) · L
-    expected_diss = P * Piccolo.Quantum.Isomorphisms.iso_D(
-        sparse(ComplexF64.(sqrt(γ) * PAULIS.Z))
-    ) * L
-    @test isapprox(𝒢c_dissipators[1], expected_diss; atol=1e-10)
+    expected_diss =
+        P * Piccolo.Quantum.Isomorphisms.iso_D(sparse(ComplexF64.(sqrt(γ) * PAULIS.Z))) * L
+    @test isapprox(𝒢c_dissipators[1], expected_diss; atol = 1e-10)
 end
 
 @testitem "compact_generator_closure: assembles from per-drive and per-dissipator factors" begin
@@ -623,11 +636,15 @@ end
     using SparseArrays
 
     # Use 3-drive bounds so validate_drive_jacobian can sample len-3 u vectors
-    drive_global = NonlinearDrive(PAULIS.X, u -> u[1] * u[2]; active_controls=[1, 2])
-    diss_global  = NonlinearDissipator(PAULIS.Z / sqrt(2), u -> u[3]; active_controls=[3])
-    sys = OpenQuantumSystem(PAULIS.Z, AbstractDrive[drive_global], [1.0, 1.0, 1.0];
-        dissipators=[diss_global],
-        global_params=(θ=1.0, γ=0.1))
+    drive_global = NonlinearDrive(PAULIS.X, u -> u[1] * u[2]; active_controls = [1, 2])
+    diss_global = NonlinearDissipator(PAULIS.Z / sqrt(2), u -> u[3]; active_controls = [3])
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        AbstractDrive[drive_global],
+        [1.0, 1.0, 1.0];
+        dissipators = [diss_global],
+        global_params = (θ = 1.0, γ = 0.1),
+    )
 
     𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_generators(sys)
     G_fn = compact_generator_closure(
@@ -638,15 +655,16 @@ end
     )
 
     u_base = [0.3, 1.0, 0.1]
-    u_θ2   = [0.3, 2.0, 0.1]
-    u_γ2   = [0.3, 1.0, 0.5]
+    u_θ2 = [0.3, 2.0, 0.1]
+    u_γ2 = [0.3, 1.0, 0.5]
 
     @test G_fn(u_θ2) ≠ G_fn(u_base)
     @test G_fn(u_γ2) ≠ G_fn(u_base)
-    expected = Matrix(𝒢c_drift_ham) +
-               (0.3 * 1.0) * Matrix(𝒢c_drives[1]) +
-               0.1 * Matrix(𝒢c_dissipators[1])
-    @test isapprox(G_fn(u_base), expected; atol=1e-10)
+    expected =
+        Matrix(𝒢c_drift_ham) +
+        (0.3 * 1.0) * Matrix(𝒢c_drives[1]) +
+        0.1 * Matrix(𝒢c_dissipators[1])
+    @test isapprox(G_fn(u_base), expected; atol = 1e-10)
 end
 
 @testitem "OpenQuantumSystem.𝒢: respects NonlinearDrive with global-reading coeff" begin
@@ -656,16 +674,20 @@ end
     # NonlinearDrive with coefficient u[1]*u[2] — the extended control vector
     # from the integrator will place a "global" read into u[2].
     # drive_bounds has two entries so validate_drive_jacobian samples u of len 2.
-    drive_global = NonlinearDrive(PAULIS.X, u -> u[1] * u[2]; active_controls=[1,2])
-    sys = OpenQuantumSystem(PAULIS.Z, AbstractDrive[drive_global], [1.0, 1.0];
-        global_params=(θ=1.0,))
+    drive_global = NonlinearDrive(PAULIS.X, u -> u[1] * u[2]; active_controls = [1, 2])
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        AbstractDrive[drive_global],
+        [1.0, 1.0];
+        global_params = (θ = 1.0,),
+    )
 
     G1 = sys.𝒢([0.3, 1.0])
     G2 = sys.𝒢([0.3, 2.0])
-    @test !isapprox(G1, G2; atol=1e-10)
+    @test !isapprox(G1, G2; atol = 1e-10)
     # Δ = (0.3 * 2.0 - 0.3 * 1.0) · 𝒢_drive(X) = 0.3 · 𝒢_drive(X)
     𝒢X = Isomorphisms.G(Isomorphisms.ad_vec(sparse(ComplexF64.(PAULIS.X))))
-    @test isapprox(G2 - G1, (2.0 - 1.0) * 0.3 * 𝒢X; atol=1e-10)
+    @test isapprox(G2 - G1, (2.0 - 1.0) * 0.3 * 𝒢X; atol = 1e-10)
 end
 
 @testitem "OpenQuantumSystem.𝒢: respects NonlinearDissipator with global-reading rate" begin
@@ -673,17 +695,21 @@ end
     using SparseArrays
 
     L = PAULIS.Z / sqrt(2)
-    diss_global = NonlinearDissipator(L, u -> u[2]; active_controls=[2])
-    sys = OpenQuantumSystem(PAULIS.X, [PAULIS.Y], [1.0];
-        dissipators=[diss_global],
-        global_params=(γ=0.1,))
+    diss_global = NonlinearDissipator(L, u -> u[2]; active_controls = [2])
+    sys = OpenQuantumSystem(
+        PAULIS.X,
+        [PAULIS.Y],
+        [1.0];
+        dissipators = [diss_global],
+        global_params = (γ = 0.1,),
+    )
 
     G1 = sys.𝒢([0.0, 0.1])
     G2 = sys.𝒢([0.0, 0.5])
-    @test !isapprox(G1, G2; atol=1e-10)
+    @test !isapprox(G1, G2; atol = 1e-10)
     # Δ = (0.5 - 0.1) · iso_D(L)
     expected_delta = (0.5 - 0.1) * Isomorphisms.iso_D(sparse(ComplexF64.(L)))
-    @test isapprox(G2 - G1, expected_delta; atol=1e-10)
+    @test isapprox(G2 - G1, expected_delta; atol = 1e-10)
 end
 
 @testitem "OpenQuantumSystem.𝒢: regression — closed-system LinearDrives only" begin
@@ -692,41 +718,53 @@ end
     # Before-the-rewrite semantics: linear drives + static dissipators still
     # yield the correct 𝒢(u) for arbitrary u.
     γ = 0.3
-    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0];
-        dissipation_operators=[sqrt(γ) * PAULIS.Z])
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X, PAULIS.Y],
+        [1.0, 1.0];
+        dissipation_operators = [sqrt(γ) * PAULIS.Z],
+    )
     u = [0.4, -0.2]
     # Manually assemble: 𝒢_drift + u[1]·𝒢_X + u[2]·𝒢_Y + iso_D(sqrt(γ)·Z)
     𝒢d = Isomorphisms.G(Isomorphisms.ad_vec(sparse(ComplexF64.(PAULIS.Z))))
     𝒢x = Isomorphisms.G(Isomorphisms.ad_vec(sparse(ComplexF64.(PAULIS.X))))
     𝒢y = Isomorphisms.G(Isomorphisms.ad_vec(sparse(ComplexF64.(PAULIS.Y))))
     𝒟 = Isomorphisms.iso_D(sparse(ComplexF64.(sqrt(γ) * PAULIS.Z)))
-    expected = 𝒢d + u[1]*𝒢x + u[2]*𝒢y + 𝒟
-    @test isapprox(sys.𝒢(u), expected; atol=1e-10)
+    expected = 𝒢d + u[1] * 𝒢x + u[2] * 𝒢y + 𝒟
+    @test isapprox(sys.𝒢(u), expected; atol = 1e-10)
 end
 
 @testitem "OpenQuantumSystem: accepts typed dissipators" begin
     using Piccolo
 
     # Matrix input → auto-wrapped to LinearDissipator
-    sys_mat = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0];
-        dissipation_operators=[PAULIS.Z])
+    sys_mat =
+        OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [PAULIS.Z])
     @test length(sys_mat.dissipators) == 1
     @test sys_mat.dissipators[1] isa LinearDissipator
     @test sys_mat.dissipators[1].rate == 1.0
     @test length(sys_mat.dissipation_operators) == 1  # backward-compat view
 
     # Typed input → preserved as-is
-    diss = NonlinearDissipator(PAULIS.Z, u -> u[2]; active_controls=[2])
-    sys_typed = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0];
-        dissipators=[diss],
-        global_params=(γ=0.1,))
+    diss = NonlinearDissipator(PAULIS.Z, u -> u[2]; active_controls = [2])
+    sys_typed = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipators = [diss],
+        global_params = (γ = 0.1,),
+    )
     @test sys_typed.dissipators[1] === diss
     @test length(sys_typed.dissipation_operators) == 1
 
     # Passing both kwargs should error
-    @test_throws ErrorException OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0];
-        dissipation_operators=[PAULIS.Z],
-        dissipators=[LinearDissipator(PAULIS.Z)])
+    @test_throws ErrorException OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [PAULIS.Z],
+        dissipators = [LinearDissipator(PAULIS.Z)],
+    )
 end
 
 @testitem "Open system creation" begin
