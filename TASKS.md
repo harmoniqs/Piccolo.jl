@@ -33,6 +33,7 @@ Clarify and enforce which integrators are valid for each problem type:
 - `SmoothPulseProblem` and `BangBangProblem` should only accept zero-order hold pulses
 
 ### Refactor hermiticity check to a warning
+<!-- id: PVTI_lADOC9ysqc4BETyazgotxLM -->
 - **Labels:** refactor
 
 The hermiticity check for quantum systems currently throws an error. Change it to a
