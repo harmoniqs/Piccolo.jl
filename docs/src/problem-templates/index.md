@@ -1,3 +1,6 @@
+```@copybutton
+```
+
 # [Problem Templates](@id problem-templates-overview)
 
 Problem templates are the primary user-facing API in Piccolo.jl. They provide high-level constructors that set up quantum optimal control problems with sensible defaults while allowing fine-grained customization.
@@ -148,8 +151,9 @@ Problem templates work with different trajectory types depending on your goal:
 |-----------------|----------|
 | `UnitaryTrajectory` | Gate synthesis (most common) |
 | `KetTrajectory` | State transfer |
-| `DensityTrajectory` | Open system evolution |
 | `MultiKetTrajectory` | Multiple state transfers with coherent phases |
+| `DensityTrajectory` | Open system evolution |
+| `MultiDensityTrajectory` | Multiple open system evolutions (e.g., process tomography) |
 
 ### Regularization Parameters
 

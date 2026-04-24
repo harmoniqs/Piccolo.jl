@@ -168,30 +168,35 @@ function OpenQuantumSystem(
 
     # Check that all drive operators are Hermitian
     for (i, d) in enumerate(drives)
-        @assert is_hermitian(d.H) "Drive operator drives[$i].H is not Hermitian"
+        @assert is_hermitian(drive_matrix(d)) "Drive operator drives[$i].H is not Hermitian"
     end
 
     H_drift_sparse = sparse(ComplexF64.(H_drift))
     n_drives = length(drive_bounds)
     levels = size(H_drift, 1)
 
-    # Validate LinearDrive indices
+    # Validate LinearDrive indices (unwrap ModulatedDrive)
     for (i, d) in enumerate(drives)
-        if d isa LinearDrive
-            @assert 1 <= d.index <= n_drives "LinearDrive at drives[$i] has index $(d.index) but control dimension is $n_drives (length of drive_bounds)"
+        base = d isa ModulatedDrive ? d.base : d
+        if base isa LinearDrive
+            @assert 1 <= base.index <= n_drives "LinearDrive at drives[$i] has index $(base.index) but control dimension is $n_drives (length of drive_bounds)"
         end
     end
 
-    # Validate NonlinearDrive Jacobians
+    # Validate NonlinearDrive Jacobians (unwrap ModulatedDrive)
     for d in drives
-        if d isa NonlinearDrive
-            validate_drive_jacobian(d, n_drives)
+        base = d isa ModulatedDrive ? d.base : d
+        if base isa NonlinearDrive
+            validate_drive_jacobian(base, n_drives)
         end
     end
+
+    # Materialize drive operators for closures
+    H_drive_mats = [sparse(ComplexF64.(drive_matrix(d))) for d in drives]
 
     # Build H(u,t) and 𝒢(u) from drives
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(H_drift_sparse))
-    𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(d.H)) for d in drives]
+    𝒢_drive_mats = [Isomorphisms.G(Isomorphisms.ad_vec(H_d)) for H_d in H_drive_mats]
 
     # Build dissipator
     if isempty(dissipation_operators)
@@ -204,11 +209,16 @@ function OpenQuantumSystem(
         H_fn = (u, t) -> H_drift_sparse
         𝒢_fn = u -> 𝒢_drift + 𝒟
     else
-        H_fn = (u, t) -> H_drift_sparse + sum(drive_coeff(d, u) * d.H for d in drives)
+        H_fn =
+            (u, t) ->
+                H_drift_sparse +
+                sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
         𝒢_fn =
             u ->
                 𝒢_drift +
-                sum(drive_coeff(d, u) * 𝒢_d for (d, 𝒢_d) in zip(drives, 𝒢_drive_mats)) +
+                sum(
+                    drive_coeff(d, u, 0.0) * 𝒢_d for (d, 𝒢_d) in zip(drives, 𝒢_drive_mats)
+                ) +
                 𝒟
     end
 
@@ -287,9 +297,15 @@ function OpenQuantumSystem(
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
     n_drives = length(drive_bounds)
+    n_globals = length(global_params)
 
-    # Extract drift by evaluating with zero controls
-    H_drift = H(zeros(n_drives), 0.0)
+    # Build test vector u = [controls..., globals...] — matches QuantumSystem(H::Function, ...)
+    u_zeros =
+        n_globals > 0 ? vcat(zeros(n_drives), collect(values(global_params))) :
+        zeros(n_drives)
+
+    # Extract drift by evaluating with zero controls (and initial globals if present)
+    H_drift = H(u_zeros, 0.0)
     levels = size(H_drift, 1)
 
     # Build dissipator
@@ -369,7 +385,8 @@ function compact_lindbladian_generators(sys::OpenQuantumSystem)
 
     # Reconstruct full Lindbladian components from stored fields
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(sys.H_drift))
-    𝒢_drive_terms = [Isomorphisms.G(Isomorphisms.ad_vec(d.H)) for d in sys.H_drives]
+    𝒢_drive_terms =
+        [Isomorphisms.G(Isomorphisms.ad_vec(drive_matrix(d))) for d in sys.H_drives]
 
     if isempty(sys.dissipation_operators)
         𝒟 = spzeros(size(𝒢_drift))
@@ -561,4 +578,56 @@ end
     @test osys isa OpenQuantumSystem
     @test length(osys.H_drives) == 3
     @test has_nonlinear_drives(osys.H_drives)
+end
+
+@testitem "OpenQuantumSystem with modulated drives" begin
+    using SparseArrays
+    using LinearAlgebra
+
+    H_drift = PAULIS.Z
+    dissipation_operators = [0.1 * PAULIS[:X]]
+
+    # Modulated linear drive via Pair syntax on QuantumSystem
+    omega = 2.0
+    qsys = QuantumSystem(H_drift, [PAULIS.X => t -> cos(omega * t)], [1.0])
+    osys = OpenQuantumSystem(qsys; dissipation_operators = dissipation_operators)
+
+    @test osys isa OpenQuantumSystem
+    @test osys.H_drives[1] isa ModulatedDrive
+
+    # H(u, t) should reflect time modulation
+    u_test = [0.5]
+    t_test = 0.3
+    H_result = osys.H(u_test, t_test)
+    H_expected = PAULIS.Z + 0.5 * cos(omega * t_test) * PAULIS.X
+    @test norm(H_result - H_expected) < 1e-10
+
+    # Different time should give different result
+    H_result2 = osys.H(u_test, 0.0)
+    H_expected2 = PAULIS.Z + 0.5 * PAULIS.X
+    @test norm(H_result2 - H_expected2) < 1e-10
+
+    # 𝒢 function should include dissipation
+    𝒢_result = osys.𝒢(u_test)
+    @test size(𝒢_result) == (8, 8)
+
+    # Modulated nonlinear drive
+    nd = NonlinearDrive(PAULIS.Y, u -> u[1]^2 + u[2]^2)
+    drives = AbstractDrive[
+        LinearDrive(sparse(ComplexF64.(PAULIS.X)), 1),
+        ModulatedDrive(nd, t -> sin(omega * t)),
+    ]
+    osys2 = OpenQuantumSystem(
+        H_drift,
+        drives,
+        [1.0, 1.0];
+        dissipation_operators = dissipation_operators,
+    )
+
+    @test osys2 isa OpenQuantumSystem
+    u2 = [0.3, 0.7]
+    t2 = 0.5
+    coeff_nl = (0.3^2 + 0.7^2) * sin(omega * t2)
+    H_expected3 = PAULIS.Z + 0.3 * PAULIS.X + coeff_nl * PAULIS.Y
+    @test norm(osys2.H(u2, t2) - H_expected3) < 1e-10
 end

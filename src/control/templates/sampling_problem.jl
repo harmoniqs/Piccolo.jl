@@ -56,7 +56,21 @@ function sampling_state_objective(
     state_sym::Symbol,
     Q::Float64,
 )
-    return UnitaryInfidelityObjective(get_goal(qtraj), state_sym, traj; Q = Q)
+    goal = get_goal(qtraj)
+    # Use free-phase objective when globals exist and goal is EmbeddedOperator
+    if traj.global_dim > 0 && goal isa EmbeddedOperator
+        θ_names = collect(traj.global_names)
+        U_goal_fn = _make_free_phase_goal(goal)
+        return UnitaryFreePhaseInfidelityObjective(
+            U_goal_fn,
+            state_sym,
+            θ_names,
+            traj;
+            Q = Q,
+        )
+    else
+        return UnitaryInfidelityObjective(goal, state_sym, traj; Q = Q)
+    end
 end
 
 function sampling_state_objective(
@@ -100,6 +114,9 @@ fidelity objectives for each system.
 # Keyword Arguments
 - `weights::Vector{Float64}=fill(1.0, length(systems))`: Weights for each system
 - `Q::Float64=100.0`: Weight on infidelity objective (explicit, not extracted from base problem)
+- `integrator::Union{Nothing, Function}=nothing`: Optional integrator factory function. When
+  provided, it is called as `integrator(sampling_qtraj, N)` and must return an integrator or
+  vector of integrators. When `nothing` (default), `BilinearIntegrator` is used.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Options for the solver
 
 # Returns
@@ -110,6 +127,7 @@ function SamplingProblem(
     systems::Vector{<:AbstractQuantumSystem};
     weights::Vector{Float64} = fill(1.0, length(systems)),
     Q::Float64 = 100.0,
+    integrator::Union{Nothing,Function} = nothing,
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
     if piccolo_options.verbose
@@ -125,14 +143,34 @@ function SamplingProblem(
     sampling_qtraj = SamplingTrajectory(base_qtraj, systems; weights)
 
     # 2. Build trajectory from sampling trajectory (this creates duplicated states)
-    #    Propagate Δt bounds from base problem if they exist
+    #    Propagate Δt bounds and global variables from base problem
     N = base_traj.N
     Δt_bounds = if haskey(base_traj.bounds, :Δt)
         (base_traj.bounds[:Δt][1][1], base_traj.bounds[:Δt][2][1])
     else
         nothing
     end
+
     new_traj = NamedTrajectory(sampling_qtraj, N; Δt_bounds = Δt_bounds)
+
+    # Propagate global variables (e.g., free-phase φ_1, φ_2) from base trajectory.
+    # Directly mutate the struct fields — NamedTrajectory doesn't have a public API
+    # for adding globals after construction.
+    if base_traj.global_dim > 0
+        new_traj = NamedTrajectory(
+            new_traj.datavec,
+            new_traj.components,
+            new_traj.N;
+            timestep = new_traj.timestep,
+            controls = new_traj.control_names,
+            bounds = new_traj.bounds,
+            initial = new_traj.initial,
+            final = isnothing(new_traj.final_) ? NamedTuple() : new_traj.final_,
+            goal = new_traj.goal,
+            global_data = copy(base_traj.global_data),
+            global_components = base_traj.global_components,
+        )
+    end
     snames = state_names(sampling_qtraj)
 
     # 3. Build objective: weighted state objectives + shared regularization
@@ -149,20 +187,22 @@ function SamplingProblem(
     #    For now, SamplingProblem operates on the raw controls without derivative smoothing.
     #    TODO: Consider adding an option to preserve smoothness constraints.
 
-    # Use BilinearIntegrator dispatch on SamplingTrajectory
-    dynamics_integrators = BilinearIntegrator(sampling_qtraj, N)
+    # Use BilinearIntegrator by default, or a custom integrator factory via the
+    # `integrator` kwarg (must accept (sampling_qtraj, N) and return integrator(s)).
+    if isnothing(integrator)
+        dynamics_integrators = BilinearIntegrator(sampling_qtraj, N)
+    else
+        dynamics_integrators = integrator(sampling_qtraj, N)
+    end
 
     all_integrators =
         dynamics_integrators isa AbstractVector ? dynamics_integrators :
         [dynamics_integrators]
 
     # 5. Construct problem (TimeConsistencyConstraint auto-applied)
-    prob = DirectTrajOptProblem(
-        new_traj,
-        J_total,
-        all_integrators;
-        constraints = AbstractConstraint[],
-    )
+    constraints = AbstractConstraint[]
+    prob =
+        DirectTrajOptProblem(new_traj, J_total, all_integrators; constraints = constraints)
 
     return QuantumControlProblem(sampling_qtraj, prob)
 end
@@ -179,7 +219,8 @@ end
 function _final_fidelity_constraint(
     qtraj::SamplingTrajectory,
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     constraints = [
         _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj) for name in state_names(qtraj)
@@ -355,8 +396,63 @@ end
     solve!(mintime_prob; max_iter = 20, verbose = false, print_level = 1)
 end
 
+@testitem "SamplingProblem with EmbeddedOperator" begin
+    using DirectTrajOpt
+
+    # Minimal setup (reproducing the bug from main.jl)
+    T = 1.0
+    N = 10
+    times = collect(range(0, T, length = N))
+    initial_controls = zeros(2, N)
+    pulse = ZeroOrderPulse(initial_controls, times)
+
+    # Create systems
+    sys1 = TransmonSystem(levels = 2, δ = -0.18)
+    sys2 = TransmonSystem(levels = 2, δ = -0.20)
+
+    # Create embedded operator (this is what caused the bug)
+    X_embedded = EmbeddedOperator(GATES[:X], sys2)
+
+    # Create trajectory with embedded operator as goal
+    qtraj = UnitaryTrajectory(sys2, pulse, X_embedded)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+
+    # This should not fail - it's the bug we're fixing
+    sampling_prob = SamplingProblem(qcp, [sys1, sys2])
+
+    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob.qtraj isa SamplingTrajectory
+    @test length(sampling_prob.qtraj.systems) == 2
+end
+
 @testitem "SamplingProblem with DensityTrajectory" tags = [:density, :skip] begin
     # TODO: DensityTrajectory support for SamplingProblem is not yet complete
     # Needs: BilinearIntegrator dispatch, SamplingTrajectory NamedTrajectory conversion
     @test_skip "DensityTrajectory support not yet implemented"
+end
+
+@testitem "SamplingProblem with custom integrator factory" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    T = 10.0
+    N = 50
+
+    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
+
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+
+    # Custom integrator factory — reimplements default BilinearIntegrator logic
+    custom_factory(sqtraj, n) = BilinearIntegrator(sqtraj, n)
+
+    sampling_prob =
+        SamplingProblem(qcp, [sys_nominal, sys_perturbed]; integrator = custom_factory)
+
+    @test sampling_prob isa QuantumControlProblem
+    @test length(sampling_prob.prob.integrators) == 2
+
+    solve!(sampling_prob; max_iter = 5, verbose = false, print_level = 1)
 end

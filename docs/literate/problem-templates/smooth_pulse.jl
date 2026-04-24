@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/problem-templates/smooth_pulse.jl
+# ```
+#
 # # [SmoothPulseProblem](@id smooth-pulse)
 #
 # `SmoothPulseProblem` is the most commonly used problem template in Piccolo.jl. It sets up trajectory optimization with piecewise constant controls (`ZeroOrderPulse`) where control smoothness is enforced through discrete derivative variables.
@@ -55,7 +59,7 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `du_bound` | `Float64` | `Inf` | Maximum allowed control jump between timesteps. |
+# | `du_bound` | `Float64` | `Inf` | Maximum allowed control jump between timesteps (all drives). |
 # | `ddu_bound` | `Float64` | `1.0` | Maximum allowed control acceleration. |
 # | `Δt_bounds` | `Tuple{Float64, Float64}` | `nothing` | Time-step bounds `(min, max)` for free-time optimization. Required for `MinimumTimeProblem`. |
 #
@@ -68,6 +72,8 @@
 # | `global_bounds` | `Dict{Symbol, ...}` | `nothing` | Bounds on global variables. Values can be `Float64` (symmetric ±) or `Tuple{Float64, Float64}`. |
 # | `constraints` | `Vector{AbstractConstraint}` | `[]` | Additional constraints to add to the problem. |
 # | `piccolo_options` | `PiccoloOptions` | `PiccoloOptions()` | Solver and leakage options. |
+# | `free_phase` | `Bool` | `false` | Optimize a per-subsystem frame phase alongside the pulse. Only available for `MultiKetTrajectory`; requires `subsystem_levels`. |
+# | `initial_phases` | `Vector{Float64}` | `nothing` | Initial values for the per-subsystem phase variables when `free_phase=true` (`MultiKetTrajectory` only). |
 #
 # ## Examples
 #
@@ -176,6 +182,33 @@ qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
 qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
 cached_solve!(qcp, "smooth_pulse_multi_ket"; max_iter = 100)
+
+# ### Free-Phase Optimization (MultiKetTrajectory)
+#
+# When the goal is defined up to a per-subsystem frame rotation (common for
+# multi-level transmons), use `free_phase=true`.  This is supported for the
+# `MultiKetTrajectory` dispatch.  Piccolo adds one phase variable per subsystem
+# and applies a number-operator rotation ``e^{i\theta_j \hat{n}_j}`` to the
+# goal states — level ``s`` of subsystem ``j`` acquires phase ``s \theta_j``.
+# For qubits this is a Z-gate rotation; for multi-level systems it generalizes
+# to `diag(1, e^{iθ}, e^{2iθ}, ...)`.
+#
+# Use `initial_phases` to warm-start the phases (e.g. from a previous solve):
+
+sys_fp = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+ψ0_fp, ψ1_fp = ComplexF64[1, 0], ComplexF64[0, 1]
+pulse_fp = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj_fp = MultiKetTrajectory(sys_fp, pulse_fp, [ψ0_fp, ψ1_fp], [ψ1_fp, ψ0_fp])
+
+qcp_fp = SmoothPulseProblem(
+    qtraj_fp,
+    N;
+    Q = 100.0,
+    free_phase = true,
+    subsystem_levels = [2],      ## one 2-level subsystem (qubit)
+    initial_phases = [0.1],      ## warm-start the phase variable
+)
+cached_solve!(qcp_fp, "smooth_pulse_free_phase"; max_iter = 100)
 
 # ## How It Works
 #

@@ -29,11 +29,24 @@ using ..Rollouts:
     KetOperatorODEProblem,
     DensityODEProblem
 using ..Rollouts: unitary_fidelity
-using ..EmbeddedOperators: AbstractPiccoloOperator, EmbeddedOperator
+using ..EmbeddedOperators: AbstractPiccoloOperator, EmbeddedOperator, unembed
 using ..Isomorphisms: operator_to_iso_vec, ket_to_iso, iso_to_ket, iso_vec_to_operator
 using ..Isomorphisms: density_to_compact_iso, compact_iso_to_density
 
 import NamedTrajectories: NamedTrajectory, get_times
+
+import ..QuantumSystems: default_algorithm
+
+"""
+    default_algorithm(sys::QuantumSystem)
+
+Return the default ODE algorithm for trajectory rollouts.
+Uses `Tsit5()` for non-Hermitian systems (where Magnus adaptive error
+control fails), `MagnusAdapt4()` for Hermitian systems.
+"""
+function default_algorithm(sys::QuantumSystem)
+    return sys.hermitian ? MagnusAdapt4() : Tsit5()
+end
 
 # Abstract type and common interface
 include("abstract_trajectory.jl")
@@ -43,6 +56,7 @@ include("unitary_trajectory.jl")
 include("ket_trajectory.jl")
 include("ensemble_trajectory.jl")
 include("density_trajectory.jl")
+include("multi_density_trajectory.jl")
 include("sampling_trajectory.jl")
 
 # Interface methods (getters, accessors, fidelity)

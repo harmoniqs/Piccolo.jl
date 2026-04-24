@@ -250,7 +250,11 @@ function MultiTransmonSystem(
 
     levels = prod([sys.levels for sys in systems])
     H_drift = sum(c -> c.op, couplings; init = zeros(ComplexF64, levels, levels))
-    return CompositeQuantumSystem(H_drift, systems, drive_bounds_vec)
+    # MultiTransmonSystem has no coupling drives — only subsystem drives (lifted
+    # inside CompositeQuantumSystem). Pass empty coupling drive_bounds; the
+    # subsystem bounds are appended automatically by CompositeQuantumSystem's
+    # constructor.
+    return CompositeQuantumSystem(H_drift, systems, Float64[])
 end
 
 # *************************************************************************** #

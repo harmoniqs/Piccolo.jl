@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/multilevel_transmon.jl
+# ```
+#
 # # [Multilevel Transmon](@id multilevel-transmon-tutorial)
 
 # In this example we will look at a multilevel transmon qubit with a Hamiltonian given by
@@ -73,9 +77,6 @@ qtraj = UnitaryTrajectory(sys, pulse, op)
 qcp = SmoothPulseProblem(qtraj, N; ddu_bound = ddu_bound, Q = 100.0, R = 1e-2)
 
 # ## Solving the problem
-
-## We solve the problem using `cached_solve!`, which transparently caches the
-## optimized trajectory and solver output for docs purposes. In practice, you can use `solve!` directly.
 
 cached_solve!(qcp, "multilevel_transmon"; max_iter = 50)
 

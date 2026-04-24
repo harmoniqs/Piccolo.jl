@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/concepts/trajectories.jl
+# ```
+#
 # # [Trajectories](@id trajectories-concept)
 #
 # A trajectory bundles a quantum system, a control pulse, and a goal into the
@@ -18,6 +22,7 @@
 # | `KetTrajectory` | ``\dot{\psi} = -iH\,\psi`` | ``\tilde{\psi} \in \mathbb{R}^{2d}`` | ``\lvert\langle\psi_g\mid\psi\rangle\rvert^2`` | ``2d`` |
 # | `DensityTrajectory` | ``\dot{\rho} = \mathcal{G}\,\text{vec}(\rho)`` | ``\tilde{\rho} \in \mathbb{R}^{d^2}`` (compact) | ``\operatorname{tr}(\rho_g\,\rho)`` | ``d^2`` |
 # | `MultiKetTrajectory` | ``\dot{\psi}_j = -iH\,\psi_j`` | multiple ``\tilde{\psi}_j`` | coherent (see below) | ``2d \times n_{\text{states}}`` |
+# | `MultiDensityTrajectory` | ``\dot{\rho}_j = \mathcal{G}\,\text{vec}(\rho_j)`` | multiple ``\tilde{\rho}_j`` | weighted average (see below) | ``d^2 \times M`` |
 # | `SamplingTrajectory` | per-system dynamics | per-system states | average fidelity | varies |
 #
 # The isomorphic state ``x_k`` is always a **real** vector; see
@@ -147,6 +152,69 @@ qtraj_density = DensityTrajectory(open_sys, pulse_density, ρ_init, ρ_goal)
 qcp_density = SmoothPulseProblem(qtraj_density, N_density; Q = 100.0, R = 1e-2)
 cached_solve!(qcp_density, "trajectories_density"; max_iter = 150)
 fidelity(qcp_density)
+# ## MultiDensityTrajectory
+#
+# For optimizing open quantum systems that must simultaneously steer multiple
+# initial density matrices to their respective targets — e.g. process tomography
+# or channel certification.  All density matrices share a **single** control
+# pulse and Lindblad generator.  The fidelity is a weighted average:
+#
+# ```math
+# F = \sum_{j=1}^{M} w_j\, \operatorname{tr}(\rho_{\text{goal},j}\,\rho_j(T)),
+# \qquad \sum_j w_j = 1
+# ```
+#
+# Internally, `M` Lindblad ODEs are solved in parallel via
+# `DifferentialEquations.EnsembleProblem`.
+#
+# ### Construction
+
+## Open system: 2-level atom with T₁ decay
+L_decay = ComplexF64[0 0; 1 0]  ## |0⟩⟨1| collapse operator (decay rate = 1)
+open_sys2 = OpenQuantumSystem(
+    PAULIS[:Z],
+    [PAULIS[:X], PAULIS[:Y]],
+    [1.0, 1.0];
+    dissipation_operators = [L_decay],
+)
+
+## Prepare two initial → goal pairs (e.g., two rows of a process matrix)
+ρ0_a = ComplexF64[1 0; 0 0]  ## |0⟩⟨0|
+ρ0_b = ComplexF64[0 0; 0 1]  ## |1⟩⟨1|
+ρg_a = ComplexF64[0 0; 0 1]  ## |1⟩⟨1|
+ρg_b = ComplexF64[1 0; 0 0]  ## |0⟩⟨0|
+
+T_md, N_md = 10.0, 50
+times_md = collect(range(0, T_md, length = N_md))
+pulse_md = ZeroOrderPulse(0.1 * randn(2, N_md), times_md)
+
+qtraj_md = MultiDensityTrajectory(
+    open_sys2,
+    pulse_md,
+    [ρ0_a, ρ0_b],
+    [ρg_a, ρg_b];
+    weights = [0.5, 0.5],
+)
+
+# ### Rollout and Fidelity
+
+qtraj_md_out = rollout(qtraj_md)
+fidelity(qtraj_md_out)
+
+# !!! note
+#     Built-in optimization support for `MultiDensityTrajectory` (via
+#     `SmoothPulseProblem`) requires a Piccolissimo integrator that provides
+#     per-density Lindbladian dynamics.  Rollout and fidelity evaluation work
+#     out of the box with any pulse type.
+#
+# ### When to Use vs `DensityTrajectory`
+#
+# | Scenario | Use |
+# |----------|-----|
+# | Single initial state | `DensityTrajectory` |
+# | Process tomography / multiple initial states | `MultiDensityTrajectory` |
+# | Weighted importance across initial states | `MultiDensityTrajectory` with custom `weights` |
+#
 # ## SamplingTrajectory
 #
 # For robust optimization over parameter variations.  Created internally by

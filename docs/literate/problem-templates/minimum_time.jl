@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/problem-templates/minimum_time.jl
+# ```
+#
 # # [MinimumTimeProblem](@id minimum-time)
 #
 # `MinimumTimeProblem` converts an existing optimization problem into a time-optimal control problem. It minimizes the total gate duration while maintaining a minimum fidelity constraint.

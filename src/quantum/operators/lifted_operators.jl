@@ -75,7 +75,13 @@ function lift_operator(
     # Start with operator at the leading position
     shape = vcat(L, Lᶜ)
     array_shape = reverse(vcat(shape, shape))
-    full_operator = kron(operator, [Matrix{T}(I(l)) for l ∈ Lᶜ]...)
+    full_operator = if isempty(Lᶜ)
+        # No complement subsystems — operator already spans the full space.
+        # Guard against `kron(operator)` (1-arg kron has no method).
+        Matrix{T}(operator)
+    else
+        kron(operator, [Matrix{T}(I(l)) for l ∈ Lᶜ]...)
+    end
 
     # Permute the array to match the actual subsystem order
     order = vcat(indices, [i for i ∈ setdiff(1:N, indices)])
@@ -147,6 +153,20 @@ end
     @test lift_operator(U, [1], 3) ≈ kron(U, I2, I2)
     @test lift_operator(UU, [2, 3], 3) ≈ kron(I2, U, U)
     @test lift_operator(UU, [1, 3], 3) ≈ kron(U, I2, U)
+end
+
+@testitem "lift_operator full-span operator (empty complement)" begin
+    using LinearAlgebra
+
+    # When indices span every subsystem, the complement is empty and the
+    # implementation must short-circuit `kron(operator, ...)` — 1-arg kron
+    # has no method in LinearAlgebra, SparseArrays, or SciMLOperators.
+    XY = kron(PAULIS.X, PAULIS.Y)
+    @test lift_operator(XY, [1, 2], [2, 2]) ≈ XY
+    @test lift_operator(XY, [2, 1], [2, 2]) ≈ kron(PAULIS.Y, PAULIS.X)
+
+    # Qubit interface: same full-span path
+    @test lift_operator(XY, [1, 2], 2) ≈ XY
 end
 
 

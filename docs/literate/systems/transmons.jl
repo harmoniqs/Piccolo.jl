@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/systems/transmons.jl
+# ```
+#
 # # [Transmon Qubits](@id transmon-systems)
 #
 # Superconducting transmon qubits are charge-insensitive artificial atoms formed

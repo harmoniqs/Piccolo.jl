@@ -1,3 +1,7 @@
+# ```@copybutton
+# literate/guides/global_variables.jl
+# ```
+#
 # # [Global Variables](@id global-variables)
 #
 # Global variables allow you to optimize system parameters alongside control pulses.
