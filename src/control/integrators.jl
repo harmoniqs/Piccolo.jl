@@ -5,7 +5,13 @@ using NamedTrajectories
 using DirectTrajOpt
 using ...Quantum
 using ...Quantum:
-    SamplingTrajectory, MultiKetTrajectory, state_name, state_names, drive_name
+    SamplingTrajectory,
+    MultiKetTrajectory,
+    state_name,
+    state_names,
+    isomorphism_state_name,
+    isomorphism_state_names,
+    drive_name
 using SparseArrays
 using TestItems
 
@@ -33,14 +39,14 @@ function BilinearIntegrator(qtraj::UnitaryTrajectory, N::Int)
         Ĝ = (u_, t) -> I(sys.levels) ⊗ sys.G(u_, t)
         return TimeDependentBilinearIntegrator(
             Ĝ,
-            state_name(qtraj),
+            isomorphism_state_name(qtraj),
             drive_name(qtraj),
             :t,
             traj,
         )
     else
         Ĝ = u_ -> I(sys.levels) ⊗ sys.G(u_, 0.0)
-        return BilinearIntegrator(Ĝ, state_name(qtraj), drive_name(qtraj), traj)
+        return BilinearIntegrator(Ĝ, isomorphism_state_name(qtraj), drive_name(qtraj), traj)
     end
 end
 
@@ -56,14 +62,14 @@ function BilinearIntegrator(qtraj::KetTrajectory, N::Int)
         Ĝ = (u_, t) -> sys.G(u_, t)
         return TimeDependentBilinearIntegrator(
             Ĝ,
-            state_name(qtraj),
+            isomorphism_state_name(qtraj),
             drive_name(qtraj),
             :t,
             traj,
         )
     else
         Ĝ = u_ -> sys.G(u_, 0.0)
-        return BilinearIntegrator(Ĝ, state_name(qtraj), drive_name(qtraj), traj)
+        return BilinearIntegrator(Ĝ, isomorphism_state_name(qtraj), drive_name(qtraj), traj)
     end
 end
 
@@ -85,7 +91,7 @@ function BilinearIntegrator(qtraj::DensityTrajectory, N::Int)
         𝒢c = u -> 𝒢c_drift + sum(u .* 𝒢c_drives)
     end
 
-    return BilinearIntegrator(𝒢c, state_name(qtraj), drive_name(qtraj), traj)
+    return BilinearIntegrator(𝒢c, isomorphism_state_name(qtraj), drive_name(qtraj), traj)
 end
 
 """
@@ -97,7 +103,7 @@ function BilinearIntegrator(qtraj::MultiKetTrajectory, N::Int)
     sys = get_system(qtraj)
     traj = NamedTrajectory(qtraj, N)
     control_sym = drive_name(qtraj)
-    snames = state_names(qtraj)
+    snames = isomorphism_state_names(qtraj)
     if sys.time_dependent
         Ĝ = (u_, t) -> sys.G(u_, t)
         return [
@@ -127,7 +133,7 @@ all share the same control variables.
 """
 function BilinearIntegrator(qtraj::SamplingTrajectory, N::Int)
     traj = NamedTrajectory(qtraj, N)
-    snames = state_names(qtraj)
+    snames = isomorphism_state_names(qtraj)
     control_sym = drive_name(qtraj)
     systems = qtraj.systems
 

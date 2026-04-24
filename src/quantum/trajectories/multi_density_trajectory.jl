@@ -251,6 +251,8 @@ end
 
     qtraj = MultiDensityTrajectory(system, ρ0s, ρgs, 1.0)
 
-    @test state_name(qtraj) == :ρ⃗̃
-    @test state_names(qtraj) == [:ρ⃗̃1, :ρ⃗̃2, :ρ⃗̃3]
+    @test state_name(qtraj) == :ρ
+    @test isomorphism_state_name(qtraj) == :ρ⃗̃
+    @test state_names(qtraj) == [:ρ1, :ρ2, :ρ3]
+    @test isomorphism_state_names(qtraj) == [:ρ⃗̃1, :ρ⃗̃2, :ρ⃗̃3]
 end

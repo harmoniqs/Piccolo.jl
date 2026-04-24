@@ -136,7 +136,7 @@ function SamplingProblem(
     end
 
     base_qtraj = qcp.qtraj
-    state_sym = state_name(base_qtraj)
+    state_sym = isomorphism_state_name(base_qtraj)
     base_traj = get_trajectory(qcp)
 
     # 1. Create SamplingTrajectory wrapper (new API: no stored trajectory)
@@ -171,7 +171,7 @@ function SamplingProblem(
             global_components = base_traj.global_components,
         )
     end
-    snames = state_names(sampling_qtraj)
+    snames = isomorphism_state_names(sampling_qtraj)
 
     # 3. Build objective: weighted state objectives + shared regularization
     J_state = sum(

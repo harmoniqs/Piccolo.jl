@@ -169,7 +169,7 @@ function _final_fidelity_constraint(
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     U_goal = qtraj.goal
-    state_sym = state_name(qtraj)
+    state_sym = isomorphism_state_name(qtraj)
 
     # Detect free-phase variables (φ_1, φ_2, ...) in global components
     θ_names = Symbol[
@@ -200,7 +200,7 @@ function _final_fidelity_constraint(
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     ψ_goal = qtraj.goal
-    state_sym = state_name(qtraj)
+    state_sym = isomorphism_state_name(qtraj)
 
     # Detect free-phase variables (φ_1, φ_2, ...) in global components
     θ_names = Symbol[
@@ -230,7 +230,7 @@ function _final_fidelity_constraint(
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     ρ_goal = qtraj.goal
-    state_sym = state_name(qtraj)
+    state_sym = isomorphism_state_name(qtraj)
     return FinalDensityFidelityConstraint(ρ_goal, state_sym, final_fidelity, traj)
 end
 
@@ -255,7 +255,7 @@ function _final_fidelity_constraint(
     traj::NamedTrajectory;
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
-    snames = state_names(qtraj)
+    snames = isomorphism_state_names(qtraj)
     goals = qtraj.goals
 
     # Detect free-phase variables (φ_1, φ_2, ...) in global components
@@ -538,7 +538,7 @@ end
 
     # Verify fidelity constraints are met for both states
     traj = get_trajectory(qcp_mintime)
-    snames = state_names(qcp_mintime.qtraj)
+    snames = isomorphism_state_names(qcp_mintime.qtraj)
     goals = qcp_mintime.qtraj.goals
 
     for (name, goal) in zip(snames, goals)

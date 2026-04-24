@@ -79,7 +79,7 @@ function BangBangPulseProblem(
 
     # Extract info from quantum trajectory
     sys = get_system(qtraj)
-    state_sym = state_name(qtraj)
+    state_sym = isomorphism_state_name(qtraj)
     control_sym = drive_name(qtraj)
 
     # Build global_data from system's global_params if present
@@ -261,14 +261,14 @@ function BangBangPulseProblem(
 )
     if piccolo_options.verbose
         println(
-            "    constructing BangBangPulseProblem for MultiKetTrajectory ($(length(qtraj.initials)) states)...",
+            "    constructing BangBangPulseProblem for $(nameof(typeof(qtraj))) ($(length(qtraj.initials)) states)...",
         )
     end
 
     # Extract info from ensemble trajectory
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
-    snames = state_names(qtraj)
+    snames = isomorphism_state_names(qtraj)
     weights = qtraj.weights
     goals = qtraj.goals
 
@@ -452,7 +452,7 @@ end
 
     # Test fidelity after solve
     traj = get_trajectory(qcp)
-    Ũ⃗_final = traj[end][state_name(qtraj)]
+    Ũ⃗_final = traj[end][isomorphism_state_name(qtraj)]
     U_final = iso_vec_to_operator(Ũ⃗_final)
     fid = unitary_fidelity(U_final, U_goal)
     @test fid > 0.9
@@ -488,7 +488,7 @@ end
     solve!(qcp; max_iter = 200, print_level = 1, verbose = false)
 
     traj = get_trajectory(qcp)
-    ψ̃_final = traj[end][state_name(qtraj)]
+    ψ̃_final = traj[end][isomorphism_state_name(qtraj)]
     ψ_final = iso_to_ket(ψ̃_final)
     fid = fidelity(ψ_final, ψ_goal)
     @test fid > 0.9
@@ -539,7 +539,7 @@ end
     solve!(qcp; max_iter = 200, print_level = 1, verbose = false)
 
     traj = get_trajectory(qcp)
-    snames = state_names(ensemble_qtraj)
+    snames = isomorphism_state_names(ensemble_qtraj)
     goals = ensemble_qtraj.goals
 
     for (name, goal) in zip(snames, goals)
