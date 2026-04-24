@@ -188,13 +188,35 @@ end
 # Display
 # ============================================================================= #
 
-function Base.show(io::IO, qcp::QuantumControlProblem{QT}) where {QT}
-    println(io, "QuantumControlProblem{$QT}")
-    println(io, "  System: $(typeof(get_system(qcp)))")
-    println(io, "  Goal: $(typeof(get_goal(qcp)))")
-    println(io, "  Trajectory: $(qcp.prob.trajectory.N) knots")
-    println(io, "  State: $(state_name(qcp))")
-    print(io, "  Controls: $(drive_name(qcp))")
+function Base.show(io::IO, qcp::QuantumControlProblem)
+    qtraj = qcp.qtraj
+    sys = get_system(qcp)
+    goal = get_goal(qcp)
+    print(
+        io,
+        "QuantumControlProblem(",
+        nameof(typeof(qtraj)),
+        " over ",
+        nameof(typeof(sys)),
+        ", goal::",
+        nameof(typeof(goal)),
+        ", ",
+        qcp.prob.trajectory.N,
+        " knots)",
+    )
+end
+
+function Base.show(io::IO, ::MIME"text/plain", qcp::QuantumControlProblem)
+    qtraj = qcp.qtraj
+    sys = get_system(qcp)
+    goal = get_goal(qcp)
+    println(io, "QuantumControlProblem")
+    println(io, "  trajectory: ", nameof(typeof(qtraj)))
+    println(io, "  system:     ", nameof(typeof(sys)))
+    println(io, "  goal:       ", nameof(typeof(goal)))
+    println(io, "  knots:      ", qcp.prob.trajectory.N)
+    println(io, "  state:      ", state_name(qcp))
+    print(io, "  controls:   ", drive_name(qcp))
 end
 
 # ============================================================================= #

@@ -109,8 +109,9 @@ function SplinePulseProblem(
     state_sym = state_name(qtraj)
 
     if piccolo_options.verbose
-        pulse_type = typeof(qtraj.pulse)
-        println("    constructing SplinePulseProblem with $(pulse_type)...")
+        println(
+            "    constructing SplinePulseProblem for $(nameof(typeof(qtraj))) with $(nameof(typeof(qtraj.pulse)))...",
+        )
     end
 
     # Build global_data from system's global_params if present
