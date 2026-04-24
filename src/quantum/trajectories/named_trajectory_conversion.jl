@@ -116,7 +116,23 @@ function _get_control_data(
     sys::AbstractQuantumSystem,
 )
     u_name = drive_name(pulse)
-    u = hcat([pulse(t) for t in times]...)
+
+    # If `times` match the pulse's native knot times, use stored u directly.
+    # Sampling the interpolator at knot times is fragile: a float-roundoff of
+    # O(1e-17) below a native knot time makes a left-continuous
+    # ConstantInterpolation return the PREVIOUS knot's value, shifting all
+    # controls by one index. `_sample_times(qtraj, N)` recomputes times via
+    # `range(0, duration, length=N)` which does NOT reproduce the pulse's
+    # stored `.t` exactly, hitting this off-by-one regularly for ZeroOrderPulse.
+    knot_times = collect(pulse.controls.t)
+    is_native =
+        length(times) == length(knot_times) &&
+        all(isapprox.(times, knot_times; atol = 1e-12))
+    u = if is_native
+        Matrix(pulse.controls.u)
+    else
+        hcat([pulse(t) for t in times]...)
+    end
     u_bounds = _get_drive_bounds(sys)
 
     # Extract boundary conditions from pulse
