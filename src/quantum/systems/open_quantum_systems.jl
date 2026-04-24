@@ -567,8 +567,8 @@ Pre-materialized `Matrix` inputs keep the closure body allocation-light
 function compact_generator_closure(
     sys::OpenQuantumSystem,
     𝒢c_drift_ham::AbstractMatrix,
-    𝒢c_drives::AbstractVector{<:AbstractMatrix},
-    𝒢c_dissipators::AbstractVector{<:AbstractMatrix},
+    𝒢c_drives::AbstractVector,
+    𝒢c_dissipators::AbstractVector,
 )
     drives = sys.H_drives
     dissipators = getfield(sys, :dissipators)
