@@ -136,8 +136,9 @@ function SmoothPulseProblem(
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
 )
     if piccolo_options.verbose
-        traj_type = split(string(typeof(qtraj).name.name), ".")[end]
-        println("    constructing SmoothPulseProblem for $traj_type...")
+        println(
+            "    constructing SmoothPulseProblem for $(nameof(typeof(qtraj)))...",
+        )
     end
 
     # Extract info from quantum trajectory
@@ -353,7 +354,7 @@ function SmoothPulseProblem(
 )
     if piccolo_options.verbose
         println(
-            "    constructing SmoothPulseProblem for MultiKetTrajectory ($(length(qtraj.initials)) states)...",
+            "    constructing SmoothPulseProblem for $(nameof(typeof(qtraj))) ($(length(qtraj.initials)) states)...",
         )
     end
 
