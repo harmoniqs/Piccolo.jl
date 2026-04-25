@@ -526,10 +526,9 @@ end
     # outcomes — replaced with a smooth deterministic warmstart so the BangBang
     # pipeline is exercised reproducibly.
     times_arr = (0:(N-1)) ./ (N - 1)
-    u_init = 0.1 * vcat(
-        reshape(cos.(2π .* times_arr), 1, N),
-        reshape(sin.(2π .* times_arr), 1, N),
-    )
+    u_init =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     ensemble_qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 

@@ -289,10 +289,9 @@ end
     # (cos along time axis, both channels). Keeps the solve trajectory
     # reproducible across Julia versions — randn(2, N) was the flake source.
     times_arr = (0:(N-1)) ./ max(N - 1, 1)
-    perturb = 0.01 * vcat(
-        reshape(cos.(2π .* times_arr), 1, N),
-        reshape(sin.(2π .* times_arr), 1, N),
-    )
+    perturb =
+        0.01 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
     u_init = get_cat_controls(sys, α, N) .+ perturb
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)

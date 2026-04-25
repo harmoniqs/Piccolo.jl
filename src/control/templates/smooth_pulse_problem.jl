@@ -788,10 +788,9 @@ end
     # Deterministic smooth init: 2-channel cos/sin at the trajectory frequency.
     # Avoids the unseeded-randn flake on tight residual tolerances.
     times_arr = (0:(N-1)) ./ (N - 1)
-    u_init = 0.1 * vcat(
-        reshape(cos.(2π .* times_arr), 1, N),
-        reshape(sin.(2π .* times_arr), 1, N),
-    )
+    u_init =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
 
@@ -853,10 +852,9 @@ end
     # |0⟩ → |1⟩ and |1⟩ → |0⟩. Deterministic smooth init keeps the test
     # reproducible across Julia versions (different randn streams).
     times_arr = (0:(N-1)) ./ (N - 1)
-    u_init = 0.1 * vcat(
-        reshape(cos.(2π .* times_arr), 1, N),
-        reshape(sin.(2π .* times_arr), 1, N),
-    )
+    u_init =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     ensemble_qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
     goals = ensemble_qtraj.goals
