@@ -197,7 +197,7 @@ end
     sys = CatSystem(cat_levels = cat_levels, buffer_levels = buffer_levels)
     n = sys.levels  # 8
 
-    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_generators(sys)
+    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_parts(sys)
 
     # Compact generators should be n² × n²
     @test size(𝒢c_drift_ham) == (n^2, n^2)

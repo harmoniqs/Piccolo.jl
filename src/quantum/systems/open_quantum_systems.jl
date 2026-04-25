@@ -52,8 +52,11 @@ function Base.getproperty(sys::OpenQuantumSystem, s::Symbol)
     return getfield(sys, s)
 end
 
-# Propertynames: expose both the real field and the derived view for discoverability
-Base.propertynames(::OpenQuantumSystem) = (
+# Propertynames: expose both the real field and the derived view for discoverability.
+# Overload the 2-arg form so that `propertynames(sys, true)` and
+# `propertynames(sys; private=true)` route through and still surface the
+# `:dissipation_operators` shim instead of falling back to Base's default.
+Base.propertynames(::OpenQuantumSystem, private::Bool = false) = (
     :H,
     :𝒢,
     :H_drift,
@@ -506,7 +509,7 @@ end
 # ----------------------------------------------------------------------------- #
 
 """
-    compact_lindbladian_generators(sys::OpenQuantumSystem)
+    compact_lindbladian_parts(sys::OpenQuantumSystem)
 
 Compute compact-iso matrix factors for Lindbladian assembly. Returns
 
@@ -526,8 +529,12 @@ Consumers assemble the full generator:
                         + Σ_j rate_coeff(diss_j, u)·𝒢c_dissipators[j]
 
 See [`compact_generator_closure`](@ref) for a helper that builds this closure.
+
+This is the canonical 3-tuple API. The legacy 2-tuple
+[`compact_lindbladian_generators`](@ref) is a thin wrapper that fuses dissipators
+back into the drift at `u=0` for back-compat with pre-1.12 consumers.
 """
-function compact_lindbladian_generators(sys::OpenQuantumSystem)
+function compact_lindbladian_parts(sys::OpenQuantumSystem)
     n = sys.levels
     P = Isomorphisms.density_projection_matrix(n)
     L = Isomorphisms.density_lift_matrix(n)
@@ -535,16 +542,45 @@ function compact_lindbladian_generators(sys::OpenQuantumSystem)
     𝒢_drift_ham = Isomorphisms.G(Isomorphisms.ad_vec(sys.H_drift))
     𝒢c_drift_ham = P * 𝒢_drift_ham * L
 
-    𝒢c_drives = AbstractMatrix[
-        P * Isomorphisms.G(Isomorphisms.ad_vec(drive_matrix(d))) * L for d in sys.H_drives
-    ]
+    # Eltype is left to Julia's inference (concrete `SparseMatrixCSC{ComplexF64,Int}`
+    # in practice). When the system has no drives/dissipators the comprehension
+    # produces `Vector{Any}` — that's fine for the helper's `AbstractVector`
+    # signature, since each element is indexed and used as a matrix.
+    𝒢c_drives =
+        [P * Isomorphisms.G(Isomorphisms.ad_vec(drive_matrix(d))) * L for d in sys.H_drives]
 
-    𝒢c_dissipators = AbstractMatrix[
+    𝒢c_dissipators = [
         P * Isomorphisms.iso_D(sparse(ComplexF64.(dissipator_matrix(diss)))) * L for
         diss in getfield(sys, :dissipators)
     ]
 
     return 𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators
+end
+
+"""
+    compact_lindbladian_generators(sys::OpenQuantumSystem)
+
+Legacy 2-tuple API: returns `(𝒢c_drift, 𝒢c_drives)` where `𝒢c_drift` fuses the
+Hamiltonian drift with the dissipator contribution evaluated at `u = zeros(n_drives)`.
+
+Preserved as a back-compat wrapper for pre-1.12 consumers; new code should call
+[`compact_lindbladian_parts`](@ref) and weight per-dissipator factors via
+[`rate_coeff`](@ref). Exact for `LinearDissipator`s; for systems with
+`NonlinearDissipator`s the wrapper returns the rate at `u=0`, which generally
+differs from the runtime rate — those callers must migrate to the 3-tuple API.
+"""
+function compact_lindbladian_generators(sys::OpenQuantumSystem)
+    drift_ham, drives, dissipators = compact_lindbladian_parts(sys)
+    sys_dissipators = getfield(sys, :dissipators)
+    if isempty(sys_dissipators)
+        return drift_ham, drives
+    end
+    u0 = zeros(sys.n_drives)
+    𝒟_at_u0 = sum(
+        rate_coeff(d, u0) * M for (d, M) in zip(sys_dissipators, dissipators);
+        init = zero(drift_ham),
+    )
+    return drift_ham + 𝒟_at_u0, drives
 end
 
 """
@@ -579,7 +615,7 @@ function compact_generator_closure(
         𝒟s = 𝒢c_dissipators
 
         u_ -> begin
-            out = 𝒢d + zero(𝒢d)
+            out = copy(𝒢d)
             @inbounds for i in eachindex(drs)
                 c = drive_coeff(drs[i], u_, 0.0)
                 c == 0 && continue
@@ -597,7 +633,7 @@ end
 
 # ******************************************************************************* #
 
-@testitem "compact_lindbladian_generators: 3-tuple (drift_ham, drives, dissipators)" begin
+@testitem "compact_lindbladian_parts: 3-tuple (drift_ham, drives, dissipators)" begin
     using Piccolo
     using SparseArrays
     using LinearAlgebra
@@ -606,7 +642,7 @@ end
     diss = LinearDissipator(sqrt(γ) * PAULIS.Z)
     sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipators = [diss])
 
-    out = compact_lindbladian_generators(sys)
+    out = compact_lindbladian_parts(sys)
     @test length(out) == 3
     𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = out
     @test length(𝒢c_drives) == 1        # one drive
@@ -628,6 +664,30 @@ end
     @test isapprox(𝒢c_dissipators[1], expected_diss; atol = 1e-10)
 end
 
+@testitem "compact_lindbladian_generators: legacy 2-tuple bridge" begin
+    using Piccolo
+    using SparseArrays
+
+    # No-dissipator system: 2-tuple drift equals 3-tuple drift_ham.
+    sys_closed = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    drift, drives = compact_lindbladian_generators(sys_closed)
+    drift_ham, drives_parts, _ = compact_lindbladian_parts(sys_closed)
+    @test isapprox(drift, drift_ham; atol = 1e-12)
+    @test length(drives) == length(drives_parts) == 1
+
+    # LinearDissipator system: 2-tuple drift fuses iso_D contribution at u=0.
+    γ = 0.3
+    sys_open = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipators = [LinearDissipator(sqrt(γ) * PAULIS.Z)],
+    )
+    drift_legacy, _ = compact_lindbladian_generators(sys_open)
+    drift_ham, _, dissipators = compact_lindbladian_parts(sys_open)
+    @test isapprox(drift_legacy, drift_ham + dissipators[1]; atol = 1e-12)
+end
+
 @testitem "compact_generator_closure: assembles from per-drive and per-dissipator factors" begin
     using Piccolo
     using SparseArrays
@@ -643,13 +703,8 @@ end
         global_params = (θ = 1.0, γ = 0.1),
     )
 
-    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_generators(sys)
-    G_fn = compact_generator_closure(
-        sys,
-        Matrix(𝒢c_drift_ham),
-        [Matrix(M) for M in 𝒢c_drives],
-        [Matrix(M) for M in 𝒢c_dissipators],
-    )
+    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_parts(sys)
+    G_fn = compact_generator_closure(sys, 𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators)
 
     u_base = [0.3, 1.0, 0.1]
     u_θ2 = [0.3, 2.0, 0.1]
@@ -661,7 +716,7 @@ end
         Matrix(𝒢c_drift_ham) +
         (0.3 * 1.0) * Matrix(𝒢c_drives[1]) +
         0.1 * Matrix(𝒢c_dissipators[1])
-    @test isapprox(G_fn(u_base), expected; atol = 1e-10)
+    @test isapprox(Matrix(G_fn(u_base)), expected; atol = 1e-10)
 end
 
 @testitem "OpenQuantumSystem.𝒢: respects NonlinearDrive with global-reading coeff" begin
