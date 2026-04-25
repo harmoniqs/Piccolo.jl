@@ -519,7 +519,18 @@ end
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
 
-    pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length = N)))
+    # Deterministic small smooth init. Random init was hitting two issues:
+    # (1) ODE integrator querying t = t_final + ε (now structurally fixed by
+    # ZeroOrderPulse's constant-extrapolation default), and (2) randn-stream
+    # variability across Julia versions producing different convergence
+    # outcomes — replaced with a smooth deterministic warmstart so the BangBang
+    # pipeline is exercised reproducibly.
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init = 0.1 * vcat(
+        reshape(cos.(2π .* times_arr), 1, N),
+        reshape(sin.(2π .* times_arr), 1, N),
+    )
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     ensemble_qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     qcp = BangBangPulseProblem(ensemble_qtraj, N; Q = 100.0, R_du = 1e-1)
