@@ -418,7 +418,7 @@ function UnitaryODEProblem(
     return ODEProblem(
         ODEFunction(rhs!; sys = sii_sys),
         U0,
-        (0, times[end]);
+        (times[1], times[end]);
         tstops = times,
         kwargs...,
     )
@@ -439,7 +439,7 @@ function DensityODEProblem(
     return ODEProblem(
         ODEFunction(rhs!; sys = sii_sys),
         ρ0,
-        (0, times[end]);
+        (times[1], times[end]);
         tstops = times,
         kwargs...,
     )
@@ -464,7 +464,7 @@ function KetOperatorODEProblem(
     return ODEProblem(
         ODEFunction(op!; sys = sii_sys),
         ψ0,
-        (0, times[end]);
+        (times[1], times[end]);
         tstops = times,
         kwargs...,
     )
@@ -484,7 +484,7 @@ function UnitaryOperatorODEProblem(
     return ODEProblem(
         ODEFunction(op!; sys = sii_sys),
         U0,
-        (0, times[end]);
+        (times[1], times[end]);
         tstops = times,
         kwargs...,
     )
