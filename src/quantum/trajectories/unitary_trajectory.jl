@@ -233,16 +233,18 @@ end
     )
     fid_adapt = fidelity(qtraj_adapt)
 
-    # Reference: fixed-step with very many points
-    qtraj_ref =
-        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 1001)
-    fid_ref = fidelity(qtraj_ref)
+    # # Reference: fixed-step with very many points
+    # qtraj_ref =
+    #     UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 1001)
+    # fid_ref = fidelity(qtraj_ref)
 
-    # Adaptive should be closer to reference than fixed-101
-    # NOTE: both methods reach machine epsilon for this system, making the
-    # comparison unreliable — marked broken until a more discriminating test is designed
-    @test_broken false
-    # @test_broken abs(fid_adapt - fid_ref) < abs(fid_fixed - fid_ref)
+    # # Adaptive should be closer to reference than fixed-101
+    # # NOTE: both methods reach machine epsilon for this system, making the
+    # # comparison unreliable — marked broken until a more discriminating test is designed
+    # @test_broken false
+    # # @test_broken abs(fid_adapt - fid_ref) < abs(fid_fixed - fid_ref)
+    
+    @test_broken 0. < fid_adapt < fid_fixed < 1.
 end
 
 @testitem "MagnusAdapt4 preserves unitarity" begin
