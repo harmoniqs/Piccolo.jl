@@ -564,12 +564,19 @@ end
     ∇ = zeros(traj.dim * traj.N + traj.global_dim)
     gradient!(∇, obj, traj)
 
-    # Test with random states: objective should be between 0 and Q
+    # Test with arbitrary (normalized) states: objective should be in [0, Q].
+    # Per-knot iso kets normalized to unit norm so the Pedersen-style fidelity
+    # is bounded in [0, 1] and the assertion is well-defined regardless of seed.
     ψ̃1_rand = randn(ket_dim, N)
     ψ̃2_rand = randn(ket_dim, N)
+    for k = 1:N
+        ψ̃1_rand[:, k] ./= norm(ψ̃1_rand[:, k])
+        ψ̃2_rand[:, k] ./= norm(ψ̃2_rand[:, k])
+    end
+    u_init = 0.05 * cos.(reshape(2π .* (0:(N-1)) ./ max(N - 1, 1), 1, N))
 
     traj_rand = NamedTrajectory(
-        (ψ̃1 = ψ̃1_rand, ψ̃2 = ψ̃2_rand, u = randn(1, N), Δt = fill(0.1, N));
+        (ψ̃1 = ψ̃1_rand, ψ̃2 = ψ̃2_rand, u = u_init, Δt = fill(0.1, N));
         timestep = :Δt,
         controls = :u,
         global_data = [0.5],
@@ -584,6 +591,7 @@ end
         Q = 100.0,
     )
     J_rand = objective_value(obj_rand, traj_rand)
+    @test isfinite(J_rand)
     @test 0.0 <= J_rand <= 100.0
 end
 

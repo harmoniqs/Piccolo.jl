@@ -26,7 +26,8 @@ export ZeroOrderPulse,
 export duration, n_drives, sample, drive_name
 
 using DataInterpolations
-using DataInterpolations: ConstantInterpolation, LinearInterpolation, CubicHermiteSpline
+using DataInterpolations:
+    ConstantInterpolation, LinearInterpolation, CubicHermiteSpline, ExtrapolationType
 using ForwardDiff
 using SpecialFunctions: erf
 using TestItems
@@ -199,8 +200,15 @@ function ZeroOrderPulse(
     else
         Vector{Float64}(final_value)
     end
-    # Materialize to Matrix/Vector to ensure consistent type parameters
-    interp = ConstantInterpolation(Matrix(controls), collect(times))
+    # Materialize to Matrix/Vector to ensure consistent type parameters.
+    # Constant extrapolation on both sides matches the zero-order-hold semantics
+    # and lets ODE integrators query slightly outside [t₁, tₙ] (e.g. at
+    # `t = tₙ + ε` due to step rounding) without throwing.
+    interp = ConstantInterpolation(
+        Matrix(controls),
+        collect(times);
+        extrapolation = ExtrapolationType.Constant,
+    )
     return ZeroOrderPulse(
         interp,
         Float64(times[end]),
@@ -277,8 +285,14 @@ function LinearSplinePulse(
     else
         Vector{Float64}(final_value)
     end
-    # Materialize to Matrix/Vector to ensure consistent type parameters
-    interp = LinearInterpolation(Matrix(controls), collect(times))
+    # Materialize to Matrix/Vector to ensure consistent type parameters.
+    # Constant extrapolation prevents DataInterpolations from throwing when
+    # ODE integrators query slightly outside [t₁, tₙ] due to step rounding.
+    interp = LinearInterpolation(
+        Matrix(controls),
+        collect(times);
+        extrapolation = ExtrapolationType.Constant,
+    )
     return LinearSplinePulse(
         interp,
         Float64(times[end]),
@@ -358,8 +372,15 @@ function CubicSplinePulse(
     else
         Vector{Float64}(final_value)
     end
-    # Materialize to Matrix to ensure consistent type parameters across construction methods
-    interp = CubicHermiteSpline(Matrix(derivatives), Matrix(controls), collect(times))
+    # Materialize to Matrix to ensure consistent type parameters across construction methods.
+    # Constant extrapolation prevents DataInterpolations from throwing when
+    # ODE integrators query slightly outside [t₁, tₙ] due to step rounding.
+    interp = CubicHermiteSpline(
+        Matrix(derivatives),
+        Matrix(controls),
+        collect(times);
+        extrapolation = ExtrapolationType.Constant,
+    )
     return CubicSplinePulse(
         interp,
         Float64(times[end]),
