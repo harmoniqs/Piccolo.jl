@@ -398,7 +398,7 @@ function KetODEProblem(
     return ODEProblem(
         ODEFunction(rhs!; sys = sii_sys),
         ψ0,
-        (0, times[end]);
+        (times[1], times[end]);
         tstops = times,
         kwargs...,
     )
