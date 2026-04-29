@@ -242,7 +242,8 @@ end
 
 function sample(pulse::ZeroOrderPulse, times::AbstractVector)
     knot_times = collect(pulse.controls.t)
-    is_native = length(times) == length(knot_times) &&
+    is_native =
+        length(times) == length(knot_times) &&
         all(isapprox.(times, knot_times; atol = 1e-12))
     if is_native
         return Matrix(pulse.controls.u)
@@ -1589,6 +1590,57 @@ end
     @test traj_zero.final[:u] == zeros(n_drives)
     @test traj_zero.initial[:du] == zeros(n_drives)
     @test traj_zero.final[:du] == zeros(n_drives)
+end
+
+@testitem "ZeroOrderPulse snap_to_knots" begin
+    using NamedTrajectories: NamedTrajectory, get_times
+
+    N = 51
+    T = 10.0
+    controls = Float64.(reshape(1:N, 1, N))
+
+    # cumsum-based times (what get_times(traj) produces for variable-Δt)
+    Δt = T / (N - 1)
+    times_cumsum = cumsum([0.0; fill(Δt, N - 1)])
+    times_range = collect(range(0.0, T, length=N))
+
+    # Confirm time vectors actually differ
+    @test times_cumsum != times_range
+    @test count(!iszero, times_range .- times_cumsum) > 0
+
+    # Default snap_to_knots=true: evaluation at range times is correct
+    pulse = ZeroOrderPulse(controls, times_cumsum)
+    @test pulse.snap_to_knots == true
+    stored = Matrix(pulse.controls.u)
+    sampled = hcat([pulse(t) for t in times_range]...)
+    @test sampled == stored
+
+    # Batch sample() also correct
+    sampled_batch, _ = sample(pulse, N)
+    @test sampled_batch == stored
+
+    # Full round-trip: NamedTrajectory → ZeroOrderPulse → resample
+    Δt_vec = fill(Δt, N)
+    data = (u = controls, Δt = reshape(Δt_vec, 1, N))
+    traj = NamedTrajectory(data; timestep=:Δt, controls=(:Δt, :u))
+    pulse_rt = ZeroOrderPulse(traj; drive_name=:u)
+    @test pulse_rt.snap_to_knots == true
+    rt_range = collect(range(0.0, duration(pulse_rt), length=N))
+    rt_sampled = hcat([pulse_rt(t) for t in rt_range]...)
+    @test rt_sampled == Matrix(pulse_rt.controls.u)
+
+    # snap_to_knots=false reproduces the off-by-one
+    pulse_raw = ZeroOrderPulse(controls, times_cumsum; snap_to_knots=false)
+    @test pulse_raw.snap_to_knots == false
+    sampled_raw = hcat([pulse_raw(t) for t in times_range]...)
+    n_mismatches = count(k -> sampled_raw[1, k] != stored[1, k], 1:N)
+    @test n_mismatches > 0
+    for k in 1:N
+        if sampled_raw[1, k] != stored[1, k]
+            @test k > 1
+            @test sampled_raw[1, k] == stored[1, k - 1]
+        end
+    end
 end
 
 end # module Pulses
