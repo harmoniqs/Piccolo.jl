@@ -96,6 +96,11 @@ function SplinePulseProblem(
     free_phase::Bool = false,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -232,7 +237,14 @@ function SplinePulseProblem(
     J += QuadraticRegularizer(du_sym, traj, R_du)
 
     # Apply piccolo options
-    J += _apply_piccolo_options(qtraj, piccolo_options, constraints, traj, state_sym)
+    J += _apply_piccolo_options(
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj,
+        state_sym;
+        state_leakage_indices = state_leakage_indices,
+    )
 
     # Start with dynamics integrators
     integrators = copy(dynamics_integrators)
@@ -311,6 +323,11 @@ function SplinePulseProblem(
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     coherent::Bool = true,
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -443,7 +460,14 @@ function SplinePulseProblem(
     J += QuadraticRegularizer(du_sym, traj, R_du)
 
     # Apply piccolo options for each state
-    J += _apply_piccolo_options(qtraj, piccolo_options, constraints, traj, snames)
+    J += _apply_piccolo_options(
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj,
+        snames;
+        state_leakage_indices = state_leakage_indices,
+    )
 
     # Start with dynamics integrators
     integrators = copy(dynamics_integrators)
@@ -687,6 +711,70 @@ end
     traj = get_trajectory(qcp)
     @test haskey(traj.components, :ψ̃)
     @test !haskey(traj.components, :ddu)  # No second derivative for splines
+end
+
+@testitem "SplinePulseProblem KetTrajectory leakage_indices kwarg" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # 3-level system; computational subspace = {|0⟩, |1⟩}, leak = |2⟩
+    H_drift = ComplexF64[0 0 0; 0 0.01 0; 0 0 0.05]
+    H_drives = [ComplexF64[0 1 0; 1 0 sqrt(2); 0 sqrt(2) 0]]
+    T = 10.0
+    N = 51
+
+    sys = QuantumSystem(H_drift, H_drives, [1.0])
+
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(1, N)
+    pulse = LinearSplinePulse(amps, times)
+
+    ψ_init = ComplexF64[1.0, 0.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0, 0.0]
+
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+
+    # Without state_leakage_indices, KetTrajectory + leakage_constraint=true
+    # must still error per the existing contract — there is no goal-derived
+    # leakage geometry for a single ket.
+    @test_throws ArgumentError SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        piccolo_options = PiccoloOptions(
+            leakage_constraint = true,
+            leakage_constraint_value = 1e-3,
+            leakage_cost = 1.0,
+        ),
+    )
+
+    # With user-supplied indices, construction succeeds and a LeakageConstraint
+    # is appended to the problem's constraints.
+    # iso_ket = [Re(ψ); Im(ψ)] in length-6, so |2⟩ leakage = indices [3, 6].
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        piccolo_options = PiccoloOptions(
+            leakage_constraint = true,
+            leakage_constraint_value = 1e-3,
+            leakage_cost = 1.0,
+            verbose = false,
+        ),
+        state_leakage_indices = [3, 6],
+    )
+
+    @test qcp isa QuantumControlProblem
+    # LeakageConstraint is a constructor that returns a NonlinearKnotPointConstraint
+    # parametrized by a closure named `leakage_constraint`. Detect via the closure
+    # field name to confirm the leakage path actually fired.
+    @test any(qcp.prob.constraints) do c
+        c isa DirectTrajOpt.NonlinearKnotPointConstraint &&
+            occursin("leakage_constraint", string(typeof(c).parameters[1]))
+    end
 end
 
 @testitem "SplinePulseProblem with MultiKetTrajectory" begin
