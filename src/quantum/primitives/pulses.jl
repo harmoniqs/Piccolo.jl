@@ -160,10 +160,11 @@ struct ZeroOrderPulse{I<:ConstantInterpolation} <: AbstractPulse
     drive_name::Symbol
     initial_value::Vector{Float64}
     final_value::Vector{Float64}
+    snap_to_knots::Bool
 end
 
 """
-    ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing)
+    ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing, snap_to_knots=true)
 
 Create a zero-order hold pulse from control samples and times.
 
@@ -175,6 +176,11 @@ Create a zero-order hold pulse from control samples and times.
 - `drive_name`: Name of the drive variable (default `:u`)
 - `initial_value`: Initial boundary condition (default: zeros(n_drives))
 - `final_value`: Final boundary condition (default: zeros(n_drives))
+- `snap_to_knots`: When `true` (default), `evaluate` snaps query times within
+  `1e-12` of a stored knot time to that knot's value, avoiding the off-by-one
+  that arises when recomputed times (e.g. from `range()`) differ from stored
+  times by float roundoff at `ConstantInterpolation` discontinuities.
+  Set to `false` for raw interpolation behavior.
 """
 function ZeroOrderPulse(
     controls::AbstractMatrix,
@@ -182,6 +188,7 @@ function ZeroOrderPulse(
     drive_name::Symbol = :u,
     initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    snap_to_knots::Bool = true,
 )
     n_drives = size(controls, 1)
     # :free means "no boundary constraint" (stored as NaN sentinel)
@@ -216,12 +223,33 @@ function ZeroOrderPulse(
         drive_name,
         init_val,
         final_val,
+        snap_to_knots,
     )
 end
 
 derivative(p::ZeroOrderPulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
-evaluate(p::ZeroOrderPulse, t) = p.controls(t)
+function evaluate(p::ZeroOrderPulse, t)
+    if p.snap_to_knots
+        knots = p.controls.t
+        idx = searchsortedfirst(knots, t)
+        if idx <= length(knots) && abs(t - knots[idx]) < 1e-12
+            return p.controls.u[:, idx]
+        end
+    end
+    return p.controls(t)
+end
+
+function sample(pulse::ZeroOrderPulse, times::AbstractVector)
+    knot_times = collect(pulse.controls.t)
+    is_native = length(times) == length(knot_times) &&
+        all(isapprox.(times, knot_times; atol = 1e-12))
+    if is_native
+        return Matrix(pulse.controls.u)
+    else
+        return hcat([pulse(t) for t in times]...)
+    end
+end
 
 # ============================================================================ #
 # LinearSplinePulse
@@ -965,7 +993,7 @@ get_knot_times(p::CompositePulse) =
 using NamedTrajectories: NamedTrajectory, get_times
 
 """
-    ZeroOrderPulse(traj::NamedTrajectory; drive_name=:u)
+    ZeroOrderPulse(traj::NamedTrajectory; drive_name=:u, snap_to_knots=true)
 
 Construct a ZeroOrderPulse from a NamedTrajectory.
 
@@ -974,11 +1002,16 @@ Construct a ZeroOrderPulse from a NamedTrajectory.
 
 # Keyword Arguments
 - `drive_name`: Name of the drive component (default: `:u`)
+- `snap_to_knots`: See primary constructor docstring (default: `true`)
 """
-function ZeroOrderPulse(traj::NamedTrajectory; drive_name::Symbol = :u)
+function ZeroOrderPulse(
+    traj::NamedTrajectory;
+    drive_name::Symbol = :u,
+    snap_to_knots::Bool = true,
+)
     controls = traj[drive_name]
     times = get_times(traj)
-    return ZeroOrderPulse(controls, times; drive_name)
+    return ZeroOrderPulse(controls, times; drive_name, snap_to_knots)
 end
 
 """

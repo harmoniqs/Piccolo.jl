@@ -116,7 +116,7 @@ function _get_control_data(
     sys::AbstractQuantumSystem,
 )
     u_name = drive_name(pulse)
-    u = hcat([pulse(t) for t in times]...)
+    u = sample(pulse, times)
     u_bounds = _get_drive_bounds(sys)
 
     # Extract boundary conditions from pulse
