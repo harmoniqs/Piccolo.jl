@@ -242,7 +242,8 @@ end
 
 function sample(pulse::ZeroOrderPulse, times::AbstractVector)
     knot_times = collect(pulse.controls.t)
-    is_native = length(times) == length(knot_times) &&
+    is_native =
+        length(times) == length(knot_times) &&
         all(isapprox.(times, knot_times; atol = 1e-12))
     if is_native
         return Matrix(pulse.controls.u)
