@@ -97,7 +97,9 @@ function SplinePulseProblem(
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     state_leakage_indices::Union{
-        Nothing,AbstractVector{Int},AbstractVector{<:AbstractVector{Int}},
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
     } = nothing,
 )
     sys = get_system(qtraj)
@@ -236,7 +238,11 @@ function SplinePulseProblem(
 
     # Apply piccolo options
     J += _apply_piccolo_options(
-        qtraj, piccolo_options, constraints, traj, state_sym;
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj,
+        state_sym;
         state_leakage_indices = state_leakage_indices,
     )
 
@@ -318,7 +324,9 @@ function SplinePulseProblem(
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     coherent::Bool = true,
     state_leakage_indices::Union{
-        Nothing,AbstractVector{Int},AbstractVector{<:AbstractVector{Int}},
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
     } = nothing,
 )
     sys = get_system(qtraj)
@@ -453,7 +461,11 @@ function SplinePulseProblem(
 
     # Apply piccolo options for each state
     J += _apply_piccolo_options(
-        qtraj, piccolo_options, constraints, traj, snames;
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj,
+        snames;
         state_leakage_indices = state_leakage_indices,
     )
 
@@ -727,8 +739,10 @@ end
     # must still error per the existing contract — there is no goal-derived
     # leakage geometry for a single ket.
     @test_throws ArgumentError SplinePulseProblem(
-        qtraj, N;
-        Q = 100.0, R = 1e-2,
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
         piccolo_options = PiccoloOptions(
             leakage_constraint = true,
             leakage_constraint_value = 1e-3,
@@ -740,8 +754,10 @@ end
     # is appended to the problem's constraints.
     # iso_ket = [Re(ψ); Im(ψ)] in length-6, so |2⟩ leakage = indices [3, 6].
     qcp = SplinePulseProblem(
-        qtraj, N;
-        Q = 100.0, R = 1e-2,
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
         piccolo_options = PiccoloOptions(
             leakage_constraint = true,
             leakage_constraint_value = 1e-3,
