@@ -126,6 +126,30 @@ function EmbeddedOperator(
     )
 end
 
+@doc raw"""
+    EmbeddedOperator(subspace_operator::AbstractMatrix{<:Number}, system::CompositeQuantumSystem; kwargs...)
+
+Embed a `subspace_operator` that spans every subsystem of a `CompositeQuantumSystem`.
+Defaults assume the operator is a qubit-level unitary acting on all subsystems,
+each contributing a `1:2` qubit subspace.
+
+# Keyword Arguments
+- `subsystem_indices`: Which subsystems the operator acts on
+  (default: `1:length(system.subsystem_levels)` — all subsystems).
+- `subspaces`: Per-subsystem subspace (default: `fill(1:2, n_subsystems)`).
+"""
+function EmbeddedOperator(
+    subspace_operator::AbstractMatrix{<:Number},
+    system::CompositeQuantumSystem;
+    subsystem_indices::AbstractVector{Int} = collect(1:length(system.subsystem_levels)),
+    subspaces::AbstractVector{<:AbstractVector{Int}} = fill(
+        1:2,
+        length(system.subsystem_levels),
+    ),
+)
+    return EmbeddedOperator(subspace_operator, subsystem_indices, subspaces, system)
+end
+
 function EmbeddedOperator(subspace_operator::Symbol, args...; kwargs...)
     if subspace_operator ∉ keys(GATES)
         throw(

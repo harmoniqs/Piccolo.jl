@@ -18,29 +18,58 @@ end
 A struct for storing quantum dynamics.
 
 # Fields
-- `H::Function`: The Hamiltonian function: (u, t) -> H(u, t), where u is the control vector and t is time
-- `G::Function`: The isomorphic generator function: (u, t) -> G(u, t), including the Hamiltonian mapped to superoperator space
-- `H_drift::SparseMatrixCSC{ComplexF64, Int}`: The drift Hamiltonian (time-independent component)
-- `H_drives::Vector{AbstractDrive}`: The canonical drive terms, each pairing an operator with a coefficient function. Matrix-based constructors auto-populate this with `LinearDrive` objects; function-based systems leave it empty.
-- `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds for each control (lower, upper)
-- `n_drives::Int`: The number of control channels (length of the control vector `u`)
-- `levels::Int`: The number of levels (dimension) in the system
-- `time_dependent::Bool`: Whether the Hamiltonian has explicit time dependence beyond control modulation
-- `global_params::NamedTuple`: Global parameters that the Hamiltonian may depend on (e.g., (δ=0.5, Ω=1.0))
+- `H::Function`: The Hamiltonian function: `(u, t) -> H(u, t)`
+- `G::Function`: The isomorphic generator function: `(u, t) -> G(u, t)`
+- `H_drift`: The drift Hamiltonian. Typically `SparseMatrixCSC{ComplexF64,Int}` for matrix-based systems, but can be any type (e.g., an `AbstractDynamicsOperator` from Piccolissimo) for structured operator acceleration.
+- `drift_terms::Vector{DriftTerm}`: Source of truth for drift terms with optional time modulation
+- `H_drives::Vector{AbstractDrive}`: Drive terms (`LinearDrive`, `NonlinearDrive`, or `ModulatedDrive`)
+- `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds per control
+- `n_drives::Int`: Number of control channels
+- `levels::Int`: System dimension
+- `time_dependent::Bool`: Set automatically when modulation is present
+- `global_params::NamedTuple`: Global parameters
+- `hermitian::Bool`: Whether the Hamiltonian is Hermitian (governs default ODE algorithm)
+
+# Time Modulation (Pair syntax)
+
+Use `=>` to attach time-dependent modulation to drift or drive terms:
+
+```julia
+# Modulated drive: u[1] * cos(ωt) * H_x
+sys = QuantumSystem(H_z, [H_x => t -> cos(ω*t)], [1.0])
+
+# Modulated drift: cos(ωt) * H_z
+sys = QuantumSystem(H_z => t -> cos(ω*t), [H_x], [1.0])
+
+# Multiple drift terms
+sys = QuantumSystem([H_z, H_x => t -> cos(ω*t)], [H_y], [1.0])
+```
 
 See also [`OpenQuantumSystem`](@ref), [`VariationalQuantumSystem`](@ref).
 """
-struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple} <: AbstractQuantumSystem
+struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple,DT,HD} <:
+       AbstractQuantumSystem
     H::F1
     G::F2
-    H_drift::SparseMatrixCSC{ComplexF64,Int}
+    H_drift::HD
+    drift_terms::DT
     H_drives::Vector{AbstractDrive}
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
     time_dependent::Bool
     global_params::PT
+    hermitian::Bool
 end
+
+"""
+    default_algorithm(sys::AbstractQuantumSystem)
+
+Return the default ODE algorithm for trajectory rollouts.
+Uses `Tsit5()` for non-Hermitian systems (where Magnus adaptive error
+control fails), `MagnusAdapt4()` for Hermitian systems.
+"""
+function default_algorithm end
 
 """
     QuantumSystem(H::Function, drive_bounds::Vector; time_dependent::Bool=false)
@@ -73,6 +102,7 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
@@ -89,7 +119,9 @@ function QuantumSystem(
     levels = size(H_drift, 1)
 
     # Check that H_drift is Hermitian
-    @assert is_hermitian(H_drift) "Drift Hamiltonian H(u=0, t=0) is not Hermitian"
+    if hermitian
+        @assert is_hermitian(H_drift) "Drift Hamiltonian H(u=0, t=0) is not Hermitian"
+    end
 
     # Check that Hamiltonian is Hermitian for sample control values
     u_test_controls = [b isa Tuple ? (b[1] + b[2]) / 2 : 0.0 for b in drive_bounds]
@@ -97,18 +129,22 @@ function QuantumSystem(
         n_globals > 0 ? vcat(u_test_controls, collect(values(global_params))) :
         u_test_controls
     H_test = H(u_test, 0.0)
-    @assert is_hermitian(H_test) "Hamiltonian H(u, t=0) is not Hermitian for test control values u=$u_test"
+    if hermitian
+        @assert is_hermitian(H_test) "Hamiltonian H(u, t=0) is not Hermitian for test control values u=$u_test"
+    end
 
     return QuantumSystem(
         (u, t) -> H(u, t),
         (u, t) -> Isomorphisms.G(H(u, t)),
         sparse(H_drift),
+        [DriftTerm(sparse(H_drift))],
         AbstractDrive[],
         drive_bounds,
         n_drives,
         levels,
         time_dependent,
         _float_params(global_params),
+        hermitian,
     )
 end
 
@@ -151,11 +187,14 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     drive_bounds = [b isa Tuple ? b : (-b, b) for b in drive_bounds]
 
     # Check that H_drift is Hermitian
-    @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
+    if hermitian
+        @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
+    end
 
     # Check that all drive Hamiltonians are Hermitian
     for (i, H_drive) in enumerate(H_drives)
@@ -188,12 +227,14 @@ function QuantumSystem(
         H,
         G,
         H_drift,
+        [DriftTerm(H_drift)],
         linear_drives,
         drive_bounds,
         n_drives,
         levels,
         time_dependent,
         _float_params(global_params),
+        hermitian,
     )
 end
 
@@ -221,6 +262,7 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 ) where {ℂ<:Number}
     @assert !isempty(H_drives) "At least one drive is required"
     return QuantumSystem(
@@ -229,6 +271,7 @@ function QuantumSystem(
         drive_bounds;
         time_dependent = time_dependent,
         global_params = global_params,
+        hermitian = hermitian,
     )
 end
 
@@ -247,15 +290,17 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     @assert !isempty(drives) "At least one drive is required"
-    levels = size(first(drives).H, 1)
+    levels = drive_dim(first(drives))
     return QuantumSystem(
         spzeros(ComplexF64, levels, levels),
         drives,
         drive_bounds;
         time_dependent = time_dependent,
         global_params = global_params,
+        hermitian = hermitian,
     )
 end
 
@@ -273,6 +318,7 @@ function QuantumSystem(
     H_drift::AbstractMatrix{ℂ};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 ) where {ℂ<:Number}
     QuantumSystem(
         H_drift,
@@ -280,6 +326,7 @@ function QuantumSystem(
         Float64[];
         time_dependent = time_dependent,
         global_params = global_params,
+        hermitian = hermitian,
     )
 end
 
@@ -330,60 +377,319 @@ function QuantumSystem(
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
     # Check that H_drift is Hermitian
-    @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
+    if hermitian
+        @assert is_hermitian(H_drift) "Drift Hamiltonian H_drift is not Hermitian"
+    end
 
     # Check that all drive operators are Hermitian
     for (i, d) in enumerate(drives)
-        @assert is_hermitian(d.H) "Drive operator drives[$i].H is not Hermitian"
+        @assert is_hermitian(drive_matrix(d)) "Drive operator drives[$i].H is not Hermitian"
     end
 
     H_drift = sparse(ComplexF64.(H_drift))
     n_drives = length(drive_bounds)
     levels = size(H_drift, 1)
 
-    # Validate LinearDrive indices are within the control dimension
+    # Validate LinearDrive indices are within the control dimension (unwrap ModulatedDrive)
     for (i, d) in enumerate(drives)
-        if d isa LinearDrive
-            @assert 1 <= d.index <= n_drives "LinearDrive at drives[$i] has index $(d.index) but control dimension is $n_drives (length of drive_bounds)"
+        base = d isa ModulatedDrive ? d.base : d
+        if base isa LinearDrive
+            @assert 1 <= base.index <= n_drives "LinearDrive at drives[$i] has index $(base.index) but control dimension is $n_drives (length of drive_bounds)"
         end
     end
 
-    # Validate NonlinearDrive Jacobians against ForwardDiff
+    # Validate NonlinearDrive Jacobians against ForwardDiff (unwrap ModulatedDrive)
     for d in drives
-        if d isa NonlinearDrive
-            validate_drive_jacobian(d, n_drives)
+        base = d isa ModulatedDrive ? d.base : d
+        if base isa NonlinearDrive
+            validate_drive_jacobian(base, n_drives)
         end
     end
 
     # Build H(u,t) and G(u,t) from drives
     G_drift = sparse(Isomorphisms.G(H_drift))
-    G_drive_mats = [sparse(Isomorphisms.G(d.H)) for d in drives]
+    H_drive_mats = [sparse(ComplexF64.(drive_matrix(d))) for d in drives]
+    G_drive_mats = [sparse(Isomorphisms.G(H_d)) for H_d in H_drive_mats]
 
     if isempty(drives)
         H_fn = (u, t) -> H_drift
         G_fn = (u, t) -> G_drift
     else
-        H_fn = (u, t) -> H_drift + sum(drive_coeff(d, u) * d.H for d in drives)
+        H_fn =
+            (u, t) ->
+                H_drift +
+                sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
         G_fn =
             (u, t) ->
                 G_drift +
-                sum(drive_coeff(d, u) * G_d for (d, G_d) in zip(drives, G_drive_mats))
+                sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
     end
 
     return QuantumSystem(
         H_fn,
         G_fn,
         H_drift,
+        [DriftTerm(H_drift)],
         collect(AbstractDrive, drives),
         drive_bounds,
         n_drives,
         levels,
         time_dependent,
         _float_params(global_params),
+        hermitian,
+    )
+end
+
+# ----------------------------------------------------------------------------- #
+# Modulation normalization helpers
+# ----------------------------------------------------------------------------- #
+
+"""Normalize a drift argument into a Vector{DriftTerm}."""
+_normalize_drift(H::AbstractMatrix) = [DriftTerm(sparse(ComplexF64.(H)))]
+_normalize_drift(p::Pair{<:AbstractMatrix,<:Function}) =
+    [DriftTerm(sparse(ComplexF64.(p.first)), p.second)]
+function _normalize_drift(terms::AbstractVector)
+    return [_normalize_drift_entry(t) for t in terms]
+end
+_normalize_drift_entry(H::AbstractMatrix) = DriftTerm(sparse(ComplexF64.(H)))
+_normalize_drift_entry(p::Pair{<:AbstractMatrix,<:Function}) =
+    DriftTerm(sparse(ComplexF64.(p.first)), p.second)
+
+"""Normalize a single drive input into an AbstractDrive."""
+_normalize_drive(H::AbstractMatrix, index::Int) = LinearDrive(sparse(ComplexF64.(H)), index)
+function _normalize_drive(p::Pair{<:AbstractMatrix,<:Function}, index::Int)
+    return ModulatedDrive(LinearDrive(sparse(ComplexF64.(p.first)), index), p.second)
+end
+_normalize_drive(d::AbstractDrive, ::Int) = d
+_normalize_drive(p::Pair{<:AbstractDrive,<:Function}, ::Int) =
+    ModulatedDrive(p.first, p.second)
+
+"""Check if any drift_terms or drives have non-identity modulation."""
+function _has_any_modulation(drift_terms, drives)
+    any(has_modulation, drift_terms) || any(has_modulation, drives)
+end
+
+const _DriftInput =
+    Union{AbstractMatrix{<:Number},Pair{<:AbstractMatrix{<:Number},<:Function}}
+const _DriftInputs = Union{_DriftInput,AbstractVector}
+
+"""
+    QuantumSystem(drift, H_drives_input, drive_bounds; ...)
+
+Pair-based constructor supporting modulated drift terms and modulated drive terms.
+
+Drift may be:
+- A plain matrix: `H_z`
+- A modulated matrix pair: `H_z => t -> cos(ω*t)`
+- A vector of the above: `[H_z, H_x => t -> cos(ω*t)]`
+
+Each element of `H_drives_input` may be:
+- A plain matrix: `H_x`
+- A modulated matrix pair: `H_x => t -> cos(ω*t)`
+- An `AbstractDrive` (e.g. `NonlinearDrive`)
+- A modulated drive pair: `nd => t -> cos(ω*t)`
+
+`time_dependent` is auto-detected from the presence of modulation and need not be
+set manually.
+"""
+function QuantumSystem(
+    drift::_DriftInputs,
+    H_drives_input::AbstractVector,
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
+    time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
+)
+    # Normalize drift into Vector{DriftTerm}
+    drift_terms = _normalize_drift(drift)
+    H_drift_sum =
+        isempty(drift_terms) ? spzeros(ComplexF64, 0, 0) : sum(dt.H for dt in drift_terms)
+
+    # Check drift is Hermitian
+    if hermitian
+        @assert is_hermitian(H_drift_sum) "Drift Hamiltonian is not Hermitian"
+    end
+
+    # Normalize drives — track linear index separately for LinearDrive(index)
+    drives = AbstractDrive[]
+    linear_idx = 1
+    for d_input in H_drives_input
+        if d_input isa Pair{<:AbstractDrive,<:Function}
+            push!(drives, ModulatedDrive(d_input.first, d_input.second))
+        elseif d_input isa AbstractDrive
+            push!(drives, d_input)
+        elseif d_input isa Pair{<:AbstractMatrix,<:Function}
+            push!(
+                drives,
+                ModulatedDrive(
+                    LinearDrive(sparse(ComplexF64.(d_input.first)), linear_idx),
+                    d_input.second,
+                ),
+            )
+            linear_idx += 1
+        else
+            # Plain matrix
+            push!(drives, LinearDrive(sparse(ComplexF64.(d_input)), linear_idx))
+            linear_idx += 1
+        end
+    end
+
+    # Check drive operators are Hermitian
+    if hermitian
+        for (i, d) in enumerate(drives)
+            @assert is_hermitian(drive_matrix(d)) "Drive operator drives[$i].H is not Hermitian"
+        end
+    end
+
+    # Detect time dependence
+    td = time_dependent || _has_any_modulation(drift_terms, drives)
+
+    n_drives = length(drive_bounds)
+    drive_bounds_vec = normalize_drive_bounds(drive_bounds)
+
+    H_drive_mats = [drive_matrix(d) for d in drives]
+    G_drift_terms = [sparse(Isomorphisms.G(dt.H)) for dt in drift_terms]
+    G_drive_mats = [sparse(Isomorphisms.G(d)) for d in drives]
+
+    levels = size(H_drift_sum, 1)
+
+    if isempty(drives)
+        H_fn = (u, t) -> sum(dt.modulation(t) * dt.H for dt in drift_terms)
+        G_fn =
+            (u, t) -> sum(
+                dt.modulation(t) * G_dt for (dt, G_dt) in zip(drift_terms, G_drift_terms)
+            )
+    else
+        H_fn =
+            (u, t) ->
+                sum(dt.modulation(t) * dt.H for dt in drift_terms) +
+                sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
+        G_fn =
+            (u, t) ->
+                sum(
+                    dt.modulation(t) * G_dt for
+                    (dt, G_dt) in zip(drift_terms, G_drift_terms)
+                ) +
+                sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
+    end
+
+    return QuantumSystem(
+        H_fn,
+        G_fn,
+        H_drift_sum,
+        drift_terms,
+        collect(AbstractDrive, drives),
+        drive_bounds_vec,
+        n_drives,
+        levels,
+        td,
+        _float_params(global_params),
+        hermitian,
+    )
+end
+
+"""
+    QuantumSystem(
+        H_drift,
+        drives::Vector{<:AbstractDrive},
+        drive_bounds::Vector;
+        time_dependent::Bool=false,
+        global_params::NamedTuple=NamedTuple()
+    )
+
+Construct a QuantumSystem from a non-matrix drift Hamiltonian (e.g., a structured
+operator from Piccolissimo) and typed drive terms.
+
+The drift is stored directly without sparse conversion, enabling structured operator
+acceleration in the spline integrator. The `H(u,t)` and `G(u,t)` closures are built
+from materialized matrices for backward compatibility with function-based paths.
+
+# Example
+```julia
+using Piccolissimo: DiagonalOperator
+H_drift_op = DiagonalOperator(ComplexF64[0.0, 1.0, 2.0])
+sys = QuantumSystem(H_drift_op, [LinearDrive(H_x_op, 1)], [1.0])
+```
+"""
+function QuantumSystem(
+    H_drift_op,
+    drives::Vector{<:AbstractDrive},
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
+    time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
+)
+    # Only dispatch here for non-AbstractMatrix types; matrices use the method above
+    H_drift_op isa AbstractMatrix && return QuantumSystem(
+        convert(AbstractMatrix{ComplexF64}, H_drift_op),
+        drives,
+        drive_bounds;
+        time_dependent = time_dependent,
+        global_params = global_params,
+        hermitian = hermitian,
+    )
+
+    drive_bounds = normalize_drive_bounds(drive_bounds)
+
+    # Check that all drive operators are Hermitian (drive_matrix materializes)
+    for (i, d) in enumerate(drives)
+        @assert is_hermitian(drive_matrix(d)) "Drive operator drives[$i].H is not Hermitian"
+    end
+
+    n_drives = length(drive_bounds)
+    levels = size(H_drift_op, 1)
+
+    # Validate LinearDrive indices
+    for (i, d) in enumerate(drives)
+        if d isa LinearDrive
+            @assert 1 <= d.index <= n_drives "LinearDrive at drives[$i] has index $(d.index) but control dimension is $n_drives"
+        end
+    end
+
+    # Validate NonlinearDrive Jacobians
+    for d in drives
+        if d isa NonlinearDrive
+            validate_drive_jacobian(d, n_drives)
+        end
+    end
+
+    # Build H(u,t) and G(u,t) from materialized matrices (for backward-compat closures)
+    H_drift_mat = sparse(ComplexF64.(_ensure_matrix(H_drift_op)))
+    G_drift = sparse(Isomorphisms.G(H_drift_mat))
+    H_drive_mats = [sparse(ComplexF64.(drive_matrix(d))) for d in drives]
+    G_drive_mats = [sparse(Isomorphisms.G(H_d)) for H_d in H_drive_mats]
+
+    if isempty(drives)
+        H_fn = (u, t) -> H_drift_mat
+        G_fn = (u, t) -> G_drift
+    else
+        H_fn =
+            (u, t) ->
+                H_drift_mat +
+                sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
+        G_fn =
+            (u, t) ->
+                G_drift +
+                sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
+    end
+
+    return QuantumSystem(
+        H_fn,
+        G_fn,
+        H_drift_op,    # store the structured operator, not the sparse matrix
+        [DriftTerm(H_drift_mat)],
+        collect(AbstractDrive, drives),
+        drive_bounds,
+        n_drives,
+        levels,
+        time_dependent,
+        _float_params(global_params),
+        hermitian,
     )
 end
 
@@ -493,6 +799,29 @@ end
     H_good = (u, t) -> PAULIS.Z + u[1] * PAULIS.X
     sys2 = QuantumSystem(H_good, [1.0])
     @test sys2 isa QuantumSystem
+
+    # Non-Hermitian drift with hermitian=false should succeed
+    H_drift_nh = ComplexF64[0 1; 1 0] + ComplexF64[-0.5im 0; 0 0]
+    H_drives_nh = [ComplexF64[0 1; 1 0]]
+    bounds_nh = [(-1.0, 1.0)]
+    sys_nh = QuantumSystem(H_drift_nh, H_drives_nh, bounds_nh; hermitian = false)
+    @test sys_nh isa QuantumSystem
+    @test sys_nh.n_drives == 1
+    @test sys_nh.levels == 2
+    @test sys_nh.hermitian == false
+
+    # Hermitian system should have hermitian=true by default
+    sys_h = QuantumSystem(ComplexF64[1 0; 0 -1], [ComplexF64[0 1; 1 0]], [(-1.0, 1.0)])
+    @test sys_h.hermitian == true
+
+    # Non-Hermitian drift with hermitian=true (default) should still fail
+    @test_throws AssertionError QuantumSystem(H_drift_nh, H_drives_nh, bounds_nh)
+    @test_throws AssertionError QuantumSystem(
+        H_drift_nh,
+        H_drives_nh,
+        bounds_nh;
+        hermitian = true,
+    )
 end
 
 @testitem "System creation variants" begin
@@ -606,4 +935,54 @@ end
     H_result = sys4.H(u_test, 0.0)
     H_expected = 2.0 * (0.5 * PAULIS[:X] + 0.5 * PAULIS[:Y])
     @test norm(H_result - H_expected) < 1e-10
+end
+
+@testitem "QuantumSystem Pair-based modulation constructors" begin
+    using Piccolo
+    using SparseArrays
+
+    H_z = sparse(ComplexF64[1 0; 0 -1])
+    H_x = sparse(ComplexF64[0 1; 1 0])
+    H_y = sparse(ComplexF64[0 -im; im 0])
+    omega = 2.0
+
+    # Modulated drive: H_x => t -> cos(omega*t)
+    sys1 = QuantumSystem(H_z, [H_x => t -> cos(omega * t), H_y], [1.0, 1.0])
+    @test sys1.n_drives == 2
+    @test sys1.H_drives[1] isa ModulatedDrive
+    @test sys1.H_drives[2] isa LinearDrive
+    @test length(sys1.drift_terms) == 1
+    @test !has_modulation(sys1.drift_terms[1])
+
+    # Modulated drift: H_z => t -> cos(omega*t)
+    sys2 = QuantumSystem(H_z => t -> cos(omega * t), [H_x, H_y], [1.0, 1.0])
+    @test sys2.n_drives == 2
+    @test length(sys2.drift_terms) == 1
+    @test has_modulation(sys2.drift_terms[1])
+    @test sys2.H_drift ≈ H_z  # static sum
+
+    # Multiple drift terms
+    sys3 = QuantumSystem([H_z, H_x => t -> cos(omega * t)], [H_y], [1.0])
+    @test length(sys3.drift_terms) == 2
+    @test !has_modulation(sys3.drift_terms[1])
+    @test has_modulation(sys3.drift_terms[2])
+    @test sys3.H_drift ≈ H_z + H_x  # sum of all drift matrices
+
+    # Typed drive with modulation: NonlinearDrive => modulation
+    nd = NonlinearDrive(H_x, u -> u[1]^2; active_controls = [1])
+    sys4 = QuantumSystem(H_z, [nd => t -> cos(omega * t)], [1.0])
+    @test sys4.H_drives[1] isa ModulatedDrive
+    @test sys4.H_drives[1].base === nd
+
+    # time_dependent auto-detection
+    @test !QuantumSystem(H_z, [H_x], [1.0]).time_dependent
+    @test sys1.time_dependent
+    @test sys2.time_dependent
+    @test sys3.time_dependent
+
+    # H(u, t) closure evaluates modulation
+    u = [1.0, 0.0]
+    @test sys2.H(u, 0.0) ≈ H_z * cos(0.0) + 1.0 * H_x
+    t_test = 0.3
+    @test sys2.H(u, t_test) ≈ H_z * cos(omega * t_test) + 1.0 * H_x
 end

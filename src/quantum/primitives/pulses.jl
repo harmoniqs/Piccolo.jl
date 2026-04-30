@@ -17,13 +17,22 @@ All pulses are callable: `pulse(t)` returns the control vector at time `t`.
 
 export AbstractPulse, AbstractSplinePulse
 export ZeroOrderPulse,
-    LinearSplinePulse, CubicSplinePulse, GaussianPulse, ErfPulse, CompositePulse
+    LinearSplinePulse,
+    CubicSplinePulse,
+    GaussianPulse,
+    ErfPulse,
+    CompositePulse,
+    FunctionPulse
 export duration, n_drives, sample, drive_name
 
-using DataInterpolations: ConstantInterpolation, LinearInterpolation, CubicHermiteSpline
+using DataInterpolations
+using DataInterpolations:
+    ConstantInterpolation, LinearInterpolation, CubicHermiteSpline, ExtrapolationType
 using ForwardDiff
 using SpecialFunctions: erf
 using TestItems
+
+const DEFAULT_SAMPLES::Int = 100
 
 # ============================================================================ #
 # Abstract type
@@ -79,13 +88,51 @@ function sample(pulse::AbstractPulse, times::AbstractVector)
 end
 
 """
-    sample(pulse::AbstractPulse; n_samples::Int=100)
+    sample(pulse::AbstractPulse, n_samples::Int)
 
 Sample the pulse uniformly with `n_samples` points. Returns `(controls, times)`.
 """
-function sample(pulse::AbstractPulse; n_samples::Int = 100)
+function sample(pulse::AbstractPulse, n_samples::Int)
     times = collect(range(0.0, duration(pulse), length = n_samples))
     return sample(pulse, times), times
+end
+
+"""
+    sample(bounds::AbstractVector{Tuple}, n_samples::Int)
+
+Sample the bounds uniformly with `n_samples` points.
+"""
+function sample(bounds::AbstractVector{Tuple{Float64,Float64}}, n_samples::Int)
+    return [(high - low) * rand() + low for (low, high) in bounds, _ = 1:n_samples]
+end
+
+"""
+    derivative(pulse::AbstractPulse, time::Real)
+
+Return the time derivative of the pulse at `time`.
+
+Falls back to ForwardDiff for generic pulses. Specialized pulse types may benefit from custom derivative methods (e.g., DataInterpolations.derivative) for better handling of knot points and boundaries.
+"""
+function derivative(pulse::AbstractPulse, time::Real)
+    return ForwardDiff.derivative(pulse, time)
+end
+
+Base.summary(io::IO, p::AbstractPulse) = print(
+    io,
+    "$(nameof(typeof(p)))(Number of drives = ",
+    n_drives(p),
+    ", ",
+    "T = ",
+    duration(p),
+    ")",
+)
+
+Base.show(io::IO, p::AbstractPulse) = summary(io, p)
+
+function Base.show(io::IO, ::MIME"text/plain", p::AbstractPulse)
+    println(io, nameof(typeof(p)))
+    println(io, "  drives: ", n_drives(p))
+    print(io, "  duration: ", duration(p))
 end
 
 # ============================================================================ #
@@ -113,10 +160,11 @@ struct ZeroOrderPulse{I<:ConstantInterpolation} <: AbstractPulse
     drive_name::Symbol
     initial_value::Vector{Float64}
     final_value::Vector{Float64}
+    snap_to_knots::Bool
 end
 
 """
-    ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing)
+    ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing, snap_to_knots=false)
 
 Create a zero-order hold pulse from control samples and times.
 
@@ -128,19 +176,47 @@ Create a zero-order hold pulse from control samples and times.
 - `drive_name`: Name of the drive variable (default `:u`)
 - `initial_value`: Initial boundary condition (default: zeros(n_drives))
 - `final_value`: Final boundary condition (default: zeros(n_drives))
+- `snap_to_knots`: When `true`, `evaluate` snaps query times within `1e-12`
+  of a stored knot time to that knot's value, avoiding the off-by-one that
+  arises when recomputed times (e.g. from `range()`) differ from stored times
+  by float roundoff at `ConstantInterpolation` discontinuities.
+  Currently defaults to `false` for backward compatibility; will default to
+  `true` in the next minor release. Set explicitly to opt in now.
 """
 function ZeroOrderPulse(
     controls::AbstractMatrix,
     times::AbstractVector;
     drive_name::Symbol = :u,
-    initial_value::Union{Nothing,Vector{<:Real}} = nothing,
-    final_value::Union{Nothing,Vector{<:Real}} = nothing,
+    initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    snap_to_knots::Bool = false,
 )
     n_drives = size(controls, 1)
-    init_val = isnothing(initial_value) ? zeros(n_drives) : Vector{Float64}(initial_value)
-    final_val = isnothing(final_value) ? zeros(n_drives) : Vector{Float64}(final_value)
-    # Materialize to Matrix/Vector to ensure consistent type parameters
-    interp = ConstantInterpolation(Matrix(controls), collect(times))
+    # :free means "no boundary constraint" (stored as NaN sentinel)
+    # nothing defaults to zeros for backward compatibility
+    init_val = if initial_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(initial_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(initial_value)
+    end
+    final_val = if final_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(final_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(final_value)
+    end
+    # Materialize to Matrix/Vector to ensure consistent type parameters.
+    # Constant extrapolation on both sides matches the zero-order-hold semantics
+    # and lets ODE integrators query slightly outside [t₁, tₙ] (e.g. at
+    # `t = tₙ + ε` due to step rounding) without throwing.
+    interp = ConstantInterpolation(
+        Matrix(controls),
+        collect(times);
+        extrapolation = ExtrapolationType.Constant,
+    )
     return ZeroOrderPulse(
         interp,
         Float64(times[end]),
@@ -148,10 +224,34 @@ function ZeroOrderPulse(
         drive_name,
         init_val,
         final_val,
+        snap_to_knots,
     )
 end
 
-evaluate(p::ZeroOrderPulse, t) = p.controls(t)
+derivative(p::ZeroOrderPulse, t::Real) = DataInterpolations.derivative(p.controls, t)
+
+function evaluate(p::ZeroOrderPulse, t)
+    if p.snap_to_knots
+        knots = p.controls.t
+        idx = searchsortedfirst(knots, t)
+        if idx <= length(knots) && abs(t - knots[idx]) < 1e-12
+            return p.controls.u[:, idx]
+        end
+    end
+    return p.controls(t)
+end
+
+function sample(pulse::ZeroOrderPulse, times::AbstractVector)
+    knot_times = collect(pulse.controls.t)
+    is_native =
+        length(times) == length(knot_times) &&
+        all(isapprox.(times, knot_times; atol = 1e-12))
+    if is_native
+        return Matrix(pulse.controls.u)
+    else
+        return hcat([pulse(t) for t in times]...)
+    end
+end
 
 # ============================================================================ #
 # LinearSplinePulse
@@ -197,14 +297,32 @@ function LinearSplinePulse(
     controls::AbstractMatrix,
     times::AbstractVector;
     drive_name::Symbol = :u,
-    initial_value::Union{Nothing,Vector{<:Real}} = nothing,
-    final_value::Union{Nothing,Vector{<:Real}} = nothing,
+    initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
     n_drives = size(controls, 1)
-    init_val = isnothing(initial_value) ? zeros(n_drives) : Vector{Float64}(initial_value)
-    final_val = isnothing(final_value) ? zeros(n_drives) : Vector{Float64}(final_value)
-    # Materialize to Matrix/Vector to ensure consistent type parameters
-    interp = LinearInterpolation(Matrix(controls), collect(times))
+    init_val = if initial_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(initial_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(initial_value)
+    end
+    final_val = if final_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(final_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(final_value)
+    end
+    # Materialize to Matrix/Vector to ensure consistent type parameters.
+    # Constant extrapolation prevents DataInterpolations from throwing when
+    # ODE integrators query slightly outside [t₁, tₙ] due to step rounding.
+    interp = LinearInterpolation(
+        Matrix(controls),
+        collect(times);
+        extrapolation = ExtrapolationType.Constant,
+    )
     return LinearSplinePulse(
         interp,
         Float64(times[end]),
@@ -214,6 +332,8 @@ function LinearSplinePulse(
         final_val,
     )
 end
+
+derivative(p::LinearSplinePulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
 evaluate(p::LinearSplinePulse, t) = p.controls(t)
 
@@ -264,14 +384,33 @@ function CubicSplinePulse(
     derivatives::AbstractMatrix,
     times::AbstractVector;
     drive_name::Symbol = :u,
-    initial_value::Union{Nothing,Vector{<:Real}} = nothing,
-    final_value::Union{Nothing,Vector{<:Real}} = nothing,
+    initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
     n_drives = size(controls, 1)
-    init_val = isnothing(initial_value) ? zeros(n_drives) : Vector{Float64}(initial_value)
-    final_val = isnothing(final_value) ? zeros(n_drives) : Vector{Float64}(final_value)
-    # Materialize to Matrix to ensure consistent type parameters across construction methods
-    interp = CubicHermiteSpline(Matrix(derivatives), Matrix(controls), collect(times))
+    init_val = if initial_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(initial_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(initial_value)
+    end
+    final_val = if final_value === :free
+        fill(NaN, n_drives)
+    elseif isnothing(final_value)
+        zeros(n_drives)
+    else
+        Vector{Float64}(final_value)
+    end
+    # Materialize to Matrix to ensure consistent type parameters across construction methods.
+    # Constant extrapolation prevents DataInterpolations from throwing when
+    # ODE integrators query slightly outside [t₁, tₙ] due to step rounding.
+    interp = CubicHermiteSpline(
+        Matrix(derivatives),
+        Matrix(controls),
+        collect(times);
+        extrapolation = ExtrapolationType.Constant,
+    )
     return CubicSplinePulse(
         interp,
         Float64(times[end]),
@@ -314,6 +453,9 @@ function CubicSplinePulse(
         final_value,
     )
 end
+
+# TODO: Unimplemented by DataInterpolations
+# derivative(p::CubicSplinePulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
 evaluate(p::CubicSplinePulse, t) = p.controls(t)
 
@@ -462,9 +604,7 @@ function CubicSplinePulse(
     final_value::Union{Nothing,Vector{<:Real}} = nothing,
 )
     controls = sample(pulse, times)
-
-    # Compute derivatives using ForwardDiff
-    derivatives = hcat([ForwardDiff.derivative(pulse, t) for t in times]...)
+    derivatives = stack(map(t -> derivative(pulse, t), times))
 
     init_val = isnothing(initial_value) ? pulse(times[1]) : initial_value
     final_val = isnothing(final_value) ? pulse(times[end]) : final_value
@@ -800,8 +940,49 @@ end
 
 evaluate(p::CompositePulse, t) = p.f(t)
 
+# ============================================================================ #
+# FunctionPulse (arbitrary user-defined function)
+# ============================================================================ #
+
+"""
+    FunctionPulse{F<:Function} <: AbstractPulse
+
+Pulse defined by an arbitrary function `f(t) -> Vector{Float64}`.
+
+Useful for testing analytic pulse shapes (e.g. sin² envelopes) with the
+`rollout` / `fidelity` interface without discretizing into spline knots.
+
+# Fields
+- `f::F`: Function mapping time to control vector
+- `duration::Float64`: Total pulse duration
+- `n_drives::Int`: Number of control drives
+- `drive_name::Symbol`: Name of the drive variable (default `:u`)
+
+# Example
+```julia
+T = 1000.0
+pulse = FunctionPulse(t -> [0.0, 0.0, 1.5 * sin(π*t/T)^2, 0.0], T, 4)
+qtraj = MultiKetTrajectory(sys, pulse, initials, goals)
+qtraj_out = rollout(qtraj)
+fid = fidelity(qtraj_out)
+```
+"""
+struct FunctionPulse{F<:Function} <: AbstractPulse
+    f::F
+    duration::Float64
+    n_drives::Int
+    drive_name::Symbol
+end
+
+function FunctionPulse(f::Function, duration::Real, n_drives::Int; drive_name::Symbol = :u)
+    return FunctionPulse(f, Float64(duration), n_drives, drive_name)
+end
+
+evaluate(p::FunctionPulse, t) = p.f(t)
+
 # Knot time accessors for analytic and composite pulses
 # (defined here because GaussianPulse, ErfPulse, CompositePulse are defined above)
+get_knot_times(p::FunctionPulse) = [0.0, p.duration]
 get_knot_times(p::GaussianPulse) = [0.0, p.duration]
 get_knot_times(p::ErfPulse) = [0.0, p.duration]
 get_knot_times(p::CompositePulse) =
@@ -814,7 +995,7 @@ get_knot_times(p::CompositePulse) =
 using NamedTrajectories: NamedTrajectory, get_times
 
 """
-    ZeroOrderPulse(traj::NamedTrajectory; drive_name=:u)
+    ZeroOrderPulse(traj::NamedTrajectory; drive_name=:u, snap_to_knots=false)
 
 Construct a ZeroOrderPulse from a NamedTrajectory.
 
@@ -823,11 +1004,16 @@ Construct a ZeroOrderPulse from a NamedTrajectory.
 
 # Keyword Arguments
 - `drive_name`: Name of the drive component (default: `:u`)
+- `snap_to_knots`: See primary constructor docstring (default: `false`)
 """
-function ZeroOrderPulse(traj::NamedTrajectory; drive_name::Symbol = :u)
+function ZeroOrderPulse(
+    traj::NamedTrajectory;
+    drive_name::Symbol = :u,
+    snap_to_knots::Bool = false,
+)
     controls = traj[drive_name]
     times = get_times(traj)
-    return ZeroOrderPulse(controls, times; drive_name)
+    return ZeroOrderPulse(controls, times; drive_name, snap_to_knots)
 end
 
 """
@@ -893,7 +1079,8 @@ end
     @test pulse(1.0) ≈ [0.0, 0.0]
 
     # Test sampling
-    sampled, ts = sample(pulse; n_samples = 5)
+    n_samples = 5
+    sampled, ts = sample(pulse, n_samples)
     @test size(sampled) == (2, 5)
     @test length(ts) == 5
 
@@ -921,7 +1108,8 @@ end
     @test pulse(1.0) ≈ [0.0, 0.0]
 
     # Test sampling
-    sampled, ts = sample(pulse; n_samples = 5)
+    n_samples = 5
+    sampled, ts = sample(pulse, n_samples)
     @test size(sampled) == (2, 5)
 
     # Test custom drive_name
@@ -959,6 +1147,79 @@ end
     # Test zero-derivative constructor
     pulse_zero_deriv = CubicSplinePulse(controls, times)
     @test pulse_zero_deriv(0.5) ≈ [1.0, -1.0]
+end
+
+@testitem "sample interface" begin
+    using .Pulses: sample, duration, n_drives
+
+    controls = [0.0 1.0 0.0; 0.0 -1.0 0.0]
+    times_ctrl = [0.0, 0.5, 1.0]
+
+    for P in (ZeroOrderPulse, LinearSplinePulse, CubicSplinePulse)
+        pulse = P(controls, times_ctrl)
+
+        # sample(pulse, n_samples::Int) -> (values, times)
+        n = 7
+        vals, ts = sample(pulse, n)
+        @test vals isa AbstractMatrix
+        @test size(vals) == (n_drives(pulse), n)
+        @test length(ts) == n
+        @test first(ts) == 0.0
+        @test last(ts) ≈ duration(pulse)
+
+        # sample(pulse, times::AbstractVector) -> values only
+        query_ts = collect(LinRange(0.0, duration(pulse), 4))
+        vals_at_times = sample(pulse, query_ts)
+        @test vals_at_times isa AbstractMatrix
+        @test size(vals_at_times) == (n_drives(pulse), length(query_ts))
+
+        # Locked-in interface: no keyword-argument form, no zero-arg default
+        @test_throws MethodError sample(pulse; n_samples = 5)
+        @test_throws MethodError sample(pulse)
+    end
+
+    # sample(bounds, n_samples) -> random matrix within bounds
+    bounds = [(-1.0, 1.0), (-0.5, 0.5)]
+    rand_ctrls = sample(bounds, 10)
+    @test size(rand_ctrls) == (length(bounds), 10)
+    for (i, (lo, hi)) in enumerate(bounds)
+        @test all(lo .<= rand_ctrls[i, :] .<= hi)
+    end
+end
+
+@testitem "DataInterpolations derivative at boundaries" begin
+    using .Pulses: derivative, sample
+
+    n_samples = 100
+    bounds = [(-1e-3, 1e-3), (-1e3, 1e3)]
+    inits = sample(bounds, n_samples)
+    times = LinRange(0, 10.0, n_samples)
+
+    for P in [ZeroOrderPulse, LinearSplinePulse]
+
+        pulse = P(inits, times)
+
+        # The pulse itself should sample cleanly on the closed interval.
+        vals = sample(pulse, times)
+        @test size(vals) == (n_drives(pulse), length(times))
+
+        # The pulse-level derivative API should also work on the closed interval,
+        # including both boundaries.
+        derivs = [derivative(pulse, t) for t in times]
+        @test length(derivs) == length(times)
+        @test all(d -> length(d) == n_drives(pulse), derivs)
+
+        # Explicitly check the endpoints, since these are where ForwardDiff on the
+        # raw interpolation used to fail due to extrapolation.
+        @test derivative(pulse, first(times)) isa AbstractVector
+        @test derivative(pulse, last(times)) isa AbstractVector
+        @test length(derivative(pulse, first(times))) == n_drives(pulse)
+        @test length(derivative(pulse, last(times))) == n_drives(pulse)
+    end
+
+    # CubicHermiteSpline known failure mode
+    pulse = CubicSplinePulse(inits, times)
+    @test_broken derivative(pulse, last(times)) isa AbstractVector
 end
 
 @testitem "GaussianPulse" begin
@@ -1330,6 +1591,65 @@ end
     @test traj_zero.final[:u] == zeros(n_drives)
     @test traj_zero.initial[:du] == zeros(n_drives)
     @test traj_zero.final[:du] == zeros(n_drives)
+end
+
+@testitem "ZeroOrderPulse snap_to_knots" begin
+    using NamedTrajectories: NamedTrajectory, get_times
+
+    N = 51
+    T = 10.0
+    controls = Float64.(reshape(1:N, 1, N))
+
+    # cumsum-based times (what get_times(traj) produces for variable-Δt)
+    Δt = T / (N - 1)
+    times_cumsum = cumsum([0.0; fill(Δt, N - 1)])
+    times_range = collect(range(0.0, T, length = N))
+
+    # Confirm time vectors actually differ
+    @test times_cumsum != times_range
+    @test count(!iszero, times_range .- times_cumsum) > 0
+
+    # Default is snap_to_knots=false (backward compat; will flip in next minor)
+    pulse_default = ZeroOrderPulse(controls, times_cumsum)
+    @test pulse_default.snap_to_knots == false
+
+    # Explicit snap_to_knots=true: evaluation at range times is correct
+    pulse = ZeroOrderPulse(controls, times_cumsum; snap_to_knots = true)
+    @test pulse.snap_to_knots == true
+    stored = Matrix(pulse.controls.u)
+    sampled = hcat([pulse(t) for t in times_range]...)
+    @test sampled == stored
+
+    # Batch sample() correct (is_native bypass, independent of snap_to_knots)
+    sampled_batch, _ = sample(pulse, N)
+    @test sampled_batch == stored
+
+    # Full round-trip: NamedTrajectory → ZeroOrderPulse → resample
+    Δt_vec = fill(Δt, N)
+    data = (u = controls, Δt = reshape(Δt_vec, 1, N))
+    traj = NamedTrajectory(data; timestep = :Δt, controls = (:Δt, :u))
+    pulse_rt = ZeroOrderPulse(traj; drive_name = :u, snap_to_knots = true)
+    @test pulse_rt.snap_to_knots == true
+    rt_range = collect(range(0.0, duration(pulse_rt), length = N))
+    rt_sampled = hcat([pulse_rt(t) for t in rt_range]...)
+    @test rt_sampled == Matrix(pulse_rt.controls.u)
+
+    # snap_to_knots=false reproduces the off-by-one
+    pulse_raw = ZeroOrderPulse(controls, times_cumsum; snap_to_knots = false)
+    @test pulse_raw.snap_to_knots == false
+    sampled_raw = hcat([pulse_raw(t) for t in times_range]...)
+    n_mismatches = count(k -> sampled_raw[1, k] != stored[1, k], 1:N)
+    @test n_mismatches > 0
+    for k = 1:N
+        if sampled_raw[1, k] != stored[1, k]
+            @test k > 1
+            @test sampled_raw[1, k] == stored[1, k-1]
+        end
+    end
+
+    # Batch sample() with is_native also works on default (snap=false) pulse
+    sampled_default_batch, _ = sample(pulse_default, N)
+    @test sampled_default_batch == stored
 end
 
 end # module Pulses

@@ -3,45 +3,47 @@
 # ============================================================================ #
 
 """
-    get_system(traj)
+    get_system(qtraj)
 
 Get the quantum system from a trajectory.
 """
-get_system(traj::AbstractQuantumTrajectory) = traj.system
+get_system(qtraj::AbstractQuantumTrajectory) = qtraj.system
 
 """
-    get_pulse(traj)
+    get_pulse(qtraj)
 
 Get the control pulse from a trajectory.
 """
-get_pulse(traj::AbstractQuantumTrajectory) = traj.pulse
+get_pulse(qtraj::AbstractQuantumTrajectory) = qtraj.pulse
 
 """
-    get_initial(traj)
+    get_initial(qtraj)
 
 Get the initial state/operator from a trajectory.
 """
-get_initial(traj::UnitaryTrajectory) = traj.initial
-get_initial(traj::KetTrajectory) = traj.initial
-get_initial(traj::MultiKetTrajectory) = traj.initials
-get_initial(traj::DensityTrajectory) = traj.initial
+get_initial(qtraj::UnitaryTrajectory) = qtraj.initial
+get_initial(qtraj::KetTrajectory) = qtraj.initial
+get_initial(qtraj::MultiKetTrajectory) = qtraj.initials
+get_initial(qtraj::DensityTrajectory) = qtraj.initial
+get_initial(qtraj::MultiDensityTrajectory) = qtraj.initials
 
 """
-    get_goal(traj)
+    get_goal(qtraj)
 
 Get the goal state/operator from a trajectory.
 """
-get_goal(traj::UnitaryTrajectory) = traj.goal
-get_goal(traj::KetTrajectory) = traj.goal
-get_goal(traj::MultiKetTrajectory) = traj.goals
-get_goal(traj::DensityTrajectory) = traj.goal
+get_goal(qtraj::UnitaryTrajectory) = qtraj.goal
+get_goal(qtraj::KetTrajectory) = qtraj.goal
+get_goal(qtraj::MultiKetTrajectory) = qtraj.goals
+get_goal(qtraj::DensityTrajectory) = qtraj.goal
+get_goal(qtraj::MultiDensityTrajectory) = qtraj.goals
 
 """
-    get_solution(traj)
+    get_solution(qtraj)
 
 Get the ODE solution from a trajectory.
 """
-get_solution(traj::AbstractQuantumTrajectory) = traj.solution
+get_solution(qtraj::AbstractQuantumTrajectory) = qtraj.solution
 
 # ============================================================================ #
 # Fixed Name Accessors (for NamedTrajectory conversion)
@@ -60,23 +62,34 @@ state_name(::UnitaryTrajectory) = :Ũ⃗
 state_name(::KetTrajectory) = :ψ̃
 state_name(::MultiKetTrajectory) = :ψ̃  # prefix for :ψ̃1, :ψ̃2, etc.
 state_name(::DensityTrajectory) = :ρ⃗̃
+state_name(::MultiDensityTrajectory) = :ρ⃗̃  # prefix for :ρ⃗̃1, :ρ⃗̃2, etc.
 
 """
-    state_names(traj::MultiKetTrajectory)
+    state_names(qtraj::MultiKetTrajectory)
 
 Get all state names for an ensemble trajectory (`:ψ̃1`, `:ψ̃2`, etc.)
 """
-function state_names(traj::MultiKetTrajectory)
-    prefix = state_name(traj)
-    return [Symbol(prefix, i) for i = 1:length(traj.initials)]
+function state_names(qtraj::MultiKetTrajectory)
+    prefix = state_name(qtraj)
+    return [Symbol(prefix, i) for i = 1:length(qtraj.initials)]
 end
 
 """
-    drive_name(traj::AbstractQuantumTrajectory)
+    state_names(qtraj::MultiDensityTrajectory)
+
+Get all state names for a multi-density trajectory (`:ρ⃗̃1`, `:ρ⃗̃2`, etc.)
+"""
+function state_names(qtraj::MultiDensityTrajectory)
+    prefix = state_name(qtraj)
+    return [Symbol(prefix, i) for i = 1:length(qtraj.initials)]
+end
+
+"""
+    drive_name(qtraj::AbstractQuantumTrajectory)
 
 Get the drive/control variable name from the trajectory's pulse.
 """
-drive_name(traj::AbstractQuantumTrajectory) = drive_name(traj.pulse)
+drive_name(qtraj::AbstractQuantumTrajectory) = drive_name(qtraj.pulse)
 
 """
     time_name(::AbstractQuantumTrajectory)
@@ -93,11 +106,11 @@ Get the timestep variable name (always `:Δt`).
 timestep_name(::AbstractQuantumTrajectory) = :Δt
 
 """
-    duration(traj)
+    duration(qtraj)
 
 Get the duration of a trajectory (from its pulse).
 """
-duration(traj::AbstractQuantumTrajectory) = duration(traj.pulse)
+duration(qtraj::AbstractQuantumTrajectory) = duration(qtraj.pulse)
 
 # ============================================================================ #
 # Rollout - Re-solve ODE with new pulse or different ODE parameters
@@ -131,7 +144,7 @@ See also: `rollout`
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -140,6 +153,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
@@ -175,7 +191,7 @@ See also: `rollout`
 """
 function Rollouts.rollout!(
     qtraj::UnitaryTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -185,6 +201,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -207,7 +226,7 @@ See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout!(
     qtraj::KetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -216,6 +235,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
@@ -231,7 +253,7 @@ See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout!(
     qtraj::KetTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -241,6 +263,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -263,7 +288,7 @@ See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout!(
     qtraj::MultiKetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -277,6 +302,9 @@ function Rollouts.rollout!(
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -299,7 +327,7 @@ See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout!(
     qtraj::MultiKetTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -314,6 +342,9 @@ function Rollouts.rollout!(
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -347,6 +378,9 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
@@ -373,9 +407,90 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
+
+    qtraj.solution = sol
+    return nothing
+end
+
+"""
+    rollout!(qtraj::MultiDensityTrajectory, pulse::AbstractPulse; algorithm=Tsit5(), n_save=101, abstol=1e-8, reltol=1e-8)
+
+Update multi-density trajectory in-place with a new pulse.
+See `rollout!(::UnitaryTrajectory, ::AbstractPulse)` for details.
+"""
+function Rollouts.rollout!(
+    qtraj::MultiDensityTrajectory,
+    pulse::AbstractPulse;
+    algorithm = Tsit5(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+
+    dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
+    base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+    )
+
+    qtraj.pulse = pulse
+    qtraj.solution = sol
+    return nothing
+end
+
+"""
+    rollout!(qtraj::MultiDensityTrajectory; algorithm=Tsit5(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
+
+Update multi-density trajectory in-place with same pulse but different ODE parameters.
+See `rollout!(::UnitaryTrajectory; kwargs...)` for details.
+"""
+function Rollouts.rollout!(
+    qtraj::MultiDensityTrajectory;
+    algorithm = Tsit5(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+    kwargs...,
+)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+
+    dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
+    base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
         saveat = save_times,
         abstol = abstol,
         reltol = reltol,
@@ -395,7 +510,7 @@ Delegates to the base trajectory's rollout! method.
 function Rollouts.rollout!(
     qtraj::SamplingTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -419,7 +534,7 @@ Delegates to the base trajectory's rollout! method.
 """
 function Rollouts.rollout!(
     qtraj::SamplingTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -468,7 +583,7 @@ See also: `extract_pulse`, `rollout!`, `fidelity`
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -477,6 +592,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return UnitaryTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
@@ -490,7 +608,7 @@ See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout(
     qtraj::KetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -499,6 +617,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return KetTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
@@ -512,7 +633,7 @@ See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory,
     pulse::AbstractPulse;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -526,6 +647,9 @@ function Rollouts.rollout(
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -564,8 +688,55 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return DensityTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
+end
+
+"""
+    rollout(qtraj::MultiDensityTrajectory, pulse::AbstractPulse; algorithm=Tsit5(), n_save=101, abstol=1e-8, reltol=1e-8)
+
+Create a new multi-density trajectory by rolling out a new pulse.
+See `rollout(::UnitaryTrajectory, ::AbstractPulse)` for details.
+"""
+function Rollouts.rollout(
+    qtraj::MultiDensityTrajectory,
+    pulse::AbstractPulse;
+    algorithm = Tsit5(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+)
+    knot_times = get_knot_times(pulse)
+    save_times = collect(range(0.0, duration(pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+
+    dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
+    base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+    )
+
+    return MultiDensityTrajectory(
+        qtraj.system,
+        pulse,
+        qtraj.initials,
+        qtraj.goals,
+        qtraj.weights,
+        sol,
+    )
 end
 
 # Rollout with same pulse, different ODE parameters (non-mutating)
@@ -599,7 +770,7 @@ See also: [`rollout!`](@ref)
 """
 function Rollouts.rollout(
     qtraj::UnitaryTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -609,6 +780,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -628,7 +802,7 @@ See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::KetTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -638,6 +812,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -657,7 +834,7 @@ See `rollout(::UnitaryTrajectory; kwargs...)` for details.
 """
 function Rollouts.rollout(
     qtraj::MultiKetTrajectory;
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     n_save::Int = 101,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
@@ -672,6 +849,9 @@ function Rollouts.rollout(
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
     prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -711,6 +891,9 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
     sol = solve(
         prob,
         algorithm;
@@ -722,12 +905,57 @@ function Rollouts.rollout(
     return DensityTrajectory(qtraj.system, qtraj.pulse, qtraj.initial, qtraj.goal, sol)
 end
 
+"""
+    rollout(qtraj::MultiDensityTrajectory; algorithm=Tsit5(), n_save=101, abstol=1e-8, reltol=1e-8, kwargs...)
+
+Re-solve multi-density trajectory with same pulse but different ODE parameters.
+See `rollout(::UnitaryTrajectory; kwargs...)` for details.
+"""
+function Rollouts.rollout(
+    qtraj::MultiDensityTrajectory;
+    algorithm = Tsit5(),
+    n_save::Int = 101,
+    abstol::Real = 1e-8,
+    reltol::Real = 1e-8,
+    kwargs...,
+)
+    knot_times = get_knot_times(qtraj.pulse)
+    save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
+    tstops = sort(unique(vcat(knot_times, save_times)))
+
+    dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
+    base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
+    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+    if isnothing(algorithm)
+        algorithm = default_algorithm(qtraj.system)
+    end
+    sol = solve(
+        ensemble_prob,
+        algorithm;
+        trajectories = length(qtraj.initials),
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        kwargs...,
+    )
+
+    return MultiDensityTrajectory(
+        qtraj.system,
+        qtraj.pulse,
+        qtraj.initials,
+        qtraj.goals,
+        qtraj.weights,
+        sol,
+    )
+end
+
 # ============================================================================ #
 # Fidelity (extending Rollouts.fidelity)
 # ============================================================================ #
 
 """
-    fidelity(traj::UnitaryTrajectory; subspace=nothing, phases=nothing)
+    fidelity(qtraj::UnitaryTrajectory; subspace=nothing, phases=nothing)
 
 Compute the fidelity between the final unitary and the goal.
 
@@ -748,17 +976,17 @@ decomposition of the basis index). This matches the free-phase objective used
 during optimization.
 """
 function Rollouts.fidelity(
-    traj::UnitaryTrajectory;
+    qtraj::UnitaryTrajectory;
     subspace::Union{Nothing,AbstractVector{Int}} = nothing,
     phases::Union{Nothing,AbstractVector{<:Real}} = nothing,
 )
-    U_final = traj.solution.u[end]
-    if traj.goal isa EmbeddedOperator && isnothing(subspace)
+    U_final = qtraj.solution.u[end]
+    if qtraj.goal isa EmbeddedOperator && isnothing(subspace)
         U_goal_sub = if isnothing(phases)
-            unembed(traj.goal)
+            unembed(qtraj.goal)
         else
             # Apply free phases: same convention as _make_free_phase_goal
-            U_base = unembed(traj.goal)
+            U_base = unembed(qtraj.goal)
             n_sub = size(U_base, 1)
             n_qubits = length(phases)
             phase_diag = map(1:n_sub) do i
@@ -772,15 +1000,15 @@ function Rollouts.fidelity(
             Diagonal(phase_diag) * U_base
         end
         # Use Pedersen formula, consistent with unitary_fidelity_loss(Ũ⃗, ::EmbeddedOperator)
-        U_sub = U_final[traj.goal.subspace, traj.goal.subspace]
-        n = length(traj.goal.subspace)
+        U_sub = U_final[qtraj.goal.subspace, qtraj.goal.subspace]
+        n = length(qtraj.goal.subspace)
         M = U_goal_sub' * U_sub
         return 1 / (n * (n + 1)) * (abs(tr(M' * M)) + abs2(tr(M)))
     else
         if !isnothing(phases)
             @warn "`phases` kwarg is ignored when goal is not an EmbeddedOperator or when `subspace` is provided"
         end
-        U_goal = traj.goal isa EmbeddedOperator ? traj.goal.operator : traj.goal
+        U_goal = qtraj.goal isa EmbeddedOperator ? qtraj.goal.operator : qtraj.goal
         if isnothing(subspace)
             return unitary_fidelity(U_final, U_goal)
         else
@@ -790,49 +1018,95 @@ function Rollouts.fidelity(
 end
 
 """
-    fidelity(traj::KetTrajectory)
+    fidelity(qtraj::KetTrajectory)
 
 Compute the fidelity between the final state and the goal.
 """
-function Rollouts.fidelity(traj::KetTrajectory)
-    ψ_final = traj.solution.u[end]
-    return abs2(ψ_final' * traj.goal)
+function Rollouts.fidelity(qtraj::KetTrajectory)
+    ψ_final = qtraj.solution.u[end]
+    return abs2(ψ_final' * qtraj.goal)
 end
 
 """
-    fidelity(traj::MultiKetTrajectory)
+    fidelity(qtraj::MultiKetTrajectory; phases=nothing, subsystem_levels=nothing)
 
-Compute the weighted average fidelity across all state transfers.
+Compute the coherent fidelity across all state transfers:
+
+    F = |1/n ∑ᵢ ⟨ψᵢ_goal(θ)|ψᵢ⟩|²
+
+When `phases` is provided (a vector of per-qubit Z-phases), each goal is
+phase-rotated before computing the overlap. This matches the
+`CoherentKetFreePhaseInfidelityObjective` used during optimization.
+
+`subsystem_levels` specifies the Hilbert space dimensions of each subsystem
+(e.g., [2, 2, 2, 2] for 4 qubits). Required when `phases` is provided.
 """
-function Rollouts.fidelity(traj::MultiKetTrajectory)
-    fids = map(zip(traj.solution, traj.goals)) do (sol, goal)
-        abs2(sol.u[end]' * goal)
+function Rollouts.fidelity(
+    qtraj::MultiKetTrajectory;
+    phases::Union{Nothing,AbstractVector{<:Real}} = nothing,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+)
+    n = length(qtraj.goals)
+    goals = if !isnothing(phases)
+        @assert !isnothing(subsystem_levels) "subsystem_levels required when phases is provided"
+        n_qubits = length(phases)
+        dim = prod(subsystem_levels)
+        # Build phase diagonal: for each basis state, accumulate phases for qubits in |1⟩
+        phase_diag = map(1:dim) do i
+            bits = i - 1
+            phase = sum(
+                phases[j] for j = 1:n_qubits if (bits >> (n_qubits - j)) & 1 == 1;
+                init = 0.0,
+            )
+            return exp(im * phase)
+        end
+        [phase_diag .* g for g in qtraj.goals]
+    else
+        qtraj.goals
     end
-    return sum(traj.weights .* fids)
+    overlap_sum = sum(goals[i]' * qtraj.solution[i].u[end] for i = 1:n)
+    return abs2(overlap_sum / n)
 end
 
 """
-    fidelity(traj::DensityTrajectory)
+    fidelity(qtraj::DensityTrajectory)
 
 Compute the fidelity between the final density matrix and the goal.
 Uses trace fidelity: F = tr(ρ_final * ρ_goal)
 """
-function Rollouts.fidelity(traj::DensityTrajectory)
-    ρ_final = traj.solution.u[end]
-    return real(tr(ρ_final * traj.goal))
+function Rollouts.fidelity(qtraj::DensityTrajectory)
+    ρ_final = qtraj.solution.u[end]
+    return real(tr(ρ_final * qtraj.goal))
 end
 
 """
-    fidelity(traj::SamplingTrajectory; kwargs...)
+    fidelity(qtraj::MultiDensityTrajectory)
+
+Compute the weighted average trace fidelity across all density matrix transfers:
+
+    F = ∑ᵢ wᵢ tr(ρᵢ_final * ρᵢ_goal)
+
+Unlike MultiKetTrajectory (which uses a coherent sum), density matrices have no
+global phase ambiguity, so we use an incoherent weighted average.
+"""
+function Rollouts.fidelity(qtraj::MultiDensityTrajectory)
+    n = length(qtraj.goals)
+    return sum(
+        qtraj.weights[i] * real(tr(qtraj.solution[i].u[end] * qtraj.goals[i])) for i = 1:n
+    )
+end
+
+"""
+    fidelity(qtraj::SamplingTrajectory; kwargs...)
 
 Compute the fidelity for each system in the sampling trajectory.
 
 Returns a vector of fidelities, one per system, by rolling out the current pulse
 with each system and computing the fidelity against the goal.
 """
-function Rollouts.fidelity(traj::SamplingTrajectory; kwargs...)
-    base = traj.base_trajectory
-    return [Rollouts.fidelity(_swap_system(base, sys); kwargs...) for sys in traj.systems]
+function Rollouts.fidelity(qtraj::SamplingTrajectory; kwargs...)
+    base = qtraj.base_trajectory
+    return [Rollouts.fidelity(_swap_system(base, sys); kwargs...) for sys in qtraj.systems]
 end
 
 # Helpers to create a trajectory with a different system (for per-system fidelity evaluation)
@@ -1120,6 +1394,17 @@ Update the system field in a MultiKetTrajectory with a new QuantumSystem
 (typically with updated global parameters after optimization).
 """
 function Rollouts._update_system!(qtraj::MultiKetTrajectory, sys::QuantumSystem)
+    qtraj.system = sys
+    return nothing
+end
+
+"""
+    Rollouts._update_system!(qtraj::MultiDensityTrajectory, sys::OpenQuantumSystem)
+
+Update the system field in a MultiDensityTrajectory with a new OpenQuantumSystem
+(typically with updated global parameters after optimization).
+"""
+function Rollouts._update_system!(qtraj::MultiDensityTrajectory, sys::OpenQuantumSystem)
     qtraj.system = sys
     return nothing
 end

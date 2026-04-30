@@ -17,6 +17,7 @@
 # | `CubicSplinePulse` | ``C^1`` | ``\boldsymbol{u}_k,\, \dot{\boldsymbol{u}}_k`` (values + tangents) | `SplinePulseProblem` |
 # | `GaussianPulse` | ``C^\infty`` | ``A_i, \sigma_i, \mu_i`` (parametric) | Analytical |
 # | `CompositePulse` | varies | union of sub-pulse variables | Various |
+# | `FunctionPulse` | arbitrary | none (fixed function) | Rollout / fidelity evaluation |
 #
 # ## ZeroOrderPulse
 #
@@ -200,6 +201,44 @@ plot_pulse(
     labels = ["Amplitude (Gaussian)", "Phase (Erf)", "Correction (Cubic)"],
 )
 
+# ## FunctionPulse
+#
+# A pulse defined by an arbitrary user-supplied function ``f(t) \to \boldsymbol{u}``.
+# Unlike the other pulse types, `FunctionPulse` has **no decision variables** — it
+# is not optimized.  Its purpose is to evaluate rollouts and fidelities for
+# analytically-defined pulse shapes (e.g. sin² envelopes, Gaussian DRAG) without
+# discretizing them into spline knots first.
+#
+# ### Construction
+
+T_fp = 1000.0
+pulse_fn = FunctionPulse(t -> [0.0, 1.5 * sin(π * t / T_fp)^2], T_fp, 2)
+
+## Evaluate at any time
+pulse_fn(500.0)
+
+# ### Typical Use
+#
+# Compute the fidelity of an analytic pulse shape before optimizing:
+
+sys_fp = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+ψ_init_fp = ComplexF64[1, 0]
+ψ_goal_fp = ComplexF64[0, 1]
+
+qtraj_fn = KetTrajectory(sys_fp, pulse_fn, ψ_init_fp, ψ_goal_fp)
+qtraj_fn_out = rollout(qtraj_fn)
+fidelity(qtraj_fn_out)
+
+# The result gives a baseline fidelity that can guide the choice of pulse
+# duration or initial control amplitude before setting up an optimization problem.
+#
+# ### Limitations
+#
+# - Not usable with problem templates (`SmoothPulseProblem`, `SplinePulseProblem`)
+#   because it carries no optimization variables.
+# - `get_knot_times` returns only `[0.0, T]` (start and end), so ODE solvers
+#   will not add extra tstops from knots.
+#
 # ## Choosing a Pulse Type
 #
 # | Scenario | Recommended Pulse | Smoothness |
@@ -209,6 +248,7 @@ plot_pulse(
 # | Hardware requires smooth pulses | `CubicSplinePulse` | ``C^1`` |
 # | Simple continuous pulses | `LinearSplinePulse` | ``C^0`` |
 # | Analytical pulse design | `GaussianPulse` | ``C^\infty`` |
+# | Evaluate analytic shapes (no optimization) | `FunctionPulse` | arbitrary |
 #
 # ## Converting Between Pulse Types
 #

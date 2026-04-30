@@ -4,7 +4,7 @@ export plot_unitary_populations
 export plot_state_populations
 export plot_weyl_trajectory
 export plot_name!
-export plot_pulse, plot_pulse!
+export plot_pulse, plot_pulse!, plot_pulse_IQ, plot_pulse_phases
 
 using LaTeXStrings
 using Makie

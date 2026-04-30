@@ -53,13 +53,17 @@ function MultiKetTrajectory(
     initials::Vector{<:AbstractVector{<:Number}},
     goals::Vector{<:AbstractVector{<:Number}};
     weights::AbstractVector{<:Real} = fill(1.0 / length(initials), length(initials)),
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
     @assert length(initials) == length(goals) == length(weights) "initials, goals, and weights must have same length"
+
+    if isnothing(algorithm)
+        algorithm = default_algorithm(system)
+    end
 
     ψ0s = [Vector{ComplexF64}(ψ) for ψ in initials]
     ψgs = [Vector{ComplexF64}(ψ) for ψ in goals]
@@ -111,7 +115,7 @@ function MultiKetTrajectory(
     T::Real;
     weights::AbstractVector{<:Real} = fill(1.0 / length(initials), length(initials)),
     drive_name::Symbol = :u,
-    algorithm = MagnusAdapt4(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
 )
@@ -131,11 +135,11 @@ function MultiKetTrajectory(
 end
 
 # Callable: sample all solutions at time t
-(traj::MultiKetTrajectory)(t::Real) = [sol(t) for sol in traj.solution]
+(qtraj::MultiKetTrajectory)(t::Real) = [sol(t) for sol in qtraj.solution]
 
 # Indexing: get individual trajectory solution
-Base.getindex(traj::MultiKetTrajectory, i::Int) = traj.solution[i]
-Base.length(traj::MultiKetTrajectory) = length(traj.initials)
+Base.getindex(qtraj::MultiKetTrajectory, i::Int) = qtraj.solution[i]
+Base.length(qtraj::MultiKetTrajectory) = length(qtraj.initials)
 
 # ============================================================================ #
 # Tests

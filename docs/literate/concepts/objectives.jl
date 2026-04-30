@@ -82,14 +82,20 @@
 #
 # ### UnitaryFreePhaseInfidelityObjective
 #
-# When global phase doesn't matter, optimizes over ``\phi``:
+# Optimizes over per-subsystem local phases. For an ``N``-qubit gate the
+# phase-adjusted goal is
 #
 # ```math
-# F = \max_{\phi} \frac{1}{d^2} \left| \operatorname{tr}(e^{i\phi} U_{\text{goal}}^\dagger\, U_N) \right|^2
+# U_{\text{goal}}(\boldsymbol{\theta}) = \bigl(Z(\theta_1) \otimes Z(\theta_2) \otimes \cdots\bigr)\, U_{\text{goal}}
 # ```
 #
+# where ``Z(\theta) = \operatorname{diag}(1,\, e^{i\theta})``.  The solver
+# treats the angles ``\boldsymbol{\theta}`` as free variables and maximises
+# the unitary fidelity over them, absorbing any single-qubit frame rotations
+# that a physical implementation can account for in software.
+#
 # ```julia
-# obj = UnitaryFreePhaseInfidelityObjective(:Ũ⃗, U_goal; Q=100.0)
+# obj = UnitaryFreePhaseInfidelityObjective(U_goal_fn, :Ũ⃗, [:φ_1, :φ_2], traj; Q=100.0)
 # ```
 #
 # ## Regularization Objectives

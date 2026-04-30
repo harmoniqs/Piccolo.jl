@@ -4,36 +4,7 @@ export SplinePulseProblem
 _get_spline_order(::LinearSplinePulse) = 1
 _get_spline_order(::CubicSplinePulse) = 3
 
-"""
-    _make_free_phase_goal(op::EmbeddedOperator)
-
-Build a function `θ -> EmbeddedOperator` that applies single-qubit Z-phase rotations
-to the goal gate. For an N-qubit gate, `θ` has N elements (one phase per qubit).
-
-The phase-adjusted gate is `(Z(θ₁) ⊗ Z(θ₂) ⊗ ⋯) ⋅ U_goal`, where `Z(θ) = diag(1, e^{iθ})`.
-"""
-function _make_free_phase_goal(op::EmbeddedOperator)
-    U_base = unembed(op)
-    subspace = op.subspace
-    levels = op.subsystem_levels
-    n_qubits = length(levels)
-    n_sub = size(U_base, 1)
-
-    # Type-generic for ForwardDiff compatibility (θ may contain Dual numbers)
-    function U_goal_fn(θ)
-        phase_diag = map(1:n_sub) do i
-            bits = i - 1
-            phase = sum(
-                θ[j] for j = 1:n_qubits if (bits >> (n_qubits - j)) & 1 == 1;
-                init = zero(eltype(θ)),
-            )
-            return exp(im * phase)
-        end
-        phased = Diagonal(phase_diag) * U_base
-        return EmbeddedOperator(Matrix(phased), subspace, levels)
-    end
-    return U_goal_fn
-end
+# _make_free_phase_goal is defined in _problem_templates.jl (shared across all templates)
 
 @doc raw"""
     SplinePulseProblem(qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse}; kwargs...)
@@ -74,7 +45,8 @@ Both pulse types always have `:du` components in the trajectory, simplifying int
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses `BilinearIntegrator` (which does not support global variables). A custom integrator is required when `global_names` is specified.
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator (e.g., `SplineIntegrator` from Piccolissimo) that supports global variables.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
-- `du_bound::Float64=Inf`: Bound on derivative (slope) magnitude
+- `du_bound::Float64=Inf`: Uniform bound on derivative (slope) magnitude for all drives
+- `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Weight on regularization terms
 - `R_u::Union{Float64, Vector{Float64}}=R`: Weight on control regularization
@@ -98,6 +70,9 @@ qcp = SplinePulseProblem(qtraj; Q=100.0, du_bound=10.0)
 # Or resample to different number of knots
 qcp = SplinePulseProblem(qtraj, 50; Q=100.0, du_bound=10.0)
 
+# Per-drive bounds (takes precedence over du_bound)
+qcp = SplinePulseProblem(qtraj; Q=100.0, du_bounds=[5.0, 2.0])
+
 solve!(qcp; max_iter=100)
 ```
 
@@ -110,6 +85,7 @@ function SplinePulseProblem(
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     du_bound::Float64 = Inf,
+    du_bounds::Union{Nothing,Vector{Float64}} = nothing,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
@@ -118,6 +94,13 @@ function SplinePulseProblem(
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -135,20 +118,37 @@ function SplinePulseProblem(
         nothing
     end
 
-    # Free-phase support: add single-qubit Z-phase variables as globals
+    # Free-phase support: add phase variables as globals
     θ_names = Symbol[]
     U_goal_fn = nothing
+    ket_goal_fn = nothing
     if free_phase
-        goal = qtraj.goal
-        @assert goal isa EmbeddedOperator "free_phase=true requires an EmbeddedOperator goal"
-        n_qubits = length(goal.subsystem_levels)
-        U_goal_fn = _make_free_phase_goal(goal)
-        θ_names, global_data, global_bounds = setup_free_phase_globals!(
-            n_qubits,
-            global_data,
-            global_bounds;
-            verbose = piccolo_options.verbose,
-        )
+        if qtraj isa KetTrajectory
+            # Ket free-phase: requires subsystem_levels to build per-subsystem phase rotations
+            @assert !isnothing(subsystem_levels) "free_phase=true for KetTrajectory requires subsystem_levels"
+            n_qubits = length(subsystem_levels)
+            ket_goal_fn = _make_free_phase_ket_goal(qtraj.goal, subsystem_levels)
+            θ_names, global_data, global_bounds = setup_free_phase_globals!(
+                n_qubits,
+                global_data,
+                global_bounds;
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
+            )
+        else
+            # Unitary free-phase: requires EmbeddedOperator goal
+            goal = qtraj.goal
+            @assert goal isa EmbeddedOperator "free_phase=true requires an EmbeddedOperator goal or subsystem_levels"
+            n_qubits = length(goal.subsystem_levels)
+            U_goal_fn = _make_free_phase_goal(goal)
+            θ_names, global_data, global_bounds = setup_free_phase_globals!(
+                n_qubits,
+                global_data,
+                global_bounds;
+                initial_phases = initial_phases,
+                verbose = piccolo_options.verbose,
+            )
+        end
     end
 
     # Convert quantum trajectory to NamedTrajectory
@@ -163,26 +163,32 @@ function SplinePulseProblem(
     du_sym = Symbol(:d, control_sym)
     is_linear_spline = !haskey(base_traj.components, du_sym)
 
+    # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
+    _du_bounds_vec = if !isnothing(du_bounds)
+        du_bounds
+    elseif isfinite(du_bound)
+        fill(du_bound, sys.n_drives)
+    else
+        nothing
+    end
+
     traj = if haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
-        # We need to update them if du_bound is specified
-        if isfinite(du_bound)
-            # Use update_bound! to set the bounds properly
-            update_bound!(base_traj, du_sym, (-du_bound, du_bound))
+        if !isnothing(_du_bounds_vec)
+            update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
             if piccolo_options.verbose
-                println("    set du bounds to ±$du_bound for CubicSplinePulse")
+                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
             end
         end
         base_traj
     else
         # LinearSplinePulse: always add derivatives
-        du_bounds_vec = isfinite(du_bound) ? fill(du_bound, sys.n_drives) : Float64[]
-        if !isempty(du_bounds_vec)
+        if !isnothing(_du_bounds_vec)
             add_control_derivatives(
                 base_traj,
                 1;  # Only 1 derivative for spline pulses
                 control_name = control_sym,
-                derivative_bounds = (du_bounds_vec,),
+                derivative_bounds = (_du_bounds_vec,),
             )
         else
             add_control_derivatives(base_traj, 1; control_name = control_sym)
@@ -218,7 +224,9 @@ function SplinePulseProblem(
     du_sym = Symbol(:d, control_sym)
 
     # Build objective: type-specific infidelity + regularization
-    J = if free_phase && !isnothing(U_goal_fn)
+    J = if free_phase && !isnothing(ket_goal_fn)
+        KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj; Q = Q)
+    elseif free_phase && !isnothing(U_goal_fn)
         UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj; Q = Q)
     else
         _state_objective(qtraj, traj, state_sym, Q)
@@ -229,7 +237,14 @@ function SplinePulseProblem(
     J += QuadraticRegularizer(du_sym, traj, R_du)
 
     # Apply piccolo options
-    J += _apply_piccolo_options(qtraj, piccolo_options, constraints, traj, state_sym)
+    J += _apply_piccolo_options(
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj,
+        state_sym;
+        state_leakage_indices = state_leakage_indices,
+    )
 
     # Start with dynamics integrators
     integrators = copy(dynamics_integrators)
@@ -270,7 +285,7 @@ Create a spline-based trajectory optimization problem for ensemble ket state tra
 
 Uses coherent fidelity objective (phases must align) for gate implementation.
 
-# Arguments  
+# Arguments
 - `qtraj::MultiKetTrajectory{<:AbstractSplinePulse}`: Ensemble trajectory with spline pulse
 - `N_or_times`: One of:
   - `nothing` (default): Use native knot times from spline pulse
@@ -278,7 +293,14 @@ Uses coherent fidelity objective (phases must align) for gate implementation.
   - `times::AbstractVector`: Specific sample times
 
 # Keyword Arguments
-Same as the base `SplinePulseProblem` method.
+Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method, plus:
+- `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
+- `free_phase::Bool=false`: Optimize a per-subsystem frame phase alongside the pulse. Applies number-operator rotation `e^{iθ n̂}` to goal states — level `s` acquires phase `s·θ`. Requires `subsystem_levels`.
+- `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
+- `initial_phases::Union{Nothing, Vector{Float64}}=nothing`: Initial values for the per-subsystem phase variables when `free_phase=true`. Length must equal the number of subsystems.
+- `coherent::Bool=true`: If `true`, uses a coherent fidelity objective (phases must align across state pairs). If `false`, uses per-state fidelity.
+- `integrator_type::Symbol=:spline`: Integrator backend (`:spline` or `:ensemble`).
+- `parallel_backend::Symbol=:manual`: Parallelism strategy (`:manual`, `:threads`, or `:gpu`).
 """
 function SplinePulseProblem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
@@ -289,6 +311,7 @@ function SplinePulseProblem(
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     du_bound::Float64 = Inf,
+    du_bounds::Union{Nothing,Vector{Float64}} = nothing,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
@@ -298,7 +321,13 @@ function SplinePulseProblem(
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     coherent::Bool = true,
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -321,7 +350,7 @@ function SplinePulseProblem(
         nothing
     end
 
-    # Free-phase support: add single-qubit Z-phase variables as globals
+    # Free-phase support: add per-subsystem phase variables as globals
     θ_names = Symbol[]
     goals_fn = nothing
     if free_phase
@@ -332,6 +361,7 @@ function SplinePulseProblem(
             n_qubits,
             global_data,
             global_bounds;
+            initial_phases = initial_phases,
             verbose = piccolo_options.verbose,
         )
     end
@@ -348,26 +378,32 @@ function SplinePulseProblem(
     du_sym = Symbol(:d, control_sym)
     is_linear_spline = !haskey(base_traj.components, du_sym)
 
+    # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
+    _du_bounds_vec = if !isnothing(du_bounds)
+        du_bounds
+    elseif isfinite(du_bound)
+        fill(du_bound, sys.n_drives)
+    else
+        nothing
+    end
+
     traj = if haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
-        # We need to update them if du_bound is specified
-        if isfinite(du_bound)
-            # Use update_bound! to set the bounds properly
-            update_bound!(base_traj, du_sym, (-du_bound, du_bound))
+        if !isnothing(_du_bounds_vec)
+            update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
             if piccolo_options.verbose
-                println("    set du bounds to ±$du_bound for CubicSplinePulse")
+                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
             end
         end
         base_traj
     else
         # LinearSplinePulse: always add derivatives
-        du_bounds_vec = isfinite(du_bound) ? fill(du_bound, sys.n_drives) : Float64[]
-        if !isempty(du_bounds_vec)
+        if !isnothing(_du_bounds_vec)
             add_control_derivatives(
                 base_traj,
                 1;  # Only 1 derivative for spline pulses
                 control_name = control_sym,
-                derivative_bounds = (du_bounds_vec,),
+                derivative_bounds = (_du_bounds_vec,),
             )
         else
             add_control_derivatives(base_traj, 1; control_name = control_sym)
@@ -424,7 +460,14 @@ function SplinePulseProblem(
     J += QuadraticRegularizer(du_sym, traj, R_du)
 
     # Apply piccolo options for each state
-    J += _apply_piccolo_options(qtraj, piccolo_options, constraints, traj, snames)
+    J += _apply_piccolo_options(
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj,
+        snames;
+        state_leakage_indices = state_leakage_indices,
+    )
 
     # Start with dynamics integrators
     integrators = copy(dynamics_integrators)
@@ -668,6 +711,70 @@ end
     traj = get_trajectory(qcp)
     @test haskey(traj.components, :ψ̃)
     @test !haskey(traj.components, :ddu)  # No second derivative for splines
+end
+
+@testitem "SplinePulseProblem KetTrajectory leakage_indices kwarg" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # 3-level system; computational subspace = {|0⟩, |1⟩}, leak = |2⟩
+    H_drift = ComplexF64[0 0 0; 0 0.01 0; 0 0 0.05]
+    H_drives = [ComplexF64[0 1 0; 1 0 sqrt(2); 0 sqrt(2) 0]]
+    T = 10.0
+    N = 51
+
+    sys = QuantumSystem(H_drift, H_drives, [1.0])
+
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(1, N)
+    pulse = LinearSplinePulse(amps, times)
+
+    ψ_init = ComplexF64[1.0, 0.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0, 0.0]
+
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+
+    # Without state_leakage_indices, KetTrajectory + leakage_constraint=true
+    # must still error per the existing contract — there is no goal-derived
+    # leakage geometry for a single ket.
+    @test_throws ArgumentError SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        piccolo_options = PiccoloOptions(
+            leakage_constraint = true,
+            leakage_constraint_value = 1e-3,
+            leakage_cost = 1.0,
+        ),
+    )
+
+    # With user-supplied indices, construction succeeds and a LeakageConstraint
+    # is appended to the problem's constraints.
+    # iso_ket = [Re(ψ); Im(ψ)] in length-6, so |2⟩ leakage = indices [3, 6].
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        piccolo_options = PiccoloOptions(
+            leakage_constraint = true,
+            leakage_constraint_value = 1e-3,
+            leakage_cost = 1.0,
+            verbose = false,
+        ),
+        state_leakage_indices = [3, 6],
+    )
+
+    @test qcp isa QuantumControlProblem
+    # LeakageConstraint is a constructor that returns a NonlinearKnotPointConstraint
+    # parametrized by a closure named `leakage_constraint`. Detect via the closure
+    # field name to confirm the leakage path actually fired.
+    @test any(qcp.prob.constraints) do c
+        c isa DirectTrajOpt.NonlinearKnotPointConstraint &&
+            occursin("leakage_constraint", string(typeof(c).parameters[1]))
+    end
 end
 
 @testitem "SplinePulseProblem with MultiKetTrajectory" begin
