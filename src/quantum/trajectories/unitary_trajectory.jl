@@ -3,15 +3,15 @@
 # ============================================================================ #
 
 """
-    UnitaryTrajectory{P<:AbstractPulse, S<:ODESolution, G} <: AbstractQuantumTrajectory{P}
+    UnitaryTrajectory{P<:AbstractPulse, S<:ODESolution} <: AbstractQuantumTrajectory{P}
 
 Trajectory for unitary gate synthesis. The ODE solution is computed at construction.
 
 # Fields
-- `system::QuantumSystem`: The quantum system
+- `system::AbstractQuantumSystem`: The quantum system
 - `pulse::P`: The control pulse (stores drive_name)
 - `initial::Matrix{ComplexF64}`: Initial unitary (default: identity)
-- `goal::G`: Target unitary operator (AbstractPiccoloOperator or Matrix)
+- `goal::AbstractPiccoloOperator`: Target unitary operator (Matrix{ComplexF64} or EmbeddedOperator)
 - `solution::S`: Pre-computed ODE solution
 
 # Callable
@@ -20,12 +20,12 @@ Trajectory for unitary gate synthesis. The ODE solution is computed at construct
 # Conversion to NamedTrajectory
 Use `NamedTrajectory(traj, N)` or `NamedTrajectory(traj, times)` for optimization.
 """
-mutable struct UnitaryTrajectory{P<:AbstractPulse,S<:ODESolution,G} <:
+mutable struct UnitaryTrajectory{P<:AbstractPulse,S<:ODESolution} <:
                AbstractQuantumTrajectory{P}
     system::AbstractQuantumSystem
     pulse::P
     initial::Matrix{ComplexF64}
-    goal::G
+    goal::AbstractPiccoloOperator
     solution::S
 end
 
@@ -37,7 +37,8 @@ Create a unitary trajectory by solving the Schrödinger equation.
 # Arguments
 - `system::QuantumSystem`: The quantum system
 - `pulse::AbstractPulse`: The control pulse
-- `goal`: Target unitary (Matrix or AbstractPiccoloOperator)
+- `goal::AbstractPiccoloOperator`: Target unitary (Matrix or EmbeddedOperator).
+  Non-ComplexF64 matrices are automatically converted to `Matrix{ComplexF64}`.
 
 # Keyword Arguments
 - `initial`: Initial unitary (default: identity matrix)
@@ -49,14 +50,16 @@ Create a unitary trajectory by solving the Schrödinger equation.
 function UnitaryTrajectory(
     system::AbstractQuantumSystem,
     pulse::AbstractPulse,
-    goal::G;
+    goal::AbstractPiccoloOperator;
     initial::AbstractMatrix{<:Number} = Matrix{ComplexF64}(I, system.levels, system.levels),
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
-) where {G}
+)
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
+
+    goal_stored = goal isa Matrix{ComplexF64} || goal isa EmbeddedOperator ? goal : Matrix{ComplexF64}(goal)
 
     if isnothing(algorithm)
         algorithm = default_algorithm(system)
@@ -69,7 +72,7 @@ function UnitaryTrajectory(
     prob = UnitaryOperatorODEProblem(system, pulse, tstops; U0 = U0)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
-    return UnitaryTrajectory{typeof(pulse),typeof(sol),G}(system, pulse, U0, goal, sol)
+    return UnitaryTrajectory{typeof(pulse),typeof(sol)}(system, pulse, U0, goal_stored, sol)
 end
 
 """
@@ -79,7 +82,7 @@ Convenience constructor that creates a zero pulse of duration T.
 
 # Arguments
 - `system::QuantumSystem`: The quantum system
-- `goal`: Target unitary (Matrix or AbstractPiccoloOperator)
+- `goal::AbstractPiccoloOperator`: Target unitary (Matrix or EmbeddedOperator)
 - `T::Real`: Duration of the pulse
 
 # Keyword Arguments
@@ -90,13 +93,13 @@ Convenience constructor that creates a zero pulse of duration T.
 """
 function UnitaryTrajectory(
     system::QuantumSystem,
-    goal::G,
+    goal::AbstractPiccoloOperator,
     T::Real;
     drive_name::Symbol = :u,
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
-) where {G}
+)
     times = [0.0, T]
     controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
@@ -134,6 +137,52 @@ end
 
     @test qtraj2 isa UnitaryTrajectory
     @test duration(qtraj2) ≈ 1.0
+end
+
+@testitem "UnitaryTrajectory goal type conversion" begin
+    using LinearAlgebra
+
+    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    T = 1.0
+
+    # ComplexF64 matrix goal: identity preserved (no conversion needed)
+    goal_cf64 = ComplexF64[0 1; 1 0]
+    qtraj_cf64 = UnitaryTrajectory(system, goal_cf64, T)
+    @test qtraj_cf64.goal === goal_cf64
+    @test qtraj_cf64.goal isa Matrix{ComplexF64}
+
+    # Float64 matrix goal: converted to ComplexF64
+    goal_f64 = [0.0 1.0; 1.0 0.0]
+    qtraj_f64 = UnitaryTrajectory(system, goal_f64, T)
+    @test qtraj_f64.goal == goal_f64
+    @test qtraj_f64.goal isa Matrix{ComplexF64}
+
+    # Int matrix goal: converted to ComplexF64
+    goal_int = [0 1; 1 0]
+    qtraj_int = UnitaryTrajectory(system, goal_int, T)
+    @test qtraj_int.goal == goal_int
+    @test qtraj_int.goal isa Matrix{ComplexF64}
+
+    # EmbeddedOperator goal: identity preserved
+    H_drift = diagm(ComplexF64[1.0, 0.0, -1.0])
+    H_drive = zeros(ComplexF64, 3, 3)
+    H_drive[1, 2] = H_drive[2, 1] = 1.0
+    sys3 = QuantumSystem(H_drift, [H_drive], [1.0])
+    goal_embed = EmbeddedOperator(:X, [1, 2], 3)
+    qtraj_embed = UnitaryTrajectory(sys3, goal_embed, T)
+    @test qtraj_embed.goal === goal_embed
+
+    # Pulse-based constructor: same conversion behavior
+    times = [0.0, 0.5, 1.0]
+    controls = 0.1 * randn(1, 3)
+    pulse = ZeroOrderPulse(controls, times)
+
+    qtraj_pulse_cf64 = UnitaryTrajectory(system, pulse, goal_cf64)
+    @test qtraj_pulse_cf64.goal === goal_cf64
+
+    qtraj_pulse_f64 = UnitaryTrajectory(system, pulse, goal_f64)
+    @test qtraj_pulse_f64.goal == goal_f64
+    @test qtraj_pulse_f64.goal isa Matrix{ComplexF64}
 end
 
 @testitem "UnitaryTrajectory callable" begin

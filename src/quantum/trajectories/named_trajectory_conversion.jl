@@ -746,7 +746,7 @@ end
 
     # Test interface
     @test get_system(qtraj) === system
-    @test get_goal(qtraj) === X_gate
+    @test get_goal(qtraj) == X_gate
     @test state_name(qtraj) == :Ũ⃗
     @test drive_name(qtraj) == :u
     @test time_name(qtraj) == :t
@@ -961,7 +961,7 @@ end
 
     @test qtraj2 isa UnitaryTrajectory
     @test qtraj2.system === system
-    @test qtraj2.goal === X_gate
+    @test qtraj2.goal == X_gate
 end
 
 @testitem "NamedTrajectory with Δt_bounds" begin
