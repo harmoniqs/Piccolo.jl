@@ -64,12 +64,7 @@ end
     using Piccolo.Quantum.QuantumSystems: default_algorithm
 
     sys_h = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
-    sys_nh = QuantumSystem(
-        PAULIS[:Z],
-        [PAULIS[:X]],
-        [(-1.0, 1.0)];
-        hermitian = false,
-    )
+    sys_nh = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)]; hermitian = false)
 
     csys_h = CompositeQuantumSystem(
         zeros(ComplexF64, 4, 4),
