@@ -316,6 +316,10 @@ function PiccoloRolloutSystem(
     return PiccoloRolloutSystem(state_index, timestep_name, defaults)
 end
 
+# Compat: SciMLBase v2 passes (prob, i::Int, repeat::Int) to EnsembleProblem callbacks,
+#         SciMLBase v3 passes (prob, ctx::EnsembleContext) where ctx.sim_id is the index.
+_sim_index(i_or_ctx) = i_or_ctx isa Integer ? i_or_ctx : i_or_ctx.sim_id
+
 function _construct_operator(sys::AbstractQuantumSystem, u::F) where {F}
     A0 = zeros(ComplexF64, sys.levels, sys.levels)
 
@@ -532,7 +536,7 @@ function rollout_fidelity(
     end
 
     # Ensemble over initial states
-    prob_func(prob, i, repeat) = remake(prob, u0 = iso_to_ket(traj.initial[state_names[i]]))
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = iso_to_ket(traj.initial[state_names[_sim_index(i_or_ctx)]]))
     ensemble_prob = EnsembleProblem(rollout, prob_func = prob_func)
     ensemble_sol = solve(
         ensemble_prob,
@@ -543,7 +547,7 @@ function rollout_fidelity(
         reltol = reltol,
     )
 
-    fids = map(zip(ensemble_sol, state_names)) do (sol, name)
+    fids = map(zip(ensemble_sol.u, state_names)) do (sol, name)
         xf = sol[state_name][end]
         xg = iso_to_ket(traj.goal[name])
         fidelity(xf, xg)

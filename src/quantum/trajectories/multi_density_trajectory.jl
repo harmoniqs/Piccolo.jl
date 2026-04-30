@@ -72,7 +72,7 @@ function MultiDensityTrajectory(
     # Build ensemble problem
     dummy = zeros(ComplexF64, system.levels, system.levels)
     base_prob = DensityODEProblem(system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = ρ0s[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = ρ0s[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
@@ -138,10 +138,10 @@ function MultiDensityTrajectory(
 end
 
 # Callable: sample all solutions at time t
-(qtraj::MultiDensityTrajectory)(t::Real) = [sol(t) for sol in qtraj.solution]
+(qtraj::MultiDensityTrajectory)(t::Real) = [sol(t) for sol in qtraj.solution.u]
 
 # Indexing: get individual trajectory solution
-Base.getindex(qtraj::MultiDensityTrajectory, i::Int) = qtraj.solution[i]
+Base.getindex(qtraj::MultiDensityTrajectory, i::Int) = qtraj.solution.u[i]
 Base.length(qtraj::MultiDensityTrajectory) = length(qtraj.initials)
 
 # ============================================================================ #

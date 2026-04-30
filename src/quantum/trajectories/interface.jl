@@ -300,7 +300,7 @@ function Rollouts.rollout!(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -340,7 +340,7 @@ function Rollouts.rollout!(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -443,7 +443,7 @@ function Rollouts.rollout!(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -482,7 +482,7 @@ function Rollouts.rollout!(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -645,7 +645,7 @@ function Rollouts.rollout(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -715,7 +715,7 @@ function Rollouts.rollout(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -847,7 +847,7 @@ function Rollouts.rollout(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -925,7 +925,7 @@ function Rollouts.rollout(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -1064,7 +1064,7 @@ function Rollouts.fidelity(
     else
         qtraj.goals
     end
-    overlap_sum = sum(goals[i]' * qtraj.solution[i].u[end] for i = 1:n)
+    overlap_sum = sum(goals[i]' * qtraj.solution.u[i].u[end] for i = 1:n)
     return abs2(overlap_sum / n)
 end
 
@@ -1092,7 +1092,7 @@ global phase ambiguity, so we use an incoherent weighted average.
 function Rollouts.fidelity(qtraj::MultiDensityTrajectory)
     n = length(qtraj.goals)
     return sum(
-        qtraj.weights[i] * real(tr(qtraj.solution[i].u[end] * qtraj.goals[i])) for i = 1:n
+        qtraj.weights[i] * real(tr(qtraj.solution.u[i].u[end] * qtraj.goals[i])) for i = 1:n
     )
 end
 

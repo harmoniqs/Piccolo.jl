@@ -76,7 +76,7 @@ function MultiKetTrajectory(
     # Build ensemble problem
     dummy = zeros(ComplexF64, system.levels)
     base_prob = KetOperatorODEProblem(system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = ψ0s[i])
+    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = ψ0s[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
@@ -135,10 +135,10 @@ function MultiKetTrajectory(
 end
 
 # Callable: sample all solutions at time t
-(qtraj::MultiKetTrajectory)(t::Real) = [sol(t) for sol in qtraj.solution]
+(qtraj::MultiKetTrajectory)(t::Real) = [sol(t) for sol in qtraj.solution.u]
 
 # Indexing: get individual trajectory solution
-Base.getindex(qtraj::MultiKetTrajectory, i::Int) = qtraj.solution[i]
+Base.getindex(qtraj::MultiKetTrajectory, i::Int) = qtraj.solution.u[i]
 Base.length(qtraj::MultiKetTrajectory) = length(qtraj.initials)
 
 # ============================================================================ #
