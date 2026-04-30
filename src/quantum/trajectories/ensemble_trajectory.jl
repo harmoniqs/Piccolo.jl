@@ -76,7 +76,8 @@ function MultiKetTrajectory(
     # Build ensemble problem
     dummy = zeros(ComplexF64, system.levels)
     base_prob = KetOperatorODEProblem(system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = ψ0s[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = ψ0s[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,

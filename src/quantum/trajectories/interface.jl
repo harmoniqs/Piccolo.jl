@@ -300,7 +300,8 @@ function Rollouts.rollout!(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -340,7 +341,8 @@ function Rollouts.rollout!(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -443,7 +445,8 @@ function Rollouts.rollout!(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -482,7 +485,8 @@ function Rollouts.rollout!(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -645,7 +649,8 @@ function Rollouts.rollout(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -715,7 +720,8 @@ function Rollouts.rollout(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -847,7 +853,8 @@ function Rollouts.rollout(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -925,7 +932,8 @@ function Rollouts.rollout(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)

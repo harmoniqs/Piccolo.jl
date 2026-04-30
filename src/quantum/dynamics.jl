@@ -536,7 +536,8 @@ function rollout_fidelity(
     end
 
     # Ensemble over initial states
-    prob_func(prob, i_or_ctx, _repeat=nothing) = remake(prob, u0 = iso_to_ket(traj.initial[state_names[_sim_index(i_or_ctx)]]))
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = iso_to_ket(traj.initial[state_names[_sim_index(i_or_ctx)]]))
     ensemble_prob = EnsembleProblem(rollout, prob_func = prob_func)
     ensemble_sol = solve(
         ensemble_prob,
