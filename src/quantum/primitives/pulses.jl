@@ -164,7 +164,7 @@ struct ZeroOrderPulse{I<:ConstantInterpolation} <: AbstractPulse
 end
 
 """
-    ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing, snap_to_knots=true)
+    ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing, snap_to_knots=false)
 
 Create a zero-order hold pulse from control samples and times.
 
@@ -176,11 +176,12 @@ Create a zero-order hold pulse from control samples and times.
 - `drive_name`: Name of the drive variable (default `:u`)
 - `initial_value`: Initial boundary condition (default: zeros(n_drives))
 - `final_value`: Final boundary condition (default: zeros(n_drives))
-- `snap_to_knots`: When `true` (default), `evaluate` snaps query times within
-  `1e-12` of a stored knot time to that knot's value, avoiding the off-by-one
-  that arises when recomputed times (e.g. from `range()`) differ from stored
-  times by float roundoff at `ConstantInterpolation` discontinuities.
-  Set to `false` for raw interpolation behavior.
+- `snap_to_knots`: When `true`, `evaluate` snaps query times within `1e-12`
+  of a stored knot time to that knot's value, avoiding the off-by-one that
+  arises when recomputed times (e.g. from `range()`) differ from stored times
+  by float roundoff at `ConstantInterpolation` discontinuities.
+  Currently defaults to `false` for backward compatibility; will default to
+  `true` in the next minor release. Set explicitly to opt in now.
 """
 function ZeroOrderPulse(
     controls::AbstractMatrix,
@@ -188,7 +189,7 @@ function ZeroOrderPulse(
     drive_name::Symbol = :u,
     initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
-    snap_to_knots::Bool = true,
+    snap_to_knots::Bool = false,
 )
     n_drives = size(controls, 1)
     # :free means "no boundary constraint" (stored as NaN sentinel)
@@ -994,7 +995,7 @@ get_knot_times(p::CompositePulse) =
 using NamedTrajectories: NamedTrajectory, get_times
 
 """
-    ZeroOrderPulse(traj::NamedTrajectory; drive_name=:u, snap_to_knots=true)
+    ZeroOrderPulse(traj::NamedTrajectory; drive_name=:u, snap_to_knots=false)
 
 Construct a ZeroOrderPulse from a NamedTrajectory.
 
@@ -1003,12 +1004,12 @@ Construct a ZeroOrderPulse from a NamedTrajectory.
 
 # Keyword Arguments
 - `drive_name`: Name of the drive component (default: `:u`)
-- `snap_to_knots`: See primary constructor docstring (default: `true`)
+- `snap_to_knots`: See primary constructor docstring (default: `false`)
 """
 function ZeroOrderPulse(
     traj::NamedTrajectory;
     drive_name::Symbol = :u,
-    snap_to_knots::Bool = true,
+    snap_to_knots::Bool = false,
 )
     controls = traj[drive_name]
     times = get_times(traj)
@@ -1608,14 +1609,18 @@ end
     @test times_cumsum != times_range
     @test count(!iszero, times_range .- times_cumsum) > 0
 
-    # Default snap_to_knots=true: evaluation at range times is correct
-    pulse = ZeroOrderPulse(controls, times_cumsum)
+    # Default is snap_to_knots=false (backward compat; will flip in next minor)
+    pulse_default = ZeroOrderPulse(controls, times_cumsum)
+    @test pulse_default.snap_to_knots == false
+
+    # Explicit snap_to_knots=true: evaluation at range times is correct
+    pulse = ZeroOrderPulse(controls, times_cumsum; snap_to_knots = true)
     @test pulse.snap_to_knots == true
     stored = Matrix(pulse.controls.u)
     sampled = hcat([pulse(t) for t in times_range]...)
     @test sampled == stored
 
-    # Batch sample() also correct
+    # Batch sample() correct (is_native bypass, independent of snap_to_knots)
     sampled_batch, _ = sample(pulse, N)
     @test sampled_batch == stored
 
@@ -1623,7 +1628,7 @@ end
     Δt_vec = fill(Δt, N)
     data = (u = controls, Δt = reshape(Δt_vec, 1, N))
     traj = NamedTrajectory(data; timestep = :Δt, controls = (:Δt, :u))
-    pulse_rt = ZeroOrderPulse(traj; drive_name = :u)
+    pulse_rt = ZeroOrderPulse(traj; drive_name = :u, snap_to_knots = true)
     @test pulse_rt.snap_to_knots == true
     rt_range = collect(range(0.0, duration(pulse_rt), length = N))
     rt_sampled = hcat([pulse_rt(t) for t in rt_range]...)
@@ -1641,6 +1646,10 @@ end
             @test sampled_raw[1, k] == stored[1, k-1]
         end
     end
+
+    # Batch sample() with is_native also works on default (snap=false) pulse
+    sampled_default_batch, _ = sample(pulse_default, N)
+    @test sampled_default_batch == stored
 end
 
 end # module Pulses
