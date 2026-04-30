@@ -227,6 +227,45 @@ function add_global_bounds_constraints!(
     end
 end
 
+"""
+    apply_calibration_targets!(constraints, calibration_targets, traj; verbose=false)
+
+For each global variable name in `calibration_targets`, pin it at its current
+value in `traj.global_data` via `fix_global_variable!`. Removes any existing
+`GlobalBoundsConstraint`/`GlobalEqualityConstraint` on the name to avoid MOI
+conflicts (so calling sites can pass `global_bounds` and `calibration_targets`
+together — the latter wins, which is the intended semantics).
+
+This implements the "calibration target" semantics: a global declared here is
+a knob managed by an external calibration step, not a free NLP variable. It is
+held at nominal during the QCP solve so the optimizer cannot drift it as a slack
+variable. Downstream tools (e.g. QILC) selectively unpin individual targets at
+their own discretion.
+
+Modifies `constraints` in place. No-op when `calibration_targets` is empty.
+"""
+function apply_calibration_targets!(
+    constraints::AbstractVector{<:AbstractConstraint},
+    calibration_targets::Vector{Symbol},
+    traj::NamedTrajectory;
+    verbose::Bool = false,
+)
+    isempty(calibration_targets) && return
+    for name in calibration_targets
+        if !haskey(traj.global_components, name)
+            error(
+                "calibration_targets entry :$name not found in trajectory globals. " *
+                "Available: $(keys(traj.global_components))",
+            )
+        end
+        value = collect(Float64, traj.global_data[traj.global_components[name]])
+        fix_global_variable!(constraints, name, value)
+        if verbose
+            println("    pinned :$name as calibration_target at value $value")
+        end
+    end
+end
+
 @testitem "add_global_bounds_constraints! helper function" begin
     using NamedTrajectories
     using DirectTrajOpt
@@ -282,6 +321,72 @@ end
     constraints6 = AbstractConstraint[]
     add_global_bounds_constraints!(constraints6, Dict(:δ => 0.5), traj; verbose = true)
     @test length(constraints6) == 1
+end
+
+@testitem "apply_calibration_targets! pins globals at nominal" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using Piccolo.Control.ProblemTemplates:
+        apply_calibration_targets!, add_global_bounds_constraints!
+
+    N = 5
+    traj = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.7, 1.2, 0.3],
+        global_components = (a = 1:1, b = 2:2, c = 3:3),
+    )
+
+    # Test 1: empty → no-op
+    constraints = AbstractConstraint[]
+    apply_calibration_targets!(constraints, Symbol[], traj)
+    @test isempty(constraints)
+
+    # Test 2: pin :b at its nominal value 1.2
+    apply_calibration_targets!(constraints, [:b], traj)
+    eq_cons = filter(
+        c -> c isa EqualityConstraint && c.var_names == :b && c.is_global,
+        constraints,
+    )
+    @test length(eq_cons) == 1
+    @test eq_cons[1].values ≈ [1.2]
+
+    # Test 3: replaces an existing GlobalBoundsConstraint on the same name
+    constraints2 = AbstractConstraint[]
+    add_global_bounds_constraints!(constraints2, Dict(:b => (-2.0, 2.0)), traj)
+    @test any(c -> c isa BoundsConstraint && c.var_names == :b && c.is_global, constraints2)
+    apply_calibration_targets!(constraints2, [:b], traj)
+    @test !any(
+        c -> c isa BoundsConstraint && c.var_names == :b && c.is_global,
+        constraints2,
+    )
+    @test count(
+        c -> c isa EqualityConstraint && c.var_names == :b && c.is_global,
+        constraints2,
+    ) == 1
+
+    # Test 4: error when name is not a global
+    constraints3 = AbstractConstraint[]
+    @test_throws ErrorException apply_calibration_targets!(
+        constraints3,
+        [:nonexistent],
+        traj,
+    )
+
+    # Test 5: pin multiple targets at once
+    constraints4 = AbstractConstraint[]
+    apply_calibration_targets!(constraints4, [:a, :c], traj)
+    eq_a = filter(
+        c -> c isa EqualityConstraint && c.var_names == :a && c.is_global,
+        constraints4,
+    )
+    eq_c = filter(
+        c -> c isa EqualityConstraint && c.var_names == :c && c.is_global,
+        constraints4,
+    )
+    @test length(eq_a) == 1 && eq_a[1].values ≈ [0.7]
+    @test length(eq_c) == 1 && eq_c[1].values ≈ [0.3]
 end
 
 @testitem "apply_piccolo_options! throws ArgumentError for missing leakage indices" begin
