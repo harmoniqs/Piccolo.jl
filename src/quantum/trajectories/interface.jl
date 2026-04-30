@@ -1270,7 +1270,7 @@ end
     pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
     qtraj_new = rollout(qtraj, pulse2)
 
-    @test length(qtraj_new.solution) == 2
+    @test length(qtraj_new.solution.u) == 2
     @test qtraj_new.pulse === pulse2
 end
 
