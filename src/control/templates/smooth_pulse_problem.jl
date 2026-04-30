@@ -135,7 +135,9 @@ function SmoothPulseProblem(
     free_phase::Bool = false,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     state_leakage_indices::Union{
-        Nothing,AbstractVector{Int},AbstractVector{<:AbstractVector{Int}},
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
     } = nothing,
 )
     if piccolo_options.verbose
@@ -249,7 +251,11 @@ function SmoothPulseProblem(
 
     # Add optional Piccolo constraints and objectives
     J += _apply_piccolo_options(
-        qtraj, piccolo_options, constraints, traj_smooth, state_sym;
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj_smooth,
+        state_sym;
         state_leakage_indices = state_leakage_indices,
     )
 
@@ -357,7 +363,9 @@ function SmoothPulseProblem(
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     coherent::Bool = true,
     state_leakage_indices::Union{
-        Nothing,AbstractVector{Int},AbstractVector{<:AbstractVector{Int}},
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
     } = nothing,
 )
     if piccolo_options.verbose
@@ -436,7 +444,11 @@ function SmoothPulseProblem(
 
     # Apply piccolo options for each state
     J += _apply_piccolo_options(
-        qtraj, piccolo_options, constraints, traj_smooth, snames;
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj_smooth,
+        snames;
         state_leakage_indices = state_leakage_indices,
     )
 
@@ -636,7 +648,9 @@ function _apply_piccolo_options(
     traj::NamedTrajectory,
     snames::Vector{Symbol};
     state_leakage_indices::Union{
-        Nothing,AbstractVector{Int},AbstractVector{<:AbstractVector{Int}},
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
     } = nothing,
 )
     # Resolve leakage indices: user override > auto-derived from goals.
@@ -644,7 +658,7 @@ function _apply_piccolo_options(
     # one per state.
     leakage_indices = if state_leakage_indices !== nothing
         state_leakage_indices isa AbstractVector{Int} ?
-            fill(state_leakage_indices, length(snames)) : state_leakage_indices
+        fill(state_leakage_indices, length(snames)) : state_leakage_indices
     elseif piccolo_options.leakage_constraint
         # Auto-derived: computational subspace = union of nonzero goal indices,
         # leakage = everything else (in isomorphic representation)
