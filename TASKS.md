@@ -2,13 +2,6 @@
 
 ## Todo
 
-### Add plot recipes for pulse types
-<!-- id: PVTI_lADOC9ysqc4BETyazgmXCJY -->
-- **Labels:** feature, visualization
-
-Add plotting support for pulse objects (`SplinePulse`, `ZeroOrderHoldPulse`, `LinearPulse`),
-akin to the existing unitary population plots. Should integrate with the Makie extension.
-
 ### Improved testing for re-solving problems with global variables
 <!-- id: PVTI_lADOC9ysqc4BETyazgmXCJk -->
 - **Labels:** testing
@@ -50,6 +43,19 @@ interact with this.
 ## In Progress
 
 ## Done
+
+### Add plot recipes for pulse types
+<!-- id: PVTI_lADOC9ysqc4BETyazgmXCJY -->
+- **Labels:** feature, visualization
+
+Add plotting support for pulse objects (`SplinePulse`, `ZeroOrderHoldPulse`, `LinearPulse`),
+akin to the existing unitary population plots. Should integrate with the Makie extension.
+
+Landed via `plot_pulse` / `plot_pulse!` (PR #131), with type-aware rendering
+for `ZeroOrderPulse`, `LinearSplinePulse`, `CubicSplinePulse`, `GaussianPulse`,
+`ErfPulse`, `CompositePulse`, and `FunctionPulse`. Supports stacked / overlay
+layouts, hardware bound bands, Hermite tangent whiskers, and theme-aware
+colors (`set_theme!(theme_dark())` is honored).
 
 ### Implement tasksmd-sync for Piccolo.jl
 <!-- id: PVTI_lADOC9ysqc4BETyazgmXCKI -->

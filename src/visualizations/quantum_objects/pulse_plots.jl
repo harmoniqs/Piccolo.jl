@@ -10,6 +10,7 @@ using Piccolo:
     GaussianPulse,
     ErfPulse,
     CompositePulse,
+    FunctionPulse,
     duration,
     n_drives,
     sample,
@@ -21,19 +22,49 @@ using Piccolo:
 using TestItems
 
 # ============================================================================ #
-# Color palette
+# Theme-aware color helpers
 # ============================================================================ #
+#
+# We don't hardcode dark or light visual choices. Instead the plot reads the
+# active Makie theme (via `Makie.current_default_theme()`), so calls like
+# `set_theme!(theme_dark())` automatically get a contrasting neutral for
+# strokes / zero-lines and a palette-driven color cycle for the drive lines.
 
-# Wong colors for accessibility (same palette used in gate_populations, etc.)
-const PULSE_COLORS = [
-    Makie.wong_colors()[1],  # blue
-    Makie.wong_colors()[2],  # orange
-    Makie.wong_colors()[3],  # green
-    Makie.wong_colors()[4],  # red
-    Makie.wong_colors()[5],  # purple
-    Makie.wong_colors()[6],  # brown
-    Makie.wong_colors()[7],  # pink
-]
+const _DEFAULT_PULSE_COLORS = Makie.wong_colors()
+
+function _theme_palette()
+    try
+        theme = Makie.current_default_theme()
+        if haskey(theme, :palette)
+            pal = theme[:palette]
+            if pal isa Makie.Attributes && haskey(pal, :color)
+                colors = Makie.to_value(pal[:color])
+                if colors isa AbstractVector && !isempty(colors)
+                    return colors
+                end
+            end
+        end
+    catch
+    end
+    return _DEFAULT_PULSE_COLORS
+end
+
+function _drive_color(i::Int)
+    pal = _theme_palette()
+    return pal[mod1(i, length(pal))]
+end
+
+# Neutral color that contrasts with the current theme background (text color).
+function _theme_neutral()
+    try
+        theme = Makie.current_default_theme()
+        if haskey(theme, :textcolor)
+            return Makie.to_value(theme[:textcolor])
+        end
+    catch
+    end
+    return :black
+end
 
 # ============================================================================ #
 # Main entry point: plot_pulse
@@ -60,7 +91,22 @@ Each pulse type is rendered to be visually faithful to its actual interpolation:
 - `ZeroOrderPulse`: Step function via `stairs!`
 - `LinearSplinePulse`: Line segments connecting knot values
 - `CubicSplinePulse`: Dense-sampled smooth curve with knot markers
-- `GaussianPulse`, `ErfPulse`, `CompositePulse`: Dense-sampled smooth curve
+- `GaussianPulse`, `ErfPulse`, `CompositePulse`, `FunctionPulse`: Dense-sampled smooth curve
+
+# Theming
+
+`plot_pulse` honors the active Makie theme. To render every pulse plot in dark
+mode (e.g. for a dark documentation build), set the theme once at the top of
+your script:
+
+```julia
+using CairoMakie
+set_theme!(theme_dark())
+```
+
+Drive line colors default to the theme's `:palette[:color]` cycle (falling back
+to the colorblind-safe Wong palette). Knot strokes, zero-lines, and bounds use
+the theme's `:textcolor`, so they remain visible on either background.
 
 # Keyword Arguments
 - `n_samples::Int=500`: Number of time samples for smooth curves (cubic/analytic).
@@ -134,10 +180,10 @@ function plot_pulse(
                 show_knots,
                 show_tangents,
                 tangent_scale,
-                colors = [PULSE_COLORS[mod1(i, length(PULSE_COLORS))]],
+                colors = [_drive_color(i)],
             )
 
-            hlines!(ax, [0.0]; color = :gray, linestyle = :dash, linewidth = 0.5)
+            hlines!(ax, [0.0]; color = (_theme_neutral(), 0.4), linestyle = :dash, linewidth = 0.5)
         end
 
         return fig
@@ -152,7 +198,7 @@ function plot_pulse(
             title = isempty(title) ? "Pulse Controls" : title,
         )
 
-        colors = [PULSE_COLORS[mod1(i, length(PULSE_COLORS))] for i = 1:nd]
+        colors = [_drive_color(i) for i = 1:nd]
         plot_pulse!(ax, pulse; n_samples, show_knots, show_tangents, tangent_scale, colors)
 
         # Legend
@@ -189,7 +235,7 @@ Dispatches rendering based on pulse type for visually accurate results.
 - `show_knots`: Overlay knot markers for interpolated pulses.
 - `show_tangents`: Show derivative tangent whiskers (CubicSplinePulse only).
 - `tangent_scale`: Length scale for tangent whiskers (fraction of duration).
-- `colors`: Vector of colors, one per drive index.
+- `colors`: Vector of colors, one per drive index. Defaults to the active theme palette.
 - `kwargs...`: Forwarded to the underlying Makie plot calls.
 """
 function plot_pulse!(
@@ -204,7 +250,7 @@ function plot_pulse!(
     kwargs...,
 )
     if isnothing(colors)
-        colors = [PULSE_COLORS[mod1(i, length(PULSE_COLORS))] for i in drive_indices]
+        colors = [_drive_color(i) for i in drive_indices]
     end
 
     _plot_pulse_type!(
@@ -261,7 +307,7 @@ function _plot_pulse_type!(
                 color = colors[ci],
                 markersize = 6,
                 strokewidth = 1,
-                strokecolor = :black,
+                strokecolor = _theme_neutral(),
             )
         end
     end
@@ -303,7 +349,7 @@ function _plot_pulse_type!(
                 color = colors[ci],
                 markersize = 6,
                 strokewidth = 1,
-                strokecolor = :black,
+                strokecolor = _theme_neutral(),
             )
         end
     end
@@ -325,7 +371,7 @@ function _plot_pulse_type!(
     kwargs...,
 )
     # Dense sampling for smooth curve
-    controls, times = sample(pulse; n_samples)
+    controls, times = sample(pulse, n_samples)
 
     for (ci, i) in enumerate(drive_indices)
         lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
@@ -344,7 +390,7 @@ function _plot_pulse_type!(
                 color = colors[ci],
                 markersize = 6,
                 strokewidth = 1,
-                strokecolor = :black,
+                strokecolor = _theme_neutral(),
             )
         end
     end
@@ -382,7 +428,7 @@ function _plot_pulse_type!(
 end
 
 # ---------------------------------------------------------------------------- #
-# Fallback for analytic pulses (Gaussian, Erf, Composite, any future type)
+# Fallback for analytic pulses (Gaussian, Erf, Composite, FunctionPulse, …)
 # ---------------------------------------------------------------------------- #
 
 function _plot_pulse_type!(
@@ -396,7 +442,7 @@ function _plot_pulse_type!(
     colors,
     kwargs...,
 )
-    controls, times = sample(pulse; n_samples)
+    controls, times = sample(pulse, n_samples)
 
     for (ci, i) in enumerate(drive_indices)
         lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
@@ -411,20 +457,20 @@ function _draw_bounds!(ax, pulse::AbstractPulse, bound_pair)
     lo, hi = bound_pair
     t_start = 0.0
     t_end = duration(pulse)
+    neutral = _theme_neutral()
     band!(
         ax,
         [t_start, t_end],
         [Float64(lo), Float64(lo)],
         [Float64(hi), Float64(hi)];
-        color = (:steelblue, 0.1),
+        color = (neutral, 0.08),
     )
     hlines!(
         ax,
         [lo, hi];
-        color = :steelblue,
+        color = (neutral, 0.5),
         linestyle = :dash,
         linewidth = 0.8,
-        alpha = 0.5,
     )
 end
 
@@ -449,12 +495,16 @@ function plot_pulse_IQ(
 )
     @assert n_drives(pulse) == 4 "plot_pulse_IQ requires exactly 4 drives (Ω_I, Ω_Q, α_I, α_Q)"
 
-    controls, times = sample(pulse; n_samples)
+    controls, times = sample(pulse, n_samples)
 
     Ω_I, Ω_Q = controls[1, :], controls[2, :]
     α_I, α_Q = controls[3, :], controls[4, :]
     Ω_mag = sqrt.(Ω_I .^ 2 .+ Ω_Q .^ 2)
     α_mag = sqrt.(α_I .^ 2 .+ α_Q .^ 2)
+
+    c_I = _drive_color(1)
+    c_Q = _drive_color(2)
+    c_mag = _theme_neutral()
 
     fig = Figure(size = figsize)
     if !isnothing(title)
@@ -468,9 +518,9 @@ function plot_pulse_IQ(
         ylabel = "Amplitude (rad⋅GHz)",
         title = "Drive (Ω)",
     )
-    lines!(ax1, times, Ω_I; label = "Ω_I", color = :blue)
-    lines!(ax1, times, Ω_Q; label = "Ω_Q", color = :red)
-    lines!(ax1, times, Ω_mag; label = "|Ω|", color = :black, linestyle = :dash)
+    lines!(ax1, times, Ω_I; label = "Ω_I", color = c_I)
+    lines!(ax1, times, Ω_Q; label = "Ω_Q", color = c_Q)
+    lines!(ax1, times, Ω_mag; label = "|Ω|", color = c_mag, linestyle = :dash)
     axislegend(ax1; position = :rt)
 
     # Displacement IQ
@@ -480,9 +530,9 @@ function plot_pulse_IQ(
         ylabel = "Amplitude",
         title = "Displacement (α)",
     )
-    lines!(ax2, times, α_I; label = "α_I", color = :blue)
-    lines!(ax2, times, α_Q; label = "α_Q", color = :red)
-    lines!(ax2, times, α_mag; label = "|α|", color = :black, linestyle = :dash)
+    lines!(ax2, times, α_I; label = "α_I", color = c_I)
+    lines!(ax2, times, α_Q; label = "α_Q", color = c_Q)
+    lines!(ax2, times, α_mag; label = "|α|", color = c_mag, linestyle = :dash)
     axislegend(ax2; position = :rt)
 
     # Overlay knot points
@@ -496,7 +546,7 @@ function plot_pulse_IQ(
                     knot_times,
                     knot_controls[i, :];
                     markersize = 5,
-                    color = :black,
+                    color = c_mag,
                 )
             end
         end
@@ -520,7 +570,7 @@ function plot_pulse_phases(
 )
     @assert n_drives(pulse) == 4 "plot_pulse_phases requires exactly 4 drives"
 
-    controls, times = sample(pulse; n_samples)
+    controls, times = sample(pulse, n_samples)
 
     Ω_I, Ω_Q = controls[1, :], controls[2, :]
     α_I, α_Q = controls[3, :], controls[4, :]
@@ -529,16 +579,19 @@ function plot_pulse_phases(
     Ω_phase = atan.(Ω_Q, Ω_I) ./ π
     α_phase = atan.(α_Q, α_I) ./ π
 
+    c_drive = _drive_color(1)
+    c_disp = _drive_color(2)
+
     fig = Figure(size = figsize)
     if !isnothing(title)
         Label(fig[0, 1:2], title; fontsize = 16, tellwidth = false)
     end
 
     ax1 = Axis(fig[1, 1]; ylabel = "|Ω| (rad⋅GHz)", title = "Drive magnitude")
-    lines!(ax1, times, Ω_mag; color = :blue)
+    lines!(ax1, times, Ω_mag; color = c_drive)
 
     ax2 = Axis(fig[1, 2]; ylabel = "φ_Ω / π", title = "Drive phase")
-    lines!(ax2, times, Ω_phase; color = :blue)
+    lines!(ax2, times, Ω_phase; color = c_drive)
 
     ax3 = Axis(
         fig[2, 1];
@@ -546,7 +599,7 @@ function plot_pulse_phases(
         ylabel = "|α|",
         title = "Displacement magnitude",
     )
-    lines!(ax3, times, α_mag; color = :red)
+    lines!(ax3, times, α_mag; color = c_disp)
 
     ax4 = Axis(
         fig[2, 2];
@@ -554,7 +607,7 @@ function plot_pulse_phases(
         ylabel = "φ_α / π",
         title = "Displacement phase",
     )
-    lines!(ax4, times, α_phase; color = :red)
+    lines!(ax4, times, α_phase; color = c_disp)
 
     return fig
 end
@@ -656,6 +709,20 @@ end
     @test fig isa Figure
 end
 
+@testitem "plot_pulse FunctionPulse" begin
+    using CairoMakie
+    using Piccolo
+
+    T = 1.0
+    pulse = FunctionPulse(t -> [sin(π * t / T)^2, cos(π * t / T)^2], T, 2)
+
+    fig = plot_pulse(pulse; title = "FunctionPulse")
+    @test fig isa Figure
+
+    fig2 = plot_pulse(pulse; layout = :overlay, labels = ["sin²", "cos²"])
+    @test fig2 isa Figure
+end
+
 @testitem "plot_pulse! on existing axis" begin
     using CairoMakie
     using Piccolo
@@ -666,4 +733,24 @@ end
     ax = Axis(fig[1, 1])
     plot_pulse!(ax, pulse)
     @test fig isa Figure
+end
+
+@testitem "plot_pulse honors theme_dark" begin
+    using CairoMakie
+    using Piccolo
+
+    # Render the same pulse under both themes; both should produce a Figure
+    # without throwing on missing palette entries / hardcoded colors.
+    pulse = GaussianPulse([1.0, 0.5], 0.2, 1.0)
+
+    set_theme!(theme_light())
+    fig_light = plot_pulse(pulse; show_knots = true)
+    @test fig_light isa Figure
+
+    set_theme!(theme_dark())
+    fig_dark = plot_pulse(pulse; bounds = [(-1.5, 1.5), (-1.5, 1.5)])
+    @test fig_dark isa Figure
+
+    # Restore default
+    set_theme!()
 end

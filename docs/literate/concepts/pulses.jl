@@ -16,8 +16,16 @@
 # | `LinearSplinePulse` | ``C^0`` | ``\boldsymbol{u}_k`` (knot values) | `SplinePulseProblem` |
 # | `CubicSplinePulse` | ``C^1`` | ``\boldsymbol{u}_k,\, \dot{\boldsymbol{u}}_k`` (values + tangents) | `SplinePulseProblem` |
 # | `GaussianPulse` | ``C^\infty`` | ``A_i, \sigma_i, \mu_i`` (parametric) | Analytical |
+# | `ErfPulse` | ``C^\infty`` | ``A_i, \sigma_i, \mu_i`` (parametric) | Analytical / phase compensation |
 # | `CompositePulse` | varies | union of sub-pulse variables | Various |
 # | `FunctionPulse` | arbitrary | none (fixed function) | Rollout / fidelity evaluation |
+#
+# All pulse types share the [`plot_pulse`](@ref) interface. Each is rendered with
+# a faithful visual reflecting its actual interpolation: stairs for zero-order
+# hold, line segments for linear splines, smooth curves with knot markers for
+# cubic splines, and dense samples for analytic / functional pulses. `plot_pulse`
+# also honors the active Makie theme — set `theme_dark()` once at the top of
+# your script and every plot below picks up dark-friendly colors automatically.
 #
 # ## ZeroOrderPulse
 #
@@ -62,14 +70,28 @@ n_drives(pulse_zop)
 
 # ### Visualization
 #
-# With fewer knots the step structure is clearly visible:
+# With fewer knots the step structure is clearly visible. `plot_pulse` uses
+# `stairs!` with `step = :post` so each knot value is held until the next knot
+# — the visual matches what the integrator actually sees.
 
 using CairoMakie #hide
+import Random #hide
+Random.seed!(0) #hide
 N_demo = 8
 demo_times = collect(range(0, T, length = N_demo))
 demo_controls = 0.5 * randn(n_dr, N_demo)
 demo_zop = ZeroOrderPulse(demo_controls, demo_times)
 plot_pulse(demo_zop; title = "ZeroOrderPulse", labels = ["Drive 1", "Drive 2"])
+
+# Adding hardware bounds shades a band on each subplot — useful when sanity-
+# checking that an initial guess respects amplitude limits.
+
+plot_pulse(
+    demo_zop;
+    title = "ZeroOrderPulse with bounds",
+    labels = ["Drive 1", "Drive 2"],
+    bounds = [(-1.0, 1.0), (-1.0, 1.0)],
+)
 
 # ### Use Case
 #
@@ -177,8 +199,28 @@ u_gauss = pulse_gauss(5.0)
 u_gauss
 
 # ### Visualization
+#
+# Analytic pulses render as a dense smooth curve. `n_samples` controls the
+# resolution — bump it up if you have very narrow features.
 
 plot_pulse(pulse_gauss; title = "GaussianPulse", labels = ["Drive 1", "Drive 2"])
+
+# ## ErfPulse
+#
+# Analytic error-function profile, often used for AC-Stark / phase-compensation
+# in trapped-ion gates:
+#
+# ```math
+# u_i(t) = A_i \,\mathrm{erf}\!\left(\sqrt{2}\,\frac{t - \mu_i}{\sigma_i}\right)
+# ```
+#
+# ### Construction
+
+pulse_erf = ErfPulse([0.8], 2.0, T)
+
+# ### Visualization
+
+plot_pulse(pulse_erf; title = "ErfPulse", labels = ["Phase"])
 
 # ## CompositePulse
 #
@@ -216,6 +258,10 @@ pulse_fn = FunctionPulse(t -> [0.0, 1.5 * sin(π * t / T_fp)^2], T_fp, 2)
 
 ## Evaluate at any time
 pulse_fn(500.0)
+
+# ### Visualization
+
+plot_pulse(pulse_fn; title = "FunctionPulse (sin² envelope)", labels = ["Drive 1", "Drive 2"])
 
 # ### Typical Use
 #
@@ -326,6 +372,24 @@ Label(
     tellwidth = false,
 )
 fig
+
+# ## Theming
+#
+# `plot_pulse` reads the active Makie theme. Calling `set_theme!(theme_dark())`
+# (or any other theme) at the top of a script makes every subsequent plot use a
+# dark-friendly palette — line colors come from the theme's `:palette[:color]`
+# cycle and knot strokes / zero-lines / hardware bounds switch to the theme's
+# text color so they remain readable.
+
+with_theme(theme_dark()) do
+    plot_pulse(
+        demo_cubic;
+        title = "CubicSplinePulse (theme_dark)",
+        labels = ["Drive 1", "Drive 2"],
+        show_tangents = true,
+        tangent_scale = 0.05,
+    )
+end
 
 # ## See Also
 #
