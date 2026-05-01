@@ -160,6 +160,30 @@ fig = with_theme(theme_dark()) do
 end
 fig
 
+# ### IQ pairs (`plot_pulse_IQ`)
+#
+# For 4-drive pulses interpreted as two IQ pairs — drive (Ω_I, Ω_Q) and
+# displacement (α_I, α_Q) — `plot_pulse_IQ` renders each pair on its own row
+# along with the magnitude envelope. This is the typical view for cat-qubit
+# and oscillator-driven control where the drive and displacement are both
+# complex-valued.
+
+T_iq = 50.0
+Ω_max = 0.5
+α_max = 0.3
+σ = T_iq / 6
+center = T_iq / 2
+pulse_iq = GaussianPulse([Ω_max, 0.7 * Ω_max, α_max, 0.7 * α_max], σ, T_iq)
+
+fig = plot_pulse_IQ(pulse_iq; title = "IQ view (Ω, α)")
+
+# ### Magnitude + phase (`plot_pulse_phases`)
+#
+# Same 4-drive structure, polar form: magnitude and unwrapped phase for the
+# drive on the top row, displacement on the bottom row.
+
+fig = plot_pulse_phases(pulse_iq; title = "Polar view (|·|, ∠·)")
+
 # ## Custom Plotting
 #
 # For full control, extract trajectory data and use Makie directly.
