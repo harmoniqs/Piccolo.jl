@@ -18,7 +18,10 @@ else
         exit 1
     fi
 
-    DOC_TEMPLATE_VERSION=$(grep -E '^\s*DOC_TEMPLATE_VERSION:' "$WORKFLOW_FILE" | sed -E 's/.*DOC_TEMPLATE_VERSION:\s*"([^"]+)".*/\1/')
+    # Use POSIX [[:space:]] instead of \s — \s is a GNU extension and is not
+    # honored by BSD grep/sed (macOS), which causes the full matched line
+    # (including any trailing comment) to leak into DOC_TEMPLATE_VERSION.
+    DOC_TEMPLATE_VERSION=$(grep -E '^[[:space:]]*DOC_TEMPLATE_VERSION:' "$WORKFLOW_FILE" | sed -E 's/.*DOC_TEMPLATE_VERSION:[[:space:]]*"([^"]+)".*/\1/')
 fi
 
 if [[ -z "$DOC_TEMPLATE_VERSION" ]]; then
