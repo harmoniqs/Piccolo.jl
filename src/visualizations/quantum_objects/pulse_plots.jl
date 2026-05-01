@@ -754,3 +754,63 @@ end
     # Restore default
     set_theme!()
 end
+
+@testitem "plot_pulse_IQ 4-drive spline" begin
+    using CairoMakie
+    using Piccolo
+    using Random
+
+    Random.seed!(0)
+    T = 50.0
+    n_knots = 16
+    times = collect(range(0, T, length = n_knots))
+    controls = 0.5 * randn(4, n_knots)
+    pulse = LinearSplinePulse(controls, times)
+
+    # Default: knot overlay enabled (spline branch)
+    fig = plot_pulse_IQ(pulse)
+    @test fig isa Figure
+
+    # With title + custom figsize, knots disabled
+    fig2 = plot_pulse_IQ(pulse; title = "MS gate", figsize = (700, 500), show_knots = false)
+    @test fig2 isa Figure
+end
+
+@testitem "plot_pulse_IQ 4-drive analytic" begin
+    using CairoMakie
+    using Piccolo
+
+    # Analytic 4-drive pulse: spline-knot overlay branch is skipped.
+    pulse = GaussianPulse([1.0, 0.7, 0.5, 0.3], 0.2, 1.0)
+    fig = plot_pulse_IQ(pulse)
+    @test fig isa Figure
+end
+
+@testitem "plot_pulse_IQ rejects non-4-drive" begin
+    using CairoMakie
+    using Piccolo
+
+    pulse = GaussianPulse([1.0, 2.0], 0.1, 1.0)  # 2 drives
+    @test_throws AssertionError plot_pulse_IQ(pulse)
+end
+
+@testitem "plot_pulse_phases 4-drive" begin
+    using CairoMakie
+    using Piccolo
+
+    pulse = GaussianPulse([1.0, 0.7, 0.5, 0.3], 0.2, 1.0)
+
+    fig = plot_pulse_phases(pulse)
+    @test fig isa Figure
+
+    fig2 = plot_pulse_phases(pulse; title = "Polar view", figsize = (800, 500))
+    @test fig2 isa Figure
+end
+
+@testitem "plot_pulse_phases rejects non-4-drive" begin
+    using CairoMakie
+    using Piccolo
+
+    pulse = GaussianPulse([1.0], 0.1, 1.0)  # 1 drive
+    @test_throws AssertionError plot_pulse_phases(pulse)
+end
