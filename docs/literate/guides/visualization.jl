@@ -118,11 +118,8 @@ fig = plot_pulse(
 # (`show_tangents=true`). The whisker length is a fraction of duration via
 # `tangent_scale`.
 
-cubic_demo = CubicSplinePulse(
-    0.5 * randn(2, 8),
-    0.3 * randn(2, 8),
-    collect(range(0, T, length = 8)),
-)
+cubic_demo =
+    CubicSplinePulse(0.5 * randn(2, 8), 0.3 * randn(2, 8), collect(range(0, T, length = 8)))
 fig = plot_pulse(
     cubic_demo;
     title = "CubicSplinePulse with tangents",

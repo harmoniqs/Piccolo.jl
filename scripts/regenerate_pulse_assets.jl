@@ -33,40 +33,50 @@ function regenerate(; suffix = "")
 
     # ZeroOrderPulse
     zop = ZeroOrderPulse(controls, times)
-    _save(plot_pulse(zop; title = "ZeroOrderPulse", labels = ["Drive 1", "Drive 2"]),
-        "zero_order" * suffix)
+    _save(
+        plot_pulse(zop; title = "ZeroOrderPulse", labels = ["Drive 1", "Drive 2"]),
+        "zero_order" * suffix,
+    )
 
     # LinearSplinePulse
     lsp = LinearSplinePulse(controls, times)
-    _save(plot_pulse(lsp; title = "LinearSplinePulse", labels = ["Drive 1", "Drive 2"]),
-        "linear_spline" * suffix)
+    _save(
+        plot_pulse(lsp; title = "LinearSplinePulse", labels = ["Drive 1", "Drive 2"]),
+        "linear_spline" * suffix,
+    )
 
     # CubicSplinePulse — values only
     csp = CubicSplinePulse(controls, times)
-    _save(plot_pulse(csp; title = "CubicSplinePulse", labels = ["Drive 1", "Drive 2"]),
-        "cubic_spline" * suffix)
+    _save(
+        plot_pulse(csp; title = "CubicSplinePulse", labels = ["Drive 1", "Drive 2"]),
+        "cubic_spline" * suffix,
+    )
 
     # CubicSplinePulse — with tangents
     Random.seed!(1)
     tangents = 0.3 * randn(2, N_demo)
     csp_t = CubicSplinePulse(controls, tangents, times)
-    _save(plot_pulse(
-        csp_t;
-        title = "CubicSplinePulse (with tangents)",
-        labels = ["Drive 1", "Drive 2"],
-        show_tangents = true,
-        tangent_scale = 0.05,
-    ), "cubic_spline_tangents" * suffix)
+    _save(
+        plot_pulse(
+            csp_t;
+            title = "CubicSplinePulse (with tangents)",
+            labels = ["Drive 1", "Drive 2"],
+            show_tangents = true,
+            tangent_scale = 0.05,
+        ),
+        "cubic_spline_tangents" * suffix,
+    )
 
     # GaussianPulse
     gp = GaussianPulse([0.5, 0.3], [1.0, 1.5], [5.0, 5.0], T)
-    _save(plot_pulse(gp; title = "GaussianPulse", labels = ["Drive 1", "Drive 2"]),
-        "gaussian" * suffix)
+    _save(
+        plot_pulse(gp; title = "GaussianPulse", labels = ["Drive 1", "Drive 2"]),
+        "gaussian" * suffix,
+    )
 
     # ErfPulse
     ep = ErfPulse([0.8], 2.0, T)
-    _save(plot_pulse(ep; title = "ErfPulse", labels = ["Phase"]),
-        "erf" * suffix)
+    _save(plot_pulse(ep; title = "ErfPulse", labels = ["Phase"]), "erf" * suffix)
 
     # CompositePulse — overlay layout
     amp = GaussianPulse([0.5], 1.5, T)
@@ -76,18 +86,23 @@ function regenerate(; suffix = "")
         collect(range(0, T, length = 8)),
     )
     cp = CompositePulse([amp, phs, correction], :concatenate)
-    _save(plot_pulse(
-        cp;
-        layout = :overlay,
-        title = "CompositePulse (Gaussian + Erf + Cubic)",
-        labels = ["Amplitude", "Phase", "Correction"],
-    ), "composite_overlay" * suffix)
+    _save(
+        plot_pulse(
+            cp;
+            layout = :overlay,
+            title = "CompositePulse (Gaussian + Erf + Cubic)",
+            labels = ["Amplitude", "Phase", "Correction"],
+        ),
+        "composite_overlay" * suffix,
+    )
 
     # FunctionPulse
     Tf = 1.0
     fp = FunctionPulse(t -> [sin(π * t / Tf)^2, cos(π * t / Tf)^2], Tf, 2)
-    _save(plot_pulse(fp; title = "FunctionPulse", labels = ["sin²", "cos²"]),
-        "function_pulse" * suffix)
+    _save(
+        plot_pulse(fp; title = "FunctionPulse", labels = ["sin²", "cos²"]),
+        "function_pulse" * suffix,
+    )
 
     # Side-by-side comparison: same data, three interpolations
     cmp_t = collect(range(0, T, length = 7))

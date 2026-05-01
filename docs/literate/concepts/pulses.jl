@@ -261,7 +261,11 @@ pulse_fn(500.0)
 
 # ### Visualization
 
-plot_pulse(pulse_fn; title = "FunctionPulse (sin² envelope)", labels = ["Drive 1", "Drive 2"])
+plot_pulse(
+    pulse_fn;
+    title = "FunctionPulse (sin² envelope)",
+    labels = ["Drive 1", "Drive 2"],
+)
 
 # ### Typical Use
 #

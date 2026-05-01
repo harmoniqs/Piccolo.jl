@@ -183,7 +183,13 @@ function plot_pulse(
                 colors = [_drive_color(i)],
             )
 
-            hlines!(ax, [0.0]; color = (_theme_neutral(), 0.4), linestyle = :dash, linewidth = 0.5)
+            hlines!(
+                ax,
+                [0.0];
+                color = (_theme_neutral(), 0.4),
+                linestyle = :dash,
+                linewidth = 0.5,
+            )
         end
 
         return fig
@@ -465,13 +471,7 @@ function _draw_bounds!(ax, pulse::AbstractPulse, bound_pair)
         [Float64(hi), Float64(hi)];
         color = (neutral, 0.08),
     )
-    hlines!(
-        ax,
-        [lo, hi];
-        color = (neutral, 0.5),
-        linestyle = :dash,
-        linewidth = 0.8,
-    )
+    hlines!(ax, [lo, hi]; color = (neutral, 0.5), linestyle = :dash, linewidth = 0.8)
 end
 
 # ============================================================================ #
