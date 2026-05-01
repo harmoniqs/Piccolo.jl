@@ -85,6 +85,7 @@ The problem adds discrete derivative variables (du, ddu) that:
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator (which does not support global variables). A custom integrator is required when `global_names` is specified.
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator (e.g., HermitianExponentialIntegrator from Piccolissimo) that supports global variables.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
+- `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Bound on discrete first derivative (controls jump rate)
 - `ddu_bound::Float64=1.0`: Bound on discrete second derivative (controls acceleration)
 - `Q::Float64=100.0`: Weight on infidelity/objective
@@ -122,6 +123,7 @@ function SmoothPulseProblem(
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    calibration_targets::Vector{Symbol} = Symbol[],
     du_bound::Float64 = Inf,
     ddu_bound::Float64 = 1.0,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
@@ -284,6 +286,13 @@ function SmoothPulseProblem(
         verbose = piccolo_options.verbose,
     )
 
+    apply_calibration_targets!(
+        all_constraints,
+        calibration_targets,
+        traj_smooth;
+        verbose = piccolo_options.verbose,
+    )
+
     prob = DirectTrajOptProblem(traj_smooth, J, integrators; constraints = all_constraints)
 
     return QuantumControlProblem(qtraj, prob)
@@ -348,6 +357,7 @@ function SmoothPulseProblem(
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    calibration_targets::Vector{Symbol} = Symbol[],
     du_bound::Float64 = Inf,
     ddu_bound::Float64 = 1.0,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
@@ -490,6 +500,13 @@ function SmoothPulseProblem(
     add_global_bounds_constraints!(
         all_constraints,
         global_bounds,
+        traj_smooth;
+        verbose = piccolo_options.verbose,
+    )
+
+    apply_calibration_targets!(
+        all_constraints,
+        calibration_targets,
         traj_smooth;
         verbose = piccolo_options.verbose,
     )
