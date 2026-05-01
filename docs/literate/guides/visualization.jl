@@ -71,108 +71,35 @@ fig = plot_state_populations(traj_ket)
 
 # ## Pulse Plotting
 #
-# The `plot_pulse` function renders any `AbstractPulse` with type-appropriate
-# visuals: step functions for `ZeroOrderPulse`, line segments for
-# `LinearSplinePulse`, smooth curves for `CubicSplinePulse`, dense samples for
-# analytic and `FunctionPulse` types. Knot markers and Hermite tangent
-# whiskers are available where they make sense.
-#
-# `plot_pulse` honors the active Makie theme — set `theme_dark()` once and
-# every plot below switches to dark-friendly colors automatically.
-
-# ### Plot a pulse directly
-
-pulse_demo = ZeroOrderPulse(0.1 * randn(2, N), times)
-fig = plot_pulse(pulse_demo; title = "ZeroOrderPulse", labels = ["u_x", "u_y"])
-
-# ### Overlay layout
-#
-# `:overlay` puts every drive on a single shared axis with a legend — handy for
-# comparing channels at a glance.
-
-fig = plot_pulse(pulse_demo; layout = :overlay, labels = ["u_x", "u_y"])
+# `plot_pulse` renders any `AbstractPulse` with type-appropriate visuals (step
+# functions for `ZeroOrderPulse`, line segments for `LinearSplinePulse`, smooth
+# curves with knots for `CubicSplinePulse`, dense samples for analytic /
+# `FunctionPulse` types). For per-pulse-type construction and rendering
+# examples — including hardware bounds, tangent whiskers, theming, and the
+# `:stacked` vs `:overlay` layouts — see the [Pulses concept page](@ref pulses-concept).
+# This guide focuses on plotting *workflow* pieces specific to optimization output.
 
 # ### Extract and plot the optimized pulse
+#
+# Reconstructing a pulse from a solved trajectory is the canonical
+# pulse-plotting flow. `ZeroOrderPulse(traj)` (and friends) infers the time
+# grid and drive matrix from the trajectory automatically.
 
 optimized_traj = get_trajectory(qcp)
 optimized_pulse = ZeroOrderPulse(optimized_traj)
 fig = plot_pulse(optimized_pulse; title = "Optimized Pulse", labels = ["u_x", "u_y"])
 
-# ### Hardware bounds
-#
-# `bounds = [(lo₁, hi₁), (lo₂, hi₂), …]` shades a band per drive and draws the
-# limits as dashed lines. Useful when sanity-checking that a guess respects
-# amplitude limits without hand-rolling `band!` and `hlines!` calls.
-
-fig = plot_pulse(
-    optimized_pulse;
-    bounds = [(-1.0, 1.0), (-1.0, 1.0)],
-    title = "Pulse with Bounds",
-    labels = ["u_x", "u_y"],
-)
-
-# ### Knot markers and tangent whiskers
-#
-# `CubicSplinePulse` plots knots as filled circles by default (`show_knots=true`)
-# and can also draw the per-knot Hermite tangents as short dashed segments
-# (`show_tangents=true`). The whisker length is a fraction of duration via
-# `tangent_scale`.
-
-cubic_demo =
-    CubicSplinePulse(0.5 * randn(2, 8), 0.3 * randn(2, 8), collect(range(0, T, length = 8)))
-fig = plot_pulse(
-    cubic_demo;
-    title = "CubicSplinePulse with tangents",
-    labels = ["u_x", "u_y"],
-    show_tangents = true,
-    tangent_scale = 0.04,
-)
-
-# ### Composable: add to existing figures
-
-fig = Figure(size = (800, 400))
-ax = Axis(fig[1, 1]; xlabel = "Time", ylabel = "Amplitude", title = "Custom Layout")
-plot_pulse!(ax, optimized_pulse)
-fig
-
-# ### Theming with `set_theme!`
-#
-# To render every plot in dark mode (or any custom theme), call `set_theme!`
-# once at the top of your script. `plot_pulse` derives its drive-line palette
-# from `theme[:palette][:color]` and uses `theme[:textcolor]` for knot strokes,
-# zero-lines, and bounds — so contrast stays correct on either background.
-
-set_theme!(theme_dark())
-
-fig = plot_pulse(
-    optimized_pulse;
-    title = "Optimized pulse (theme_dark)",
-    labels = ["u_x", "u_y"],
-    bounds = [(-1.0, 1.0), (-1.0, 1.0)],
-)
-
-# Use `with_theme` for a scoped override that doesn't affect later plots:
-
-set_theme!()  # restore default
-
-fig = with_theme(theme_dark()) do
-    plot_pulse(cubic_demo; show_tangents = true, tangent_scale = 0.04)
-end
-fig
-
 # ### IQ pairs (`plot_pulse_IQ`)
 #
 # For 4-drive pulses interpreted as two IQ pairs — drive (Ω_I, Ω_Q) and
 # displacement (α_I, α_Q) — `plot_pulse_IQ` renders each pair on its own row
-# along with the magnitude envelope. This is the typical view for cat-qubit
-# and oscillator-driven control where the drive and displacement are both
-# complex-valued.
+# along with the magnitude envelope. Typical view for cat-qubit / oscillator
+# control where both the drive and displacement are complex-valued.
 
 T_iq = 50.0
 Ω_max = 0.5
 α_max = 0.3
 σ = T_iq / 6
-center = T_iq / 2
 pulse_iq = GaussianPulse([Ω_max, 0.7 * Ω_max, α_max, 0.7 * α_max], σ, T_iq)
 
 fig = plot_pulse_IQ(pulse_iq; title = "IQ view (Ω, α)")
@@ -180,7 +107,10 @@ fig = plot_pulse_IQ(pulse_iq; title = "IQ view (Ω, α)")
 # ### Magnitude + phase (`plot_pulse_phases`)
 #
 # Same 4-drive structure, polar form: magnitude and unwrapped phase for the
-# drive on the top row, displacement on the bottom row.
+# drive on the top row, displacement on the bottom row. Phase is masked to NaN
+# wherever the corresponding amplitude is below 1% of its peak (configurable
+# via `phase_threshold`) since `atan(Q, I)` is numerically meaningless in the
+# near-zero region.
 
 fig = plot_pulse_phases(pulse_iq; title = "Polar view (|·|, ∠·)")
 

@@ -490,7 +490,7 @@ function plot_pulse_IQ(
     pulse::AbstractPulse;
     n_samples::Int = 500,
     title::Union{Nothing,String} = nothing,
-    figsize::Tuple = (900, 600),
+    figsize::Tuple = (800, 500),
     show_knots::Bool = true,
 )
     @assert n_drives(pulse) == 4 "plot_pulse_IQ requires exactly 4 drives (Ω_I, Ω_Q, α_I, α_Q)"
@@ -508,7 +508,8 @@ function plot_pulse_IQ(
 
     fig = Figure(size = figsize)
     if !isnothing(title)
-        Label(fig[0, 1:2], title; fontsize = 16, tellwidth = false)
+        # Single-column layout: span the one column the axes actually occupy.
+        Label(fig[0, 1], title; fontsize = 16, tellwidth = false)
     end
 
     # Drive IQ
@@ -556,9 +557,14 @@ function plot_pulse_IQ(
 end
 
 """
-    plot_pulse_phases(pulse::AbstractPulse; n_samples=500, title=nothing, kwargs...)
+    plot_pulse_phases(pulse::AbstractPulse; n_samples=500, title=nothing, figsize=(900, 500), phase_threshold=0.01)
 
 Plot a 4-drive pulse in polar form: magnitude and phase for drive and displacement.
+
+Phase is masked to NaN wherever the corresponding amplitude is below
+`phase_threshold * max(amplitude)`, since `atan(Q, I)` is numerically meaningless
+in the near-zero region and otherwise produces high-frequency noise that swamps
+the meaningful phase signal. Phase axes are pinned to `[-1, 1]` (units of π).
 
 Returns a Makie `Figure` with 4 subplots: |Ω|, φ_Ω, |α|, φ_α.
 """
@@ -566,7 +572,8 @@ function plot_pulse_phases(
     pulse::AbstractPulse;
     n_samples::Int = 500,
     title::Union{Nothing,String} = nothing,
-    figsize::Tuple = (900, 600),
+    figsize::Tuple = (900, 500),
+    phase_threshold::Float64 = 0.01,
 )
     @assert n_drives(pulse) == 4 "plot_pulse_phases requires exactly 4 drives"
 
@@ -576,8 +583,16 @@ function plot_pulse_phases(
     α_I, α_Q = controls[3, :], controls[4, :]
     Ω_mag = sqrt.(Ω_I .^ 2 .+ Ω_Q .^ 2)
     α_mag = sqrt.(α_I .^ 2 .+ α_Q .^ 2)
-    Ω_phase = atan.(Ω_Q, Ω_I) ./ π
-    α_phase = atan.(α_Q, α_I) ./ π
+
+    # Phase is undefined where amplitude → 0; suppress noise where |·| is below
+    # `phase_threshold` × max amplitude by NaN-masking. Makie skips NaN segments
+    # rather than drawing wild oscillations that swamp the actual phase signal.
+    Ω_peak = maximum(Ω_mag)
+    α_peak = maximum(α_mag)
+    Ω_cut = phase_threshold * (Ω_peak > 0 ? Ω_peak : 1.0)
+    α_cut = phase_threshold * (α_peak > 0 ? α_peak : 1.0)
+    Ω_phase = [m > Ω_cut ? atan(q, i) / π : NaN for (m, q, i) in zip(Ω_mag, Ω_Q, Ω_I)]
+    α_phase = [m > α_cut ? atan(q, i) / π : NaN for (m, q, i) in zip(α_mag, α_Q, α_I)]
 
     c_drive = _drive_color(1)
     c_disp = _drive_color(2)
@@ -590,7 +605,10 @@ function plot_pulse_phases(
     ax1 = Axis(fig[1, 1]; ylabel = "|Ω| (rad⋅GHz)", title = "Drive magnitude")
     lines!(ax1, times, Ω_mag; color = c_drive)
 
-    ax2 = Axis(fig[1, 2]; ylabel = "φ_Ω / π", title = "Drive phase")
+    # Pin phase axes to [-1, 1] (units of π) so the visible range stays
+    # consistent across runs and isn't blown out by a stray near-zero point.
+    ax2 = Axis(fig[1, 2]; ylabel = "φ_Ω / π", title = "Drive phase", yticks = -1.0:0.5:1.0)
+    ylims!(ax2, -1.05, 1.05)
     lines!(ax2, times, Ω_phase; color = c_drive)
 
     ax3 = Axis(
@@ -606,7 +624,9 @@ function plot_pulse_phases(
         xlabel = "Time (ns)",
         ylabel = "φ_α / π",
         title = "Displacement phase",
+        yticks = -1.0:0.5:1.0,
     )
+    ylims!(ax4, -1.05, 1.05)
     lines!(ax4, times, α_phase; color = c_disp)
 
     return fig
