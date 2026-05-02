@@ -787,7 +787,7 @@ end
 # proper subscripts — same convention as NamedTrajectories.jl's plot recipe.
 function _default_drive_labels(pulse::AbstractPulse)
     nd = n_drives(pulse)
-    base = String(drive_name(pulse))
+    base = hasfield(typeof(pulse), :drive_name) ? String(drive_name(pulse)) : "u"
     return [latexstring(base, "_{", i, "}") for i = 1:nd]
 end
 
