@@ -59,7 +59,9 @@ function UnitaryTrajectory(
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
-    goal_stored = goal isa Matrix{ComplexF64} || goal isa EmbeddedOperator ? goal : Matrix{ComplexF64}(goal)
+    goal_stored =
+        goal isa Matrix{ComplexF64} || goal isa EmbeddedOperator ? goal :
+        Matrix{ComplexF64}(goal)
 
     if isnothing(algorithm)
         algorithm = default_algorithm(system)
