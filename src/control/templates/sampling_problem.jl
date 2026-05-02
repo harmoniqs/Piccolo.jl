@@ -117,6 +117,7 @@ fidelity objectives for each system.
 - `integrator::Union{Nothing, Function}=nothing`: Optional integrator factory function. When
   provided, it is called as `integrator(sampling_qtraj, N)` and must return an integrator or
   vector of integrators. When `nothing` (default), `BilinearIntegrator` is used.
+- `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. SamplingProblem builds a fresh constraint list (rather than inheriting from the base `qcp`), so calibration_target pins set on the base `qcp` are *not* automatically carried over — pass them here explicitly. Default empty: globals stay free.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Options for the solver
 
 # Returns
@@ -128,6 +129,7 @@ function SamplingProblem(
     weights::Vector{Float64} = fill(1.0, length(systems)),
     Q::Float64 = 100.0,
     integrator::Union{Nothing,Function} = nothing,
+    calibration_targets::Vector{Symbol} = Symbol[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
     if piccolo_options.verbose
@@ -201,6 +203,18 @@ function SamplingProblem(
 
     # 5. Construct problem (TimeConsistencyConstraint auto-applied)
     constraints = AbstractConstraint[]
+
+    # Pin calibration targets at nominal — knobs the user has declared an
+    # external calibration step will manage, not free NLP variables. SamplingProblem
+    # builds a fresh constraint list (cf. base qcp's), so this is not inherited
+    # automatically; the user passes the list explicitly.
+    apply_calibration_targets!(
+        constraints,
+        calibration_targets,
+        new_traj;
+        verbose = piccolo_options.verbose,
+    )
+
     prob =
         DirectTrajOptProblem(new_traj, J_total, all_integrators; constraints = constraints)
 
