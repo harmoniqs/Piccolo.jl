@@ -22,7 +22,7 @@ H_drives = [PAULIS[:X], PAULIS[:Y]]
 sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 T = 10.0
-N = 100
+N = 50
 times = collect(range(0, T, length = N))
 initial_controls = 0.1 * randn(2, N)
 pulse = ZeroOrderPulse(initial_controls, times)
