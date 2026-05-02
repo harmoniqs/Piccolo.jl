@@ -33,6 +33,52 @@ cached_solve!(qcp, "visualization_unitary"; max_iter = 50, verbose = false, prin
 
 fidelity(qcp)
 
+# ## Pulse Plotting
+#
+# `plot_pulse` renders any `AbstractPulse` with type-appropriate visuals (step
+# functions for `ZeroOrderPulse`, line segments for `LinearSplinePulse`, smooth
+# curves with knots for `CubicSplinePulse`, dense samples for analytic /
+# `FunctionPulse` types). For per-pulse-type construction and rendering
+# examples — including hardware bounds, tangent whiskers, theming, and the
+# `:stacked` vs `:overlay` layouts — see the [Pulses concept page](@ref pulses-concept).
+# This guide focuses on plotting *workflow* pieces specific to optimization output.
+
+# ### Plot directly from a `QuantumControlProblem`
+#
+# After solving, `plot_pulse(qcp)` extracts the optimized pulse and renders it
+# in one call. Per-drive labels default to `"<drive_name>_<i>"`. Pass
+# `bounds=true` to shade hardware bounds derived from the system, and
+# `components=[:du, :ddu]` to stack the derivative trajectories beneath the
+# pulse with their own bounded panels (set `component_bounds=true` to read
+# bounds from the `NamedTrajectory`).
+
+fig = plot_pulse(qcp; title = "Optimized Pulse")
+
+# Add hardware bounds and the smoothness derivatives:
+
+fig = plot_pulse(
+    qcp;
+    title = "Optimized Pulse + Smoothness",
+    bounds = true,
+    components = [:du, :ddu],
+    component_bounds = true,
+)
+
+# `plot_pulse(qtraj)` is the unsolved counterpart — handy for sanity-checking
+# the initial guess before kicking off the optimizer:
+
+fig = plot_pulse(qtraj; title = "Initial Guess", bounds = true)
+
+# ### Manual extract + plot
+#
+# If you need to manipulate the pulse before plotting (e.g. resample,
+# convert to a different pulse type), reconstruct it explicitly. The
+# higher-level `plot_pulse(qcp; ...)` calls do this internally.
+
+optimized_traj = get_trajectory(qcp)
+optimized_pulse = ZeroOrderPulse(optimized_traj)
+fig = plot_pulse(optimized_pulse; title = "Optimized Pulse")
+
 # ## Basic Trajectory Plotting
 #
 # The `plot` function from NamedTrajectories.jl plots trajectory components.
@@ -68,26 +114,6 @@ cached_solve!(qcp_ket, "visualization_ket"; max_iter = 50, verbose = false, prin
 
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)
-
-# ## Pulse Plotting
-#
-# `plot_pulse` renders any `AbstractPulse` with type-appropriate visuals (step
-# functions for `ZeroOrderPulse`, line segments for `LinearSplinePulse`, smooth
-# curves with knots for `CubicSplinePulse`, dense samples for analytic /
-# `FunctionPulse` types). For per-pulse-type construction and rendering
-# examples — including hardware bounds, tangent whiskers, theming, and the
-# `:stacked` vs `:overlay` layouts — see the [Pulses concept page](@ref pulses-concept).
-# This guide focuses on plotting *workflow* pieces specific to optimization output.
-
-# ### Extract and plot the optimized pulse
-#
-# Reconstructing a pulse from a solved trajectory is the canonical
-# pulse-plotting flow. `ZeroOrderPulse(traj)` (and friends) infers the time
-# grid and drive matrix from the trajectory automatically.
-
-optimized_traj = get_trajectory(qcp)
-optimized_pulse = ZeroOrderPulse(optimized_traj)
-fig = plot_pulse(optimized_pulse; title = "Optimized Pulse", labels = ["u_x", "u_y"])
 
 # ### IQ pairs (`plot_pulse_IQ`)
 #

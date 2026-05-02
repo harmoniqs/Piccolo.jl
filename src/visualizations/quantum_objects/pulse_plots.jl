@@ -1,9 +1,13 @@
 export plot_pulse, plot_pulse!, plot_pulse_IQ, plot_pulse_phases
 
 using Makie
+using NamedTrajectories: NamedTrajectory, get_times
 using Piccolo:
     AbstractPulse,
     AbstractSplinePulse,
+    AbstractQuantumSystem,
+    AbstractQuantumTrajectory,
+    QuantumControlProblem,
     ZeroOrderPulse,
     LinearSplinePulse,
     CubicSplinePulse,
@@ -17,7 +21,11 @@ using Piccolo:
     get_knot_times,
     get_knot_values,
     get_knot_derivatives,
-    drive_name
+    drive_name,
+    get_pulse,
+    get_system,
+    get_trajectory,
+    extract_pulse
 
 using TestItems
 
@@ -167,28 +175,16 @@ function plot_pulse(
                 ylabel = labels[min(i, length(labels))],
             )
 
-            # Hardware bounds as shaded band
-            if !isnothing(bounds) && i <= length(bounds) && !isnothing(bounds[i])
-                _draw_bounds!(ax, pulse, bounds[i])
-            end
-
-            plot_pulse!(
+            bound_pair = _drive_bound_pair(bounds, i)
+            _draw_pulse_subplot!(
                 ax,
-                pulse;
-                drive_indices = [i],
+                pulse,
+                i;
+                bound_pair,
                 n_samples,
                 show_knots,
                 show_tangents,
                 tangent_scale,
-                colors = [_drive_color(i)],
-            )
-
-            hlines!(
-                ax,
-                [0.0];
-                color = (_theme_neutral(), 0.4),
-                linestyle = :dash,
-                linewidth = 0.5,
             )
         end
 
@@ -456,6 +452,81 @@ function _plot_pulse_type!(
 end
 
 # ============================================================================ #
+# Subplot helpers — used by both `plot_pulse(::AbstractPulse)`'s stacked layout
+# and the high-level `plot_pulse(::QuantumControlProblem)` overload that mixes
+# pulse rows with NamedTrajectory component rows. Centralizing the per-axis
+# rendering keeps the two paths in lockstep.
+# ============================================================================ #
+
+# Pull the (lo, hi) tuple for drive `i` out of a `bounds` argument, or `nothing`
+# if not supplied / out of range.
+function _drive_bound_pair(bounds, i::Int)
+    if isnothing(bounds) || i > length(bounds) || isnothing(bounds[i])
+        return nothing
+    end
+    return bounds[i]
+end
+
+# Render a single pulse drive into `ax`: hardware bound band (if any),
+# type-aware pulse line via `plot_pulse!`, and a faint zero reference.
+function _draw_pulse_subplot!(
+    ax,
+    pulse::AbstractPulse,
+    drive_index::Int;
+    bound_pair = nothing,
+    n_samples::Int = 500,
+    show_knots::Bool = true,
+    show_tangents::Bool = false,
+    tangent_scale::Float64 = 0.1,
+)
+    if !isnothing(bound_pair)
+        _draw_bounds!(ax, pulse, bound_pair)
+    end
+    plot_pulse!(
+        ax,
+        pulse;
+        drive_indices = [drive_index],
+        n_samples,
+        show_knots,
+        show_tangents,
+        tangent_scale,
+        colors = [_drive_color(drive_index)],
+    )
+    hlines!(ax, [0.0]; color = (_theme_neutral(), 0.4), linestyle = :dash, linewidth = 0.5)
+end
+
+# Render a NamedTrajectory component into `ax`: optional shared (lo, hi) band,
+# all dimensions overlaid as lines, and a faint zero reference.
+function _draw_component_subplot!(
+    ax,
+    traj::NamedTrajectory,
+    name::Symbol;
+    bound_pair = nothing,
+)
+    times = collect(get_times(traj))
+
+    if !isnothing(bound_pair)
+        lo, hi = bound_pair
+        t0, t1 = times[1], times[end]
+        neutral = _theme_neutral()
+        band!(
+            ax,
+            [t0, t1],
+            [Float64(lo), Float64(lo)],
+            [Float64(hi), Float64(hi)];
+            color = (neutral, 0.08),
+        )
+        hlines!(ax, [lo, hi]; color = (neutral, 0.5), linestyle = :dash, linewidth = 0.8)
+    end
+
+    data = traj[name]
+    for i = 1:size(data, 1)
+        lines!(ax, times, collect(data[i, :]); color = _drive_color(i), linewidth = 2)
+    end
+    hlines!(ax, [0.0]; color = (_theme_neutral(), 0.4), linestyle = :dash, linewidth = 0.5)
+end
+
+# ============================================================================ #
 # Helper: draw hardware bounds
 # ============================================================================ #
 
@@ -628,6 +699,190 @@ function plot_pulse_phases(
     )
     ylims!(ax4, -1.05, 1.05)
     lines!(ax4, times, α_phase; color = c_disp)
+
+    return fig
+end
+
+# ============================================================================ #
+# High-level overloads — plot from qtraj / qcp directly
+# ============================================================================ #
+
+# Default labels derived from the pulse's drive_name. `:u` → ["u_1", "u_2", …].
+function _default_drive_labels(pulse::AbstractPulse)
+    nd = n_drives(pulse)
+    u_name = drive_name(pulse)
+    return ["$(u_name)_$(i)" for i = 1:nd]
+end
+
+# Convert system.drive_bounds (`Vector{Tuple{Float64,Float64}}`) into the form
+# `plot_pulse` expects, with a length sanity check. Returns `nothing` if the
+# pulse drive count doesn't match (e.g. CompositePulse).
+function _system_bounds(sys::AbstractQuantumSystem, nd::Int)
+    if length(sys.drive_bounds) != nd
+        @warn "System has $(length(sys.drive_bounds)) bounds but pulse has $nd drives — bounds skipped"
+        return nothing
+    end
+    return [(Float64(b[1]), Float64(b[2])) for b in sys.drive_bounds]
+end
+
+# NamedTrajectory stores `bounds[name] = (lower::Vector, upper::Vector)`.
+# Return a per-dimension list of (lo, hi) tuples, or `nothing` if not bounded.
+function _component_bounds(traj::NamedTrajectory, name::Symbol)
+    if !haskey(traj.bounds, name)
+        return nothing
+    end
+    lo, hi = traj.bounds[name]
+    return [(Float64(lo[i]), Float64(hi[i])) for i in eachindex(lo)]
+end
+
+"""
+    plot_pulse(qtraj::AbstractQuantumTrajectory; bounds=false, labels=nothing, kwargs...)
+
+Plot the pulse stored on `qtraj`. Drive labels default to
+`["<drive_name>_1", "<drive_name>_2", …]`. Pass `bounds=true` to shade
+hardware bounds derived from `get_system(qtraj).drive_bounds`.
+
+All other `plot_pulse(::AbstractPulse)` keyword arguments are forwarded.
+"""
+function plot_pulse(
+    qtraj::AbstractQuantumTrajectory;
+    bounds::Bool = false,
+    labels::Union{Nothing,Vector{String}} = nothing,
+    kwargs...,
+)
+    pulse = get_pulse(qtraj)
+    if isnothing(labels)
+        labels = _default_drive_labels(pulse)
+    end
+    actual_bounds = bounds ? _system_bounds(get_system(qtraj), n_drives(pulse)) : nothing
+    return plot_pulse(pulse; bounds = actual_bounds, labels, kwargs...)
+end
+
+"""
+    plot_pulse(qcp::QuantumControlProblem; bounds=false, components=Symbol[], component_bounds=false, labels=nothing, kwargs...)
+
+Plot the (possibly optimized) pulse from a `QuantumControlProblem`.
+
+# Keyword Arguments
+- `bounds::Bool=false`: When `true`, derive per-drive bounds from
+  `get_system(qcp).drive_bounds` and shade them on the pulse subplots.
+- `components::Vector{Symbol}=Symbol[]`: Additional `NamedTrajectory` components
+  to stack under the pulse, e.g. `[:du, :ddu]`. Each renders as one row showing
+  all dimensions overlaid.
+- `component_bounds::Bool=false`: When `true`, read per-component bounds from
+  `get_trajectory(qcp).bounds` and shade them under each component panel. The
+  first dimension's bounds are used as a representative band.
+- `labels::Union{Nothing,Vector{String}}=nothing`: Pulse drive labels (default
+  derived from `drive_name`).
+- All other `plot_pulse(::AbstractPulse)` kwargs are forwarded.
+"""
+function plot_pulse(
+    qcp::QuantumControlProblem;
+    bounds::Bool = false,
+    components::Vector{Symbol} = Symbol[],
+    component_bounds::Bool = false,
+    labels::Union{Nothing,Vector{String}} = nothing,
+    figsize::Union{Nothing,Tuple} = nothing,
+    title::AbstractString = "",
+    kwargs...,
+)
+    traj = get_trajectory(qcp)
+    pulse = extract_pulse(qcp.qtraj, traj)
+    nd = n_drives(pulse)
+
+    if isnothing(labels)
+        labels = _default_drive_labels(pulse)
+    end
+
+    actual_bounds = bounds ? _system_bounds(get_system(qcp), nd) : nothing
+
+    if isempty(components)
+        return plot_pulse(pulse; bounds = actual_bounds, labels, title, figsize, kwargs...)
+    end
+
+    return _plot_pulse_qcp_with_components(
+        pulse,
+        traj,
+        components;
+        bounds = actual_bounds,
+        component_bounds,
+        labels,
+        title,
+        figsize,
+        kwargs...,
+    )
+end
+
+function _plot_pulse_qcp_with_components(
+    pulse::AbstractPulse,
+    traj::NamedTrajectory,
+    components::Vector{Symbol};
+    bounds::Union{Nothing,AbstractVector} = nothing,
+    component_bounds::Bool = false,
+    labels::Vector{String},
+    title::AbstractString = "",
+    figsize::Union{Nothing,Tuple} = nothing,
+    n_samples::Int = 500,
+    show_knots::Bool = true,
+    show_tangents::Bool = false,
+    tangent_scale::Float64 = 0.1,
+    kwargs...,
+)
+    nd = n_drives(pulse)
+    n_total_rows = nd + length(components)
+    sz = isnothing(figsize) ? (800, 100 + 140 * n_total_rows) : figsize
+    fig = Figure(; size = sz, kwargs...)
+
+    # Pulse rows: same per-drive rendering as plot_pulse(::AbstractPulse, layout=:stacked),
+    # but with x-tick suppression (components rows below own the x-axis label).
+    for i = 1:nd
+        ax = Axis(
+            fig[i, 1];
+            titlealign = :left,
+            titlesize = 16,
+            titlefont = :bold,
+            title = (i == 1 && !isempty(title)) ? title : "",
+            xticklabelsvisible = false,
+            xtickalign = 1,
+            ylabel = labels[min(i, length(labels))],
+        )
+        bound_pair = _drive_bound_pair(bounds, i)
+        _draw_pulse_subplot!(
+            ax,
+            pulse,
+            i;
+            bound_pair,
+            n_samples,
+            show_knots,
+            show_tangents,
+            tangent_scale,
+        )
+    end
+
+    # Component rows: one row per component, all dimensions overlaid.
+    for (k, comp) in enumerate(components)
+        row = nd + k
+        is_last = row == n_total_rows
+        ax = Axis(
+            fig[row, 1];
+            xticklabelsvisible = is_last,
+            xtickalign = 1,
+            xlabel = is_last ? "Time" : "",
+            ylabel = String(comp),
+        )
+
+        # Use dim-1 bounds as a representative band — components are typically
+        # bounded uniformly across drives in our problem templates.
+        comp_bound_pair = nothing
+        if component_bounds
+            cb = _component_bounds(traj, comp)
+            if !isnothing(cb) && !isempty(cb)
+                comp_bound_pair = cb[1]
+            end
+        end
+
+        _draw_component_subplot!(ax, traj, comp; bound_pair = comp_bound_pair)
+    end
 
     return fig
 end
@@ -833,4 +1088,67 @@ end
 
     pulse = GaussianPulse([1.0], 0.1, 1.0)  # 1 drive
     @test_throws AssertionError plot_pulse_phases(pulse)
+end
+
+@testitem "plot_pulse(qtraj::UnitaryTrajectory) basic + bounds" begin
+    using CairoMakie
+    using Piccolo
+    using Random
+
+    Random.seed!(0)
+    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 0.8])
+    times = collect(range(0, 1.0, length = 20))
+    pulse = ZeroOrderPulse(0.1 * randn(2, 20), times)
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+
+    fig1 = plot_pulse(qtraj)
+    @test fig1 isa Figure
+
+    fig2 = plot_pulse(qtraj; bounds = true)
+    @test fig2 isa Figure
+end
+
+@testitem "plot_pulse(qtraj::KetTrajectory) smoke" begin
+    using CairoMakie
+    using Piccolo
+    using Random
+
+    Random.seed!(1)
+    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.5])
+    times = collect(range(0, 1.0, length = 20))
+    pulse = LinearSplinePulse(0.1 * randn(1, 20), times)
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1, 0], ComplexF64[0, 1])
+
+    fig = plot_pulse(qtraj; bounds = true, labels = ["Ωx"])
+    @test fig isa Figure
+end
+
+@testitem "plot_pulse(qcp) basic, bounds, components" begin
+    using CairoMakie
+    using Piccolo
+    using Random
+
+    Random.seed!(2)
+    N = 30
+    T = 1.0
+    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    times = collect(range(0, T, length = N))
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
+
+    # Don't actually solve — just verify the trajectory plumbing works at the
+    # initial-guess state.
+
+    fig1 = plot_pulse(qcp)
+    @test fig1 isa Figure
+
+    fig2 = plot_pulse(qcp; bounds = true)
+    @test fig2 isa Figure
+
+    fig3 = plot_pulse(qcp; components = [:du, :ddu])
+    @test fig3 isa Figure
+
+    fig4 = plot_pulse(qcp; bounds = true, components = [:du, :ddu], component_bounds = true)
+    @test fig4 isa Figure
 end
