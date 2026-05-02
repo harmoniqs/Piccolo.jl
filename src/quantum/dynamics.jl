@@ -1174,8 +1174,8 @@ end
     initials = [psi0, psi1]
 
     T = 1.0
-    pulse = ZeroOrderPulse(0.5 * ones(1, 10), collect(range(0.0, T, length=10)))
-    tstops = collect(range(0.0, T, length=50))
+    pulse = ZeroOrderPulse(0.5 * ones(1, 10), collect(range(0.0, T, length = 10)))
+    tstops = collect(range(0.0, T, length = 50))
 
     # Dummy u0 = zeros, mimicking MultiKetTrajectory constructor
     dummy = zeros(ComplexF64, sys.levels)
@@ -1183,17 +1183,17 @@ end
 
     # Use the same _sim_index shim as Piccolo internals
     _sim_index = Piccolo.Quantum.Rollouts._sim_index
-    prob_func(prob, i_or_ctx, _repeat=nothing) =
-        remake(prob, u0=initials[_sim_index(i_or_ctx)])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func=prob_func)
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = initials[_sim_index(i_or_ctx)])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
 
     sol = solve(
         ensemble_prob,
         MagnusAdapt4();
-        trajectories=2,
-        saveat=tstops,
-        abstol=1e-8,
-        reltol=1e-8,
+        trajectories = 2,
+        saveat = tstops,
+        abstol = 1e-8,
+        reltol = 1e-8,
     )
 
     # Initial states must match the provided initials, not the dummy zeros
@@ -1220,10 +1220,10 @@ end
     psi0 = ComplexF64[1.0, 0.0]
     psi1 = ComplexF64[0.0, 1.0]
 
-    pulse = ZeroOrderPulse(0.5 * ones(2, N), collect(range(0.0, T, length=N)))
+    pulse = ZeroOrderPulse(0.5 * ones(2, N), collect(range(0.0, T, length = N)))
     qtraj = MultiKetTrajectory(sys, pulse, [psi0, psi1], [psi1, psi0])
-    qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
-    solve!(qcp; max_iter=50, verbose=false, print_level=1)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
 
     # rollout_fidelity internally constructs an EnsembleProblem with _sim_index
     traj = get_trajectory(qcp)
@@ -1232,7 +1232,7 @@ end
     # This path only triggers the ensemble when there are multiple state names
     @test length(snames) == 2
 
-    fids = rollout_fidelity(traj, sys; state_name=:ψ̃)
+    fids = rollout_fidelity(traj, sys; state_name = :ψ̃)
 
     # Must return multiple fidelities (one per state), not a single scalar
     @test fids isa AbstractVector || fids isa Tuple

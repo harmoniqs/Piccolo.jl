@@ -254,7 +254,7 @@ end
     psi1 = ComplexF64[0.0, 1.0]
 
     T = 1.0
-    pulse = ZeroOrderPulse(0.5 * ones(1, 10), collect(range(0.0, T, length=10)))
+    pulse = ZeroOrderPulse(0.5 * ones(1, 10), collect(range(0.0, T, length = 10)))
     qtraj = MultiKetTrajectory(sys, pulse, [psi0, psi1], [psi1, psi0])
 
     # .solution.u[i] must return an ODESolution-like object, not a scalar
