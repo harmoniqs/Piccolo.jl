@@ -1261,6 +1261,32 @@ end
     @test qtraj_new.pulse === pulse2
 end
 
+@testitem "rollout preserves MultiKetTrajectory solution structure" begin
+    using LinearAlgebra
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    psi0 = ComplexF64[1.0, 0.0]
+    psi1 = ComplexF64[0.0, 1.0]
+
+    pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
+    qtraj = MultiKetTrajectory(sys, pulse1, [psi0, psi1], [psi1, psi0])
+
+    # Roll out with a new pulse
+    pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
+    qtraj_new = rollout(qtraj, pulse2)
+
+    # Solution structure must be preserved
+    @test length(qtraj_new.solution.u) == 2
+    @test qtraj_new.pulse === pulse2
+
+    # New solution must not be all zeros
+    @test !all(x -> x == zero(x), qtraj_new.solution.u[1].u[end])
+    @test !all(x -> x == zero(x), qtraj_new.solution.u[2].u[end])
+
+    # Fidelity must not be exactly 0.0
+    @test fidelity(qtraj_new) != 0.0
+end
+
 @testitem "rollout - MultiKetTrajectory" begin
     using LinearAlgebra
 

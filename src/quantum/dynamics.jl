@@ -1162,5 +1162,88 @@ end
     @test qtraj.system.global_params.Ω == 1.0
 end
 
+@testitem "EnsembleProblem _sim_index compat shim" begin
+    using LinearAlgebra
+    using SciMLBase: EnsembleProblem, solve, remake
+    using OrdinaryDiffEqLinear: MagnusAdapt4
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+
+    psi0 = ComplexF64[1.0, 0.0]
+    psi1 = ComplexF64[0.0, 1.0]
+    initials = [psi0, psi1]
+
+    T = 1.0
+    pulse = ZeroOrderPulse(0.5 * ones(1, 10), collect(range(0.0, T, length=10)))
+    tstops = collect(range(0.0, T, length=50))
+
+    # Dummy u0 = zeros, mimicking MultiKetTrajectory constructor
+    dummy = zeros(ComplexF64, sys.levels)
+    base_prob = KetOperatorODEProblem(sys, pulse, dummy, tstops)
+
+    # Use the same _sim_index shim as Piccolo internals
+    _sim_index = Piccolo.Quantum.Rollouts._sim_index
+    prob_func(prob, i_or_ctx, _repeat=nothing) =
+        remake(prob, u0=initials[_sim_index(i_or_ctx)])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func=prob_func)
+
+    sol = solve(
+        ensemble_prob,
+        MagnusAdapt4();
+        trajectories=2,
+        saveat=tstops,
+        abstol=1e-8,
+        reltol=1e-8,
+    )
+
+    # Initial states must match the provided initials, not the dummy zeros
+    @test sol.u[1].u[1] ≈ psi0
+    @test sol.u[2].u[1] ≈ psi1
+
+    # No element of the final state should be exactly 0.0+0.0im
+    @test !all(x -> x == zero(x), sol.u[1].u[end])
+    @test !all(x -> x == zero(x), sol.u[2].u[end])
+
+    # Norms should be preserved (unitary evolution)
+    @test norm(sol.u[1].u[end]) ≈ 1.0 atol=1e-6
+    @test norm(sol.u[2].u[end]) ≈ 1.0 atol=1e-6
+end
+
+@testitem "rollout_fidelity multi-state ensemble uses _sim_index" begin
+    using LinearAlgebra
+    using NamedTrajectories
+
+    N = 30
+    T = 1.0
+
+    sys = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    psi0 = ComplexF64[1.0, 0.0]
+    psi1 = ComplexF64[0.0, 1.0]
+
+    pulse = ZeroOrderPulse(0.5 * ones(2, N), collect(range(0.0, T, length=N)))
+    qtraj = MultiKetTrajectory(sys, pulse, [psi0, psi1], [psi1, psi0])
+    qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
+    solve!(qcp; max_iter=50, verbose=false, print_level=1)
+
+    # rollout_fidelity internally constructs an EnsembleProblem with _sim_index
+    traj = get_trajectory(qcp)
+    snames = state_names(qcp.qtraj)
+
+    # This path only triggers the ensemble when there are multiple state names
+    @test length(snames) == 2
+
+    fids = rollout_fidelity(traj, sys; state_name=:ψ̃)
+
+    # Must return multiple fidelities (one per state), not a single scalar
+    @test fids isa AbstractVector || fids isa Tuple
+    @test length(fids) == 2
+
+    # No fidelity should be exactly 0.0 (zero-state regression)
+    for f in fids
+        @test f != 0.0
+        @test f > 0.0
+    end
+end
+
 
 end
