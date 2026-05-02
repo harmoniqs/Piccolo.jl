@@ -32,7 +32,14 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 ## consistent step widths. Without this, the optimizer can vary Δt_k.
 opts = PiccoloOptions(timesteps_all_equal = true, verbose = false)
 
-qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0, piccolo_options = opts)
+qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = opts,
+)
 cached_solve!(qcp, "visualization_unitary"; max_iter = 50, print_level = 1)
 
 # Inspect the resulting fidelity:

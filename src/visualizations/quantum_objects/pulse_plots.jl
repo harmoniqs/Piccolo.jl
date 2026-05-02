@@ -640,7 +640,15 @@ function plot_pulse_IQ(
     )
     lines!(ax1, times, Ω_I; label = L"\Omega_I", color = c_I, linewidth = 2)
     lines!(ax1, times, Ω_Q; label = L"\Omega_Q", color = c_Q, linewidth = 2)
-    lines!(ax1, times, Ω_mag; label = L"|\Omega|", color = c_mag, linestyle = :dash, linewidth = 2)
+    lines!(
+        ax1,
+        times,
+        Ω_mag;
+        label = L"|\Omega|",
+        color = c_mag,
+        linestyle = :dash,
+        linewidth = 2,
+    )
     axislegend(ax1; position = :rt)
 
     # Displacement IQ
@@ -656,7 +664,15 @@ function plot_pulse_IQ(
     )
     lines!(ax2, times, α_I; label = L"\alpha_I", color = c_I, linewidth = 2)
     lines!(ax2, times, α_Q; label = L"\alpha_Q", color = c_Q, linewidth = 2)
-    lines!(ax2, times, α_mag; label = L"|\alpha|", color = c_mag, linestyle = :dash, linewidth = 2)
+    lines!(
+        ax2,
+        times,
+        α_mag;
+        label = L"|\alpha|",
+        color = c_mag,
+        linestyle = :dash,
+        linewidth = 2,
+    )
     axislegend(ax2; position = :rt)
 
     # Overlay knot points

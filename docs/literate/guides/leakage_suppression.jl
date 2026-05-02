@@ -165,19 +165,9 @@ qtraj_warm = UnitaryTrajectory(sys, pulse_warm, U_goal)
 
 ## Step 1: Optimize without leakage constraints
 opts_initial = PiccoloOptions(timesteps_all_equal = true, verbose = false)
-qcp_initial = SmoothPulseProblem(
-    qtraj_warm,
-    N;
-    Q = 100.0,
-    R = 1e-3,
-    piccolo_options = opts_initial,
-)
-cached_solve!(
-    qcp_initial,
-    "leakage_initial_2";
-    max_iter = 100,
-    print_level = 1,
-)
+qcp_initial =
+    SmoothPulseProblem(qtraj_warm, N; Q = 100.0, R = 1e-3, piccolo_options = opts_initial)
+cached_solve!(qcp_initial, "leakage_initial_2"; max_iter = 100, print_level = 1)
 fidelity(qcp_initial)
 
 # Populations *before* leakage suppression — note the brief excursion into the
@@ -199,14 +189,8 @@ opts = PiccoloOptions(
     timesteps_all_equal = true,
     verbose = false,
 )
-qcp_leakage =
-    SmoothPulseProblem(qtraj_warm, N; Q = 100.0, R = 1e-3, piccolo_options = opts)
-cached_solve!(
-    qcp_leakage,
-    "leakage_with_suppression_2";
-    max_iter = 150,
-    print_level = 1,
-)
+qcp_leakage = SmoothPulseProblem(qtraj_warm, N; Q = 100.0, R = 1e-3, piccolo_options = opts)
+cached_solve!(qcp_leakage, "leakage_with_suppression_2"; max_iter = 150, print_level = 1)
 fidelity(qcp_leakage)
 
 # Populations *after* leakage suppression — `P_3` is now pinned near zero
