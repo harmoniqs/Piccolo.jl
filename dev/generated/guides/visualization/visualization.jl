@@ -22,16 +22,70 @@ H_drives = [PAULIS[:X], PAULIS[:Y]]
 sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 T = 10.0
-N = 100
+N = 50
 times = collect(range(0, T, length = N))
 initial_controls = 0.1 * randn(2, N)
 pulse = ZeroOrderPulse(initial_controls, times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
-qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-cached_solve!(qcp, "visualization_unitary"; max_iter = 50, verbose = false, print_level = 1)
+## Lock the time grid to a uniform spacing so the ZOH stair plot has
+## consistent step widths. Without this, the optimizer can vary Δt_k.
+opts = PiccoloOptions(timesteps_all_equal = true, verbose = false)
+
+qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = opts,
+)
+cached_solve!(qcp, "visualization_unitary"; max_iter = 50, print_level = 1)
+
+# Inspect the resulting fidelity:
 
 fidelity(qcp)
+
+# ## Pulse Plotting
+#
+# `plot_pulse` renders any `AbstractPulse` with type-appropriate visuals (step
+# functions for `ZeroOrderPulse`, line segments for `LinearSplinePulse`, smooth
+# curves with knots for `CubicSplinePulse`, dense samples for analytic /
+# `FunctionPulse` types). For per-pulse-type construction and rendering
+# examples — including hardware bounds, tangent whiskers, theming, and the
+# `:stacked` vs `:overlay` layouts — see the [Pulses concept page](@ref pulses-concept).
+# This guide focuses on plotting *workflow* pieces specific to optimization output.
+
+# ### Plot directly from a `QuantumControlProblem`
+#
+# After solving, `plot_pulse(qcp)` extracts the optimized pulse and renders it
+# in one call. Per-drive labels default to `"<drive_name>_<i>"`. Pass
+# `bounds=true` to shade hardware bounds derived from the system, and
+# `components=[:du, :ddu]` to stack the derivative trajectories beneath the
+# pulse with their own bounded panels (set `component_bounds=true` to read
+# bounds from the `NamedTrajectory`).
+
+fig = plot_pulse(qcp; title = "Optimized Pulse")
+
+# Add hardware bounds and the smoothness derivatives:
+
+fig = plot_pulse(
+    qcp;
+    title = "Optimized Pulse + Smoothness",
+    bounds = true,
+    components = [:du, :ddu],
+    component_bounds = true,
+)
+
+# ### Manual extract + plot
+#
+# If you need to manipulate the pulse before plotting (e.g. resample,
+# convert to a different pulse type), reconstruct it explicitly. The
+# higher-level `plot_pulse(qcp; ...)` calls do this internally.
+
+optimized_traj = get_trajectory(qcp)
+optimized_pulse = ZeroOrderPulse(optimized_traj)
+fig = plot_pulse(optimized_pulse; title = "Optimized Pulse")
 
 # ## Basic Trajectory Plotting
 #
@@ -68,6 +122,31 @@ cached_solve!(qcp_ket, "visualization_ket"; max_iter = 50, verbose = false, prin
 
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)
+
+# ### IQ pairs (`plot_pulse_IQ`)
+#
+# For 4-drive pulses interpreted as two IQ pairs — drive (Ω_I, Ω_Q) and
+# displacement (α_I, α_Q) — `plot_pulse_IQ` renders each pair on its own row
+# along with the magnitude envelope. Typical view for cat-qubit / oscillator
+# control where both the drive and displacement are complex-valued.
+
+T_iq = 50.0
+Ω_max = 0.5
+α_max = 0.3
+σ = T_iq / 6
+pulse_iq = GaussianPulse([Ω_max, 0.7 * Ω_max, α_max, 0.7 * α_max], σ, T_iq)
+
+fig = plot_pulse_IQ(pulse_iq; title = "IQ view (Ω, α)")
+
+# ### Magnitude + phase (`plot_pulse_phases`)
+#
+# Same 4-drive structure, polar form: magnitude and unwrapped phase for the
+# drive on the top row, displacement on the bottom row. Phase is masked to NaN
+# wherever the corresponding amplitude is below 1% of its peak (configurable
+# via `phase_threshold`) since `atan(Q, I)` is numerically meaningless in the
+# near-zero region.
+
+fig = plot_pulse_phases(pulse_iq; title = "Polar view (|·|, ∠·)")
 
 # ## Custom Plotting
 #
