@@ -300,7 +300,8 @@ function Rollouts.rollout!(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -340,7 +341,8 @@ function Rollouts.rollout!(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -443,7 +445,8 @@ function Rollouts.rollout!(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -482,7 +485,8 @@ function Rollouts.rollout!(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -645,7 +649,8 @@ function Rollouts.rollout(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -715,7 +720,8 @@ function Rollouts.rollout(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -847,7 +853,8 @@ function Rollouts.rollout(
     # Build ensemble problem
     dummy = zeros(ComplexF64, qtraj.system.levels)
     base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -925,7 +932,8 @@ function Rollouts.rollout(
 
     dummy = zeros(ComplexF64, qtraj.system.levels, qtraj.system.levels)
     base_prob = DensityODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = qtraj.initials[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
@@ -1064,7 +1072,7 @@ function Rollouts.fidelity(
     else
         qtraj.goals
     end
-    overlap_sum = sum(goals[i]' * qtraj.solution[i].u[end] for i = 1:n)
+    overlap_sum = sum(goals[i]' * qtraj.solution.u[i].u[end] for i = 1:n)
     return abs2(overlap_sum / n)
 end
 
@@ -1092,7 +1100,7 @@ global phase ambiguity, so we use an incoherent weighted average.
 function Rollouts.fidelity(qtraj::MultiDensityTrajectory)
     n = length(qtraj.goals)
     return sum(
-        qtraj.weights[i] * real(tr(qtraj.solution[i].u[end] * qtraj.goals[i])) for i = 1:n
+        qtraj.weights[i] * real(tr(qtraj.solution.u[i].u[end] * qtraj.goals[i])) for i = 1:n
     )
 end
 
@@ -1253,6 +1261,32 @@ end
     @test qtraj_new.pulse === pulse2
 end
 
+@testitem "rollout preserves MultiKetTrajectory solution structure" begin
+    using LinearAlgebra
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    psi0 = ComplexF64[1.0, 0.0]
+    psi1 = ComplexF64[0.0, 1.0]
+
+    pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
+    qtraj = MultiKetTrajectory(sys, pulse1, [psi0, psi1], [psi1, psi0])
+
+    # Roll out with a new pulse
+    pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
+    qtraj_new = rollout(qtraj, pulse2)
+
+    # Solution structure must be preserved
+    @test length(qtraj_new.solution.u) == 2
+    @test qtraj_new.pulse === pulse2
+
+    # New solution must not be all zeros
+    @test !all(x -> x == zero(x), qtraj_new.solution.u[1].u[end])
+    @test !all(x -> x == zero(x), qtraj_new.solution.u[2].u[end])
+
+    # Fidelity must not be exactly 0.0
+    @test fidelity(qtraj_new) != 0.0
+end
+
 @testitem "rollout - MultiKetTrajectory" begin
     using LinearAlgebra
 
@@ -1270,7 +1304,7 @@ end
     pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
     qtraj_new = rollout(qtraj, pulse2)
 
-    @test length(qtraj_new.solution) == 2
+    @test length(qtraj_new.solution.u) == 2
     @test qtraj_new.pulse === pulse2
 end
 
