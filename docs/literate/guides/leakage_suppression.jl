@@ -103,7 +103,7 @@ opts = PiccoloOptions(
 # ## Complete Example: X Gate on 3-Level Transmon
 
 ## 1. Create multilevel system
-sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.4, 0.4])
+sys = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.15, 0.15])
 
 ## 2. Define embedded gate
 U_goal = EmbeddedOperator(:X, sys)
@@ -155,38 +155,64 @@ leak_constraint = LeakageConstraint(1e-3, leak_indices, :Ũ⃗, traj)
 #
 # Get a working solution first, then add constraints:
 
+# `qtraj_warm` is mutated in-place by Step 1's solve, so Step 2 automatically
+# warm-starts from the unconstrained 0.999-fidelity solution.
+
+T_warm = 10.0
+times_warm = collect(range(0, T_warm, length = N))
+pulse_warm = ZeroOrderPulse(0.05 * randn(2, N), times_warm)
+qtraj_warm = UnitaryTrajectory(sys, pulse_warm, U_goal)
+
 ## Step 1: Optimize without leakage constraints
-qtraj2 = UnitaryTrajectory(sys, pulse, U_goal)
-qcp_initial = SmoothPulseProblem(qtraj2, N; Q = 100.0)
+opts_initial = PiccoloOptions(timesteps_all_equal = true, verbose = false)
+qcp_initial = SmoothPulseProblem(
+    qtraj_warm,
+    N;
+    Q = 100.0,
+    R = 1e-3,
+    piccolo_options = opts_initial,
+)
 cached_solve!(
     qcp_initial,
     "leakage_initial_2";
     max_iter = 100,
-    verbose = false,
     print_level = 1,
 )
+fidelity(qcp_initial)
 
-## Step 2: Add leakage suppression
+# Populations *before* leakage suppression — note the brief excursion into the
+# leakage level (`P_3`) during the gate:
+
+using CairoMakie
+plot_unitary_populations(get_trajectory(qcp_initial))
+
+# ### Step 2: Add leakage suppression
+#
+# Warm-started from the unconstrained solution above, the optimizer now has to
+# bend that trajectory to satisfy the leakage bound — much easier than starting
+# from a random guess.
+
 opts = PiccoloOptions(
-    leakage_cost = 5.0,
+    leakage_cost = 1.0,
     leakage_constraint = true,
-    leakage_constraint_value = 1e-3,
+    leakage_constraint_value = 1e-2,
+    timesteps_all_equal = true,
     verbose = false,
 )
-qcp_leakage = SmoothPulseProblem(qtraj2, N; Q = 100.0, piccolo_options = opts)
+qcp_leakage =
+    SmoothPulseProblem(qtraj_warm, N; Q = 100.0, R = 1e-3, piccolo_options = opts)
 cached_solve!(
     qcp_leakage,
     "leakage_with_suppression_2";
     max_iter = 150,
-    verbose = false,
     print_level = 1,
 )
-
-fidelity(qcp_initial)
-
-#-
-
 fidelity(qcp_leakage)
+
+# Populations *after* leakage suppression — `P_3` is now pinned near zero
+# throughout the gate, at a small fidelity cost:
+
+plot_unitary_populations(get_trajectory(qcp_leakage))
 
 # ### 2. Increase Gate Time
 #
@@ -203,15 +229,6 @@ sys_4level = TransmonSystem(levels = 4, δ = 0.2, drive_bounds = [0.2, 0.2])
 # Lower drives can reduce leakage:
 
 sys_low_drive = TransmonSystem(levels = 3, δ = 0.2, drive_bounds = [0.1, 0.1])
-
-# ## Analyzing Leakage
-#
-# After solving, visualize the state evolution including leakage levels:
-
-using CairoMakie
-
-traj = get_trajectory(qcp)
-fig = plot_unitary_populations(traj)
 
 # ## See Also
 #

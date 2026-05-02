@@ -28,8 +28,14 @@ initial_controls = 0.1 * randn(2, N)
 pulse = ZeroOrderPulse(initial_controls, times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
-qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-cached_solve!(qcp, "visualization_unitary"; max_iter = 50, verbose = false, print_level = 1)
+## Lock the time grid to a uniform spacing so the ZOH stair plot has
+## consistent step widths. Without this, the optimizer can vary Δt_k.
+opts = PiccoloOptions(timesteps_all_equal = true, verbose = false)
+
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0, piccolo_options = opts)
+cached_solve!(qcp, "visualization_unitary"; max_iter = 50, print_level = 1)
+
+# Inspect the resulting fidelity:
 
 fidelity(qcp)
 
@@ -63,11 +69,6 @@ fig = plot_pulse(
     components = [:du, :ddu],
     component_bounds = true,
 )
-
-# `plot_pulse(qtraj)` is the unsolved counterpart — handy for sanity-checking
-# the initial guess before kicking off the optimizer:
-
-fig = plot_pulse(qtraj; title = "Initial Guess", bounds = true)
 
 # ### Manual extract + plot
 #

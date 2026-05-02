@@ -79,7 +79,9 @@ import Random #hide
 Random.seed!(0) #hide
 N_demo = 8
 demo_times = collect(range(0, T, length = N_demo))
-demo_controls = 0.5 * randn(n_dr, N_demo)
+## clamp the random initial guess inside [-1, 1] so the bounds figure below
+## doesn't show stray knots crossing the hardware limit.
+demo_controls = clamp.(0.5 * randn(n_dr, N_demo), -0.95, 0.95)
 demo_zop = ZeroOrderPulse(demo_controls, demo_times)
 plot_pulse(demo_zop; title = "ZeroOrderPulse", labels = ["Drive 1", "Drive 2"])
 

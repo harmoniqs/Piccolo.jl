@@ -1,5 +1,6 @@
 export plot_pulse, plot_pulse!, plot_pulse_IQ, plot_pulse_phases
 
+using LaTeXStrings
 using Makie
 using NamedTrajectories: NamedTrajectory, get_times
 using Piccolo:
@@ -75,6 +76,33 @@ function _theme_neutral()
 end
 
 # ============================================================================ #
+# LaTeX label helpers — render labels in math font for publication quality.
+# Mirrors NamedTrajectories.jl's `latexstring(b, "_{", i, "}")` pattern: italic
+# math letters with proper subscripts. Allows users to pass `LaTeXString`s
+# without double-`$`-wrapping, and keeps plain strings working.
+# ============================================================================ #
+
+# Pass LaTeXString through unchanged; wrap any other string as math.
+_to_latex_label(s::LaTeXString) = s
+_to_latex_label(s::AbstractString) = latexstring(s)
+
+# Render a NamedTrajectory component name as a math label, recognizing the
+# `:du`, `:ddu`, `:dddu` derivative naming convention used across Piccolo
+# problem templates (`smooth_pulse_problem.jl`, etc.) so derivatives render as
+# `\dot{u}`, `\ddot{u}`, `\dddot{u}` instead of literally `du`.
+function _component_latex(name::Symbol)
+    s = String(name)
+    if startswith(s, "ddd") && length(s) > 3
+        return latexstring("\\dddot{", s[4:end], "}")
+    elseif startswith(s, "dd") && length(s) > 2
+        return latexstring("\\ddot{", s[3:end], "}")
+    elseif startswith(s, "d") && length(s) > 1 && !isdigit(s[2])
+        return latexstring("\\dot{", s[2:end], "}")
+    end
+    return latexstring(s)
+end
+
+# ============================================================================ #
 # Main entry point: plot_pulse
 # ============================================================================ #
 
@@ -140,7 +168,7 @@ A Makie `Figure`.
 function plot_pulse(
     pulse::AbstractPulse;
     n_samples::Int = 500,
-    labels::Union{Nothing,Vector{String}} = nothing,
+    labels::Union{Nothing,AbstractVector{<:AbstractString}} = nothing,
     title::AbstractString = "",
     layout::Symbol = :stacked,
     show_knots::Bool = true,
@@ -154,8 +182,12 @@ function plot_pulse(
 
     nd = n_drives(pulse)
 
+    # Always end up with a Vector{LaTeXString} so axis ylabels and legend
+    # entries render in math font with proper italics + subscripts.
     if isnothing(labels)
-        labels = ["Drive $i" for i = 1:nd]
+        labels = _default_drive_labels(pulse)
+    else
+        labels = [_to_latex_label(s) for s in labels]
     end
 
     if layout == :stacked
@@ -166,13 +198,15 @@ function plot_pulse(
             ax = Axis(
                 fig[i, 1];
                 titlealign = :left,
-                titlesize = 16,
+                titlesize = 18,
                 titlefont = :bold,
                 title = (i == 1 && !isempty(title)) ? title : "",
                 xticklabelsvisible = i == nd,
                 xtickalign = 1,
                 xlabel = i == nd ? "Time" : "",
+                xlabelsize = 16,
                 ylabel = labels[min(i, length(labels))],
+                ylabelsize = 16,
             )
 
             bound_pair = _drive_bound_pair(bounds, i)
@@ -188,6 +222,12 @@ function plot_pulse(
             )
         end
 
+        # Tight rowgap between stacked panels — same pattern as
+        # NamedTrajectories.jl's `plot(::NamedTrajectory)`.
+        for i = 1:(nd-1)
+            rowgap!(fig.layout, i, Relative(0.015))
+        end
+
         return fig
 
     else  # :overlay
@@ -196,7 +236,11 @@ function plot_pulse(
         ax = Axis(
             fig[1, 1];
             xlabel = "Time",
+            xlabelsize = 16,
             ylabel = "Amplitude",
+            ylabelsize = 16,
+            titlealign = :left,
+            titlesize = 18,
             title = isempty(title) ? "Pulse Controls" : title,
         )
 
@@ -205,7 +249,7 @@ function plot_pulse(
 
         # Legend
         entries = [LineElement(; color = colors[i], linewidth = 2) for i = 1:nd]
-        Legend(fig[1, 2], entries, labels)
+        Legend(fig[1, 2], entries, labels; tellheight = false)
 
         return fig
     end
@@ -580,31 +624,39 @@ function plot_pulse_IQ(
     fig = Figure(size = figsize)
     if !isnothing(title)
         # Single-column layout: span the one column the axes actually occupy.
-        Label(fig[0, 1], title; fontsize = 16, tellwidth = false)
+        Label(fig[0, 1], title; fontsize = 18, font = :bold, tellwidth = false)
     end
 
     # Drive IQ
     ax1 = Axis(
         fig[1, 1];
         xlabel = "Time (ns)",
+        xlabelsize = 16,
         ylabel = "Amplitude (rad⋅GHz)",
-        title = "Drive (Ω)",
+        ylabelsize = 16,
+        title = L"\mathrm{Drive}\;(\Omega)",
+        titlesize = 18,
+        titlealign = :left,
     )
-    lines!(ax1, times, Ω_I; label = "Ω_I", color = c_I)
-    lines!(ax1, times, Ω_Q; label = "Ω_Q", color = c_Q)
-    lines!(ax1, times, Ω_mag; label = "|Ω|", color = c_mag, linestyle = :dash)
+    lines!(ax1, times, Ω_I; label = L"\Omega_I", color = c_I, linewidth = 2)
+    lines!(ax1, times, Ω_Q; label = L"\Omega_Q", color = c_Q, linewidth = 2)
+    lines!(ax1, times, Ω_mag; label = L"|\Omega|", color = c_mag, linestyle = :dash, linewidth = 2)
     axislegend(ax1; position = :rt)
 
     # Displacement IQ
     ax2 = Axis(
         fig[2, 1];
         xlabel = "Time (ns)",
+        xlabelsize = 16,
         ylabel = "Amplitude",
-        title = "Displacement (α)",
+        ylabelsize = 16,
+        title = L"\mathrm{Displacement}\;(\alpha)",
+        titlesize = 18,
+        titlealign = :left,
     )
-    lines!(ax2, times, α_I; label = "α_I", color = c_I)
-    lines!(ax2, times, α_Q; label = "α_Q", color = c_Q)
-    lines!(ax2, times, α_mag; label = "|α|", color = c_mag, linestyle = :dash)
+    lines!(ax2, times, α_I; label = L"\alpha_I", color = c_I, linewidth = 2)
+    lines!(ax2, times, α_Q; label = L"\alpha_Q", color = c_Q, linewidth = 2)
+    lines!(ax2, times, α_mag; label = L"|\alpha|", color = c_mag, linestyle = :dash, linewidth = 2)
     axislegend(ax2; position = :rt)
 
     # Overlay knot points
@@ -670,35 +722,58 @@ function plot_pulse_phases(
 
     fig = Figure(size = figsize)
     if !isnothing(title)
-        Label(fig[0, 1:2], title; fontsize = 16, tellwidth = false)
+        Label(fig[0, 1:2], title; fontsize = 18, font = :bold, tellwidth = false)
     end
 
-    ax1 = Axis(fig[1, 1]; ylabel = "|Ω| (rad⋅GHz)", title = "Drive magnitude")
-    lines!(ax1, times, Ω_mag; color = c_drive)
+    ax1 = Axis(
+        fig[1, 1];
+        ylabel = L"|\Omega|\;(\mathrm{rad}\!\cdot\!\mathrm{GHz})",
+        ylabelsize = 16,
+        title = "Drive magnitude",
+        titlesize = 18,
+        titlealign = :left,
+    )
+    lines!(ax1, times, Ω_mag; color = c_drive, linewidth = 2)
 
     # Pin phase axes to [-1, 1] (units of π) so the visible range stays
     # consistent across runs and isn't blown out by a stray near-zero point.
-    ax2 = Axis(fig[1, 2]; ylabel = "φ_Ω / π", title = "Drive phase", yticks = -1.0:0.5:1.0)
+    ax2 = Axis(
+        fig[1, 2];
+        ylabel = L"\varphi_\Omega / \pi",
+        ylabelsize = 16,
+        title = "Drive phase",
+        titlesize = 18,
+        titlealign = :left,
+        yticks = -1.0:0.5:1.0,
+    )
     ylims!(ax2, -1.05, 1.05)
-    lines!(ax2, times, Ω_phase; color = c_drive)
+    lines!(ax2, times, Ω_phase; color = c_drive, linewidth = 2)
 
     ax3 = Axis(
         fig[2, 1];
         xlabel = "Time (ns)",
-        ylabel = "|α|",
+        xlabelsize = 16,
+        ylabel = L"|\alpha|",
+        ylabelsize = 16,
         title = "Displacement magnitude",
+        titlesize = 18,
+        titlealign = :left,
     )
-    lines!(ax3, times, α_mag; color = c_disp)
+    lines!(ax3, times, α_mag; color = c_disp, linewidth = 2)
 
     ax4 = Axis(
         fig[2, 2];
         xlabel = "Time (ns)",
-        ylabel = "φ_α / π",
+        xlabelsize = 16,
+        ylabel = L"\varphi_\alpha / \pi",
+        ylabelsize = 16,
         title = "Displacement phase",
+        titlesize = 18,
+        titlealign = :left,
         yticks = -1.0:0.5:1.0,
     )
     ylims!(ax4, -1.05, 1.05)
-    lines!(ax4, times, α_phase; color = c_disp)
+    lines!(ax4, times, α_phase; color = c_disp, linewidth = 2)
 
     return fig
 end
@@ -707,11 +782,13 @@ end
 # High-level overloads — plot from qtraj / qcp directly
 # ============================================================================ #
 
-# Default labels derived from the pulse's drive_name. `:u` → ["u_1", "u_2", …].
+# Default labels derived from the pulse's drive_name. `:u` → [L"u_{1}", L"u_{2}", …].
+# Uses `latexstring` so labels render in math font with italic letters and
+# proper subscripts — same convention as NamedTrajectories.jl's plot recipe.
 function _default_drive_labels(pulse::AbstractPulse)
     nd = n_drives(pulse)
-    u_name = drive_name(pulse)
-    return ["$(u_name)_$(i)" for i = 1:nd]
+    base = String(drive_name(pulse))
+    return [latexstring(base, "_{", i, "}") for i = 1:nd]
 end
 
 # Convert system.drive_bounds (`Vector{Tuple{Float64,Float64}}`) into the form
@@ -747,13 +824,10 @@ All other `plot_pulse(::AbstractPulse)` keyword arguments are forwarded.
 function plot_pulse(
     qtraj::AbstractQuantumTrajectory;
     bounds::Bool = false,
-    labels::Union{Nothing,Vector{String}} = nothing,
+    labels::Union{Nothing,AbstractVector{<:AbstractString}} = nothing,
     kwargs...,
 )
     pulse = get_pulse(qtraj)
-    if isnothing(labels)
-        labels = _default_drive_labels(pulse)
-    end
     actual_bounds = bounds ? _system_bounds(get_system(qtraj), n_drives(pulse)) : nothing
     return plot_pulse(pulse; bounds = actual_bounds, labels, kwargs...)
 end
@@ -781,7 +855,7 @@ function plot_pulse(
     bounds::Bool = false,
     components::Vector{Symbol} = Symbol[],
     component_bounds::Bool = false,
-    labels::Union{Nothing,Vector{String}} = nothing,
+    labels::Union{Nothing,AbstractVector{<:AbstractString}} = nothing,
     figsize::Union{Nothing,Tuple} = nothing,
     title::AbstractString = "",
     kwargs...,
@@ -792,6 +866,8 @@ function plot_pulse(
 
     if isnothing(labels)
         labels = _default_drive_labels(pulse)
+    else
+        labels = [_to_latex_label(s) for s in labels]
     end
 
     actual_bounds = bounds ? _system_bounds(get_system(qcp), nd) : nothing
@@ -819,7 +895,7 @@ function _plot_pulse_qcp_with_components(
     components::Vector{Symbol};
     bounds::Union{Nothing,AbstractVector} = nothing,
     component_bounds::Bool = false,
-    labels::Vector{String},
+    labels::AbstractVector{<:AbstractString},
     title::AbstractString = "",
     figsize::Union{Nothing,Tuple} = nothing,
     n_samples::Int = 500,
@@ -839,12 +915,13 @@ function _plot_pulse_qcp_with_components(
         ax = Axis(
             fig[i, 1];
             titlealign = :left,
-            titlesize = 16,
+            titlesize = 18,
             titlefont = :bold,
             title = (i == 1 && !isempty(title)) ? title : "",
             xticklabelsvisible = false,
             xtickalign = 1,
             ylabel = labels[min(i, length(labels))],
+            ylabelsize = 16,
         )
         bound_pair = _drive_bound_pair(bounds, i)
         _draw_pulse_subplot!(
@@ -860,6 +937,7 @@ function _plot_pulse_qcp_with_components(
     end
 
     # Component rows: one row per component, all dimensions overlaid.
+    # Component ylabels are LaTeX-rendered: `:du` → \dot{u}, `:ddu` → \ddot{u}.
     for (k, comp) in enumerate(components)
         row = nd + k
         is_last = row == n_total_rows
@@ -868,7 +946,9 @@ function _plot_pulse_qcp_with_components(
             xticklabelsvisible = is_last,
             xtickalign = 1,
             xlabel = is_last ? "Time" : "",
-            ylabel = String(comp),
+            xlabelsize = 16,
+            ylabel = _component_latex(comp),
+            ylabelsize = 16,
         )
 
         # Use dim-1 bounds as a representative band — components are typically
@@ -882,6 +962,11 @@ function _plot_pulse_qcp_with_components(
         end
 
         _draw_component_subplot!(ax, traj, comp; bound_pair = comp_bound_pair)
+    end
+
+    # Tight rowgap to match plot_pulse(::AbstractPulse) stacked layout.
+    for i = 1:(n_total_rows-1)
+        rowgap!(fig.layout, i, Relative(0.015))
     end
 
     return fig
