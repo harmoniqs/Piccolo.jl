@@ -17,7 +17,7 @@ using ..Pulses:
     GaussianPulse,
     ErfPulse,
     CompositePulse
-using ..Pulses: duration, drive_name, n_drives
+using ..Pulses: duration, drive_name, n_drives, sample
 using ..Pulses: get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
 import ..Pulses: duration, drive_name
 import ..Rollouts

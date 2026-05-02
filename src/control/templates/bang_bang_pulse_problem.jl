@@ -27,6 +27,7 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator.
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables.
+- `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Bound on discrete first derivative
 - `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Timestep bounds
 - `Q::Float64=100.0`: Weight on infidelity/objective
@@ -59,6 +60,7 @@ function BangBangPulseProblem(
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    calibration_targets::Vector{Symbol} = Symbol[],
     du_bound::Float64 = Inf,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
@@ -222,6 +224,13 @@ function BangBangPulseProblem(
         verbose = piccolo_options.verbose,
     )
 
+    apply_calibration_targets!(
+        all_constraints,
+        calibration_targets,
+        traj_bb;
+        verbose = piccolo_options.verbose,
+    )
+
     prob = DirectTrajOptProblem(traj_bb, J, integrators; constraints = all_constraints)
 
     return QuantumControlProblem(qtraj, prob)
@@ -245,6 +254,7 @@ function BangBangPulseProblem(
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    calibration_targets::Vector{Symbol} = Symbol[],
     du_bound::Float64 = Inf,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
@@ -387,6 +397,13 @@ function BangBangPulseProblem(
     add_global_bounds_constraints!(
         all_constraints,
         global_bounds,
+        traj_bb;
+        verbose = piccolo_options.verbose,
+    )
+
+    apply_calibration_targets!(
+        all_constraints,
+        calibration_targets,
         traj_bb;
         verbose = piccolo_options.verbose,
     )

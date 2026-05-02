@@ -85,6 +85,7 @@ The problem adds discrete derivative variables (du, ddu) that:
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator (which does not support global variables). A custom integrator is required when `global_names` is specified.
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator (e.g., HermitianExponentialIntegrator from Piccolissimo) that supports global variables.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
+- `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Bound on discrete first derivative (controls jump rate)
 - `ddu_bound::Float64=1.0`: Bound on discrete second derivative (controls acceleration)
 - `Q::Float64=100.0`: Weight on infidelity/objective
@@ -122,6 +123,7 @@ function SmoothPulseProblem(
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    calibration_targets::Vector{Symbol} = Symbol[],
     du_bound::Float64 = Inf,
     ddu_bound::Float64 = 1.0,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
@@ -134,6 +136,11 @@ function SmoothPulseProblem(
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing,
 )
     if piccolo_options.verbose
         traj_type = split(string(typeof(qtraj).name.name), ".")[end]
@@ -245,7 +252,14 @@ function SmoothPulseProblem(
     J += QuadraticRegularizer(control_names[3], traj_smooth, R_ddu)
 
     # Add optional Piccolo constraints and objectives
-    J += _apply_piccolo_options(qtraj, piccolo_options, constraints, traj_smooth, state_sym)
+    J += _apply_piccolo_options(
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj_smooth,
+        state_sym;
+        state_leakage_indices = state_leakage_indices,
+    )
 
     # Start with dynamics integrators
     integrators = copy(dynamics_integrators)
@@ -268,6 +282,13 @@ function SmoothPulseProblem(
     add_global_bounds_constraints!(
         all_constraints,
         global_bounds,
+        traj_smooth;
+        verbose = piccolo_options.verbose,
+    )
+
+    apply_calibration_targets!(
+        all_constraints,
+        calibration_targets,
         traj_smooth;
         verbose = piccolo_options.verbose,
     )
@@ -336,6 +357,7 @@ function SmoothPulseProblem(
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
+    calibration_targets::Vector{Symbol} = Symbol[],
     du_bound::Float64 = Inf,
     ddu_bound::Float64 = 1.0,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
@@ -350,6 +372,11 @@ function SmoothPulseProblem(
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     coherent::Bool = true,
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing,
 )
     if piccolo_options.verbose
         println(
@@ -426,7 +453,14 @@ function SmoothPulseProblem(
     J += QuadraticRegularizer(control_names[3], traj_smooth, R_ddu)
 
     # Apply piccolo options for each state
-    J += _apply_piccolo_options(qtraj, piccolo_options, constraints, traj_smooth, snames)
+    J += _apply_piccolo_options(
+        qtraj,
+        piccolo_options,
+        constraints,
+        traj_smooth,
+        snames;
+        state_leakage_indices = state_leakage_indices,
+    )
 
     # Build integrators: one dynamics integrator per state
     if isnothing(integrator)
@@ -466,6 +500,13 @@ function SmoothPulseProblem(
     add_global_bounds_constraints!(
         all_constraints,
         global_bounds,
+        traj_smooth;
+        verbose = piccolo_options.verbose,
+    )
+
+    apply_calibration_targets!(
+        all_constraints,
+        calibration_targets,
         traj_smooth;
         verbose = piccolo_options.verbose,
     )
@@ -521,16 +562,23 @@ function _apply_piccolo_options(
     piccolo_options::PiccoloOptions,
     constraints::Vector{<:AbstractConstraint},
     traj::NamedTrajectory,
-    state_sym::Symbol,
+    state_sym::Symbol;
+    state_leakage_indices::Union{Nothing,AbstractVector{Int}} = nothing,
 )
     U_goal = qtraj.goal
+    indices = if state_leakage_indices !== nothing
+        state_leakage_indices
+    elseif U_goal isa EmbeddedOperator
+        get_iso_vec_leakage_indices(U_goal)
+    else
+        nothing
+    end
     return apply_piccolo_options!(
         piccolo_options,
         constraints,
         traj;
         state_names = state_sym,
-        state_leakage_indices = U_goal isa EmbeddedOperator ?
-                                get_iso_vec_leakage_indices(U_goal) : nothing,
+        state_leakage_indices = indices,
     )
 end
 
@@ -539,13 +587,15 @@ function _apply_piccolo_options(
     piccolo_options::PiccoloOptions,
     constraints::Vector{<:AbstractConstraint},
     traj::NamedTrajectory,
-    state_sym::Symbol,
+    state_sym::Symbol;
+    state_leakage_indices::Union{Nothing,AbstractVector{Int}} = nothing,
 )
     return apply_piccolo_options!(
         piccolo_options,
         constraints,
         traj;
         state_names = state_sym,
+        state_leakage_indices = state_leakage_indices,
     )
 end
 
@@ -554,13 +604,15 @@ function _apply_piccolo_options(
     piccolo_options::PiccoloOptions,
     constraints::Vector{<:AbstractConstraint},
     traj::NamedTrajectory,
-    state_sym::Symbol,
+    state_sym::Symbol;
+    state_leakage_indices::Union{Nothing,AbstractVector{Int}} = nothing,
 )
     return apply_piccolo_options!(
         piccolo_options,
         constraints,
         traj;
         state_names = state_sym,
+        state_leakage_indices = state_leakage_indices,
     )
 end
 
@@ -611,12 +663,22 @@ function _apply_piccolo_options(
     piccolo_options::PiccoloOptions,
     constraints::Vector{<:AbstractConstraint},
     traj::NamedTrajectory,
-    snames::Vector{Symbol},
+    snames::Vector{Symbol};
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing,
 )
-    # Compute ket leakage indices from goal states:
-    # Computational subspace = union of nonzero indices across all goals
-    # Leakage indices = everything else, in isomorphic representation
-    leakage_indices = if piccolo_options.leakage_constraint
+    # Resolve leakage indices: user override > auto-derived from goals.
+    # User can pass a single iso_leak vector (broadcast to all states) or
+    # one per state.
+    leakage_indices = if state_leakage_indices !== nothing
+        state_leakage_indices isa AbstractVector{Int} ?
+        fill(state_leakage_indices, length(snames)) : state_leakage_indices
+    elseif piccolo_options.leakage_constraint
+        # Auto-derived: computational subspace = union of nonzero goal indices,
+        # leakage = everything else (in isomorphic representation)
         dim = length(qtraj.goals[1])
         comp = sort(union([findall(!iszero, g) for g in qtraj.goals]...))
         leak = setdiff(1:dim, comp)
