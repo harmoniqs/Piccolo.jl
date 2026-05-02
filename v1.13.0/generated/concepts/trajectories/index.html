@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Trajectories · Piccolo.jl</title><meta name="title" content="Trajectories · Piccolo.jl"/><meta property="og:title" content="Trajectories · Piccolo.jl"/><meta property="twitter:title" content="Trajectories · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/concepts/trajectories/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/concepts/trajectories/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/concepts/trajectories/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../../"><img class="docs-light-only" src="../../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li class="is-active"><a class="tocitem" href>Trajectories</a><ul class="internal"><li><a class="tocitem" href="#Overview"><span>Overview</span></a></li><li><a class="tocitem" href="#Trajectory-Types"><span>Trajectory Types</span></a></li><li><a class="tocitem" href="#UnitaryTrajectory"><span>UnitaryTrajectory</span></a></li><li><a class="tocitem" href="#KetTrajectory"><span>KetTrajectory</span></a></li><li><a class="tocitem" href="#MultiKetTrajectory"><span>MultiKetTrajectory</span></a></li><li><a class="tocitem" href="#DensityTrajectory"><span>DensityTrajectory</span></a></li><li><a class="tocitem" href="#MultiDensityTrajectory"><span>MultiDensityTrajectory</span></a></li><li><a class="tocitem" href="#SamplingTrajectory"><span>SamplingTrajectory</span></a></li><li><a class="tocitem" href="#Common-Operations"><span>Common Operations</span></a></li><li><a class="tocitem" href="#Best-Practices"><span>Best Practices</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../pulses/">Pulses</a></li><li><a class="tocitem" href="../objectives/">Objectives</a></li><li><a class="tocitem" href="../constraints/">Constraints</a></li><li><a class="tocitem" href="../operators/">Operators</a></li><li><a class="tocitem" href="../isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../../problem-templates/smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/bang_bang_pulse/">BangBangPulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/spline_pulse/">SplinePulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/minimum_time/">MinimumTimeProblem</a></li><li><a class="tocitem" href="../../problem-templates/sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../../problem-templates/composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../../systems/">Overview</a></li><li><a class="tocitem" href="../../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li><a class="tocitem" href="../../guides/leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../../guides/global_variables/">Global Variables</a></li><li><a class="tocitem" href="../../guides/visualization/">Visualization</a></li><li><a class="tocitem" href="../../guides/custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Concepts</a></li><li class="is-active"><a href>Trajectories</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Trajectories</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/concepts/trajectories.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="trajectories-concept"><a class="docs-heading-anchor" href="#trajectories-concept">Trajectories</a><a id="trajectories-concept-1"></a><a class="docs-heading-anchor-permalink" href="#trajectories-concept" title="Permalink"></a></h1><p>A trajectory bundles a quantum system, a control pulse, and a goal into the central object that problem templates consume.</p><h2 id="Overview"><a class="docs-heading-anchor" href="#Overview">Overview</a><a id="Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Overview" title="Permalink"></a></h2><p>Every trajectory type defines:</p><ul><li>The <strong>state</strong> <span>$x_k$</span> and its dynamics <span>$x_{k+1} = \exp(\Delta t_k\, G(\boldsymbol{u}_k))\, x_k$</span></li><li>The <strong>initial condition</strong> <span>$x_1 = x_{\text{init}}$</span></li><li>The <strong>goal</strong> <span>$x_{\text{goal}}$</span> and associated fidelity metric</li></ul><h2 id="Trajectory-Types"><a class="docs-heading-anchor" href="#Trajectory-Types">Trajectory Types</a><a id="Trajectory-Types-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Types" title="Permalink"></a></h2><table><tr><th style="text-align: right">Type</th><th style="text-align: right">Dynamics</th><th style="text-align: right">State <span>$x_k$</span></th><th style="text-align: right">Fidelity <span>$F$</span></th><th style="text-align: right"><span>$\dim(x_k)$</span></th></tr><tr><td style="text-align: right"><code>UnitaryTrajectory</code></td><td style="text-align: right"><span>$\dot{U} = -iH\,U$</span></td><td style="text-align: right"><span>$\tilde{U} \in \mathbb{R}^{2d^2}$</span></td><td style="text-align: right"><span>$\lvert\operatorname{tr}(U_g^\dagger U)\rvert^2 / d^2$</span></td><td style="text-align: right"><span>$2d^2$</span></td></tr><tr><td style="text-align: right"><code>KetTrajectory</code></td><td style="text-align: right"><span>$\dot{\psi} = -iH\,\psi$</span></td><td style="text-align: right"><span>$\tilde{\psi} \in \mathbb{R}^{2d}$</span></td><td style="text-align: right"><span>$\lvert\langle\psi_g\mid\psi\rangle\rvert^2$</span></td><td style="text-align: right"><span>$2d$</span></td></tr><tr><td style="text-align: right"><code>DensityTrajectory</code></td><td style="text-align: right"><span>$\dot{\rho} = \mathcal{G}\,\text{vec}(\rho)$</span></td><td style="text-align: right"><span>$\tilde{\rho} \in \mathbb{R}^{d^2}$</span> (compact)</td><td style="text-align: right"><span>$\operatorname{tr}(\rho_g\,\rho)$</span></td><td style="text-align: right"><span>$d^2$</span></td></tr><tr><td style="text-align: right"><code>MultiKetTrajectory</code></td><td style="text-align: right"><span>$\dot{\psi}_j = -iH\,\psi_j$</span></td><td style="text-align: right">multiple <span>$\tilde{\psi}_j$</span></td><td style="text-align: right">coherent (see below)</td><td style="text-align: right"><span>$2d \times n_{\text{states}}$</span></td></tr><tr><td style="text-align: right"><code>MultiDensityTrajectory</code></td><td style="text-align: right"><span>$\dot{\rho}_j = \mathcal{G}\,\text{vec}(\rho_j)$</span></td><td style="text-align: right">multiple <span>$\tilde{\rho}_j$</span></td><td style="text-align: right">weighted average (see below)</td><td style="text-align: right"><span>$d^2 \times M$</span></td></tr><tr><td style="text-align: right"><code>SamplingTrajectory</code></td><td style="text-align: right">per-system dynamics</td><td style="text-align: right">per-system states</td><td style="text-align: right">average fidelity</td><td style="text-align: right">varies</td></tr></table><p>The isomorphic state <span>$x_k$</span> is always a <strong>real</strong> vector; see <a href="../isomorphisms/#isomorphisms-concept">Isomorphisms</a> for the conversions.</p><h2 id="UnitaryTrajectory"><a class="docs-heading-anchor" href="#UnitaryTrajectory">UnitaryTrajectory</a><a id="UnitaryTrajectory-1"></a><a class="docs-heading-anchor-permalink" href="#UnitaryTrajectory" title="Permalink"></a></h2><p>For synthesizing quantum gates.  The propagator satisfies <span>$\dot{U} = G(\boldsymbol{u})\,U$</span> with <span>$U(0) = I$</span>.</p><h3 id="Construction"><a class="docs-heading-anchor" href="#Construction">Construction</a><a id="Construction-1"></a><a class="docs-heading-anchor-permalink" href="#Construction" title="Permalink"></a></h3><pre><code class="language-julia hljs">using Piccolo
+
+# Define system
+H_drift = PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+# Create pulse
+T, N = 10.0, 100
+times = collect(range(0, T, length = N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+
+# Create trajectory with goal
+U_goal = GATES[:X]
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}, Matrix{ComplexF64}}(QuantumSystem: levels = 2, n_drives = 2, ZeroOrderPulse(Number of drives = 2, T = 10.0), ComplexF64[1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im], ComplexF64[0.0 + 0.0im 1.0 + 0.0im; 1.0 + 0.0im 0.0 + 0.0im], ComplexF64[1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im;;; 0.9948356972119734 - 0.0998277972340243im -0.015546883374002625 + 0.009728353895943075im; 0.015546883374002625 + 0.009728353895943075im 0.9948356972119734 + 0.09982779723402431im;;; 0.9800038616357114 - 0.19863374924825994im -0.007956510413013842 + 0.008588293236771556im; 0.007956510413013838 + 0.00858829323677155im 0.9800038616357112 + 0.19863374924825988im;;; … ;;; -0.9329700936728572 + 0.35794079385866817im -0.031139844811370884 + 0.021806019100029973im; 0.031139844811371217 + 0.02180601910003041im -0.9329700936728608 - 0.35794079385866945im;;; -0.8928039128013926 + 0.4493161670405809im -0.02262148164000127 + 0.022459383136602094im; 0.022621481640001575 + 0.02245938313660257im -0.8928039128013955 - 0.4493161670405825im;;; -0.8432993145417272 + 0.5356907237834225im -0.01853122065217762 + 0.03922127492786102im; 0.018531220652177865 + 0.03922127492786145im -0.8432993145417297 - 0.5356907237834245im])</code></pre><h3 id="Solve-and-Analyze"><a class="docs-heading-anchor" href="#Solve-and-Analyze">Solve and Analyze</a><a id="Solve-and-Analyze-1"></a><a class="docs-heading-anchor-permalink" href="#Solve-and-Analyze" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+solve!(qcp; max_iter = 50)
+fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9997914029235936</code></pre><h3 id="Extracting-the-Pulse"><a class="docs-heading-anchor" href="#Extracting-the-Pulse">Extracting the Pulse</a><a id="Extracting-the-Pulse-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-Pulse" title="Permalink"></a></h3><pre><code class="language-julia hljs">optimized_pulse = get_pulse(qcp.qtraj)
+duration(optimized_pulse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">14.262180172049334</code></pre><h2 id="KetTrajectory"><a class="docs-heading-anchor" href="#KetTrajectory">KetTrajectory</a><a id="KetTrajectory-1"></a><a class="docs-heading-anchor-permalink" href="#KetTrajectory" title="Permalink"></a></h2><p>For state preparation: find controls that map <span>$|\psi_{\text{init}}\rangle \to |\psi_{\text{goal}}\rangle$</span> (up to global phase).  The fidelity is <span>$F = |\langle\psi_{\text{goal}}|\psi(T)\rangle|^2$</span>.</p><h3 id="Construction-2"><a class="docs-heading-anchor" href="#Construction-2">Construction</a><a class="docs-heading-anchor-permalink" href="#Construction-2" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Initial and goal states
+ψ_init = ComplexF64[1, 0]  # |0⟩
+ψ_goal = ComplexF64[0, 1]  # |1⟩
+
+qtraj_ket = KetTrajectory(sys, pulse, ψ_init, ψ_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">KetTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 2, Vector{Vector{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Vector{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Vector{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Vector{ComplexF64}}, Vector{Float64}, Vector{Vector{Vector{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Vector{ComplexF64}, Vector{ComplexF64}, Matrix{ComplexF64}, Vector{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}(QuantumSystem: levels = 2, n_drives = 2, ZeroOrderPulse(Number of drives = 2, T = 10.0), ComplexF64[1.0 + 0.0im, 0.0 + 0.0im], ComplexF64[0.0 + 0.0im, 1.0 + 0.0im], ComplexF64[1.0 + 0.0im 0.9948356972119734 - 0.0998277972340243im … -0.8928039128013926 + 0.4493161670405809im -0.8432993145417272 + 0.5356907237834225im; 0.0 + 0.0im 0.015546883374002625 + 0.009728353895943075im … 0.022621481640001575 + 0.02245938313660257im 0.018531220652177865 + 0.03922127492786145im])</code></pre><h3 id="Solve"><a class="docs-heading-anchor" href="#Solve">Solve</a><a id="Solve-1"></a><a class="docs-heading-anchor-permalink" href="#Solve" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0)
+solve!(qcp_ket; max_iter = 50)
+fidelity(qcp_ket)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999980412691527</code></pre><h2 id="MultiKetTrajectory"><a class="docs-heading-anchor" href="#MultiKetTrajectory">MultiKetTrajectory</a><a id="MultiKetTrajectory-1"></a><a class="docs-heading-anchor-permalink" href="#MultiKetTrajectory" title="Permalink"></a></h2><p>For gates defined by multiple state mappings with coherent phases.  The fidelity enforces phase alignment across all state pairs:</p><p class="math-container">\[F = \left| \frac{1}{n} \sum_{j=1}^{n} \langle \psi_{\text{goal},j} | \psi_j(T) \rangle \right|^2\]</p><p>This is strictly harder than per-state fidelity because relative phases must be correct for the mapping to represent a valid gate.</p><h3 id="Construction-3"><a class="docs-heading-anchor" href="#Construction-3">Construction</a><a class="docs-heading-anchor-permalink" href="#Construction-3" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Define state pairs: X gate maps |0⟩ → |1⟩ and |1⟩ → |0⟩
+ψ0 = ComplexF64[1, 0]
+ψ1 = ComplexF64[0, 1]
+
+initial_states = [ψ0, ψ1]
+goal_states = [ψ1, ψ0]
+
+qtraj_multi = MultiKetTrajectory(sys, pulse, initial_states, goal_states)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MultiKetTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.EnsembleSolution{ComplexF64, 3, Vector{SciMLBase.ODESolution{ComplexF64, 2, Vector{Vector{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Vector{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Vector{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Vector{ComplexF64}}, Vector{Float64}, Vector{Vector{Vector{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Vector{ComplexF64}, Vector{ComplexF64}, Matrix{ComplexF64}, Vector{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}}}(QuantumSystem: levels = 2, n_drives = 2, ZeroOrderPulse(Number of drives = 2, T = 10.0), Vector{ComplexF64}[[1.0 + 0.0im, 0.0 + 0.0im], [0.0 + 0.0im, 1.0 + 0.0im]], Vector{ComplexF64}[[0.0 + 0.0im, 1.0 + 0.0im], [1.0 + 0.0im, 0.0 + 0.0im]], [0.5, 0.5], ComplexF64[1.0 + 0.0im 0.9948356972119734 - 0.0998277972340243im … -0.8928039128013926 + 0.4493161670405809im -0.8432993145417272 + 0.5356907237834225im; 0.0 + 0.0im 0.015546883374002625 + 0.009728353895943075im … 0.022621481640001575 + 0.02245938313660257im 0.018531220652177865 + 0.03922127492786145im;;; 0.0 + 0.0im -0.015546883374002625 + 0.009728353895943075im … -0.022621481640009652 + 0.022459383136611596im -0.018531220652184724 + 0.0392212749278728im; 1.0 + 0.0im 0.9948356972119734 + 0.09982779723402431im … -0.8928039128013945 - 0.4493161670405813im -0.8432993145417292 - 0.5356907237834224im])</code></pre><h3 id="Solve-2"><a class="docs-heading-anchor" href="#Solve-2">Solve</a><a class="docs-heading-anchor-permalink" href="#Solve-2" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_multi = SmoothPulseProblem(qtraj_multi, N; Q = 100.0)
+solve!(qcp_multi; max_iter = 50)
+fidelity(qcp_multi)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999654067440789</code></pre><h2 id="DensityTrajectory"><a class="docs-heading-anchor" href="#DensityTrajectory">DensityTrajectory</a><a id="DensityTrajectory-1"></a><a class="docs-heading-anchor-permalink" href="#DensityTrajectory" title="Permalink"></a></h2><p>For open quantum systems governed by the Lindblad master equation.  The state <span>$\rho(t)$</span> evolves as <span>$\dot{\vec\rho} = \mathcal{G}(\boldsymbol{u})\,\vec\rho$</span> where <span>$\mathcal{G}$</span> is the Lindbladian superoperator (see <a href="../../../systems/#systems-overview">Systems</a>).</p><p>Internally the state is stored in the <strong>compact isomorphism</strong>: a real vector of dimension <span>$d^2$</span> (not <span>$2d^2$</span>) that exploits Hermiticity. The Lindbladian generators are also compacted via <span>$\mathcal{G}_c = P\,\mathcal{G}\,L$</span> (size <span>$d^2 \times d^2$</span> instead of <span>$2d^2 \times 2d^2$</span>), giving roughly a 4× speedup in integration. See <a href="../isomorphisms/#isomorphisms-concept">Isomorphisms</a> for details.</p><h3 id="Construction-4"><a class="docs-heading-anchor" href="#Construction-4">Construction</a><a class="docs-heading-anchor-permalink" href="#Construction-4" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Open system with a weak dissipation operator
+L = ComplexF64[0.1 0.0; 0.0 0.0]
+open_sys = OpenQuantumSystem(
+    PAULIS[:Z],
+    [PAULIS[:X], PAULIS[:Y]],
+    [1.0, 1.0];
+    dissipation_operators = [L],
+)
+
+# Initial and goal density matrices
+ρ_init = ComplexF64[1.0 0.0; 0.0 0.0]  # |0⟩⟨0|
+ρ_goal = ComplexF64[0.0 0.0; 0.0 1.0]  # |1⟩⟨1|
+
+T_density, N_density = 10.0, 50
+times_density = collect(range(0, T_density, length = N_density))
+pulse_density = ZeroOrderPulse(0.1 * randn(2, N_density), times_density)
+qtraj_density = DensityTrajectory(open_sys, pulse_density, ρ_init, ρ_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">DensityTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, FunctionWrappersWrappers.FunctionWrappersWrapper{Tuple{FunctionWrappers.FunctionWrapper{Nothing, Tuple{Matrix{ComplexF64}, Matrix{ComplexF64}, SciMLBase.NullParameters, Float64}}}, FunctionWrappersWrappers.AllowNonIsBits, FunctionWrappersWrappers.SingleCacheStorage}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, FunctionWrappersWrappers.FunctionWrappersWrapper{Tuple{FunctionWrappers.FunctionWrapper{Nothing, Tuple{Matrix{ComplexF64}, Matrix{ComplexF64}, SciMLBase.NullParameters, Float64}}}, FunctionWrappersWrappers.AllowNonIsBits, FunctionWrappersWrappers.SingleCacheStorage}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqTsit5.Tsit5Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}(OpenQuantumSystem: levels = 2, n_drives = 2, ZeroOrderPulse(Number of drives = 2, T = 10.0), ComplexF64[1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 0.0 + 0.0im], ComplexF64[0.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im], ComplexF64[1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 0.0 + 0.0im;;; 0.999975809887234 + 4.091026692711613e-18im 0.003036117621511072 - 0.0038682612398240196im; 0.0030361176215110727 + 0.0038682612398240183im 2.4190112765953693e-5 - 3.665044666152068e-21im;;; 0.9999042219279081 + 7.51157008156081e-18im 0.005241808967907418 - 0.008260034661078445im; 0.005241808967907418 + 0.008260034661078445im 9.577807209189637e-5 + 4.3353494029362024e-21im;;; … ;;; 0.9850924591104688 + 1.5960545771267064e-16im 0.10714557508726526 + 0.050337099850051324im; 0.10714557508726524 - 0.05033709985005132im 0.014907540889530845 - 1.4858887018517472e-18im;;; 0.9851057675218408 + 1.5949678318386233e-16im 0.11381282286347488 + 0.032151408617280594im; 0.11381282286347487 - 0.03215140861728059im 0.014894232478158917 - 1.6035212447136607e-18im;;; 0.9852884953484585 + 1.5595110127798265e-16im 0.11673253159480565 + 0.013014023654567367im; 0.11673253159480564 - 0.013014023654567355im 0.014711504651540874 - 2.300557702146844e-18im])</code></pre><h3 id="Solve-and-Analyze-2"><a class="docs-heading-anchor" href="#Solve-and-Analyze-2">Solve and Analyze</a><a class="docs-heading-anchor-permalink" href="#Solve-and-Analyze-2" title="Permalink"></a></h3><p>The fidelity for density matrices is <span>$F = \operatorname{tr}(\rho_{\text{goal}}\,\rho(T))$</span>.</p><pre><code class="language-julia hljs">qcp_density = SmoothPulseProblem(qtraj_density, N_density; Q = 100.0, R = 1e-2)
+solve!(qcp_density; max_iter = 150)
+fidelity(qcp_density)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9948951115506884</code></pre><h2 id="MultiDensityTrajectory"><a class="docs-heading-anchor" href="#MultiDensityTrajectory">MultiDensityTrajectory</a><a id="MultiDensityTrajectory-1"></a><a class="docs-heading-anchor-permalink" href="#MultiDensityTrajectory" title="Permalink"></a></h2><p>For optimizing open quantum systems that must simultaneously steer multiple initial density matrices to their respective targets — e.g. process tomography or channel certification.  All density matrices share a <strong>single</strong> control pulse and Lindblad generator.  The fidelity is a weighted average:</p><p class="math-container">\[F = \sum_{j=1}^{M} w_j\, \operatorname{tr}(\rho_{\text{goal},j}\,\rho_j(T)),
+\qquad \sum_j w_j = 1\]</p><p>Internally, <code>M</code> Lindblad ODEs are solved in parallel via <code>DifferentialEquations.EnsembleProblem</code>.</p><h3 id="Construction-5"><a class="docs-heading-anchor" href="#Construction-5">Construction</a><a class="docs-heading-anchor-permalink" href="#Construction-5" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Open system: 2-level atom with T₁ decay
+L_decay = ComplexF64[0 0; 1 0]  ## |0⟩⟨1| collapse operator (decay rate = 1)
+open_sys2 = OpenQuantumSystem(
+    PAULIS[:Z],
+    [PAULIS[:X], PAULIS[:Y]],
+    [1.0, 1.0];
+    dissipation_operators = [L_decay],
+)
+
+# Prepare two initial → goal pairs (e.g., two rows of a process matrix)
+ρ0_a = ComplexF64[1 0; 0 0]  ## |0⟩⟨0|
+ρ0_b = ComplexF64[0 0; 0 1]  ## |1⟩⟨1|
+ρg_a = ComplexF64[0 0; 0 1]  ## |1⟩⟨1|
+ρg_b = ComplexF64[1 0; 0 0]  ## |0⟩⟨0|
+
+T_md, N_md = 10.0, 50
+times_md = collect(range(0, T_md, length = N_md))
+pulse_md = ZeroOrderPulse(0.1 * randn(2, N_md), times_md)
+
+qtraj_md = MultiDensityTrajectory(
+    open_sys2,
+    pulse_md,
+    [ρ0_a, ρ0_b],
+    [ρg_a, ρg_b];
+    weights = [0.5, 0.5],
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MultiDensityTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.EnsembleSolution{ComplexF64, 4, Vector{SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, FunctionWrappersWrappers.FunctionWrappersWrapper{Tuple{FunctionWrappers.FunctionWrapper{Nothing, Tuple{Matrix{ComplexF64}, Matrix{ComplexF64}, SciMLBase.NullParameters, Float64}}}, FunctionWrappersWrappers.AllowNonIsBits, FunctionWrappersWrappers.SingleCacheStorage}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, FunctionWrappersWrappers.FunctionWrappersWrapper{Tuple{FunctionWrappers.FunctionWrapper{Nothing, Tuple{Matrix{ComplexF64}, Matrix{ComplexF64}, SciMLBase.NullParameters, Float64}}}, FunctionWrappersWrappers.AllowNonIsBits, FunctionWrappersWrappers.SingleCacheStorage}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqTsit5.Tsit5Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}}}(OpenQuantumSystem: levels = 2, n_drives = 2, ZeroOrderPulse(Number of drives = 2, T = 10.0), Matrix{ComplexF64}[[1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 0.0 + 0.0im], [0.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im]], Matrix{ComplexF64}[[0.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im], [1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 0.0 + 0.0im]], [0.5, 0.5], ComplexF64[1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 0.0 + 0.0im;;; 0.9046027388042209 - 5.276856233320417e-18im 0.007558419772745738 + 0.01214230015820055im; 0.007558419772745738 - 0.012142300158200545im 0.09539726119577917 - 5.951534573722485e-20im;;; 0.8179077432710079 - 7.042916988246711e-18im 0.015380549623257012 + 0.019583050047395877im; 0.015380549623257007 - 0.019583050047395877im 0.182092256728992 - 8.409081043148707e-19im;;; … ;;; 0.00789753868755556 + 1.1538997001793325e-19im -0.0621476826776885 - 0.06203953335200579im; -0.06214768267768847 + 0.06203953335200578im 0.9921024613124426 - 9.18523686107435e-17im;;; 0.005954697255198963 + 3.5690328188389335e-19im -0.06529931749260924 - 0.03922479703813501im; -0.06529931749260921 + 0.039224797038135im 0.9940453027447992 - 9.183854798048359e-17im;;; 0.004513653774228904 + 5.576359177168432e-19im -0.06391094116013823 - 0.01733633567273152im; -0.06391094116013821 + 0.01733633567273152im 0.9954863462257696 - 9.179076848815472e-17im;;;; 0.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im;;; 0.0002512425946443142 + 1.8403755642349552e-20im -0.00832804389906419 - 0.01348413481808821im; -0.008328043899064195 + 0.013484134818088219im 0.9997487574053556 + 1.4808895076392658e-17im;;; 0.0009467814293497769 - 1.5317404112372242e-20im -0.018632406054771494 - 0.02446798638423689im; -0.018632406054771497 + 0.024467986384236896im 0.9990532185706502 + 3.2065454161475976e-17im;;; … ;;; 0.007805569630956565 + 8.253209842681129e-19im -0.06220901917519297 - 0.06175106430750155im; -0.06220901917519294 + 0.06175106430750157im 0.9921944303690433 + 1.0904596539784408e-16im;;; 0.005875375349078625 + 1.029372647650212e-18im -0.06530122496900076 - 0.038943086036403im; -0.06530122496900073 + 0.03894308603640302im 0.9941246246509212 + 1.0786107614693321e-16im;;; 0.004446010849747049 + 1.2304937460097876e-18im -0.0638588456654172 - 0.017072331273075062im; -0.06385884566541719 + 0.017072331273075097im 0.9955539891502531 + 1.0849637739466801e-16im])</code></pre><h3 id="Rollout-and-Fidelity"><a class="docs-heading-anchor" href="#Rollout-and-Fidelity">Rollout and Fidelity</a><a id="Rollout-and-Fidelity-1"></a><a class="docs-heading-anchor-permalink" href="#Rollout-and-Fidelity" title="Permalink"></a></h3><pre><code class="language-julia hljs">qtraj_md_out = rollout(qtraj_md)
+fidelity(qtraj_md_out)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.4999661785377583</code></pre><div class="admonition is-info" id="Note-d9bd6528562b981f"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-d9bd6528562b981f" title="Permalink"></a></header><div class="admonition-body"><p>Built-in optimization support for <code>MultiDensityTrajectory</code> (via <code>SmoothPulseProblem</code>) requires a Piccolissimo integrator that provides per-density Lindbladian dynamics.  Rollout and fidelity evaluation work out of the box with any pulse type.</p></div></div><h3 id="When-to-Use-vs-DensityTrajectory"><a class="docs-heading-anchor" href="#When-to-Use-vs-DensityTrajectory">When to Use vs <code>DensityTrajectory</code></a><a id="When-to-Use-vs-DensityTrajectory-1"></a><a class="docs-heading-anchor-permalink" href="#When-to-Use-vs-DensityTrajectory" title="Permalink"></a></h3><table><tr><th style="text-align: right">Scenario</th><th style="text-align: right">Use</th></tr><tr><td style="text-align: right">Single initial state</td><td style="text-align: right"><code>DensityTrajectory</code></td></tr><tr><td style="text-align: right">Process tomography / multiple initial states</td><td style="text-align: right"><code>MultiDensityTrajectory</code></td></tr><tr><td style="text-align: right">Weighted importance across initial states</td><td style="text-align: right"><code>MultiDensityTrajectory</code> with custom <code>weights</code></td></tr></table><h2 id="SamplingTrajectory"><a class="docs-heading-anchor" href="#SamplingTrajectory">SamplingTrajectory</a><a id="SamplingTrajectory-1"></a><a class="docs-heading-anchor-permalink" href="#SamplingTrajectory" title="Permalink"></a></h2><p>For robust optimization over parameter variations.  Created internally by <code>SamplingProblem</code>, this trajectory type stores multiple system variants sharing a single control pulse.  The objective averages fidelity across all samples:</p><p class="math-container">\[\bar{\ell} = \frac{1}{S}\sum_{s=1}^{S} \ell\!\bigl(x_N^{(s)},\, x_{\text{goal}}\bigr)\]</p><pre><code class="language-julia hljs">systems = [sys_nominal, sys_high, sys_low]
+qcp_robust = SamplingProblem(qcp_base, systems)</code></pre><h2 id="Common-Operations"><a class="docs-heading-anchor" href="#Common-Operations">Common Operations</a><a id="Common-Operations-1"></a><a class="docs-heading-anchor-permalink" href="#Common-Operations" title="Permalink"></a></h2><h3 id="Named-Trajectory-Integration"><a class="docs-heading-anchor" href="#Named-Trajectory-Integration">Named Trajectory Integration</a><a id="Named-Trajectory-Integration-1"></a><a class="docs-heading-anchor-permalink" href="#Named-Trajectory-Integration" title="Permalink"></a></h3><p>After solving, the <code>NamedTrajectory</code> stores the NLP decision vector at each of the <span>$N$</span> knot points:</p><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+
+# Controls at timestep k
+u_1 = traj[1][:u]
+u_1
+
+# All timesteps
+Δts = get_timesteps(traj)
+length(Δts)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100</code></pre><h3 id="Internal-Representation"><a class="docs-heading-anchor" href="#Internal-Representation">Internal Representation</a><a id="Internal-Representation-1"></a><a class="docs-heading-anchor-permalink" href="#Internal-Representation" title="Permalink"></a></h3><p>States in the trajectory are real isomorphic vectors.  Convert back to complex form with:</p><pre><code class="language-julia hljs">U = iso_vec_to_operator(traj[:Ũ⃗][:, end])     # unitary
+ψ = iso_to_ket(traj[:ψ̃][:, end])               # ket
+ρ = compact_iso_to_density(traj[:ρ⃗̃][:, end])   # density matrix</code></pre><p>See <a href="../isomorphisms/#isomorphisms-concept">Isomorphisms</a> for details.</p><h2 id="Best-Practices"><a class="docs-heading-anchor" href="#Best-Practices">Best Practices</a><a id="Best-Practices-1"></a><a class="docs-heading-anchor-permalink" href="#Best-Practices" title="Permalink"></a></h2><h3 id="1.-Match-Pulse-Type-to-Problem"><a class="docs-heading-anchor" href="#1.-Match-Pulse-Type-to-Problem">1. Match Pulse Type to Problem</a><a id="1.-Match-Pulse-Type-to-Problem-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Match-Pulse-Type-to-Problem" title="Permalink"></a></h3><pre><code class="language-julia hljs"># For SmoothPulseProblem
+pulse = ZeroOrderPulse(controls, times)
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+qcp = SmoothPulseProblem(qtraj, N)  # ✓
+
+# For SplinePulseProblem
+pulse = CubicSplinePulse(controls, tangents, times)
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+qcp = SplinePulseProblem(qtraj)  # ✓</code></pre><h3 id="2.-Initialize-with-Reasonable-Controls"><a class="docs-heading-anchor" href="#2.-Initialize-with-Reasonable-Controls">2. Initialize with Reasonable Controls</a><a id="2.-Initialize-with-Reasonable-Controls-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Initialize-with-Reasonable-Controls" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Scale by drive bounds
+max_amp = 0.1 * 1.0
+initial_controls = max_amp * randn(2, N)
+extrema(initial_controls)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(-0.24976391118628466, 0.2827190729912068)</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../../systems/#systems-overview">Quantum Systems</a> - System definitions</li><li><a href="../pulses/#pulses-concept">Pulses</a> - Control parameterizations</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Using trajectories in optimization</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../../concepts/">« Overview</a><a class="docs-footer-nextpage" href="../pulses/">Pulses »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 2 May 2026 17:20">Saturday 2 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./trajectories.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/concepts/trajectories.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
+# literate/concepts/trajectories.jl
+# ```
+#
+# # [Trajectories](@id trajectories-concept)
+#
+# A trajectory bundles a quantum system, a control pulse, and a goal into the
+# central object that problem templates consume.
+#
+# ## Overview
+#
+# Every trajectory type defines:
+# - The **state** ``x_k`` and its dynamics ``x_{k+1} = \exp(\Delta t_k\, G(\boldsymbol{u}_k))\, x_k``
+# - The **initial condition** ``x_1 = x_{\text{init}}``
+# - The **goal** ``x_{\text{goal}}`` and associated fidelity metric
+#
+# ## Trajectory Types
+#
+# | Type | Dynamics | State ``x_k`` | Fidelity ``F`` | ``\dim(x_k)`` |
+# |------|----------|---------------|----------------|---------------|
+# | `UnitaryTrajectory` | ``\dot{U} = -iH\,U`` | ``\tilde{U} \in \mathbb{R}^{2d^2}`` | ``\lvert\operatorname{tr}(U_g^\dagger U)\rvert^2 / d^2`` | ``2d^2`` |
+# | `KetTrajectory` | ``\dot{\psi} = -iH\,\psi`` | ``\tilde{\psi} \in \mathbb{R}^{2d}`` | ``\lvert\langle\psi_g\mid\psi\rangle\rvert^2`` | ``2d`` |
+# | `DensityTrajectory` | ``\dot{\rho} = \mathcal{G}\,\text{vec}(\rho)`` | ``\tilde{\rho} \in \mathbb{R}^{d^2}`` (compact) | ``\operatorname{tr}(\rho_g\,\rho)`` | ``d^2`` |
+# | `MultiKetTrajectory` | ``\dot{\psi}_j = -iH\,\psi_j`` | multiple ``\tilde{\psi}_j`` | coherent (see below) | ``2d \times n_{\text{states}}`` |
+# | `MultiDensityTrajectory` | ``\dot{\rho}_j = \mathcal{G}\,\text{vec}(\rho_j)`` | multiple ``\tilde{\rho}_j`` | weighted average (see below) | ``d^2 \times M`` |
+# | `SamplingTrajectory` | per-system dynamics | per-system states | average fidelity | varies |
+#
+# The isomorphic state ``x_k`` is always a **real** vector; see
+# [Isomorphisms](@ref isomorphisms-concept) for the conversions.
+#
+# ## UnitaryTrajectory
+#
+# For synthesizing quantum gates.  The propagator satisfies
+# ``\dot{U} = G(\boldsymbol{u})\,U`` with ``U(0) = I``.
+#
+# ### Construction
+
+using Piccolo
+
+## Define system
+H_drift = PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+## Create pulse
+T, N = 10.0, 100
+times = collect(range(0, T, length = N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+
+## Create trajectory with goal
+U_goal = GATES[:X]
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+# ### Solve and Analyze
+
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+solve!(qcp; max_iter = 50)
+fidelity(qcp)
+
+# ### Extracting the Pulse
+
+optimized_pulse = get_pulse(qcp.qtraj)
+duration(optimized_pulse)
+
+# ## KetTrajectory
+#
+# For state preparation: find controls that map
+# ``|\psi_{\text{init}}\rangle \to |\psi_{\text{goal}}\rangle`` (up to
+# global phase).  The fidelity is
+# ``F = |\langle\psi_{\text{goal}}|\psi(T)\rangle|^2``.
+#
+# ### Construction
+
+## Initial and goal states
+ψ_init = ComplexF64[1, 0]  # |0⟩
+ψ_goal = ComplexF64[0, 1]  # |1⟩
+
+qtraj_ket = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+
+# ### Solve
+
+qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0)
+solve!(qcp_ket; max_iter = 50)
+fidelity(qcp_ket)
+
+# ## MultiKetTrajectory
+#
+# For gates defined by multiple state mappings with coherent phases.  The
+# fidelity enforces phase alignment across all state pairs:
+#
+# ```math
+# F = \left| \frac{1}{n} \sum_{j=1}^{n} \langle \psi_{\text{goal},j} | \psi_j(T) \rangle \right|^2
+# ```
+#
+# This is strictly harder than per-state fidelity because relative phases must
+# be correct for the mapping to represent a valid gate.
+#
+# ### Construction
+
+## Define state pairs: X gate maps |0⟩ → |1⟩ and |1⟩ → |0⟩
+ψ0 = ComplexF64[1, 0]
+ψ1 = ComplexF64[0, 1]
+
+initial_states = [ψ0, ψ1]
+goal_states = [ψ1, ψ0]
+
+qtraj_multi = MultiKetTrajectory(sys, pulse, initial_states, goal_states)
+
+# ### Solve
+
+qcp_multi = SmoothPulseProblem(qtraj_multi, N; Q = 100.0)
+solve!(qcp_multi; max_iter = 50)
+fidelity(qcp_multi)
+
+# ## DensityTrajectory
+#
+# For open quantum systems governed by the Lindblad master equation.  The
+# state ``\rho(t)`` evolves as ``\dot{\vec\rho} = \mathcal{G}(\boldsymbol{u})\,\vec\rho``
+# where ``\mathcal{G}`` is the Lindbladian superoperator (see [Systems](@ref systems-overview)).
+#
+# Internally the state is stored in the **compact isomorphism**: a real vector
+# of dimension ``d^2`` (not ``2d^2``) that exploits Hermiticity.
+# The Lindbladian generators are also compacted via
+# ``\mathcal{G}_c = P\,\mathcal{G}\,L`` (size ``d^2 \times d^2`` instead of
+# ``2d^2 \times 2d^2``), giving roughly a 4× speedup in integration.
+# See [Isomorphisms](@ref isomorphisms-concept) for details.
+#
+# ### Construction
+
+## Open system with a weak dissipation operator
+L = ComplexF64[0.1 0.0; 0.0 0.0]
+open_sys = OpenQuantumSystem(
+    PAULIS[:Z],
+    [PAULIS[:X], PAULIS[:Y]],
+    [1.0, 1.0];
+    dissipation_operators = [L],
+)
+
+## Initial and goal density matrices
+ρ_init = ComplexF64[1.0 0.0; 0.0 0.0]  # |0⟩⟨0|
+ρ_goal = ComplexF64[0.0 0.0; 0.0 1.0]  # |1⟩⟨1|
+
+T_density, N_density = 10.0, 50
+times_density = collect(range(0, T_density, length = N_density))
+pulse_density = ZeroOrderPulse(0.1 * randn(2, N_density), times_density)
+qtraj_density = DensityTrajectory(open_sys, pulse_density, ρ_init, ρ_goal)
+
+# ### Solve and Analyze
+#
+# The fidelity for density matrices is ``F = \operatorname{tr}(\rho_{\text{goal}}\,\rho(T))``.
+
+qcp_density = SmoothPulseProblem(qtraj_density, N_density; Q = 100.0, R = 1e-2)
+solve!(qcp_density; max_iter = 150)
+fidelity(qcp_density)
+# ## MultiDensityTrajectory
+#
+# For optimizing open quantum systems that must simultaneously steer multiple
+# initial density matrices to their respective targets — e.g. process tomography
+# or channel certification.  All density matrices share a **single** control
+# pulse and Lindblad generator.  The fidelity is a weighted average:
+#
+# ```math
+# F = \sum_{j=1}^{M} w_j\, \operatorname{tr}(\rho_{\text{goal},j}\,\rho_j(T)),
+# \qquad \sum_j w_j = 1
+# ```
+#
+# Internally, `M` Lindblad ODEs are solved in parallel via
+# `DifferentialEquations.EnsembleProblem`.
+#
+# ### Construction
+
+## Open system: 2-level atom with T₁ decay
+L_decay = ComplexF64[0 0; 1 0]  ## |0⟩⟨1| collapse operator (decay rate = 1)
+open_sys2 = OpenQuantumSystem(
+    PAULIS[:Z],
+    [PAULIS[:X], PAULIS[:Y]],
+    [1.0, 1.0];
+    dissipation_operators = [L_decay],
+)
+
+## Prepare two initial → goal pairs (e.g., two rows of a process matrix)
+ρ0_a = ComplexF64[1 0; 0 0]  ## |0⟩⟨0|
+ρ0_b = ComplexF64[0 0; 0 1]  ## |1⟩⟨1|
+ρg_a = ComplexF64[0 0; 0 1]  ## |1⟩⟨1|
+ρg_b = ComplexF64[1 0; 0 0]  ## |0⟩⟨0|
+
+T_md, N_md = 10.0, 50
+times_md = collect(range(0, T_md, length = N_md))
+pulse_md = ZeroOrderPulse(0.1 * randn(2, N_md), times_md)
+
+qtraj_md = MultiDensityTrajectory(
+    open_sys2,
+    pulse_md,
+    [ρ0_a, ρ0_b],
+    [ρg_a, ρg_b];
+    weights = [0.5, 0.5],
+)
+
+# ### Rollout and Fidelity
+
+qtraj_md_out = rollout(qtraj_md)
+fidelity(qtraj_md_out)
+
+# !!! note
+#     Built-in optimization support for `MultiDensityTrajectory` (via
+#     `SmoothPulseProblem`) requires a Piccolissimo integrator that provides
+#     per-density Lindbladian dynamics.  Rollout and fidelity evaluation work
+#     out of the box with any pulse type.
+#
+# ### When to Use vs `DensityTrajectory`
+#
+# | Scenario | Use |
+# |----------|-----|
+# | Single initial state | `DensityTrajectory` |
+# | Process tomography / multiple initial states | `MultiDensityTrajectory` |
+# | Weighted importance across initial states | `MultiDensityTrajectory` with custom `weights` |
+#
+# ## SamplingTrajectory
+#
+# For robust optimization over parameter variations.  Created internally by
+# `SamplingProblem`, this trajectory type stores multiple system variants
+# sharing a single control pulse.  The objective averages fidelity across all
+# samples:
+#
+# ```math
+# \bar{\ell} = \frac{1}{S}\sum_{s=1}^{S} \ell\!\bigl(x_N^{(s)},\, x_{\text{goal}}\bigr)
+# ```
+#
+# ```julia
+# systems = [sys_nominal, sys_high, sys_low]
+# qcp_robust = SamplingProblem(qcp_base, systems)
+# ```
+#
+# ## Common Operations
+#
+# ### Named Trajectory Integration
+#
+# After solving, the `NamedTrajectory` stores the NLP decision vector at
+# each of the ``N`` knot points:
+
+traj = get_trajectory(qcp)
+
+## Controls at timestep k
+u_1 = traj[1][:u]
+u_1
+
+## All timesteps
+Δts = get_timesteps(traj)
+length(Δts)
+
+# ### Internal Representation
+#
+# States in the trajectory are real isomorphic vectors.  Convert back to
+# complex form with:
+#
+# ```julia
+# U = iso_vec_to_operator(traj[:Ũ⃗][:, end])     # unitary
+# ψ = iso_to_ket(traj[:ψ̃][:, end])               # ket
+# ρ = compact_iso_to_density(traj[:ρ⃗̃][:, end])   # density matrix
+# ```
+#
+# See [Isomorphisms](@ref isomorphisms-concept) for details.
+#
+# ## Best Practices
+#
+# ### 1. Match Pulse Type to Problem
+#
+# ```julia
+# # For SmoothPulseProblem
+# pulse = ZeroOrderPulse(controls, times)
+# qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+# qcp = SmoothPulseProblem(qtraj, N)  # ✓
+#
+# # For SplinePulseProblem
+# pulse = CubicSplinePulse(controls, tangents, times)
+# qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+# qcp = SplinePulseProblem(qtraj)  # ✓
+# ```
+#
+# ### 2. Initialize with Reasonable Controls
+
+## Scale by drive bounds
+max_amp = 0.1 * 1.0
+initial_controls = max_amp * randn(2, N)
+extrema(initial_controls)
+
+# ## See Also
+#
+# - [Quantum Systems](@ref systems-overview) - System definitions
+# - [Pulses](@ref pulses-concept) - Control parameterizations
+# - [Problem Templates](@ref problem-templates-overview) - Using trajectories in optimization
+</script>
+<link rel="stylesheet" href="../../../assets/copybutton.css"/>
+<script src="../../../assets/copybutton.js"></script>
+
+</body></html>

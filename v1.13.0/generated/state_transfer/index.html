@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>State Transfer · Piccolo.jl</title><meta name="title" content="State Transfer · Piccolo.jl"/><meta property="og:title" content="State Transfer · Piccolo.jl"/><meta property="twitter:title" content="State Transfer · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/state_transfer/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/state_transfer/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/state_transfer/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img class="docs-light-only" src="../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../concepts/">Overview</a></li><li><a class="tocitem" href="../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/">Overview</a></li><li><a class="tocitem" href="../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../multilevel_transmon/">Multilevel Transmon</a></li><li class="is-active"><a class="tocitem" href>State Transfer</a><ul class="internal"><li><a class="tocitem" href="#Overview"><span>Overview</span></a></li><li><a class="tocitem" href="#Single-State-Transfer"><span>Single State Transfer</span></a></li><li><a class="tocitem" href="#Multi-State-Transfer-(Gate-via-States)"><span>Multi-State Transfer (Gate via States)</span></a></li><li><a class="tocitem" href="#When-to-Use-Each-Trajectory-Type"><span>When to Use Each Trajectory Type</span></a></li><li><a class="tocitem" href="#Superposition-State-Preparation"><span>Superposition State Preparation</span></a></li><li><a class="tocitem" href="#Next-Steps"><span>Next Steps</span></a></li></ul></li><li><a class="tocitem" href="../robust_control/">Robust Control</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../problem-templates/smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../problem-templates/bang_bang_pulse/">BangBangPulseProblem</a></li><li><a class="tocitem" href="../problem-templates/spline_pulse/">SplinePulseProblem</a></li><li><a class="tocitem" href="../problem-templates/minimum_time/">MinimumTimeProblem</a></li><li><a class="tocitem" href="../problem-templates/sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../problem-templates/composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../systems/">Overview</a></li><li><a class="tocitem" href="../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../guides/">Overview</a></li><li><a class="tocitem" href="../guides/leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../guides/global_variables/">Global Variables</a></li><li><a class="tocitem" href="../guides/visualization/">Visualization</a></li><li><a class="tocitem" href="../guides/custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../reference/">Overview</a></li><li><a class="tocitem" href="../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>State Transfer</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>State Transfer</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/state_transfer.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="state-transfer-tutorial"><a class="docs-heading-anchor" href="#state-transfer-tutorial">State Transfer</a><a id="state-transfer-tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#state-transfer-tutorial" title="Permalink"></a></h1><p>This tutorial covers state-to-state transfer using <code>KetTrajectory</code>. We&#39;ll prepare quantum states and implement gates via state mappings.</p><h2 id="Overview"><a class="docs-heading-anchor" href="#Overview">Overview</a><a id="Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Overview" title="Permalink"></a></h2><p>While <code>UnitaryTrajectory</code> optimizes for a full unitary gate, <code>KetTrajectory</code> optimizes for transferring a specific initial state to a target state. This is useful for:</p><ul><li>State preparation</li><li>Gates where you only care about specific state mappings</li><li>Problems where full unitary tracking is expensive</li></ul><pre><code class="language-julia hljs">using Piccolo
+using CairoMakie
+using Random
+Random.seed!(123)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Random.TaskLocalRNG()</code></pre><h2 id="Single-State-Transfer"><a class="docs-heading-anchor" href="#Single-State-Transfer">Single State Transfer</a><a id="Single-State-Transfer-1"></a><a class="docs-heading-anchor-permalink" href="#Single-State-Transfer" title="Permalink"></a></h2><p>Let&#39;s prepare the |1⟩ state starting from |0⟩.</p><h3 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Create quantum system
+H_drift = 0.5 * PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+# Time parameters
+T, N = 10.0, 100
+times = collect(range(0, T, length = N))
+
+# Initial pulse
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ZeroOrderPulse
+  drives: 2
+  duration: 10.0</code></pre><h3 id="Define-State-Transfer"><a class="docs-heading-anchor" href="#Define-State-Transfer">Define State Transfer</a><a id="Define-State-Transfer-1"></a><a class="docs-heading-anchor-permalink" href="#Define-State-Transfer" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Initial state: |0⟩
+ψ_init = ComplexF64[1.0, 0.0]
+
+# Target state: |1⟩
+ψ_goal = ComplexF64[0.0, 1.0]
+
+# Create KetTrajectory
+qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">KetTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 2, Vector{Vector{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Vector{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Vector{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Vector{ComplexF64}}, Vector{Float64}, Vector{Vector{Vector{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Vector{ComplexF64}, Vector{ComplexF64}, Matrix{ComplexF64}, Vector{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}(QuantumSystem: levels = 2, n_drives = 2, ZeroOrderPulse(Number of drives = 2, T = 10.0), ComplexF64[1.0 + 0.0im, 0.0 + 0.0im], ComplexF64[0.0 + 0.0im, 1.0 + 0.0im], ComplexF64[1.0 + 0.0im 0.9986546829501518 - 0.049977576037549286im … 0.21989024288659764 + 0.9686899992340066im 0.2656562004673531 + 0.9540494064401241im; 0.0 + 0.0im -0.011215692818783948 - 0.008079254281018215im … -0.10623435203872292 - 0.04474627262931361im -0.11812797096511285 - 0.07254168250166698im])</code></pre><h3 id="Solve"><a class="docs-heading-anchor" href="#Solve">Solve</a><a id="Solve-1"></a><a class="docs-heading-anchor-permalink" href="#Solve" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
+
+fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9669714846109944</code></pre><h3 id="Visualize-State-Evolution"><a class="docs-heading-anchor" href="#Visualize-State-Evolution">Visualize State Evolution</a><a id="Visualize-State-Evolution-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-State-Evolution" title="Permalink"></a></h3><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+
+# Convert isomorphic states to physical states
+n_steps = size(traj[:ψ̃], 2)
+populations = zeros(2, n_steps)
+
+for k = 1:n_steps
+    ψ = iso_to_ket(traj[:ψ̃][:, k])
+    populations[:, k] = abs2.(ψ)
+end
+
+# Plot
+fig = Figure(size = (800, 400))
+
+ax1 = Axis(fig[1, 1], xlabel = &quot;Timestep&quot;, ylabel = &quot;Population&quot;, title = &quot;State Evolution&quot;)
+lines!(ax1, 1:n_steps, populations[1, :], label = &quot;|0⟩&quot;, linewidth = 2)
+lines!(ax1, 1:n_steps, populations[2, :], label = &quot;|1⟩&quot;, linewidth = 2)
+axislegend(ax1, position = :rt)
+
+fig</code></pre><img src="0ccc4c17.png" alt="Example block output"/><h2 id="Multi-State-Transfer-(Gate-via-States)"><a class="docs-heading-anchor" href="#Multi-State-Transfer-(Gate-via-States)">Multi-State Transfer (Gate via States)</a><a id="Multi-State-Transfer-(Gate-via-States)-1"></a><a class="docs-heading-anchor-permalink" href="#Multi-State-Transfer-(Gate-via-States)" title="Permalink"></a></h2><p>We can define a gate by specifying how it maps multiple states. <code>MultiKetTrajectory</code> optimizes all mappings simultaneously with coherent phases.</p><h3 id="Define-X-Gate-via-State-Mappings"><a class="docs-heading-anchor" href="#Define-X-Gate-via-State-Mappings">Define X Gate via State Mappings</a><a id="Define-X-Gate-via-State-Mappings-1"></a><a class="docs-heading-anchor-permalink" href="#Define-X-Gate-via-State-Mappings" title="Permalink"></a></h3><p>The X gate maps:</p><ul><li>|0⟩ → |1⟩</li><li>|1⟩ → |0⟩</li></ul><pre><code class="language-julia hljs"># Basis states
+ψ0 = ComplexF64[1.0, 0.0]  # |0⟩
+ψ1 = ComplexF64[0.0, 1.0]  # |1⟩
+
+# Initial states and their targets
+initial_states = [ψ0, ψ1]
+goal_states = [ψ1, ψ0]  # X gate swaps them
+
+# Create new pulse for this problem
+pulse_multi = ZeroOrderPulse(0.1 * randn(2, N), times)
+
+# Create MultiKetTrajectory
+qtraj_multi = MultiKetTrajectory(sys, pulse_multi, initial_states, goal_states)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MultiKetTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.EnsembleSolution{ComplexF64, 3, Vector{SciMLBase.ODESolution{ComplexF64, 2, Vector{Vector{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Vector{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Vector{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Vector{ComplexF64}}, Vector{Float64}, Vector{Vector{Vector{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Vector{ComplexF64}, Vector{ComplexF64}, Matrix{ComplexF64}, Vector{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}}}(QuantumSystem: levels = 2, n_drives = 2, ZeroOrderPulse(Number of drives = 2, T = 10.0), Vector{ComplexF64}[[1.0 + 0.0im, 0.0 + 0.0im], [0.0 + 0.0im, 1.0 + 0.0im]], Vector{ComplexF64}[[0.0 + 0.0im, 1.0 + 0.0im], [1.0 + 0.0im, 0.0 + 0.0im]], [0.5, 0.5], ComplexF64[1.0 + 0.0im 0.9984186197391062 - 0.04997364088264558im … 0.23362005723166956 + 0.969270754287099im 0.28146561110526647 + 0.956487839495784im; 0.0 + 0.0im 0.025562895335622466 + 0.0030713770935270183im … -0.050707250396324524 - 0.058005590248229336im -0.044279319118150244 - 0.06282885133655476im;;; 0.0 + 0.0im -0.02556289533562247 + 0.0030713770935270174im … 0.05070725039632503 - 0.058005590248228996im 0.04427931911815074 - 0.06282885133655443im; 1.0 + 0.0im 0.9984186197391061 + 0.049973640882645574im … 0.233620057231671 - 0.9692707542871023im 0.28146561110526813 - 0.9564878394957875im])</code></pre><h3 id="Solve-with-Coherent-Fidelity"><a class="docs-heading-anchor" href="#Solve-with-Coherent-Fidelity">Solve with Coherent Fidelity</a><a id="Solve-with-Coherent-Fidelity-1"></a><a class="docs-heading-anchor-permalink" href="#Solve-with-Coherent-Fidelity" title="Permalink"></a></h3><p><code>MultiKetTrajectory</code> uses <code>CoherentKetInfidelityObjective</code>, which ensures not just that each state reaches its target, but that the relative phases between states are preserved correctly.</p><pre><code class="language-julia hljs">qcp_multi = SmoothPulseProblem(qtraj_multi, N; Q = 100.0, R = 1e-2)
+solve!(
+    qcp_multi;
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
+
+fidelity(qcp_multi)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999991778522876</code></pre><h3 id="Visualize-Both-State-Evolutions"><a class="docs-heading-anchor" href="#Visualize-Both-State-Evolutions">Visualize Both State Evolutions</a><a id="Visualize-Both-State-Evolutions-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-Both-State-Evolutions" title="Permalink"></a></h3><pre><code class="language-julia hljs">traj_multi = get_trajectory(qcp_multi)
+
+# Extract populations for both initial states
+# MultiKetTrajectory stores states as :ψ̃1, :ψ̃2, etc.
+n_steps = size(traj_multi[:ψ̃1], 2)
+
+pops1 = zeros(2, n_steps)  # Evolution from |0⟩
+pops2 = zeros(2, n_steps)  # Evolution from |1⟩
+
+for k = 1:n_steps
+    ψ1_k = iso_to_ket(traj_multi[:ψ̃1][:, k])
+    ψ2_k = iso_to_ket(traj_multi[:ψ̃2][:, k])
+    pops1[:, k] = abs2.(ψ1_k)
+    pops2[:, k] = abs2.(ψ2_k)
+end
+
+fig2 = Figure(size = (800, 400))
+
+ax1 = Axis(fig2[1, 1], xlabel = &quot;Timestep&quot;, ylabel = &quot;Population&quot;, title = &quot;|0⟩ → |1⟩&quot;)
+lines!(ax1, 1:n_steps, pops1[1, :], label = &quot;|0⟩&quot;, linewidth = 2, color = :blue)
+lines!(ax1, 1:n_steps, pops1[2, :], label = &quot;|1⟩&quot;, linewidth = 2, color = :red)
+axislegend(ax1, position = :rt)
+
+ax2 = Axis(fig2[1, 2], xlabel = &quot;Timestep&quot;, ylabel = &quot;Population&quot;, title = &quot;|1⟩ → |0⟩&quot;)
+lines!(ax2, 1:n_steps, pops2[1, :], label = &quot;|0⟩&quot;, linewidth = 2, color = :blue)
+lines!(ax2, 1:n_steps, pops2[2, :], label = &quot;|1⟩&quot;, linewidth = 2, color = :red)
+axislegend(ax2, position = :rt)
+
+fig2</code></pre><img src="48dea98c.png" alt="Example block output"/><h2 id="When-to-Use-Each-Trajectory-Type"><a class="docs-heading-anchor" href="#When-to-Use-Each-Trajectory-Type">When to Use Each Trajectory Type</a><a id="When-to-Use-Each-Trajectory-Type-1"></a><a class="docs-heading-anchor-permalink" href="#When-to-Use-Each-Trajectory-Type" title="Permalink"></a></h2><table><tr><th style="text-align: right">Trajectory</th><th style="text-align: right">Use Case</th><th style="text-align: right">Pros</th><th style="text-align: right">Cons</th></tr><tr><td style="text-align: right"><code>UnitaryTrajectory</code></td><td style="text-align: right">Full gate synthesis</td><td style="text-align: right">Complete gate, any input</td><td style="text-align: right">Tracks d² elements</td></tr><tr><td style="text-align: right"><code>KetTrajectory</code></td><td style="text-align: right">Single state prep</td><td style="text-align: right">Fast, simple</td><td style="text-align: right">Single state only</td></tr><tr><td style="text-align: right"><code>MultiKetTrajectory</code></td><td style="text-align: right">Gate via state maps</td><td style="text-align: right">Phase coherent</td><td style="text-align: right">Need all relevant states</td></tr></table><h2 id="Superposition-State-Preparation"><a class="docs-heading-anchor" href="#Superposition-State-Preparation">Superposition State Preparation</a><a id="Superposition-State-Preparation-1"></a><a class="docs-heading-anchor-permalink" href="#Superposition-State-Preparation" title="Permalink"></a></h2><p>Let&#39;s prepare a superposition state: |+⟩ = (|0⟩ + |1⟩)/√2</p><pre><code class="language-julia hljs">ψ_plus = ComplexF64[1, 1] / sqrt(2)
+
+pulse_super = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj_super = KetTrajectory(sys, pulse_super, ψ0, ψ_plus)
+
+qcp_super = SmoothPulseProblem(qtraj_super, N; Q = 100.0, R = 1e-2)
+solve!(
+    qcp_super;
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
+
+fidelity(qcp_super)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.985337917192531</code></pre><p>Verify the final state:</p><pre><code class="language-julia hljs">traj_super = get_trajectory(qcp_super)
+ψ_final = iso_to_ket(traj_super[:ψ̃][:, end])
+round.(ψ_final, digits = 3)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{ComplexF64}:
+ 0.419 + 0.637im
+ 0.248 + 0.61im</code></pre><h2 id="Next-Steps"><a class="docs-heading-anchor" href="#Next-Steps">Next Steps</a><a id="Next-Steps-1"></a><a class="docs-heading-anchor-permalink" href="#Next-Steps" title="Permalink"></a></h2><ul><li><a href="../multilevel_transmon/#multilevel-transmon-tutorial">Multilevel Transmon</a>: Work with realistic superconducting qubits</li><li><a href="../robust_control/#robust-control-tutorial">Robust Control</a>: Make pulses robust to parameter uncertainty</li><li><a href="../../problem-templates/#problem-templates-overview">Problem Templates</a>: Full API documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../multilevel_transmon/">« Multilevel Transmon</a><a class="docs-footer-nextpage" href="../robust_control/">Robust Control »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 2 May 2026 17:20">Saturday 2 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./state_transfer.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/state_transfer.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
+# literate/state_transfer.jl
+# ```
+#
+# # [State Transfer](@id state-transfer-tutorial)
+#
+# This tutorial covers state-to-state transfer using `KetTrajectory`.
+# We'll prepare quantum states and implement gates via state mappings.
+#
+# ## Overview
+#
+# While `UnitaryTrajectory` optimizes for a full unitary gate,
+# `KetTrajectory` optimizes for transferring a specific initial state
+# to a target state. This is useful for:
+# - State preparation
+# - Gates where you only care about specific state mappings
+# - Problems where full unitary tracking is expensive
+
+using Piccolo
+using CairoMakie
+using Random
+Random.seed!(123)
+
+# ## Single State Transfer
+#
+# Let's prepare the |1⟩ state starting from |0⟩.
+
+# ### Setup
+
+## Create quantum system
+H_drift = 0.5 * PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+## Time parameters
+T, N = 10.0, 100
+times = collect(range(0, T, length = N))
+
+## Initial pulse
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+
+# ### Define State Transfer
+
+## Initial state: |0⟩
+ψ_init = ComplexF64[1.0, 0.0]
+
+## Target state: |1⟩
+ψ_goal = ComplexF64[0.0, 1.0]
+
+## Create KetTrajectory
+qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+
+# ### Solve
+
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+solve!(qcp; max_iter = 20, verbose = false, print_level = 1)
+
+fidelity(qcp)
+
+# ### Visualize State Evolution
+
+traj = get_trajectory(qcp)
+
+## Convert isomorphic states to physical states
+n_steps = size(traj[:ψ̃], 2)
+populations = zeros(2, n_steps)
+
+for k = 1:n_steps
+    ψ = iso_to_ket(traj[:ψ̃][:, k])
+    populations[:, k] = abs2.(ψ)
+end
+
+## Plot
+fig = Figure(size = (800, 400))
+
+ax1 = Axis(fig[1, 1], xlabel = "Timestep", ylabel = "Population", title = "State Evolution")
+lines!(ax1, 1:n_steps, populations[1, :], label = "|0⟩", linewidth = 2)
+lines!(ax1, 1:n_steps, populations[2, :], label = "|1⟩", linewidth = 2)
+axislegend(ax1, position = :rt)
+
+fig
+
+# ## Multi-State Transfer (Gate via States)
+#
+# We can define a gate by specifying how it maps multiple states.
+# `MultiKetTrajectory` optimizes all mappings simultaneously with
+# coherent phases.
+
+# ### Define X Gate via State Mappings
+#
+# The X gate maps:
+# - |0⟩ → |1⟩
+# - |1⟩ → |0⟩
+
+## Basis states
+ψ0 = ComplexF64[1.0, 0.0]  # |0⟩
+ψ1 = ComplexF64[0.0, 1.0]  # |1⟩
+
+## Initial states and their targets
+initial_states = [ψ0, ψ1]
+goal_states = [ψ1, ψ0]  # X gate swaps them
+
+## Create new pulse for this problem
+pulse_multi = ZeroOrderPulse(0.1 * randn(2, N), times)
+
+## Create MultiKetTrajectory
+qtraj_multi = MultiKetTrajectory(sys, pulse_multi, initial_states, goal_states)
+
+# ### Solve with Coherent Fidelity
+#
+# `MultiKetTrajectory` uses `CoherentKetInfidelityObjective`, which ensures
+# not just that each state reaches its target, but that the relative phases
+# between states are preserved correctly.
+
+qcp_multi = SmoothPulseProblem(qtraj_multi, N; Q = 100.0, R = 1e-2)
+solve!(
+    qcp_multi;
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
+
+fidelity(qcp_multi)
+
+# ### Visualize Both State Evolutions
+
+traj_multi = get_trajectory(qcp_multi)
+
+## Extract populations for both initial states
+## MultiKetTrajectory stores states as :ψ̃1, :ψ̃2, etc.
+n_steps = size(traj_multi[:ψ̃1], 2)
+
+pops1 = zeros(2, n_steps)  # Evolution from |0⟩
+pops2 = zeros(2, n_steps)  # Evolution from |1⟩
+
+for k = 1:n_steps
+    ψ1_k = iso_to_ket(traj_multi[:ψ̃1][:, k])
+    ψ2_k = iso_to_ket(traj_multi[:ψ̃2][:, k])
+    pops1[:, k] = abs2.(ψ1_k)
+    pops2[:, k] = abs2.(ψ2_k)
+end
+
+fig2 = Figure(size = (800, 400))
+
+ax1 = Axis(fig2[1, 1], xlabel = "Timestep", ylabel = "Population", title = "|0⟩ → |1⟩")
+lines!(ax1, 1:n_steps, pops1[1, :], label = "|0⟩", linewidth = 2, color = :blue)
+lines!(ax1, 1:n_steps, pops1[2, :], label = "|1⟩", linewidth = 2, color = :red)
+axislegend(ax1, position = :rt)
+
+ax2 = Axis(fig2[1, 2], xlabel = "Timestep", ylabel = "Population", title = "|1⟩ → |0⟩")
+lines!(ax2, 1:n_steps, pops2[1, :], label = "|0⟩", linewidth = 2, color = :blue)
+lines!(ax2, 1:n_steps, pops2[2, :], label = "|1⟩", linewidth = 2, color = :red)
+axislegend(ax2, position = :rt)
+
+fig2
+
+# ## When to Use Each Trajectory Type
+#
+# | Trajectory | Use Case | Pros | Cons |
+# |------------|----------|------|------|
+# | `UnitaryTrajectory` | Full gate synthesis | Complete gate, any input | Tracks d² elements |
+# | `KetTrajectory` | Single state prep | Fast, simple | Single state only |
+# | `MultiKetTrajectory` | Gate via state maps | Phase coherent | Need all relevant states |
+
+# ## Superposition State Preparation
+#
+# Let's prepare a superposition state: |+⟩ = (|0⟩ + |1⟩)/√2
+
+ψ_plus = ComplexF64[1, 1] / sqrt(2)
+
+pulse_super = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj_super = KetTrajectory(sys, pulse_super, ψ0, ψ_plus)
+
+qcp_super = SmoothPulseProblem(qtraj_super, N; Q = 100.0, R = 1e-2)
+solve!(
+    qcp_super;
+    max_iter = 20,
+    verbose = false,
+    print_level = 1,
+)
+
+fidelity(qcp_super)
+
+# Verify the final state:
+
+traj_super = get_trajectory(qcp_super)
+ψ_final = iso_to_ket(traj_super[:ψ̃][:, end])
+round.(ψ_final, digits = 3)
+
+# ## Next Steps
+#
+# - [Multilevel Transmon](@ref multilevel-transmon-tutorial): Work with realistic superconducting qubits
+# - [Robust Control](@ref robust-control-tutorial): Make pulses robust to parameter uncertainty
+# - [Problem Templates](@ref problem-templates-overview): Full API documentation
+</script>
+<link rel="stylesheet" href="../../assets/copybutton.css"/>
+<script src="../../assets/copybutton.js"></script>
+
+</body></html>
