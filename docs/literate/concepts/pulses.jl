@@ -16,8 +16,16 @@
 # | `LinearSplinePulse` | ``C^0`` | ``\boldsymbol{u}_k`` (knot values) | `SplinePulseProblem` |
 # | `CubicSplinePulse` | ``C^1`` | ``\boldsymbol{u}_k,\, \dot{\boldsymbol{u}}_k`` (values + tangents) | `SplinePulseProblem` |
 # | `GaussianPulse` | ``C^\infty`` | ``A_i, \sigma_i, \mu_i`` (parametric) | Analytical |
+# | `ErfPulse` | ``C^\infty`` | ``A_i, \sigma_i, \mu_i`` (parametric) | Analytical / phase compensation |
 # | `CompositePulse` | varies | union of sub-pulse variables | Various |
 # | `FunctionPulse` | arbitrary | none (fixed function) | Rollout / fidelity evaluation |
+#
+# All pulse types share the [`plot_pulse`](@ref) interface. Each is rendered with
+# a faithful visual reflecting its actual interpolation: stairs for zero-order
+# hold, line segments for linear splines, smooth curves with knot markers for
+# cubic splines, and dense samples for analytic / functional pulses. `plot_pulse`
+# also honors the active Makie theme — set `theme_dark()` once at the top of
+# your script and every plot below picks up dark-friendly colors automatically.
 #
 # ## ZeroOrderPulse
 #
@@ -62,15 +70,31 @@ n_drives(pulse_zop)
 
 # ### Visualization
 #
-# ```
-# Control Value
-#     │    ┌──┐
-#     │    │  │  ┌──┐
-#     │────┘  │  │  └───
-#     │       └──┘
-#     └─────────────────── Time
-# ```
-#
+# With fewer knots the step structure is clearly visible. `plot_pulse` uses
+# `stairs!` with `step = :post` so each knot value is held until the next knot
+# — the visual matches what the integrator actually sees.
+
+using CairoMakie #hide
+import Random #hide
+Random.seed!(0) #hide
+N_demo = 8
+demo_times = collect(range(0, T, length = N_demo))
+## clamp the random initial guess inside [-1, 1] so the bounds figure below
+## doesn't show stray knots crossing the hardware limit.
+demo_controls = clamp.(0.5 * randn(n_dr, N_demo), -0.95, 0.95)
+demo_zop = ZeroOrderPulse(demo_controls, demo_times)
+plot_pulse(demo_zop; title = "ZeroOrderPulse", labels = ["Drive 1", "Drive 2"])
+
+# Adding hardware bounds shades a band on each subplot — useful when sanity-
+# checking that an initial guess respects amplitude limits.
+
+plot_pulse(
+    demo_zop;
+    title = "ZeroOrderPulse with bounds",
+    labels = ["Drive 1", "Drive 2"],
+    bounds = [(-1.0, 1.0), (-1.0, 1.0)],
+)
+
 # ### Use Case
 #
 # - **Primary use**: `SmoothPulseProblem`
@@ -103,16 +127,10 @@ u_linear = pulse_linear(T / 2)
 u_linear
 
 # ### Visualization
-#
-# ```
-# Control Value
-#     │      /\
-#     │     /  \    /
-#     │    /    \  /
-#     │───/      \/
-#     └─────────────────── Time
-# ```
-#
+
+demo_linear = LinearSplinePulse(demo_controls, demo_times)
+plot_pulse(demo_linear; title = "LinearSplinePulse", labels = ["Drive 1", "Drive 2"])
+
 # ## CubicSplinePulse
 #
 # Cubic Hermite spline interpolation with independent tangents
@@ -146,6 +164,21 @@ pulse_cubic = CubicSplinePulse(controls, tangents, times)
 u_cubic = pulse_cubic(T / 2)
 u_cubic
 
+# ### Visualization
+#
+# `CubicSplinePulse` renders as a smooth curve with knot markers. Enable
+# `show_tangents=true` to see the Hermite derivative whiskers at each knot:
+
+demo_tangents = 0.3 * randn(n_dr, N_demo)
+demo_cubic = CubicSplinePulse(demo_controls, demo_tangents, demo_times)
+plot_pulse(
+    demo_cubic;
+    title = "CubicSplinePulse",
+    labels = ["Drive 1", "Drive 2"],
+    show_tangents = true,
+    tangent_scale = 0.05,
+)
+
 # ## GaussianPulse
 #
 # Parametric Gaussian envelope:
@@ -167,15 +200,50 @@ pulse_gauss = GaussianPulse(amplitudes, sigmas, centers, T)
 u_gauss = pulse_gauss(5.0)
 u_gauss
 
+# ### Visualization
+#
+# Analytic pulses render as a dense smooth curve. `n_samples` controls the
+# resolution — bump it up if you have very narrow features.
+
+plot_pulse(pulse_gauss; title = "GaussianPulse", labels = ["Drive 1", "Drive 2"])
+
+# ## ErfPulse
+#
+# Analytic error-function profile, often used for AC-Stark / phase-compensation
+# in trapped-ion gates:
+#
+# ```math
+# u_i(t) = A_i \,\mathrm{erf}\!\left(\sqrt{2}\,\frac{t - \mu_i}{\sigma_i}\right)
+# ```
+#
+# ### Construction
+
+pulse_erf = ErfPulse([0.8], 2.0, T)
+
+# ### Visualization
+
+plot_pulse(pulse_erf; title = "ErfPulse", labels = ["Phase"])
+
 # ## CompositePulse
 #
 # Combine multiple pulses (e.g., different drives from different sources):
 
-pulse1 = GaussianPulse([0.5], [0.5], [2.0], T)
-pulse2 = GaussianPulse([0.3], [0.5], [8.0], T)
+amplitude_pulse = GaussianPulse([0.5], 1.5, T)
+phase_pulse = ErfPulse([0.8], 2.0, T)
+correction_knots = collect(range(0, T, length = 8))
+correction_vals = [0.0 0.02 -0.03 0.05 -0.04 0.03 -0.01 0.0]
+correction_pulse = CubicSplinePulse(correction_vals, correction_knots)
 
-composite = CompositePulse([pulse1, pulse2])
+composite = CompositePulse([amplitude_pulse, phase_pulse, correction_pulse], :concatenate)
 n_drives(composite)
+
+# ### Visualization
+
+plot_pulse(
+    composite;
+    title = "CompositePulse",
+    labels = ["Amplitude (Gaussian)", "Phase (Erf)", "Correction (Cubic)"],
+)
 
 # ## FunctionPulse
 #
@@ -192,6 +260,14 @@ pulse_fn = FunctionPulse(t -> [0.0, 1.5 * sin(π * t / T_fp)^2], T_fp, 2)
 
 ## Evaluate at any time
 pulse_fn(500.0)
+
+# ### Visualization
+
+plot_pulse(
+    pulse_fn;
+    title = "FunctionPulse (sin² envelope)",
+    labels = ["Drive 1", "Drive 2"],
+)
 
 # ### Typical Use
 #
@@ -275,6 +351,52 @@ length(new_times)
 # Even if you need smooth pulses, optimize with `ZeroOrderPulse` first, then
 # convert to `CubicSplinePulse` for refinement.
 #
+# ## Comparing Interpolation Types
+#
+# The same control data renders differently depending on the pulse type.
+# This is the key reason `plot_pulse` uses type-specific rendering:
+
+compare_times = collect(range(0, T, length = 7))
+compare_controls = [0.0 0.8 -0.5 1.2 0.3 -0.9 0.0]
+
+fig = Figure(size = (900, 700))
+
+ax1 = Axis(fig[1, 1]; title = "ZeroOrderPulse", ylabel = "Amplitude")
+plot_pulse!(ax1, ZeroOrderPulse(compare_controls, compare_times))
+
+ax2 = Axis(fig[2, 1]; title = "LinearSplinePulse", ylabel = "Amplitude")
+plot_pulse!(ax2, LinearSplinePulse(compare_controls, compare_times))
+
+ax3 = Axis(fig[3, 1]; title = "CubicSplinePulse", xlabel = "Time", ylabel = "Amplitude")
+plot_pulse!(ax3, CubicSplinePulse(compare_controls, compare_times))
+
+Label(
+    fig[0, 1],
+    "Same Data, Three Interpolations";
+    fontsize = 18,
+    font = :bold,
+    tellwidth = false,
+)
+fig
+
+# ## Theming
+#
+# `plot_pulse` reads the active Makie theme. Calling `set_theme!(theme_dark())`
+# (or any other theme) at the top of a script makes every subsequent plot use a
+# dark-friendly palette — line colors come from the theme's `:palette[:color]`
+# cycle and knot strokes / zero-lines / hardware bounds switch to the theme's
+# text color so they remain readable.
+
+with_theme(theme_dark()) do
+    plot_pulse(
+        demo_cubic;
+        title = "CubicSplinePulse (theme_dark)",
+        labels = ["Drive 1", "Drive 2"],
+        show_tangents = true,
+        tangent_scale = 0.05,
+    )
+end
+
 # ## See Also
 #
 # - [SmoothPulseProblem](@ref smooth-pulse) - Using `ZeroOrderPulse`

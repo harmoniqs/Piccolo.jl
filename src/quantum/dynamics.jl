@@ -316,6 +316,10 @@ function PiccoloRolloutSystem(
     return PiccoloRolloutSystem(state_index, timestep_name, defaults)
 end
 
+# Compat: SciMLBase v2 passes (prob, i::Int, repeat::Int) to EnsembleProblem callbacks,
+#         SciMLBase v3 passes (prob, ctx::EnsembleContext) where ctx.sim_id is the index.
+_sim_index(i_or_ctx) = i_or_ctx isa Integer ? i_or_ctx : i_or_ctx.sim_id
+
 function _construct_operator(sys::AbstractQuantumSystem, u::F) where {F}
     A0 = zeros(ComplexF64, sys.levels, sys.levels)
 
@@ -532,7 +536,8 @@ function rollout_fidelity(
     end
 
     # Ensemble over initial states
-    prob_func(prob, i, repeat) = remake(prob, u0 = iso_to_ket(traj.initial[state_names[i]]))
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = iso_to_ket(traj.initial[state_names[_sim_index(i_or_ctx)]]))
     ensemble_prob = EnsembleProblem(rollout, prob_func = prob_func)
     ensemble_sol = solve(
         ensemble_prob,
@@ -543,7 +548,7 @@ function rollout_fidelity(
         reltol = reltol,
     )
 
-    fids = map(zip(ensemble_sol, state_names)) do (sol, name)
+    fids = map(zip(ensemble_sol.u, state_names)) do (sol, name)
         xf = sol[state_name][end]
         xg = iso_to_ket(traj.goal[name])
         fidelity(xf, xg)
@@ -1155,6 +1160,89 @@ end
     # Original global params should be unchanged
     @test qtraj.system.global_params.δ == 0.5
     @test qtraj.system.global_params.Ω == 1.0
+end
+
+@testitem "EnsembleProblem _sim_index compat shim" begin
+    using LinearAlgebra
+    using SciMLBase: EnsembleProblem, solve, remake
+    using OrdinaryDiffEqLinear: MagnusAdapt4
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+
+    psi0 = ComplexF64[1.0, 0.0]
+    psi1 = ComplexF64[0.0, 1.0]
+    initials = [psi0, psi1]
+
+    T = 1.0
+    pulse = ZeroOrderPulse(0.5 * ones(1, 10), collect(range(0.0, T, length = 10)))
+    tstops = collect(range(0.0, T, length = 50))
+
+    # Dummy u0 = zeros, mimicking MultiKetTrajectory constructor
+    dummy = zeros(ComplexF64, sys.levels)
+    base_prob = KetOperatorODEProblem(sys, pulse, dummy, tstops)
+
+    # Use the same _sim_index shim as Piccolo internals
+    _sim_index = Piccolo.Quantum.Rollouts._sim_index
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = initials[_sim_index(i_or_ctx)])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
+
+    sol = solve(
+        ensemble_prob,
+        MagnusAdapt4();
+        trajectories = 2,
+        saveat = tstops,
+        abstol = 1e-8,
+        reltol = 1e-8,
+    )
+
+    # Initial states must match the provided initials, not the dummy zeros
+    @test sol.u[1].u[1] ≈ psi0
+    @test sol.u[2].u[1] ≈ psi1
+
+    # No element of the final state should be exactly 0.0+0.0im
+    @test !all(x -> x == zero(x), sol.u[1].u[end])
+    @test !all(x -> x == zero(x), sol.u[2].u[end])
+
+    # Norms should be preserved (unitary evolution)
+    @test norm(sol.u[1].u[end]) ≈ 1.0 atol=1e-6
+    @test norm(sol.u[2].u[end]) ≈ 1.0 atol=1e-6
+end
+
+@testitem "rollout_fidelity multi-state ensemble uses _sim_index" begin
+    using LinearAlgebra
+    using NamedTrajectories
+
+    N = 30
+    T = 1.0
+
+    sys = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    psi0 = ComplexF64[1.0, 0.0]
+    psi1 = ComplexF64[0.0, 1.0]
+
+    pulse = ZeroOrderPulse(0.5 * ones(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys, pulse, [psi0, psi1], [psi1, psi0])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    solve!(qcp; max_iter = 50, verbose = false, print_level = 1)
+
+    # rollout_fidelity internally constructs an EnsembleProblem with _sim_index
+    traj = get_trajectory(qcp)
+    snames = state_names(qcp.qtraj)
+
+    # This path only triggers the ensemble when there are multiple state names
+    @test length(snames) == 2
+
+    fids = rollout_fidelity(traj, sys; state_name = :ψ̃)
+
+    # Must return multiple fidelities (one per state), not a single scalar
+    @test fids isa AbstractVector || fids isa Tuple
+    @test length(fids) == 2
+
+    # No fidelity should be exactly 0.0 (zero-state regression)
+    for f in fids
+        @test f != 0.0
+        @test f > 0.0
+    end
 end
 
 

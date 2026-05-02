@@ -76,7 +76,8 @@ function MultiKetTrajectory(
     # Build ensemble problem
     dummy = zeros(ComplexF64, system.levels)
     base_prob = KetOperatorODEProblem(system, pulse, dummy, tstops)
-    prob_func(prob, i, repeat) = remake(prob, u0 = ψ0s[i])
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = ψ0s[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
@@ -135,10 +136,10 @@ function MultiKetTrajectory(
 end
 
 # Callable: sample all solutions at time t
-(qtraj::MultiKetTrajectory)(t::Real) = [sol(t) for sol in qtraj.solution]
+(qtraj::MultiKetTrajectory)(t::Real) = [sol(t) for sol in qtraj.solution.u]
 
 # Indexing: get individual trajectory solution
-Base.getindex(qtraj::MultiKetTrajectory, i::Int) = qtraj.solution[i]
+Base.getindex(qtraj::MultiKetTrajectory, i::Int) = qtraj.solution.u[i]
 Base.length(qtraj::MultiKetTrajectory) = length(qtraj.initials)
 
 # ============================================================================ #
@@ -242,4 +243,29 @@ end
 
     @test state_name(qtraj) == :ψ̃
     @test state_names(qtraj) == [:ψ̃1, :ψ̃2, :ψ̃3]
+end
+
+@testitem "EnsembleSolution .u access returns ODESolution not scalar" begin
+    using LinearAlgebra
+    using SciMLBase: AbstractTimeseriesSolution
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    psi0 = ComplexF64[1.0, 0.0]
+    psi1 = ComplexF64[0.0, 1.0]
+
+    T = 1.0
+    pulse = ZeroOrderPulse(0.5 * ones(1, 10), collect(range(0.0, T, length = 10)))
+    qtraj = MultiKetTrajectory(sys, pulse, [psi0, psi1], [psi1, psi0])
+
+    # .solution.u[i] must return an ODESolution-like object, not a scalar
+    sol_1 = qtraj.solution.u[1]
+    @test sol_1 isa AbstractTimeseriesSolution
+    @test length(sol_1.u) > 1
+
+    sol_2 = qtraj.solution.u[2]
+    @test sol_2 isa AbstractTimeseriesSolution
+    @test length(sol_2.u) > 1
+
+    # length(.solution.u) should be trajectory count, not scalar element count
+    @test length(qtraj.solution.u) == 2
 end
