@@ -294,7 +294,7 @@ function is_reachable(
     if use_drift && !all(H_drift .≈ 0)
         push!(H_drives, H_drift)
     end
-    return is_reachable(gate, H_drives; hermitian=hermitian, kwargs...)
+    return is_reachable(gate, H_drives; hermitian = hermitian, kwargs...)
 end
 
 is_reachable(gate::EmbeddedOperator, args...; kwargs...) =
