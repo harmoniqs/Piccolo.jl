@@ -90,9 +90,12 @@ Compute the Lie algebra basis for the given `generators`.
 
 # Keyword Arguments
 - `return_layers::Bool=false`: return the Lie tree layers
-- `normalize::Bool=false`: normalize the basis
+- `normalize::Bool=true`: normalize the basis
 - `verbose::Bool=false`: print information
 - `remove_trace::Bool=true`: remove trace from generators
+- `hermitian::Bool=true`: if `true` (physicist convention), commutators are converted to
+  Hermitian form via multiplication by `im`; if `false` (mathematician convention),
+  commutators are left as-is
 """
 function operator_algebra(
     generators::Vector{<:AbstractMatrix{T}};
@@ -100,6 +103,7 @@ function operator_algebra(
     remove_trace::Bool = true,
     normalize::Bool = true,
     verbose::Bool = false,
+    hermitian::Bool = true,
     atol::Float64 = 1e-10,
 ) where {T<:Number}
     N = size(first(generators), 1)
@@ -147,7 +151,9 @@ function operator_algebra(
                 continue
             end
 
-            comm = is_hermitian(comm) ? comm : im * comm
+            if hermitian
+                comm = is_hermitian(comm) ? comm : im * comm
+            end
             comm = clean(comm, normalize = normalize, remove_trace = remove_trace)
 
             v = vec(comm)
@@ -230,6 +236,7 @@ Check if the `gate` is reachable using the given `hamiltonians`.
 - `compute_basis::Bool=true`: compute the basis or use the Hamiltonians directly
 - `remove_trace::Bool=true`: remove trace from generators
 - `verbose::Bool=true`: print information about the operator algebra
+- `hermitian::Bool=true`: convention for the operator algebra (see [`operator_algebra`](@ref))
 - `atol::Float32=eps(Float32)`: absolute tolerance
 
 See also [`QuantumSystemUtils.operator_algebra`](@ref).
@@ -241,18 +248,23 @@ function is_reachable(
     compute_basis = true,
     remove_trace = true,
     verbose = true,
+    hermitian = true,
     atol = eps(Float32),
 )
     @assert size(gate, 1) == length(subspace) "Gate must be given in the subspace."
-    generator = im * log(gate)
+    generator = hermitian ? im * log(gate) : log(gate)
 
     if remove_trace
         generator = traceless(generator)
     end
 
     if compute_basis
-        basis =
-            operator_algebra(hamiltonians, remove_trace = remove_trace, verbose = verbose)
+        basis = operator_algebra(
+            hamiltonians,
+            remove_trace = remove_trace,
+            verbose = verbose,
+            hermitian = hermitian,
+        )
     else
         basis = hamiltonians
     end
@@ -267,12 +279,14 @@ Check if the `gate` is reachable using the given `system`.
 
 # Keyword Arguments
 - `use_drift::Bool=true`: include drift Hamiltonian in the generators
+- `hermitian::Bool=true`: convention for the operator algebra (see [`operator_algebra`](@ref))
 - `kwargs...`: keyword arguments for `is_reachable`
 """
 function is_reachable(
     gate::AbstractMatrix{<:Number},
     system::AbstractQuantumSystem;
     use_drift::Bool = true,
+    hermitian::Bool = true,
     kwargs...,
 )
     H_drift = get_drift(system)
@@ -280,7 +294,7 @@ function is_reachable(
     if use_drift && !all(H_drift .≈ 0)
         push!(H_drives, H_drift)
     end
-    return is_reachable(gate, H_drives; kwargs...)
+    return is_reachable(gate, H_drives; hermitian = hermitian, kwargs...)
 end
 
 is_reachable(gate::EmbeddedOperator, args...; kwargs...) =
@@ -409,6 +423,60 @@ end
     # System
     sys = QuantumSystem([GATES[:X], GATES[:Y]], [(-1.0, 1.0), (-1.0, 1.0)])
     @test is_reachable(target, sys, verbose = false)
+end
+
+@testitem "Lie algebra basis anti-Hermitian convention" begin
+    using .QuantumSystemUtils: operator_algebra
+    using LinearAlgebra
+
+    # SO(3) generators (anti-Hermitian / mathematician convention)
+    ex = ComplexF64.([1, 0, 0])
+    ey = ComplexF64.([0, 1, 0])
+    ez = ComplexF64.([0, 0, 1])
+
+    rx = (ez * ey' - ey * ez') / sqrt(2)
+    ry = (ex * ez' - ez * ex') / sqrt(2)
+    rz = (ey * ex' - ex * ey') / sqrt(2)
+
+    # With hermitian=false, algebra should stay anti-Hermitian
+    basis = operator_algebra([rx, ry], hermitian = false, verbose = false)
+    @test length(basis) == 3  # so(3) has dimension 3
+
+    # All basis elements should be anti-Hermitian (H' ≈ -H)
+    for b in basis
+        @test all(isapprox.(b + b', 0.0, atol = 1e-10))
+    end
+
+    # rz should be in span (not im*rz)
+    rz_norm = rz / norm(rz)
+    coeffs = stack(vec.(basis)) \ vec(rz_norm)
+    @test norm(sum(c * b for (c, b) in zip(coeffs, basis)) - rz_norm) < 1e-8
+
+    # Default (hermitian=true) should still work for Hermitian generators
+    gen = operator_from_string.(["X", "Y"])
+    basis_h = operator_algebra(gen, verbose = false)
+    @test length(basis_h) == size(first(gen), 1)^2 - 1
+    # All basis elements should be Hermitian
+    for b in basis_h
+        @test all(isapprox.(b - b', 0.0, atol = 1e-10))
+    end
+end
+
+@testitem "Lie Algebra reachability anti-Hermitian convention" begin
+    using LinearAlgebra
+
+    # SO(3) generators (anti-Hermitian)
+    ex = ComplexF64.([1, 0, 0])
+    ey = ComplexF64.([0, 1, 0])
+    ez = ComplexF64.([0, 0, 1])
+
+    rx = (ez * ey' - ey * ez') / sqrt(2)
+    ry = (ex * ez' - ez * ex') / sqrt(2)
+
+    # A rotation generated by rx, ry should be reachable
+    θ = 0.3
+    target = exp(θ * rx)  # unitary via anti-Hermitian generator
+    @test is_reachable(target, [rx, ry], hermitian = false, verbose = false)
 end
 
 end
