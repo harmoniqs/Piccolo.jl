@@ -139,7 +139,8 @@ function Base.summary(io::IO, qtraj::AbstractQuantumTrajectory)
         nameof(typeof(qtraj)),
         "($(sys.levels)-level $(nameof(typeof(sys))), ",
         "$(nameof(typeof(pulse))) with $(n_drives(pulse)) drives, ",
-        "T = ", duration(qtraj),
+        "T = ",
+        duration(qtraj),
         ")",
     )
 end
