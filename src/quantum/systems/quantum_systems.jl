@@ -593,6 +593,35 @@ function QuantumSystem(
     )
 end
 
+# Disambiguator: a `(drift::_DriftInputs, drives::Vector{<:AbstractDrive}, ...)` call
+# matches both the pair-based method above and the structured-drift method below.
+# Both methods share the same intent for this input shape; route through the
+# pair-based path (it handles `Vector{<:AbstractDrive}` natively in its drive loop)
+# so dispatch is unambiguous.
+function QuantumSystem(
+    drift::_DriftInputs,
+    drives::Vector{<:AbstractDrive},
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
+    time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
+)
+    return invoke(
+        QuantumSystem,
+        Tuple{
+            _DriftInputs,
+            AbstractVector,
+            Vector{<:Union{Tuple{Float64,Float64},Float64}},
+        },
+        drift,
+        drives,
+        drive_bounds;
+        time_dependent = time_dependent,
+        global_params = global_params,
+        hermitian = hermitian,
+    )
+end
+
 """
     QuantumSystem(
         H_drift,
