@@ -608,11 +608,7 @@ function QuantumSystem(
 )
     return invoke(
         QuantumSystem,
-        Tuple{
-            _DriftInputs,
-            AbstractVector,
-            Vector{<:Union{Tuple{Float64,Float64},Float64}},
-        },
+        Tuple{_DriftInputs,AbstractVector,Vector{<:Union{Tuple{Float64,Float64},Float64}}},
         drift,
         drives,
         drive_bounds;

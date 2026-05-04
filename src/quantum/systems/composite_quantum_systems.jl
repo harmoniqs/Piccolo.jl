@@ -181,12 +181,7 @@ function CompositeQuantumSystem(
     # `size(...)` as a Tuple of unknown rank causes JET to union-split into
     # the SparseVector path.
     m, n = size(H_drives[1])
-    return CompositeQuantumSystem(
-        spzeros(T, m, n),
-        H_drives,
-        subsystems,
-        drive_bounds,
-    )
+    return CompositeQuantumSystem(spzeros(T, m, n), H_drives, subsystems, drive_bounds)
 end
 
 """

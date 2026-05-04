@@ -108,12 +108,7 @@ function VariationalQuantumSystem(
     # `size(...)` as a Tuple of unknown rank causes JET to union-split into
     # the SparseVector path.
     m, n = size(H_drives[1])
-    return VariationalQuantumSystem(
-        spzeros(ℂ, m, n),
-        H_drives,
-        H_vars,
-        drive_bounds,
-    )
+    return VariationalQuantumSystem(spzeros(ℂ, m, n), H_drives, H_vars, drive_bounds)
 end
 
 function VariationalQuantumSystem(
