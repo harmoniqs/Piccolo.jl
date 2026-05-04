@@ -227,7 +227,9 @@ end
 
 function _update_goal(qtraj::SamplingTrajectory, new_goal)
     new_base = _update_goal(qtraj.base_trajectory, new_goal)
-    return update_base_trajectory(qtraj, new_base)
+    # Reconstruct the SamplingTrajectory around the updated base — a thin
+    # SamplingTrajectory only owns (base_trajectory, systems, weights).
+    return SamplingTrajectory(new_base, qtraj.systems; weights = qtraj.weights)
 end
 
 function _final_fidelity_constraint(
