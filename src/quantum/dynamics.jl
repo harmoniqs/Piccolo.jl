@@ -67,8 +67,6 @@ export ket_rollout
 export ket_rollout_fidelity
 export unitary_rollout
 export unitary_rollout_fidelity
-export open_rollout
-export open_rollout_fidelity
 export update_global_params!
 
 export KetODEProblem
