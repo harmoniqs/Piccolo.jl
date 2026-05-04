@@ -198,6 +198,8 @@ function ZeroOrderPulse(
     # nothing defaults to zeros for backward compatibility
     init_val = if initial_value === :free
         fill(NaN, n_drives)
+    elseif initial_value isa Symbol
+        error("Unknown initial_value symbol: $initial_value (only :free is supported)")
     elseif isnothing(initial_value)
         zeros(n_drives)
     else
@@ -205,6 +207,8 @@ function ZeroOrderPulse(
     end
     final_val = if final_value === :free
         fill(NaN, n_drives)
+    elseif final_value isa Symbol
+        error("Unknown final_value symbol: $final_value (only :free is supported)")
     elseif isnothing(final_value)
         zeros(n_drives)
     else
@@ -305,6 +309,8 @@ function LinearSplinePulse(
     n_drives = size(controls, 1)
     init_val = if initial_value === :free
         fill(NaN, n_drives)
+    elseif initial_value isa Symbol
+        error("Unknown initial_value symbol: $initial_value (only :free is supported)")
     elseif isnothing(initial_value)
         zeros(n_drives)
     else
@@ -312,6 +318,8 @@ function LinearSplinePulse(
     end
     final_val = if final_value === :free
         fill(NaN, n_drives)
+    elseif final_value isa Symbol
+        error("Unknown final_value symbol: $final_value (only :free is supported)")
     elseif isnothing(final_value)
         zeros(n_drives)
     else
@@ -392,6 +400,8 @@ function CubicSplinePulse(
     n_drives = size(controls, 1)
     init_val = if initial_value === :free
         fill(NaN, n_drives)
+    elseif initial_value isa Symbol
+        error("Unknown initial_value symbol: $initial_value (only :free is supported)")
     elseif isnothing(initial_value)
         zeros(n_drives)
     else
@@ -399,6 +409,8 @@ function CubicSplinePulse(
     end
     final_val = if final_value === :free
         fill(NaN, n_drives)
+    elseif final_value isa Symbol
+        error("Unknown final_value symbol: $final_value (only :free is supported)")
     elseif isnothing(final_value)
         zeros(n_drives)
     else
