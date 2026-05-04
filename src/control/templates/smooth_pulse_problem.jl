@@ -143,9 +143,7 @@ function SmoothPulseProblem(
     } = nothing,
 )
     if piccolo_options.verbose
-        println(
-            "    constructing SmoothPulseProblem for $(nameof(typeof(qtraj)))...",
-        )
+        println("    constructing SmoothPulseProblem for $(nameof(typeof(qtraj)))...")
     end
 
     # Extract info from quantum trajectory

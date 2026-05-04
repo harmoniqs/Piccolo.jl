@@ -270,8 +270,7 @@ end
 # iso representation without building a NamedTrajectory.
 _iso_form(qtraj::UnitaryTrajectory) = [operator_to_iso_vec(U) for U in qtraj.solution.u]
 _iso_form(qtraj::KetTrajectory) = [ket_to_iso(ψ) for ψ in qtraj.solution.u]
-_iso_form(qtraj::DensityTrajectory) =
-    [density_to_compact_iso(ρ) for ρ in qtraj.solution.u]
+_iso_form(qtraj::DensityTrajectory) = [density_to_compact_iso(ρ) for ρ in qtraj.solution.u]
 _iso_form(qtraj::MultiKetTrajectory) =
     [[ket_to_iso(ψ) for ψ in sol.u] for sol in qtraj.solution.u]
 _iso_form(qtraj::MultiDensityTrajectory) =
@@ -295,7 +294,8 @@ function Base.summary(io::IO, qtraj::AbstractQuantumTrajectory)
         nameof(typeof(qtraj)),
         "($(sys.levels)-level $(nameof(typeof(sys))), ",
         "$(nameof(typeof(pulse))) with $(n_drives(pulse)) drives, ",
-        "T = ", duration(qtraj),
+        "T = ",
+        duration(qtraj),
         ")",
     )
 end

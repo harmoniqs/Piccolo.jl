@@ -74,9 +74,7 @@ function BangBangPulseProblem(
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
 )
     if piccolo_options.verbose
-        println(
-            "    constructing BangBangPulseProblem for $(nameof(typeof(qtraj)))...",
-        )
+        println("    constructing BangBangPulseProblem for $(nameof(typeof(qtraj)))...")
     end
 
     # Extract info from quantum trajectory
