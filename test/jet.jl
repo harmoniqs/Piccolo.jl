@@ -1,7 +1,11 @@
+# JET integrates tightly with the Julia compiler and is gated to v1.12 only.
+# Older Julia ships older JET (0.9.x) which can't analyze the current Piccolo
+# source. Don't relax this gate.
+#
 # Performance analysis (type instabilities / runtime dispatch) — run manually:
 #     julia --project=. -e 'using Piccolo, JET; JET.@report_opt rollout(...)'
 
-@testitem "JET correctness analysis" tags=[:jet] begin
+@testitem "JET correctness analysis" tags=[:jet] skip=(VERSION < v"1.12") begin
     using JET, Piccolo
     # Remaining finding: `EnsembleSplineIntegrator` is referenced inside
     # `SplinePulseProblem(...)` when `integrator_type = :ensemble`, but no method
