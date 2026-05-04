@@ -7,7 +7,8 @@ using OrdinaryDiffEqTsit5
 using TestItems
 using ForwardDiff
 
-using ..QuantumSystems: AbstractQuantumSystem, QuantumSystem, OpenQuantumSystem
+using ..QuantumSystems:
+    AbstractQuantumSystem, QuantumSystem, CompositeQuantumSystem, OpenQuantumSystem
 using ..Pulses:
     AbstractPulse,
     AbstractSplinePulse,
@@ -39,13 +40,47 @@ import ..QuantumSystems: default_algorithm
 
 """
     default_algorithm(sys::QuantumSystem)
+    default_algorithm(sys::CompositeQuantumSystem)
 
 Return the default ODE algorithm for trajectory rollouts.
 Uses `Tsit5()` for non-Hermitian systems (where Magnus adaptive error
 control fails), `MagnusAdapt4()` for Hermitian systems.
+
+For `CompositeQuantumSystem`, Hermiticity is derived from the subsystems —
+Hermitian iff every subsystem is Hermitian. The coupling drift and drives are
+assumed Hermitian (the typical closed-system case).
 """
 function default_algorithm(sys::QuantumSystem)
     return sys.hermitian ? MagnusAdapt4() : Tsit5()
+end
+
+function default_algorithm(sys::CompositeQuantumSystem)
+    return all(s -> s.hermitian, sys.subsystems) ? MagnusAdapt4() : Tsit5()
+end
+
+@testitem "default_algorithm — CompositeQuantumSystem dispatches via subsystems" begin
+    using OrdinaryDiffEqLinear: MagnusAdapt4
+    using OrdinaryDiffEqTsit5: Tsit5
+    using Piccolo.Quantum.QuantumSystems: default_algorithm
+
+    sys_h = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
+    sys_nh = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)]; hermitian = false)
+
+    csys_h = CompositeQuantumSystem(
+        zeros(ComplexF64, 4, 4),
+        Matrix{ComplexF64}[],
+        [sys_h, sys_h],
+        Float64[],
+    )
+    csys_nh = CompositeQuantumSystem(
+        zeros(ComplexF64, 4, 4),
+        Matrix{ComplexF64}[],
+        [sys_h, sys_nh],
+        Float64[],
+    )
+
+    @test default_algorithm(csys_h) isa MagnusAdapt4
+    @test default_algorithm(csys_nh) isa Tsit5
 end
 
 # Abstract type and common interface
