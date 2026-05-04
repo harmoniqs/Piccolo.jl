@@ -282,9 +282,11 @@ function UnitaryInfidelityObjective(
     phase_sensitive::Bool = false,
 )
     if phase_sensitive
-        U_goal isa AbstractMatrix || throw(ArgumentError(
-            "phase_sensitive=true requires a dense matrix goal; EmbeddedOperator not supported."
-        ))
+        U_goal isa AbstractMatrix || throw(
+            ArgumentError(
+                "phase_sensitive=true requires a dense matrix goal; EmbeddedOperator not supported.",
+            ),
+        )
         n = size(U_goal, 1)
         d = det(U_goal)
         U_goal_sun = abs(d - 1) < 1e-10 ? U_goal : U_goal / d^(1 / n)
@@ -523,12 +525,10 @@ end
     u = zeros(1, N)
     Δt = fill(0.1, N)
 
-    traj_plus = NamedTrajectory(
-        (Ũ⃗ = Ũ⃗_traj_plus, u = u, Δt = Δt); timestep = :Δt, controls = :u
-    )
-    traj_minus = NamedTrajectory(
-        (Ũ⃗ = Ũ⃗_traj_minus, u = u, Δt = Δt); timestep = :Δt, controls = :u
-    )
+    traj_plus =
+        NamedTrajectory((Ũ⃗ = Ũ⃗_traj_plus, u = u, Δt = Δt); timestep = :Δt, controls = :u)
+    traj_minus =
+        NamedTrajectory((Ũ⃗ = Ũ⃗_traj_minus, u = u, Δt = Δt); timestep = :Δt, controls = :u)
 
     # phase_sensitive=false (default): both ±iU minimize |tr|²/n²
     obj_blind = UnitaryInfidelityObjective(U_target, :Ũ⃗, traj_plus; Q = 1.0)
@@ -537,7 +537,11 @@ end
 
     # phase_sensitive=true: +iU is 0, −iU is ≈ 2 (worst case for 1 − Re(tr)/n)
     obj_sens = UnitaryInfidelityObjective(
-        U_target, :Ũ⃗, traj_plus; Q = 1.0, phase_sensitive = true
+        U_target,
+        :Ũ⃗,
+        traj_plus;
+        Q = 1.0,
+        phase_sensitive = true,
     )
     @test objective_value(obj_sens, traj_plus) < 1e-10
     @test objective_value(obj_sens, traj_minus) ≈ 2.0 atol = 1e-8
