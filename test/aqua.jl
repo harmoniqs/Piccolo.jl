@@ -3,8 +3,11 @@
 
     Aqua.test_all(
         Piccolo;
-        ambiguities = false,                                   # TODO: triage 4 ambiguities
         deps_compat = (check_extras = false, ignore = [:Libdl]),
-        undefined_exports = (broken = true,),                  # TODO: 8 stale exports
+        # `hessian_structure` is exported by three different DirectTrajOpt submodules
+        # (CommonInterface, Constraints, Integrators); the conflict makes it appear
+        # undefined at Piccolo's surface even though all three sub-definitions exist.
+        # This is a DirectTrajOpt-side issue, not Piccolo's to fix.
+        undefined_exports = (broken = true,),
     )
 end
