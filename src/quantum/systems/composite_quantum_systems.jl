@@ -177,8 +177,12 @@ function CompositeQuantumSystem(
     drive_bounds::DriveBounds,
 ) where {T<:Number}
     @assert !isempty(H_drives) "At least one drive is required"
+    # Bind (m, n) so `spzeros` resolves to its 2-D matrix method; passing
+    # `size(...)` as a Tuple of unknown rank causes JET to union-split into
+    # the SparseVector path.
+    m, n = size(H_drives[1])
     return CompositeQuantumSystem(
-        spzeros(T, size(H_drives[1])),
+        spzeros(T, m, n),
         H_drives,
         subsystems,
         drive_bounds,
