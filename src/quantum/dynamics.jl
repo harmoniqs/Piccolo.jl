@@ -517,7 +517,7 @@ function rollout_fidelity(
     elseif interpolation == :linear
         u = LinearInterpolation(traj, control_name)
     elseif interpolation == :cubic
-        u = CubicSplineInterpolation(traj, control_name)
+        u = CubicHermiteSpline(traj, control_name)
     else
         error(
             "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
@@ -572,7 +572,7 @@ function unitary_rollout_fidelity(
     elseif interpolation == :linear
         u = LinearInterpolation(traj, control_name)
     elseif interpolation == :cubic
-        u = CubicSplineInterpolation(traj, control_name)
+        u = CubicHermiteSpline(traj, control_name)
     else
         error(
             "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
@@ -609,7 +609,7 @@ function unitary_rollout(
     elseif interpolation == :linear
         u = LinearInterpolation(traj, control_name)
     elseif interpolation == :cubic
-        u = CubicSplineInterpolation(traj, control_name)
+        u = CubicHermiteSpline(traj, control_name)
     else
         error(
             "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
@@ -670,7 +670,7 @@ function ket_rollout(
     elseif interpolation == :linear
         u = LinearInterpolation(traj, control_name)
     elseif interpolation == :cubic
-        u = CubicSplineInterpolation(traj, control_name)
+        u = CubicHermiteSpline(traj, control_name)
     else
         error(
             "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
