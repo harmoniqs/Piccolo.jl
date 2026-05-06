@@ -24,11 +24,13 @@ export ZeroOrderPulse,
     CompositePulse,
     FunctionPulse
 export duration, n_drives, sample, drive_name
+export load_pulse
 
 using DataInterpolations
 using DataInterpolations:
     ConstantInterpolation, LinearInterpolation, CubicHermiteSpline, ExtrapolationType
 using ForwardDiff
+using JLD2
 using SpecialFunctions: erf
 using TestItems
 
@@ -989,6 +991,39 @@ get_knot_times(p::CompositePulse) =
     sort(unique(vcat([get_knot_times(sub) for sub in p.pulses]...)))
 
 # ============================================================================ #
+# Persistence (JLD2)
+# ============================================================================ #
+
+"""
+    save(filename::String, pulse::AbstractPulse)
+
+Save `pulse` to `filename` (must end in `.jld2`) under the JLD2 key `"pulse"`.
+Reload with [`load_pulse`](@ref).
+
+To bundle a pulse with metadata (fidelity, gate name, etc.), use `JLD2.jldsave`
+directly:
+
+```julia
+jldsave("my_gate.jld2"; pulse=optimized_pulse, fidelity=fidelity(qcp))
+```
+"""
+function JLD2.save(filename::String, pulse::AbstractPulse)
+    @assert split(filename, ".")[end] == "jld2"
+    save(filename, "pulse", pulse)
+end
+
+"""
+    load_pulse(filename::String) -> AbstractPulse
+
+Load a pulse previously written with [`save`](@ref) (or with
+`jldsave(filename; pulse=...)`) from `filename` (must end in `.jld2`).
+"""
+function load_pulse(filename::String)
+    @assert split(filename, ".")[end] == "jld2"
+    return load(filename, "pulse")
+end
+
+# ============================================================================ #
 # NamedTrajectory Constructors
 # ============================================================================ #
 
@@ -1650,6 +1685,57 @@ end
     # Batch sample() with is_native also works on default (snap=false) pulse
     sampled_default_batch, _ = sample(pulse_default, N)
     @test sampled_default_batch == stored
+end
+
+@testitem "save / load_pulse round-trip" begin
+    using JLD2
+
+    times = collect(range(0.0, 1.0, length = 8))
+    controls = randn(2, 8)
+
+    pulses = (
+        ZeroOrderPulse(controls, times),
+        LinearSplinePulse(controls, times),
+        CubicSplinePulse(controls, randn(2, 8), times),
+        GaussianPulse([1.0, 0.5], [0.1, 0.2], [0.3, 0.6], 1.0),
+    )
+
+    mktempdir() do dir
+        for pulse in pulses
+            path = joinpath(dir, "p.jld2")
+            save(path, pulse)
+            @test isfile(path)
+            loaded = load_pulse(path)
+            @test typeof(loaded) == typeof(pulse)
+            @test duration(loaded) == duration(pulse)
+            @test n_drives(loaded) == n_drives(pulse)
+            for t in range(0.0, duration(pulse), length = 5)
+                @test loaded(t) ≈ pulse(t)
+            end
+        end
+    end
+end
+
+@testitem "save / load_pulse filename extension assertion" begin
+    pulse = ZeroOrderPulse(randn(1, 4), collect(range(0.0, 1.0, length = 4)))
+    @test_throws AssertionError save("bad_extension.txt", pulse)
+    @test_throws AssertionError load_pulse("missing.txt")
+end
+
+@testitem "jldsave bundle with metadata round-trips pulse" begin
+    using JLD2
+
+    times = collect(range(0.0, 1.0, length = 6))
+    pulse = ZeroOrderPulse(randn(2, 6), times)
+
+    mktempdir() do dir
+        path = joinpath(dir, "bundle.jld2")
+        jldsave(path; pulse = pulse, fidelity = 0.9876, gate = "X")
+        data = load(path)
+        @test data["fidelity"] == 0.9876
+        @test data["gate"] == "X"
+        @test data["pulse"](0.5) ≈ pulse(0.5)
+    end
 end
 
 end # module Pulses
