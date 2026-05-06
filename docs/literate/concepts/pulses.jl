@@ -346,7 +346,20 @@ length(new_times)
 # N = ceil(Int, 10 * T / τ)
 # ```
 #
-# ### 3. Start with ZeroOrderPulse
+# ### 3. Save Optimized Pulses
+#
+# Pulses are the primary output of Piccolo.jl. Save them after every
+# successful solve so you can warm-start future optimizations, share
+# results, or deploy to hardware:
+#
+# ```julia
+# optimized_pulse = get_pulse(qcp.qtraj)
+# save("my_gate.jld2", optimized_pulse)
+# ```
+#
+# See [Saving and Loading Pulses](@ref saving-loading) for the full guide.
+#
+# ### 4. Start with ZeroOrderPulse
 #
 # Even if you need smooth pulses, optimize with `ZeroOrderPulse` first, then
 # convert to `CubicSplinePulse` for refinement.

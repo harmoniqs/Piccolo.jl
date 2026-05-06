@@ -163,7 +163,14 @@ solve!(qcp; max_iter=100)
 # 6. Extract results
 fidelity(qcp)
 optimized_pulse = get_pulse(qcp.qtraj)
+
+# 7. Save for later (warm-starting, analysis, hardware deployment)
+save("x_gate.jld2", optimized_pulse)
 ```
+
+Saved pulses can be reloaded with `load_pulse("x_gate.jld2")` and used as
+starting points for further optimization — see
+[Saving and Loading Pulses](@ref saving-loading).
 
 ## Concept Pages
 
