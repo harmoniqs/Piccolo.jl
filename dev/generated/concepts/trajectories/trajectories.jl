@@ -233,6 +233,26 @@ fidelity(qtraj_md_out)
 #
 # ## Common Operations
 #
+# ### Extracting and Saving Pulses
+#
+# After solving, extract the optimized pulse with `get_pulse` and persist it
+# with `save`:
+
+optimized_pulse = get_pulse(qcp.qtraj)
+duration(optimized_pulse)
+
+# Save and reload using the pulse-aware JLD2 helpers:
+#
+# ```julia
+# save("my_gate.jld2", optimized_pulse)
+# saved_pulse = load_pulse("my_gate.jld2")
+# qtraj_warm = UnitaryTrajectory(sys, saved_pulse, U_goal)
+# qcp_warm = SmoothPulseProblem(qtraj_warm, N; Q=1000.0)
+# solve!(qcp_warm; max_iter=50)  # converges faster from a good initial guess
+# ```
+#
+# See [Saving and Loading Pulses](@ref saving-loading) for the full guide.
+#
 # ### Named Trajectory Integration
 #
 # After solving, the `NamedTrajectory` stores the NLP decision vector at
