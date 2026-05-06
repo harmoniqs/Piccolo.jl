@@ -1082,10 +1082,9 @@ end
     # Deterministic 2-channel cos/sin init at trajectory frequency.
     # Avoids the unseeded-randn flake (missed in b97f299).
     times_arr = (0:(N-1)) ./ (N - 1)
-    u_init = 0.1 * vcat(
-        reshape(cos.(2π .* times_arr), 1, N),
-        reshape(sin.(2π .* times_arr), 1, N),
-    )
+    u_init =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
     pulse = ZeroOrderPulse(u_init, times)
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 

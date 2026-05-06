@@ -5,7 +5,11 @@
 # Performance analysis (type instabilities / runtime dispatch) — run manually:
 #     julia --project=. -e 'using Piccolo, JET; JET.@report_opt rollout(...)'
 
-@testitem "JET correctness analysis" tags=[:jet] skip=(VERSION < v"1.12") begin
+@testitem "JET correctness analysis" tags=[:jet] begin
+    if VERSION < v"1.12"
+        @info "Skipping JET correctness analysis on Julia $VERSION (requires >= 1.12)"
+        return
+    end
     using JET, Piccolo
     # Remaining finding: `EnsembleSplineIntegrator` is referenced inside
     # `SplinePulseProblem(...)` when `integrator_type = :ensemble`, but no method
