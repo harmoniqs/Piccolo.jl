@@ -1,6 +1,6 @@
 name = "Piccolo"
 uuid = "c4671d76-df94-11ed-2057-43d4fd632fad"
-version = "1.13.0"
+version = "1.14.0"
 authors = ["Aaron Trowbridge <aaron@harmoniqs.co> and contributors"]
 
 [deps]
@@ -45,7 +45,7 @@ JLD2 = "0.6"
 LaTeXStrings = "1.4"
 LinearAlgebra = "1.10, 1.11, 1.12"
 Makie = "0.24"
-NamedTrajectories = "0.8"
+NamedTrajectories = "0.8, 0.9"
 OrdinaryDiffEqLinear = "1.10, 2"
 OrdinaryDiffEqTsit5 = "1.9, 2"
 ProgressMeter = "1.11"
