@@ -1098,7 +1098,7 @@ For updating parameter variations in the systems array, that should be done
 through the SamplingTrajectory constructor or direct modification.
 """
 function Rollouts._update_system!(qtraj::SamplingTrajectory, sys::QuantumSystem)
-    _update_system!(qtraj.base_trajectory, sys)
+    Rollouts._update_system!(qtraj.base_trajectory, sys)
     return nothing
 end
 
