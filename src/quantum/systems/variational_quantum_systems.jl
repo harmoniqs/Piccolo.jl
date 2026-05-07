@@ -104,12 +104,11 @@ function VariationalQuantumSystem(
 ) where {ℂ<:Number}
     @assert !isempty(H_drives) "At least one drive is required"
     @assert !isempty(H_vars) "At least one variational operator is required"
-    return VariationalQuantumSystem(
-        spzeros(ℂ, size(H_drives[1])),
-        H_drives,
-        H_vars,
-        drive_bounds,
-    )
+    # Bind (m, n) so `spzeros` resolves to its 2-D matrix method; passing
+    # `size(...)` as a Tuple of unknown rank causes JET to union-split into
+    # the SparseVector path.
+    m, n = size(H_drives[1])
+    return VariationalQuantumSystem(spzeros(ℂ, m, n), H_drives, H_vars, drive_bounds)
 end
 
 function VariationalQuantumSystem(

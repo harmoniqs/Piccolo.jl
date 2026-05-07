@@ -67,8 +67,6 @@ export ket_rollout
 export ket_rollout_fidelity
 export unitary_rollout
 export unitary_rollout_fidelity
-export open_rollout
-export open_rollout_fidelity
 export update_global_params!
 
 export KetODEProblem
@@ -519,7 +517,7 @@ function rollout_fidelity(
     elseif interpolation == :linear
         u = LinearInterpolation(traj, control_name)
     elseif interpolation == :cubic
-        u = CubicSplineInterpolation(traj, control_name)
+        u = CubicHermiteSpline(traj, control_name)
     else
         error(
             "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
@@ -574,7 +572,7 @@ function unitary_rollout_fidelity(
     elseif interpolation == :linear
         u = LinearInterpolation(traj, control_name)
     elseif interpolation == :cubic
-        u = CubicSplineInterpolation(traj, control_name)
+        u = CubicHermiteSpline(traj, control_name)
     else
         error(
             "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
@@ -611,7 +609,7 @@ function unitary_rollout(
     elseif interpolation == :linear
         u = LinearInterpolation(traj, control_name)
     elseif interpolation == :cubic
-        u = CubicSplineInterpolation(traj, control_name)
+        u = CubicHermiteSpline(traj, control_name)
     else
         error(
             "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
@@ -672,7 +670,7 @@ function ket_rollout(
     elseif interpolation == :linear
         u = LinearInterpolation(traj, control_name)
     elseif interpolation == :cubic
-        u = CubicSplineInterpolation(traj, control_name)
+        u = CubicHermiteSpline(traj, control_name)
     else
         error(
             "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",

@@ -373,8 +373,12 @@ function OpenQuantumSystem(
     global_params::NamedTuple = NamedTuple(),
 ) where {ℂ<:Number}
     @assert !isempty(H_drives) "At least one drive is required"
+    # Build the zero drift as a 2-D sparse matrix; splatting `size(...)` (a Tuple)
+    # without binding the rank lets `spzeros` resolve to its `SparseVector`
+    # method in JET's union split, hence the explicit (m, n) form.
+    m, n = size(H_drives[1])
     return OpenQuantumSystem(
-        spzeros(ℂ, size(H_drives[1])),
+        spzeros(ℂ, m, n),
         H_drives,
         drive_bounds;
         dissipation_operators = dissipation_operators,

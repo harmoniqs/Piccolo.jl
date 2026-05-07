@@ -80,19 +80,20 @@ function apply_piccolo_options!(
         push!(constraints, TimeStepsAllEqualConstraint())
     end
 
-    if !isnothing(piccolo_options.complex_control_norm_constraint_name)
-        if piccolo_options.verbose
-            println(
-                "\tapplying complex control norm constraint: $(piccolo_options.complex_control_norm_constraint_name)",
+    let cname = piccolo_options.complex_control_norm_constraint_name
+        # Bind into a local so the !isnothing guard narrows the Union for JET.
+        if cname !== nothing
+            if piccolo_options.verbose
+                println("\tapplying complex control norm constraint: $cname")
+            end
+            norm_con = NonlinearKnotPointConstraint(
+                u -> [norm(u)^2 - piccolo_options.complex_control_norm_constraint_radius^2],
+                cname,
+                traj;
+                equality = false,
             )
+            push!(constraints, norm_con)
         end
-        norm_con = NonlinearKnotPointConstraint(
-            u -> [norm(u)^2 - piccolo_options.complex_control_norm_constraint_radius^2],
-            piccolo_options.complex_control_norm_constraint_name,
-            traj;
-            equality = false,
-        )
-        push!(constraints, norm_con)
     end
 
     return J
@@ -194,7 +195,7 @@ Modifies `constraints` in place.
 """
 function add_global_bounds_constraints!(
     constraints::AbstractVector{<:AbstractConstraint},
-    global_bounds,
+    global_bounds::Union{Nothing,AbstractDict{Symbol,<:Any}},
     traj::NamedTrajectory;
     verbose::Bool = false,
 )
@@ -202,7 +203,9 @@ function add_global_bounds_constraints!(
         return
     end
 
-    for (name, bounds) in global_bounds
+    for pair in global_bounds
+        name::Symbol = pair.first
+        bounds = pair.second
         if !haskey(traj.global_components, name)
             error(
                 "Global variable :$name not found in trajectory. Available: $(keys(traj.global_components))",
@@ -210,15 +213,15 @@ function add_global_bounds_constraints!(
         end
         global_dim = length(traj.global_components[name])
         # Convert bounds to format expected by GlobalBoundsConstraint
-        if bounds isa Float64
+        bounds_value = if bounds isa Float64
             # Symmetric scalar bounds
-            bounds_value = bounds
+            bounds
         elseif bounds isa Tuple{Float64,Float64}
             # Asymmetric scalar bounds -> convert to vector tuple
-            bounds_value = (fill(bounds[1], global_dim), fill(bounds[2], global_dim))
+            (fill(bounds[1], global_dim), fill(bounds[2], global_dim))
         else
             # Already in correct format (Vector or Tuple of Vectors)
-            bounds_value = bounds
+            bounds
         end
         push!(constraints, GlobalBoundsConstraint(name, bounds_value))
         if verbose
