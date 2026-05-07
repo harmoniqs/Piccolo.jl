@@ -59,7 +59,11 @@ function sampling_state_objective(
     goal = get_goal(qtraj)
     # Use free-phase objective when globals exist and goal is EmbeddedOperator
     if traj.global_dim > 0 && goal isa EmbeddedOperator
-        θ_names = collect(traj.global_names)
+        # `Symbol[traj.global_names...]` rather than `collect(traj.global_names)` so
+        # the eltype is `Symbol` even when the source tuple is empty (JET infers
+        # `Vector{Union{}}` from `collect` on a possibly-empty tuple, which then
+        # fails to match `θ_names::AbstractVector{Symbol}` downstream).
+        θ_names = Symbol[traj.global_names...]
         U_goal_fn = _make_free_phase_goal(goal)
         return UnitaryFreePhaseInfidelityObjective(
             U_goal_fn,
@@ -227,7 +231,9 @@ end
 
 function _update_goal(qtraj::SamplingTrajectory, new_goal)
     new_base = _update_goal(qtraj.base_trajectory, new_goal)
-    return update_base_trajectory(qtraj, new_base)
+    # Reconstruct the SamplingTrajectory around the updated base — a thin
+    # SamplingTrajectory only owns (base_trajectory, systems, weights).
+    return SamplingTrajectory(new_base, qtraj.systems; weights = qtraj.weights)
 end
 
 function _final_fidelity_constraint(

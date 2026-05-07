@@ -3,7 +3,9 @@ module QuantumObjectPlots
 export plot_unitary_populations
 export plot_state_populations
 export plot_weyl_trajectory
-export plot_name!
+# plot_name! is defined here for use within QuantumObjectPlots / PiccoloMakieExt; the
+# canonical exported name belongs to NamedTrajectories, so we don't re-export the
+# Piccolo-local stub.
 export plot_pulse, plot_pulse!, plot_pulse_IQ, plot_pulse_phases
 
 using LaTeXStrings

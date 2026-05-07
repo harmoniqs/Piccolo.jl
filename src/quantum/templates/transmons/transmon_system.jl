@@ -71,6 +71,11 @@ function TransmonSystem(;
             φ̂ = (2E_C / E_J)^(1 / 4) * (a + a')
             H_drift = 4 * E_C * n̂^2 - E_J * cos(φ̂)
             # H_drift = 4 * E_C * n̂^2 - E_J * (I - φ̂^2 / 2 + φ̂^4 / 24)
+        else
+            error(
+                "Unknown lab_frame_type: $lab_frame_type. " *
+                "Must be one of :duffing, :quartic, :cosine.",
+            )
         end
     else
         H_drift = (ω - frame_ω) * a' * a - δ / 2 * a' * a' * a * a

@@ -177,7 +177,7 @@ function operator_algebra(
         if verbose
             print(" $layer_count")
         end
-        if return_layers
+        if all_layers !== nothing
             push!(all_layers, copy(current_layer))
         end
     end
