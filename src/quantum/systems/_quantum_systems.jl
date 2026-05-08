@@ -21,6 +21,7 @@ export dissipator_matrix
 export has_nonlinear_dissipators
 
 export get_drift
+export get_drift_terms
 export get_drives
 export get_drive_terms
 export get_c_ops
@@ -108,6 +109,13 @@ Returns the drift Hamiltonian of the system.
 """
 get_drift(sys::AbstractQuantumSystem) = sys.H(zeros(sys.n_drives), 0.0)
 
+function get_drift_terms(sys::AbstractQuantumSystem)
+    if hasproperty(sys, :drift_terms)
+        return sys.drift_terms
+    end
+    return [DriftTerm(get_drift(sys))]
+end
+
 """
     get_drives(sys::AbstractQuantumSystem)
 
@@ -133,17 +141,6 @@ function get_drives(sys::AbstractQuantumSystem)
     return [sys.H(I[1:sys.n_drives, i], 0.0) - H_drift for i ∈ 1:sys.n_drives]
 end
 
-"""
-    get_drive_terms(sys::AbstractQuantumSystem) -> Vector{AbstractDrive}
-
-Return the typed drive terms from the system. Each `AbstractDrive` pairs a
-Hamiltonian operator with a scalar coefficient function and Jacobian.
-
-Returns `sys.H_drives` directly when available, or an empty vector for
-function-based systems that don't use typed drives.
-
-See also [`get_drives`](@ref) for just the Hamiltonian matrices.
-"""
 function get_drive_terms(sys::AbstractQuantumSystem)
     if hasproperty(sys, :H_drives)
         return sys.H_drives
