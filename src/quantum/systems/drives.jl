@@ -428,7 +428,7 @@ Isomorphisms.G(d::AbstractDrive) = Isomorphisms.G(drive_matrix(d))
 # ----------------------------------------------------------------------------- #
 
 """
-    validate_drive_jacobian(d::NonlinearDrive, n_controls::Int; atol=1e-6, n_samples=3)
+    validate_drive_jacobian(d::NonlinearDrive, u_dim::Int; atol=1e-6, n_samples=3)
 
 Spot-check the Jacobian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Jacobian disagrees with the AD Jacobian.
@@ -438,14 +438,14 @@ terms, catching sign errors or off-by-one bugs early.
 """
 function validate_drive_jacobian(
     d::NonlinearDrive,
-    n_controls::Int;
+    u_dim::Int;
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
     for _ = 1:n_samples
-        u = randn(n_controls)
+        u = randn(u_dim)
         grad_ad = ForwardDiff.gradient(d.coeff, u)
-        for j = 1:n_controls
+        for j = 1:u_dim
             user_val = d.coeff_jac(u, j)
             @assert abs(user_val - grad_ad[j]) < atol (
                 "NonlinearDrive Jacobian mismatch at u=$u, j=$j: " *
@@ -456,21 +456,21 @@ function validate_drive_jacobian(
 end
 
 """
-    validate_drive_hessian(d::NonlinearDrive, n_controls::Int; atol=1e-6, n_samples=3)
+    validate_drive_hessian(d::NonlinearDrive, u_dim::Int; atol=1e-6, n_samples=3)
 
 Spot-check the Hessian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Hessian disagrees with the AD Hessian.
 """
 function validate_drive_hessian(
     d::NonlinearDrive,
-    n_controls::Int;
+    u_dim::Int;
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
     for _ = 1:n_samples
-        u = randn(n_controls)
+        u = randn(u_dim)
         hess_ad = ForwardDiff.hessian(d.coeff, u)
-        for i = 1:n_controls, j = i:n_controls
+        for i = 1:u_dim, j = i:u_dim
             user_val = d.coeff_hess(u, i, j)
             @assert abs(user_val - hess_ad[i, j]) < atol (
                 "NonlinearDrive Hessian mismatch at u=$u, (i,j)=($i,$j): " *

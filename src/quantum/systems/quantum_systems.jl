@@ -407,7 +407,7 @@ function QuantumSystem(
     for d in drives
         base = d isa ModulatedDrive ? d.base : d
         if base isa NonlinearDrive
-            validate_drive_jacobian(base, n_drives)
+            validate_drive_jacobian(base, n_drives + length(global_params))
         end
     end
 
@@ -679,7 +679,7 @@ function QuantumSystem(
     # Validate NonlinearDrive Jacobians
     for d in drives
         if d isa NonlinearDrive
-            validate_drive_jacobian(d, n_drives)
+            validate_drive_jacobian(d, n_drives + length(global_params))
         end
     end
 
