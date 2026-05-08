@@ -305,6 +305,51 @@ function QuantumSystem(
 end
 
 """
+    QuantumSystem(H_drives_input::AbstractVector, drive_bounds::Vector; time_dependent::Bool=false)
+
+Convenience constructor for a no-drift system whose drives may be specified using
+the mixed shorthand supported by the 3-argument pair-based constructor, including:
+- plain matrices,
+- matrix modulation pairs like `H_x => modulation`,
+- `AbstractDrive` values,
+- modulated drive pairs like `drive => modulation`.
+
+This fills in a zero drift Hamiltonian of the appropriate size and delegates to
+the pair-aware constructor.
+"""
+function QuantumSystem(
+    H_drives_input::AbstractVector,
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
+    time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
+)
+    @assert !isempty(H_drives_input) "At least one drive is required"
+
+    first_drive = let d = first(H_drives_input)
+        if d isa Pair{<:AbstractMatrix,<:Function}
+            d.first
+        elseif d isa Pair{<:AbstractDrive,<:Function}
+            drive_matrix(d.first)
+        elseif d isa AbstractDrive
+            drive_matrix(d)
+        else
+            d
+        end
+    end
+
+    @assert first_drive isa AbstractMatrix "Could not infer drive dimension from input type $(typeof(first(H_drives_input)))"
+
+    H0 = spzeros(ComplexF64, size(first_drive, 1), size(first_drive, 2))
+    return QuantumSystem(
+        H0,
+        H_drives_input,
+        drive_bounds;
+        time_dependent = time_dependent,
+        global_params = global_params,
+    )
+end
+
+"""
     QuantumSystem(H_drift::AbstractMatrix; time_dependent::Bool=false)
 
 Convenience constructor for a system with only a drift Hamiltonian (no drives).
@@ -999,11 +1044,20 @@ end
     @test sys4.H_drives[1] isa ModulatedDrive
     @test sys4.H_drives[1].base === nd
 
+    # No-drift convenience constructor with modulated drives
+    sys5 = QuantumSystem([H_x => t -> cos(omega * t)], [1.0], time_dependent = true)
+    @test sys5.n_drives == 1
+    @test sys5.H_drives[1] isa ModulatedDrive
+    @test sys5.time_dependent
+    @test sys5.H_drift ≈ spzeros(ComplexF64, 2, 2)
+    @test sys5.H([1.0], 0.25) ≈ cos(omega * 0.25) * H_x
+
     # time_dependent auto-detection
     @test !QuantumSystem(H_z, [H_x], [1.0]).time_dependent
     @test sys1.time_dependent
     @test sys2.time_dependent
     @test sys3.time_dependent
+    @test sys5.time_dependent
 
     # H(u, t) closure evaluates modulation
     u = [1.0, 0.0]
