@@ -148,6 +148,47 @@ fig = plot_pulse_IQ(pulse_iq; title = "IQ view (Ω, α)")
 
 fig = plot_pulse_phases(pulse_iq; title = "Polar view (|·|, ∠·)")
 
+# ## Pulse Animations
+#
+# `animate_pulse` shows a pulse drawing itself over time. Use `mode = :record`
+# with a Makie backend that can record frames when you want an `.mp4` or `.gif`
+# for a website or notebook; use `mode = :inline` with GLMakie for a looping
+# interactive preview.
+
+animation_pulse = GaussianPulse([0.8, 0.45], T / 6, T)
+
+fig = animate_pulse(
+    animation_pulse;
+    mode = :inline, # use mode = :record and filename = "pulse_evolution.mp4" to export
+    fps = 24,
+    n_samples = 120,
+    labels = ["Ω_x", "Ω_y"],
+    title = "Gaussian control pulse",
+)
+
+# You can add state or population traces underneath the controls by passing a
+# matrix whose rows are populations and whose columns are time samples. This is
+# useful for showing the control pulse and the quantum response in the same
+# animation.
+
+population_times = collect(range(0, T, length = 120))
+population_trace = vcat(
+    reshape(cos.(π .* population_times ./ (2T)) .^ 2, 1, :),
+    reshape(sin.(π .* population_times ./ (2T)) .^ 2, 1, :),
+)
+
+fig = animate_pulse(
+    animation_pulse;
+    mode = :inline, # use mode = :record and filename = "pulse_with_populations.mp4" to export
+    fps = 24,
+    n_samples = 120,
+    labels = ["Ω_x", "Ω_y"],
+    populations = population_trace,
+    population_times,
+    population_labels = ["|0⟩", "|1⟩"],
+    title = "Pulse with population evolution",
+)
+
 # ## Custom Plotting
 #
 # For full control, extract trajectory data and use Makie directly.
