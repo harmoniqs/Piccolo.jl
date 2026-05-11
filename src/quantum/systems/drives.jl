@@ -427,6 +427,13 @@ Isomorphisms.G(d::AbstractDrive) = Isomorphisms.G(drive_matrix(d))
 # Jacobian Validation
 # ----------------------------------------------------------------------------- #
 
+# Effective dimension of the control vector for validation purposes. When a
+# drive declares `active_controls` that index beyond `n_controls` (e.g. into
+# appended global parameters), the test vector must cover those indices or
+# `d.coeff` will throw `BoundsError` during ForwardDiff evaluation.
+_validation_u_dim(d::NonlinearDrive, n_controls::Int) =
+    isempty(d.active_controls) ? n_controls : max(n_controls, maximum(d.active_controls))
+
 """
     validate_drive_jacobian(d::NonlinearDrive, n_controls::Int; atol=1e-6, n_samples=3)
 
@@ -435,6 +442,10 @@ Throws an `AssertionError` if the user-provided Jacobian disagrees with the AD J
 
 This is called automatically during `QuantumSystem` construction for all `NonlinearDrive`
 terms, catching sign errors or off-by-one bugs early.
+
+If `d.active_controls` references indices beyond `n_controls` (e.g. when the drive
+depends on appended global parameters), the validation vector is extended to cover
+`maximum(d.active_controls)` and every index in the extended range is checked.
 """
 function validate_drive_jacobian(
     d::NonlinearDrive,
@@ -442,10 +453,11 @@ function validate_drive_jacobian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
+    u_dim = _validation_u_dim(d, n_controls)
     for _ = 1:n_samples
-        u = randn(n_controls)
+        u = randn(u_dim)
         grad_ad = ForwardDiff.gradient(d.coeff, u)
-        for j = 1:n_controls
+        for j = 1:u_dim
             user_val = d.coeff_jac(u, j)
             @assert abs(user_val - grad_ad[j]) < atol (
                 "NonlinearDrive Jacobian mismatch at u=$u, j=$j: " *
@@ -460,6 +472,8 @@ end
 
 Spot-check the Hessian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Hessian disagrees with the AD Hessian.
+
+See `validate_drive_jacobian` for the `active_controls`-aware test-vector extension.
 """
 function validate_drive_hessian(
     d::NonlinearDrive,
@@ -467,10 +481,11 @@ function validate_drive_hessian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
+    u_dim = _validation_u_dim(d, n_controls)
     for _ = 1:n_samples
-        u = randn(n_controls)
+        u = randn(u_dim)
         hess_ad = ForwardDiff.hessian(d.coeff, u)
-        for i = 1:n_controls, j = i:n_controls
+        for i = 1:u_dim, j = i:u_dim
             user_val = d.coeff_hess(u, i, j)
             @assert abs(user_val - hess_ad[i, j]) < atol (
                 "NonlinearDrive Hessian mismatch at u=$u, (i,j)=($i,$j): " *
