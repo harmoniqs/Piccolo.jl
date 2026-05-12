@@ -11,6 +11,7 @@ A struct for storing open quantum dynamics.
 - `H::Function`: The Hamiltonian function: (u, t) -> H(u, t)
 - `𝒢::Function`: The Lindbladian generator function: u -> 𝒢(u)
 - `H_drift::SparseMatrixCSC{ComplexF64, Int}`: The drift Hamiltonian
+- `drift_terms::Vector{DriftTerm}`: Source drift terms with optional time modulation
 - `H_drives::Vector{AbstractDrive}`: The canonical drive terms, each pairing an operator with a coefficient function. Matrix-based constructors auto-populate this with `LinearDrive` objects; function-based systems leave it empty.
 - `drive_bounds::Vector{Tuple{Float64, Float64}}`: Drive amplitude bounds
 - `n_drives::Int`: The number of control drives
@@ -31,6 +32,7 @@ struct OpenQuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple} <: AbstractQu
     H::F1
     𝒢::F2
     H_drift::SparseMatrixCSC{ComplexF64,Int}
+    drift_terms::Vector
     H_drives::Vector{AbstractDrive}
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
@@ -60,6 +62,7 @@ Base.propertynames(::OpenQuantumSystem, private::Bool = false) = (
     :H,
     :𝒢,
     :H_drift,
+    :drift_terms,
     :H_drives,
     :drive_bounds,
     :n_drives,
@@ -163,6 +166,7 @@ function OpenQuantumSystem(
     dissipators = nothing,
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    drift_terms = nothing,
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
@@ -172,6 +176,7 @@ function OpenQuantumSystem(
     ]
 
     H_drift_sparse = sparse(H_drift)
+    drift_terms_vec = isnothing(drift_terms) ? [DriftTerm(H_drift_sparse)] : collect(drift_terms)
     𝒢_drift = Isomorphisms.G(Isomorphisms.ad_vec(H_drift_sparse))
 
     n_drives = length(H_drives)
@@ -188,10 +193,10 @@ function OpenQuantumSystem(
 
     # Build H(u,t) and 𝒢(u) — assembled at call time from drive_coeff + rate_coeff
     if n_drives == 0
-        H = (u, t) -> H_drift_sparse
+        H = (u, t) -> sum(dt.modulation(t) * dt.H for dt in drift_terms_vec)
     else
         H = (u, t) -> begin
-            out = H_drift_sparse
+            out = sum(dt.modulation(t) * dt.H for dt in drift_terms_vec)
             for (d, H_d) in zip(linear_drives, H_drives_sparse)
                 out = out + drive_coeff(d, u, t) * H_d
             end
@@ -224,6 +229,7 @@ function OpenQuantumSystem(
         H,
         𝒢,
         H_drift_sparse,
+        drift_terms_vec,
         linear_drives,
         drive_bounds,
         n_drives,
@@ -268,6 +274,7 @@ function OpenQuantumSystem(
     dissipators = nothing,
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
+    drift_terms = nothing,
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
 
@@ -285,6 +292,7 @@ function OpenQuantumSystem(
     end
 
     H_drift_sparse = sparse(ComplexF64.(H_drift))
+    drift_terms_vec = isnothing(drift_terms) ? [DriftTerm(H_drift_sparse)] : collect(drift_terms)
     n_drives = length(drive_bounds)
     levels = size(H_drift, 1)
 
@@ -312,10 +320,10 @@ function OpenQuantumSystem(
     diss_iso_mats = [Isomorphisms.iso_D(L) for L in diss_mats]
 
     if isempty(drives)
-        H_fn = (u, t) -> H_drift_sparse
+        H_fn = (u, t) -> sum(dt.modulation(t) * dt.H for dt in drift_terms_vec)
     else
         H_fn = (u, t) -> begin
-            out = H_drift_sparse
+            out = sum(dt.modulation(t) * dt.H for dt in drift_terms_vec)
             for (d, H_d) in zip(drives, H_drive_mats)
                 out = out + drive_coeff(d, u, t) * H_d
             end
@@ -348,6 +356,7 @@ function OpenQuantumSystem(
         H_fn,
         𝒢_fn,
         H_drift_sparse,
+        drift_terms_vec,
         collect(AbstractDrive, drives),
         drive_bounds,
         n_drives,
@@ -461,6 +470,7 @@ function OpenQuantumSystem(
         H,
         𝒢_fn,
         sparse(H_drift),
+        [DriftTerm(sparse(H_drift))],
         AbstractDrive[],
         drive_bounds,
         n_drives,
@@ -494,6 +504,7 @@ function OpenQuantumSystem(
             dissipators = dissipators,
             time_dependent = system.time_dependent,
             global_params = system.global_params,
+            drift_terms = system.drift_terms,
         )
     else
         # Function-based system
