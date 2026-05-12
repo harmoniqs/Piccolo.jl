@@ -698,6 +698,46 @@ end
     @test_throws AssertionError validate_drive_hessian(d_wrong, 2)
 end
 
+@testitem "validate_drive: u_dim extending past n_drives (global params)" begin
+    # Regression: when global_params are appended, callers pass
+    # u_dim = n_drives + length(global_params) so coefficients that read into
+    # the global-parameter slots can be validated without BoundsError.
+    using Piccolo
+    using SparseArrays
+
+    H = sparse([0.0+0im 1.0+0im; 1.0+0im 0.0+0im])
+
+    # Coefficient reads u[3] — i.e. the appended global slot when n_drives = 2
+    # and one global parameter is present.
+    d_auto = NonlinearDrive(H, u -> u[1] * u[2] * u[3])
+    validate_drive_jacobian(d_auto, 3)  # must not BoundsError
+    validate_drive_hessian(d_auto, 3)
+
+    # Explicit jacobian + hessian agreeing with ForwardDiff across the full
+    # u_dim = 3 must pass.
+    d_correct = NonlinearDrive(
+        H,
+        u -> u[1] * u[2] * u[3],
+        (u, j) ->
+            j == 1 ? u[2] * u[3] : j == 2 ? u[1] * u[3] : j == 3 ? u[1] * u[2] : 0.0;
+        coeff_hess = (u, i, j) ->
+            (i == 1 && j == 2) || (i == 2 && j == 1) ? u[3] :
+            (i == 1 && j == 3) || (i == 3 && j == 1) ? u[2] :
+            (i == 2 && j == 3) || (i == 3 && j == 2) ? u[1] : 0.0,
+    )
+    validate_drive_jacobian(d_correct, 3)
+    validate_drive_hessian(d_correct, 3)
+
+    # An explicit jacobian wrong at j = 3 (the global slot) is still caught —
+    # the validator must check the extended range, not just 1:n_drives.
+    d_wrong_global = NonlinearDrive(
+        H,
+        u -> u[1] * u[2] * u[3],
+        (u, j) -> j == 1 ? u[2] * u[3] : j == 2 ? u[1] * u[3] : 0.0,  # wrong at j=3
+    )
+    @test_throws AssertionError validate_drive_jacobian(d_wrong_global, 3)
+end
+
 @testitem "G works on AbstractDrive types" begin
     using Piccolo
     using SparseArrays
