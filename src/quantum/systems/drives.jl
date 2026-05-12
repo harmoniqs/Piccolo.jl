@@ -713,6 +713,47 @@ end
     @test_throws AssertionError validate_drive_hessian(d_wrong, 2)
 end
 
+@testitem "validate_drive: active_controls reaching beyond n_controls" begin
+    # Regression for the BoundsError that occurred when a NonlinearDrive's
+    # coefficient reads indices beyond `n_controls` (e.g. appended global
+    # parameters) and declares them via `active_controls`.
+    using Piccolo
+    using SparseArrays
+
+    H = sparse([0.0+0im 1.0+0im; 1.0+0im 0.0+0im])
+
+    # Auto-jacobian/hessian: coeff reads u[3] while n_controls = 2.
+    d_auto = NonlinearDrive(H, u -> u[1] * u[2] * u[3]; active_controls = [1, 2, 3])
+    validate_drive_jacobian(d_auto, 2)  # must not BoundsError
+    validate_drive_hessian(d_auto, 2)
+
+    # Explicit jacobian + hessian that agree with ForwardDiff over the
+    # extended range pass.
+    d_correct = NonlinearDrive(
+        H,
+        u -> u[1] * u[2] * u[3],
+        (u, j) ->
+            j == 1 ? u[2] * u[3] : j == 2 ? u[1] * u[3] : j == 3 ? u[1] * u[2] : 0.0;
+        active_controls = [1, 2, 3],
+        coeff_hess = (u, i, j) ->
+            (i == 1 && j == 2) || (i == 2 && j == 1) ? u[3] :
+            (i == 1 && j == 3) || (i == 3 && j == 1) ? u[2] :
+            (i == 2 && j == 3) || (i == 3 && j == 2) ? u[1] : 0.0,
+    )
+    validate_drive_jacobian(d_correct, 2)
+    validate_drive_hessian(d_correct, 2)
+
+    # An explicit jacobian that is wrong at an index *beyond* n_controls is
+    # still caught — the validator must check the extended range.
+    d_wrong_extended = NonlinearDrive(
+        H,
+        u -> u[1] * u[2] * u[3],
+        (u, j) -> j == 1 ? u[2] * u[3] : j == 2 ? u[1] * u[3] : j == 3 ? 0.0 : 0.0;  # wrong at j=3
+        active_controls = [1, 2, 3],
+    )
+    @test_throws AssertionError validate_drive_jacobian(d_wrong_extended, 2)
+end
+
 @testitem "G works on AbstractDrive types" begin
     using Piccolo
     using SparseArrays
