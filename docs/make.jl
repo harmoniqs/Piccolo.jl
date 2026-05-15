@@ -2,13 +2,6 @@ using Piccolo
 using PiccoloDocsTemplate
 using DocumenterCopyButton: CopyButton
 
-# Copy root CONTRIBUTING.md into docs source so there is a single source of truth
-cp(
-    joinpath(@__DIR__, "..", "CONTRIBUTING.md"),
-    joinpath(@__DIR__, "src", "development", "contributing.md");
-    force = true,
-)
-
 draft_mode_pages = [
 # "first_gate.jl",
 # "multilevel_transmon.jl",
@@ -108,6 +101,7 @@ generate_docs(
     make_index = true,
     make_literate = true,
     make_assets = true,
+    make_contributing = true,
     literate_draft_pages = draft_mode_pages,
     literate_kwargs = (execute = false,),
     format_kwargs = (
