@@ -78,7 +78,7 @@ leak_indices
 
 opts_cost = PiccoloOptions(
     leakage_cost = 10.0,  # Weight on leakage penalty
-    verbose = false,
+    display = :silent,
 )
 
 # ### Add Leakage Constraint
@@ -88,7 +88,7 @@ opts_cost = PiccoloOptions(
 opts_constraint = PiccoloOptions(
     leakage_constraint = true,
     leakage_constraint_value = 1e-3,  # Max 0.1% leakage
-    verbose = false,
+    display = :silent,
 )
 
 # ### Both Together
@@ -97,7 +97,7 @@ opts = PiccoloOptions(
     leakage_cost = 10.0,
     leakage_constraint = true,
     leakage_constraint_value = 1e-3,
-    verbose = false,
+    display = :silent,
 )
 
 # ## Complete Example: X Gate on 3-Level Transmon
@@ -119,7 +119,7 @@ opts = PiccoloOptions(
     leakage_cost = 5.0,
     leakage_constraint = true,
     leakage_constraint_value = 1e-3,
-    verbose = false,
+    display = :silent,
 )
 
 ## 5. Solve
@@ -164,7 +164,7 @@ pulse_warm = ZeroOrderPulse(0.05 * randn(2, N), times_warm)
 qtraj_warm = UnitaryTrajectory(sys, pulse_warm, U_goal)
 
 ## Step 1: Optimize without leakage constraints
-opts_initial = PiccoloOptions(timesteps_all_equal = true, verbose = false)
+opts_initial = PiccoloOptions(timesteps_all_equal = true, display = :silent)
 qcp_initial =
     SmoothPulseProblem(qtraj_warm, N; Q = 100.0, R = 1e-3, piccolo_options = opts_initial)
 cached_solve!(qcp_initial, "leakage_initial_2"; max_iter = 100, print_level = 1)
@@ -187,7 +187,7 @@ opts = PiccoloOptions(
     leakage_constraint = true,
     leakage_constraint_value = 1e-2,
     timesteps_all_equal = true,
-    verbose = false,
+    display = :silent,
 )
 qcp_leakage = SmoothPulseProblem(qtraj_warm, N; Q = 100.0, R = 1e-3, piccolo_options = opts)
 cached_solve!(qcp_leakage, "leakage_with_suppression_2"; max_iter = 150, print_level = 1)

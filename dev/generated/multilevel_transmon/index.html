@@ -51,12 +51,54 @@ pulse = ZeroOrderPulse(initial_controls, times)
 qtraj = UnitaryTrajectory(sys, pulse, op)
 
 # create the optimization problem
-qcp = SmoothPulseProblem(qtraj, N; ddu_bound = ddu_bound, Q = 100.0, R = 1e-2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}}
-  System: QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}
-  Goal: EmbeddedOperator{ComplexF64}
-  Trajectory: 50 knots
-  State: Ũ⃗
-  Controls: u</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><pre><code class="language-julia hljs">solve!(qcp; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+qcp = SmoothPulseProblem(qtraj, N; ddu_bound = ddu_bound, Q = 100.0, R = 1e-2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
+│  
+├─ <span class="sgr1">System</span>
+│    dim=5   drives=2
+│  
+├─ <span class="sgr1">Trajectory</span>
+│    N=50   T=10.000   Δt∈[0, Inf]
+│    Ũ⃗    (50)  ±[1.0, 1.0, 1.0, … (50 total)]  <span class="sgr32">✓</span>  state
+│    Δt   ( 1)  [0.0, Inf]                      <span class="sgr32">✓</span>  timestep
+│    t    ( 1)                                  <span class="sgr90">·</span>  state
+│    u    ( 2)  ±[0.2, 0.2]                     <span class="sgr32">✓</span>  control
+│    du   ( 2)                                  <span class="sgr90">·</span>  control
+│    ddu  ( 2)  ±[1.0, 1.0]                     <span class="sgr32">✓</span>  control
+│  
+├─ <span class="sgr1">Goal</span>
+│    EmbeddedOperator on [5], subspace dim 2
+│  
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 61.77  @ current x</span>
+│    KnotPointObjective           w=1             61.06
+│    QuadraticRegularizer(:u)     w=1             1.789e-04
+│    QuadraticRegularizer(:du)    w=1             9.879e-03
+│    QuadraticRegularizer(:ddu)   w=1             0.7016
+│    NullObjective                w=1             0
+│  
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.1529)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.776e-17)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.220e-16)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│  
+└─ <span class="sgr1">Status</span>
+     variables: 2900   (2700 bounded)
+     equality:  129659
+     inequality: 0
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.389387</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><pre><code class="language-julia hljs">solve!(qcp; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:   304210
 Number of nonzeros in inequality constraint Jacobian.:        0
@@ -135,8 +177,7 @@ qcp_leakage = SmoothPulseProblem(
 )
 
 # solve the problem
-solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing SmoothPulseProblem for UnitaryTrajectory...
-	applying leakage suppression: Ũ⃗ &lt; 0.01
+solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SmoothPulseProblem [UnitaryTrajectory]
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
 <span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
 <span class="sgr33"><span class="sgr1">│ </span></span>
@@ -147,6 +188,56 @@ solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-ou
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/2ZMae/src/problems.jl:66</span>
+<span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=5   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=50   T=9.875   Δt∈[0, Inf]
+│    Ũ⃗    (50)  ±[1.0, 1.0, 1.0, … (50 total)]  <span class="sgr32">✓</span>  state
+│    Δt   ( 1)  [0.0, Inf]                      <span class="sgr32">✓</span>  timestep
+│    t    ( 1)                                  <span class="sgr90">·</span>  state
+│    u    ( 2)  ±[0.2, 0.2]                     <span class="sgr32">✓</span>  control
+│    du   ( 2)                                  <span class="sgr90">·</span>  control
+│    ddu  ( 2)  ±[1.0, 1.0]                     <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    EmbeddedOperator on [5], subspace dim 2
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.01001  @ current x</span>
+│    KnotPointObjective           w=1             5.875e-04
+│    QuadraticRegularizer(:u)     w=1             6.687e-05
+│    QuadraticRegularizer(:du)    w=1             2.755e-04
+│    QuadraticRegularizer(:ddu)   w=1             2.214e-03
+│    NullObjective                w=1             0
+│    KnotPointObjective           w=1             6.869e-03
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/14 violated at x₀</span>
+│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 0.01609)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.388e-17)
+│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 2900   (2700 bounded)
+     equality:  129659
+     inequality: 24
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999994</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:   304210
@@ -211,7 +302,7 @@ EXIT: Maximum Number of Iterations Exceeded.
         applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
         applying constraint: initial time t₁ = 0
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from multilevel_transmon_leakage_573ffb2.jld2</code></pre><p>The leakage suppression adds:</p><ul><li>An L1-norm cost on populating leakage levels (drives populations toward zero)</li><li>A constraint that keeps leakage below the specified threshold</li></ul><pre><code class="language-julia hljs">fid_leakage = fidelity(qcp_leakage)
-println(&quot;Fidelity with leakage suppression: &quot;, fid_leakage)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity with leakage suppression: 0.7842708347544503</code></pre><h2 id="Visualizing-Results"><a class="docs-heading-anchor" href="#Visualizing-Results">Visualizing Results</a><a id="Visualizing-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-Results" title="Permalink"></a></h2><p>Piccolo provides plotting utilities to visualize the unitary evolution. First, without leakage suppression:</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp); fig_size = (900, 700))</code></pre><img src="79381d85.png" alt="Example block output"/><p>And with leakage suppression — you should see the population staying mostly within the computational subspace (first two levels):</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))</code></pre><img src="f64644de.png" alt="Example block output"/><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>This tutorial demonstrated:</p><ol><li>Using <code>TransmonSystem</code> to create a realistic multilevel transmon system</li><li>Using <code>EmbeddedOperator</code> to define gates on a subspace</li><li>Creating <code>UnitaryTrajectory</code> with <code>ZeroOrderPulse</code></li><li>Using <code>SmoothPulseProblem</code> to set up the optimization</li><li>Adding leakage suppression via <code>PiccoloOptions</code></li></ol><p>For more details on:</p><ul><li>Problem templates: See <a href="../problem-templates/smooth_pulse/#smooth-pulse">SmoothPulseProblem</a></li><li>Leakage suppression: See <a href="../guides/leakage_suppression/#leakage-suppression">Leakage Suppression</a></li><li>Quantum systems: See <a href="../systems/transmons/#transmon-systems">Transmon Qubits</a></li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../first_gate/">« Your First Gate</a><a class="docs-footer-nextpage" href="../state_transfer/">State Transfer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 15 May 2026 18:31">Friday 15 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+println(&quot;Fidelity with leakage suppression: &quot;, fid_leakage)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity with leakage suppression: 0.7842708347544508</code></pre><h2 id="Visualizing-Results"><a class="docs-heading-anchor" href="#Visualizing-Results">Visualizing Results</a><a id="Visualizing-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-Results" title="Permalink"></a></h2><p>Piccolo provides plotting utilities to visualize the unitary evolution. First, without leakage suppression:</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp); fig_size = (900, 700))</code></pre><img src="79381d85.png" alt="Example block output"/><p>And with leakage suppression — you should see the population staying mostly within the computational subspace (first two levels):</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))</code></pre><img src="f64644de.png" alt="Example block output"/><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>This tutorial demonstrated:</p><ol><li>Using <code>TransmonSystem</code> to create a realistic multilevel transmon system</li><li>Using <code>EmbeddedOperator</code> to define gates on a subspace</li><li>Creating <code>UnitaryTrajectory</code> with <code>ZeroOrderPulse</code></li><li>Using <code>SmoothPulseProblem</code> to set up the optimization</li><li>Adding leakage suppression via <code>PiccoloOptions</code></li></ol><p>For more details on:</p><ul><li>Problem templates: See <a href="../problem-templates/smooth_pulse/#smooth-pulse">SmoothPulseProblem</a></li><li>Leakage suppression: See <a href="../guides/leakage_suppression/#leakage-suppression">Leakage Suppression</a></li><li>Quantum systems: See <a href="../systems/transmons/#transmon-systems">Transmon Qubits</a></li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../first_gate/">« Your First Gate</a><a class="docs-footer-nextpage" href="../state_transfer/">State Transfer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 15 May 2026 20:33">Friday 15 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./multilevel_transmon.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/multilevel_transmon.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

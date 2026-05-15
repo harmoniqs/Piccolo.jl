@@ -21,7 +21,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 # Solve with L1 regularization on du
 qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0)
-solve!(qcp; max_iter = 200)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing BangBangPulseProblem for UnitaryTrajectory...
+solve!(qcp; max_iter = 200)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing BangBangPulseProblem [UnitaryTrajectory]
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
 <span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
 <span class="sgr33"><span class="sgr1">│ </span></span>
@@ -32,6 +32,53 @@ solve!(qcp; max_iter = 200)</code></pre><pre class="documenter-example-output"><
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/2ZMae/src/problems.jl:66</span>
+<span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=10.000   Δt∈[0, Inf]
+│    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t     (1)                                 <span class="sgr90">·</span>  state
+│    u     (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du    (2)                                 <span class="sgr90">·</span>  control
+│    s_du  (2)  [0.0, 0.0, Inf, Inf]           <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    U_goal  (2×2)
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 121.2  @ current x</span>
+│    KnotPointObjective         w=1             99.99
+│    QuadraticRegularizer(:u)   w=1             0
+│    LinearRegularizer(:s_du)   w=1             21.2
+│    NullObjective              w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.02158)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 5.551e-17)
+│    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 1600   (1000 bounded)
+     equality:  98015
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.000080</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
 
 ******************************************************************************
 This program contains Ipopt, a library for large-scale nonlinear optimization.
@@ -102,11 +149,60 @@ EXIT: Optimal Solution Found.
         applying constraint: bounds on Δt
         applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
         applying constraint: initial time t₁ = 0
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from bang_bang_basic_43c9960.jld2</code></pre><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998854810194968</code></pre><h2 id="Visualize-unitary-populations"><a class="docs-heading-anchor" href="#Visualize-unitary-populations">Visualize unitary populations</a><a id="Visualize-unitary-populations-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-unitary-populations" title="Permalink"></a></h2><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from bang_bang_basic_43c9960.jld2</code></pre><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998854810194988</code></pre><h2 id="Visualize-unitary-populations"><a class="docs-heading-anchor" href="#Visualize-unitary-populations">Visualize unitary populations</a><a id="Visualize-unitary-populations-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-unitary-populations" title="Permalink"></a></h2><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
 fig = plot_unitary_populations(traj)</code></pre><img src="372d5b2c.png" alt="Example block output"/><h2 id="Minimum-Time"><a class="docs-heading-anchor" href="#Minimum-Time">Minimum Time</a><a id="Minimum-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Minimum-Time" title="Permalink"></a></h2><pre><code class="language-julia hljs">qcp_min = MinimumTimeProblem(qcp, final_fidelity = 0.99)
-solve!(qcp_min; max_iter = 300)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing MinimumTimeProblem from QuantumControlProblem{UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}}...
-	final fidelity constraint: 0.99
-	minimum-time weight D: 100.0
+solve!(qcp_min; max_iter = 300)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing MinimumTimeProblem [from UnitaryTrajectory]
+    final fidelity ≥ 0.99
+    min-time weight D = 100.0
+<span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=9.294   Δt∈[0, Inf]
+│    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t     (1)                                 <span class="sgr90">·</span>  state
+│    u     (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du    (2)                                 <span class="sgr90">·</span>  control
+│    s_du  (2)  [0.0, 0.0, Inf, Inf]           <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    U_goal  (2×2)
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 932.6  @ current x</span>
+│    KnotPointObjective         w=1             0.01145
+│    QuadraticRegularizer(:u)   w=1             0
+│    LinearRegularizer(:s_du)   w=1             3.23
+│    NullObjective              w=1             0
+│    MinimumTimeObjective       w=1             929.4
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/14 violated at x₀</span>
+│    [dyn]  BilinearIntegrator               <span class="sgr32">✓</span>  (‖c‖∞ = 3.331e-16)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 5.551e-17)
+│    [ineq] L1SlackConstraint                <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.885e-03)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 1600   (1000 bounded)
+     equality:  98015
+     inequality: 2
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999885</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:    32044
@@ -178,41 +274,164 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
     N;
     Q = 100.0,
     R_du = 1.0,    ## Strong L1 penalty → fewer switches
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}}
-  System: QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}
-  Goal: Matrix{ComplexF64}
-  Trajectory: 100 knots
-  State: Ũ⃗
-  Controls: u</code></pre><h3 id="With-Derivative-Bounds"><a class="docs-heading-anchor" href="#With-Derivative-Bounds">With Derivative Bounds</a><a id="With-Derivative-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#With-Derivative-Bounds" title="Permalink"></a></h3><p>Constrain the maximum control jump size:</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator
+│  
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│  
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=2.372   Δt∈[0, Inf]
+│    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t     (1)                                 <span class="sgr90">·</span>  state
+│    u     (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du    (2)                                 <span class="sgr90">·</span>  control
+│    s_du  (2)  [0.0, 0.0, Inf, Inf]           <span class="sgr32">✓</span>  control
+│  
+├─ <span class="sgr1">Goal</span>
+│    U_goal  (2×2)
+│  
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 9.004  @ current x</span>
+│    KnotPointObjective         w=1             0.9991
+│    QuadraticRegularizer(:u)   w=1             0
+│    LinearRegularizer(:s_du)   w=1             8.005
+│    NullObjective              w=1             0
+│  
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 2.988e-03)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
+│    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│  
+└─ <span class="sgr1">Status</span>
+     variables: 1600   (1000 bounded)
+     equality:  98015
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990009</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+</code></pre><h3 id="With-Derivative-Bounds"><a class="docs-heading-anchor" href="#With-Derivative-Bounds">With Derivative Bounds</a><a id="With-Derivative-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#With-Derivative-Bounds" title="Permalink"></a></h3><p>Constrain the maximum control jump size:</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
     qtraj,
     N;
     Q = 100.0,
     R_du = 1e-1,
     du_bound = 0.5,    ## Limit control jumps
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}}
-  System: QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}
-  Goal: Matrix{ComplexF64}
-  Trajectory: 100 knots
-  State: Ũ⃗
-  Controls: u</code></pre><h3 id="Per-Drive-Regularization"><a class="docs-heading-anchor" href="#Per-Drive-Regularization">Per-Drive Regularization</a><a id="Per-Drive-Regularization-1"></a><a class="docs-heading-anchor-permalink" href="#Per-Drive-Regularization" title="Permalink"></a></h3><p>Apply different L1 weights to different control channels:</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator
+│  
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│  
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=2.372   Δt∈[0, Inf]
+│    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t     (1)                                 <span class="sgr90">·</span>  state
+│    u     (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du    (2)  ±[0.5, 0.5]                    <span class="sgr32">✓</span>  control
+│    s_du  (2)  [0.0, 0.0, Inf, Inf]           <span class="sgr32">✓</span>  control
+│  
+├─ <span class="sgr1">Goal</span>
+│    U_goal  (2×2)
+│  
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.8  @ current x</span>
+│    KnotPointObjective         w=1             0.9991
+│    QuadraticRegularizer(:u)   w=1             0
+│    LinearRegularizer(:s_du)   w=1             0.8005
+│    NullObjective              w=1             0
+│  
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 2.988e-03)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
+│    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│  
+└─ <span class="sgr1">Status</span>
+     variables: 1600   (1200 bounded)
+     equality:  98015
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990009</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+</code></pre><h3 id="Per-Drive-Regularization"><a class="docs-heading-anchor" href="#Per-Drive-Regularization">Per-Drive Regularization</a><a id="Per-Drive-Regularization-1"></a><a class="docs-heading-anchor-permalink" href="#Per-Drive-Regularization" title="Permalink"></a></h3><p>Apply different L1 weights to different control channels:</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
     qtraj,
     N;
     Q = 100.0,
     R_u = [1e-3, 1e-2],     ## Less L2 regularization on drive 1
     R_du = [1e-1, 1.0],     ## Stronger L1 on drive 2
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuantumControlProblem{UnitaryTrajectory{ZeroOrderPulse{DataInterpolations.ConstantInterpolation{Matrix{Float64}, Vector{Float64}, Vector{Union{}}, Float64}}, SciMLBase.ODESolution{ComplexF64, 3, Vector{Matrix{ComplexF64}}, Nothing, Nothing, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, SciMLBase.ODEProblem{Matrix{ComplexF64}, Tuple{Float64, Float64}, true, SciMLBase.NullParameters, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Base.Pairs{Symbol, Vector{Float64}, Nothing, @NamedTuple{tstops::Vector{Float64}}}, SciMLBase.StandardODEProblem}, OrdinaryDiffEqLinear.MagnusAdapt4, OrdinaryDiffEqCore.InterpolationData{SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, SciMLOperators.MatrixOperator{ComplexF64, Matrix{ComplexF64}, SciMLOperators.FilterKwargs{Nothing, Val{()}}, SciMLOperators.FilterKwargs{Piccolo.Quantum.Rollouts.var&quot;#update!#_construct_operator##2&quot;{QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}}, Val{()}}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Piccolo.Quantum.Rollouts.PiccoloRolloutSystem{Union{Int64, AbstractVector{Int64}, CartesianIndex, CartesianIndices}}, Nothing, Nothing}, Vector{Matrix{ComplexF64}}, Vector{Float64}, Vector{Vector{Matrix{ComplexF64}}}, Nothing, OrdinaryDiffEqLinear.MagnusAdapt4Cache{Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Matrix{ComplexF64}, Nothing}, Nothing}, SciMLBase.DEStats, Nothing, Nothing, Nothing, Nothing}}}
-  System: QuantumSystem{Piccolo.Quantum.QuantumSystems.var&quot;#53#54&quot;{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Vector{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}, Int64}, Piccolo.Quantum.QuantumSystems.var&quot;#55#56&quot;{Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}, Int64, SparseArrays.SparseMatrixCSC{Float64, Int64}}, @NamedTuple{}, Vector{DriftTerm{SparseArrays.SparseMatrixCSC{ComplexF64, Int64}, Returns{Float64}, Returns{Float64}}}, SparseArrays.SparseMatrixCSC{ComplexF64, Int64}}
-  Goal: Matrix{ComplexF64}
-  Trajectory: 100 knots
-  State: Ũ⃗
-  Controls: u</code></pre><h3 id="State-Transfer"><a class="docs-heading-anchor" href="#State-Transfer">State Transfer</a><a id="State-Transfer-1"></a><a class="docs-heading-anchor-permalink" href="#State-Transfer" title="Permalink"></a></h3><pre><code class="language-julia hljs">ψ_init = ComplexF64[1, 0]  ## |0⟩
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator
+│  
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│  
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=2.372   Δt∈[0, Inf]
+│    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t     (1)                                 <span class="sgr90">·</span>  state
+│    u     (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du    (2)                                 <span class="sgr90">·</span>  control
+│    s_du  (2)  [0.0, 0.0, Inf, Inf]           <span class="sgr32">✓</span>  control
+│  
+├─ <span class="sgr1">Goal</span>
+│    U_goal  (2×2)
+│  
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 6.299  @ current x</span>
+│    KnotPointObjective         w=1             0.9991
+│    QuadraticRegularizer(:u)   w=1             3.055e-04
+│    LinearRegularizer(:s_du)   w=1             5.3
+│    NullObjective              w=1             0
+│  
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 2.988e-03)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
+│    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>  
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│  
+└─ <span class="sgr1">Status</span>
+     variables: 1600   (1000 bounded)
+     equality:  98015
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990009</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+</code></pre><h3 id="State-Transfer"><a class="docs-heading-anchor" href="#State-Transfer">State Transfer</a><a id="State-Transfer-1"></a><a class="docs-heading-anchor-permalink" href="#State-Transfer" title="Permalink"></a></h3><pre><code class="language-julia hljs">ψ_init = ComplexF64[1, 0]  ## |0⟩
 ψ_goal = ComplexF64[0, 1]  ## |1⟩
 
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 
 qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0)
-solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">    constructing BangBangPulseProblem for KetTrajectory...
+solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing BangBangPulseProblem [KetTrajectory]
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
 <span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
 <span class="sgr33"><span class="sgr1">│ </span></span>
@@ -223,6 +442,53 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/2ZMae/src/problems.jl:66</span>
+<span class="sgr1">QuantumControlProblem</span>
+├─ KetTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=10.000   Δt∈[0, Inf]
+│    ψ̃     (4)  ±[1.0, 1.0, 1.0, 1.0]  <span class="sgr32">✓</span>  state
+│    Δt    (1)  [0.0, Inf]             <span class="sgr32">✓</span>  timestep
+│    t     (1)                         <span class="sgr90">·</span>  state
+│    u     (2)  ±[1.0, 1.0]            <span class="sgr32">✓</span>  control
+│    du    (2)                         <span class="sgr90">·</span>  control
+│    s_du  (2)  [0.0, 0.0, Inf, Inf]   <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    |ψ_init⟩ → |ψ_goal⟩  (dim=2)
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 119.8  @ current x</span>
+│    KnotPointObjective         w=1             99.32
+│    QuadraticRegularizer(:u)   w=1             0
+│    LinearRegularizer(:s_du)   w=1             20.46
+│    NullObjective              w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01622)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.776e-17)
+│    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 1200   (600 bounded)
+     equality:  58811
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.006836</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:    14696
@@ -305,6 +571,57 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/2ZMae/src/problems.jl:66</span>
+<span class="sgr1">QuantumControlProblem</span>
+├─ MultiKetTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, BilinearIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=10.000   Δt∈[0, Inf]
+│    ψ̃1    (4)  ±[1.0, 1.0, 1.0, 1.0]  <span class="sgr32">✓</span>  state
+│    ψ̃2    (4)  ±[1.0, 1.0, 1.0, 1.0]  <span class="sgr32">✓</span>  state
+│    Δt    (1)  [0.0, Inf]             <span class="sgr32">✓</span>  timestep
+│    t     (1)                         <span class="sgr90">·</span>  state
+│    u     (2)  ±[1.0, 1.0]            <span class="sgr32">✓</span>  control
+│    du    (2)                         <span class="sgr90">·</span>  control
+│    s_du  (2)  [0.0, 0.0, Inf, Inf]   <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    2 state transfers  (dim=2)
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 121.9  @ current x</span>
+│    KnotPointObjective         w=1             99.08
+│    QuadraticRegularizer(:u)   w=1             0
+│    LinearRegularizer(:s_du)   w=1             22.84
+│    NullObjective              w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">2/16 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01294)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01294)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.776e-17)
+│    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 1600   (1000 bounded)
+     equality:  98016
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.009243</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:    32044
@@ -371,7 +688,7 @@ EXIT: Maximum Number of Iterations Exceeded.
         applying constraint: bounds on Δt
         applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
         applying constraint: initial time t₁ = 0
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from bang_bang_multi_ket_43c9960.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>BangBangPulseProblem</code> internally:</p><ol><li><p><strong>Adds 1 derivative variable</strong>: Creates <code>:du</code> (first derivative) alongside controls <code>:u</code> (compared to 2 in <code>SmoothPulseProblem</code>)</p></li><li><p><strong>Adds slack variables</strong>: Creates <code>:s_du</code> (non-negative, same dimension as <code>:du</code>), initialized at <code>|du|</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic (L2) regularization on <code>u</code> with weight <code>R_u</code></li><li>Linear (L1) regularization on <code>s_du</code> with weight <code>R_du</code></li></ul></li><li><p><strong>Applies constraints</strong>: <code>L1SlackConstraint</code> enforces <code>|du| ≤ s_du</code>, and <code>du_bound</code> as hard constraints</p></li></ol><p>At optimality the slacks satisfy <code>s = |du|</code>, so the linear cost on <code>s</code> equals the exact L1 norm of <code>du</code>.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For smooth (L2-regularized) controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../smooth_pulse/">« SmoothPulseProblem</a><a class="docs-footer-nextpage" href="../spline_pulse/">SplinePulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 15 May 2026 18:31">Friday 15 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from bang_bang_multi_ket_43c9960.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>BangBangPulseProblem</code> internally:</p><ol><li><p><strong>Adds 1 derivative variable</strong>: Creates <code>:du</code> (first derivative) alongside controls <code>:u</code> (compared to 2 in <code>SmoothPulseProblem</code>)</p></li><li><p><strong>Adds slack variables</strong>: Creates <code>:s_du</code> (non-negative, same dimension as <code>:du</code>), initialized at <code>|du|</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic (L2) regularization on <code>u</code> with weight <code>R_u</code></li><li>Linear (L1) regularization on <code>s_du</code> with weight <code>R_du</code></li></ul></li><li><p><strong>Applies constraints</strong>: <code>L1SlackConstraint</code> enforces <code>|du| ≤ s_du</code>, and <code>du_bound</code> as hard constraints</p></li></ol><p>At optimality the slacks satisfy <code>s = |du|</code>, so the linear cost on <code>s</code> equals the exact L1 norm of <code>du</code>.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For smooth (L2-regularized) controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../smooth_pulse/">« SmoothPulseProblem</a><a class="docs-footer-nextpage" href="../spline_pulse/">SplinePulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 15 May 2026 20:33">Friday 15 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./bang_bang_pulse.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/bang_bang_pulse.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
