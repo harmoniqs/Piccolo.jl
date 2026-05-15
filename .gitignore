@@ -55,3 +55,6 @@ doc_template_temp/
 
 # This file is updated via script
 docs/utils.jl
+
+# cached_solve! artifact cache (per-commit .jld2 files)
+/data/

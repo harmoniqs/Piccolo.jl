@@ -5,6 +5,7 @@ using ..QuantumConstraints
 using ..QuantumIntegrators
 using ..QuantumControlProblems: QuantumControlProblem, get_trajectory, get_system
 using ..Options
+using ..ProblemDisplay: show_problem
 
 using TrajectoryIndexingUtils
 using NamedTrajectories
@@ -28,6 +29,67 @@ using TestItems
 
 const ⊗ = kron
 
+# ============================================================================ #
+# Verbose-output helpers
+# ============================================================================ #
+
+# Display-level gates. `:silent` shows nothing during construction.
+# `:compact` shows the outer "constructing X" header line.
+# `:standard` (default) additionally triggers `display(qcp)` at the end of the
+# outer constructor (handled by template return path).
+# `:detailed` additionally shows inner template details + plot.
+_show_header(opts::PiccoloOptions) = display_level(opts.display) >= DISPLAY_COMPACT
+_show_details(opts::PiccoloOptions) = display_level(opts.display) >= DISPLAY_DETAILED
+_should_inspect(opts::PiccoloOptions) = display_level(opts.display) >= DISPLAY_STANDARD
+
+"""
+    _maybe_display(qcp, opts) -> qcp
+
+Auto-render `qcp` after outer-constructor return when `opts.display` is
+`:standard` or `:detailed`. `:standard` shows the rich tree view;
+`:detailed` adds sparsity + a terminal pulse plot. Returns `qcp` so it can
+be used as `return _maybe_display(qcp, opts)`.
+"""
+function _maybe_display(qcp, opts::PiccoloOptions)
+    lvl = display_level(opts.display)
+    if lvl >= DISPLAY_STANDARD
+        detail = lvl >= DISPLAY_DETAILED ? :full : :standard
+        show_problem(stdout, qcp; detail = detail)
+        println()
+    end
+    return qcp
+end
+
+# Strip type parameters for human-readable logs:
+#   KetTrajectory{CubicSplinePulse{...}}  → "KetTrajectory"
+#   CubicSplinePulse{DataInterpolations…} → "CubicSplinePulse"
+_typename(T::Type) = string(nameof(T))
+_typename(x) = _typename(typeof(x))
+
+# Compact bound formatting for verbose construction logs. Handles the four
+# concrete shapes used by GlobalBoundsConstraint / update_bound!:
+#   Float64               → "±0.0195"
+#   (lo::Float64, hi)     → "±2π" when symmetric, else "[lo, hi]"
+#   Vector{Float64}       → "±[…]"
+#   (lo::Vec, hi::Vec)    → "±[…]" when symmetric, else "[lo, hi]"
+function _fmt_bounds(b)
+    if b isa Real
+        return string("±", round(b; sigdigits = 4))
+    elseif b isa Tuple{<:Real,<:Real}
+        lo, hi = b
+        return lo == -hi ? string("±", round(hi; sigdigits = 4)) :
+               string("[", round(lo; sigdigits = 4), ", ", round(hi; sigdigits = 4), "]")
+    elseif b isa AbstractVector{<:Real}
+        return string("±", round.(b; sigdigits = 4))
+    elseif b isa Tuple{<:AbstractVector,<:AbstractVector}
+        lo, hi = b
+        return all(lo .== .-hi) ? string("±", round.(hi; sigdigits = 4)) :
+               string("[", round.(lo; sigdigits = 4), ", ", round.(hi; sigdigits = 4), "]")
+    else
+        return string(b)
+    end
+end
+
 include("smooth_pulse_problem.jl")
 include("bang_bang_pulse_problem.jl")
 include("spline_pulse_problem.jl")
@@ -49,8 +111,8 @@ function apply_piccolo_options!(
 
     if piccolo_options.leakage_constraint
         val = piccolo_options.leakage_constraint_value
-        if piccolo_options.verbose
-            println("\tapplying leakage suppression: $(state_names) < $(val)")
+        if _show_details(piccolo_options)
+            println("    applying leakage suppression: $(state_names) < $(val)")
         end
 
         if isnothing(state_leakage_indices)
@@ -74,8 +136,8 @@ function apply_piccolo_options!(
     end
 
     if piccolo_options.timesteps_all_equal
-        if piccolo_options.verbose
-            println("\tapplying timesteps_all_equal constraint: $(traj.timestep)")
+        if _show_details(piccolo_options)
+            println("    applying timesteps_all_equal constraint: $(traj.timestep)")
         end
         push!(constraints, TimeStepsAllEqualConstraint())
     end
@@ -83,8 +145,8 @@ function apply_piccolo_options!(
     let cname = piccolo_options.complex_control_norm_constraint_name
         # Bind into a local so the !isnothing guard narrows the Union for JET.
         if cname !== nothing
-            if piccolo_options.verbose
-                println("\tapplying complex control norm constraint: $cname")
+            if _show_details(piccolo_options)
+                println("    applying complex control norm constraint: $cname")
             end
             norm_con = NonlinearKnotPointConstraint(
                 u -> [norm(u)^2 - piccolo_options.complex_control_norm_constraint_radius^2],
@@ -144,7 +206,8 @@ function setup_free_phase_globals!(
     end
 
     if verbose
-        println("    free_phase=true: added phase variables $θ_names")
+        _θ_list = join(θ_names, ", ")
+        println("    free_phase: added $_θ_list")
     end
 
     return θ_names, global_data, global_bounds
@@ -225,7 +288,7 @@ function add_global_bounds_constraints!(
         end
         push!(constraints, GlobalBoundsConstraint(name, bounds_value))
         if verbose
-            println("    added GlobalBoundsConstraint for :$name with bounds $bounds_value")
+            println("    global bound :$name = $(_fmt_bounds(bounds_value))")
         end
     end
 end
@@ -264,7 +327,7 @@ function apply_calibration_targets!(
         value = collect(Float64, traj.global_data[traj.global_components[name]])
         fix_global_variable!(constraints, name, value)
         if verbose
-            println("    pinned :$name as calibration_target at value $value")
+            println("    pinned :$name as calibration_target = $(round.(value; sigdigits=4))")
         end
     end
 end

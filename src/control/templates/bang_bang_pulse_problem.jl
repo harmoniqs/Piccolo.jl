@@ -73,9 +73,8 @@ function BangBangPulseProblem(
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
 )
-    if piccolo_options.verbose
-        traj_type = split(string(typeof(qtraj).name.name), ".")[end]
-        println("    constructing BangBangPulseProblem for $traj_type...")
+    if _show_header(piccolo_options)
+        println("constructing BangBangPulseProblem [$(_typename(qtraj))]")
     end
 
     # Extract info from quantum trajectory
@@ -104,7 +103,7 @@ function BangBangPulseProblem(
                 global_data,
                 global_bounds;
                 initial_phases = initial_phases,
-                verbose = piccolo_options.verbose,
+                verbose = _show_details(piccolo_options),
             )
         else
             goal = qtraj.goal
@@ -116,7 +115,7 @@ function BangBangPulseProblem(
                 global_data,
                 global_bounds;
                 initial_phases = initial_phases,
-                verbose = piccolo_options.verbose,
+                verbose = _show_details(piccolo_options),
             )
         end
     end
@@ -221,19 +220,19 @@ function BangBangPulseProblem(
         all_constraints,
         global_bounds,
         traj_bb;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     apply_calibration_targets!(
         all_constraints,
         calibration_targets,
         traj_bb;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob = DirectTrajOptProblem(traj_bb, J, integrators; constraints = all_constraints)
 
-    return QuantumControlProblem(qtraj, prob)
+    return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #
@@ -268,7 +267,7 @@ function BangBangPulseProblem(
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     coherent::Bool = true,
 )
-    if piccolo_options.verbose
+    if _show_header(piccolo_options)
         println(
             "    constructing BangBangPulseProblem for MultiKetTrajectory ($(length(qtraj.initials)) states)...",
         )
@@ -300,7 +299,7 @@ function BangBangPulseProblem(
             global_data,
             global_bounds;
             initial_phases = initial_phases,
-            verbose = piccolo_options.verbose,
+            verbose = _show_details(piccolo_options),
         )
     end
 
@@ -398,19 +397,19 @@ function BangBangPulseProblem(
         all_constraints,
         global_bounds,
         traj_bb;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     apply_calibration_targets!(
         all_constraints,
         calibration_targets,
         traj_bb;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob = DirectTrajOptProblem(traj_bb, J, integrators; constraints = all_constraints)
 
-    return QuantumControlProblem(qtraj, prob)
+    return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #
