@@ -780,7 +780,7 @@ end
             leakage_constraint = true,
             leakage_constraint_value = 1e-3,
             leakage_cost = 1.0,
-            verbose = false,
+            display = :silent,
         ),
         state_leakage_indices = [3, 6],
     )

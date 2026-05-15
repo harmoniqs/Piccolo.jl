@@ -327,7 +327,9 @@ function apply_calibration_targets!(
         value = collect(Float64, traj.global_data[traj.global_components[name]])
         fix_global_variable!(constraints, name, value)
         if verbose
-            println("    pinned :$name as calibration_target = $(round.(value; sigdigits=4))")
+            println(
+                "    pinned :$name as calibration_target = $(round.(value; sigdigits=4))",
+            )
         end
     end
 end

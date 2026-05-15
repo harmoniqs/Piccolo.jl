@@ -133,7 +133,9 @@ function inspect(qcp::QuantumControlProblem)
 
     # System
     sys_dim = _system_dim(sys)
-    n_drives = hasproperty(sys, :n_drives) ? sys.n_drives : length(prob.trajectory.control_names) - 1
+    n_drives =
+        hasproperty(sys, :n_drives) ? sys.n_drives :
+        length(prob.trajectory.control_names) - 1
     subsystem_levels = _subsystem_levels(sys)
     sys_globals = _system_globals(sys, traj)
 
@@ -240,13 +242,14 @@ end
 # Helpers — trajectory
 # ---------------------------------------------------------------------------- #
 
-_safe_duration(traj) = try
-    # `get_duration(traj) = get_times(traj)[end]` — the correct cumulative end
-    # time. `sum(get_timesteps)` overcounts by one Δt and is not the same thing.
-    Float64(get_duration(traj))
-catch
-    NaN
-end
+_safe_duration(traj) =
+    try
+        # `get_duration(traj) = get_times(traj)[end]` — the correct cumulative end
+        # time. `sum(get_timesteps)` overcounts by one Δt and is not the same thing.
+        Float64(get_duration(traj))
+    catch
+        NaN
+    end
 
 function _Δt_range(traj)
     haskey(traj.bounds, :Δt) || return nothing
@@ -403,13 +406,12 @@ end
 # ---------------------------------------------------------------------------- #
 
 _goal_summary(qtraj::UnitaryTrajectory) = _goal_summary_unitary(qtraj.goal)
-_goal_summary(qtraj::KetTrajectory) =
-    "|ψ_init⟩ → |ψ_goal⟩  (dim=$(length(qtraj.goal)))"
-_goal_summary(qtraj::MultiKetTrajectory) =
-    "$(length(qtraj.goals)) state transfers  (dim=$(length(first(qtraj.goals))))"
+_goal_summary(qtraj::KetTrajectory) = "|ψ_init⟩ → |ψ_goal⟩  (dim=$(length(qtraj.goal)))"
+_goal_summary(
+    qtraj::MultiKetTrajectory,
+) = "$(length(qtraj.goals)) state transfers  (dim=$(length(first(qtraj.goals))))"
 _goal_summary(qtraj::DensityTrajectory) = "ρ_init → ρ_goal"
-_goal_summary(qtraj::SamplingTrajectory) =
-    "sampled ensemble (n=$(length(qtraj.qtrajs)))"
+_goal_summary(qtraj::SamplingTrajectory) = "sampled ensemble (n=$(length(qtraj.systems)))"
 _goal_summary(qtraj::AbstractQuantumTrajectory) = string(_typename(qtraj), " goal")
 
 function _goal_summary_unitary(goal)
@@ -579,7 +581,9 @@ end
 function _constraint_kind(c, tn)
     if occursin("Bounds", tn)
         return :bnd
-    elseif occursin("Equality", tn) || occursin("TimeSteps", tn) || occursin("TimeConsistency", tn)
+    elseif occursin("Equality", tn) ||
+           occursin("TimeSteps", tn) ||
+           occursin("TimeConsistency", tn)
         return :eq
     elseif hasproperty(c, :equality)
         return c.equality ? :eq : :ineq
@@ -650,7 +654,8 @@ end
 # are usually zero (so F_phase ≈ F_raw). After solve, the optimizer has driven
 # them to their optimum — so this matches what the fidelity-constraint enforces.
 function _fidelity_with_stored_phases(qtraj, traj)
-    θ_names = sort!([n for n in keys(traj.global_components) if startswith(string(n), "φ_")])
+    θ_names =
+        sort!([n for n in keys(traj.global_components) if startswith(string(n), "φ_")])
     isempty(θ_names) && return nothing
 
     # Read φ values from the trajectory's global data
