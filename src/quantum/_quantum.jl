@@ -35,6 +35,10 @@ include("primitives/pulses.jl")
 include("object_utils.jl")
 @reexport using .QuantumObjectUtils
 
+# Abstract operator supertype (Piccolissimo concrete operators extend it)
+include("operators/abstract_dynamics_operator.jl")
+@reexport using .AbstractOperators
+
 # Operators - lifted (no dependencies)
 include("operators/lifted_operators.jl")
 @reexport using .LiftedOperators

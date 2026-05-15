@@ -461,6 +461,105 @@ function QuantumSystem(
     )
 end
 
+"""
+    QuantumSystem(
+        H_drift::AbstractDynamicsOperator,
+        drives::Vector{<:AbstractDrive},
+        drive_bounds::Vector;
+        simplify::Bool = false, kwargs...
+    )
+
+Same contract as the matrix-drift constructor, but accepts a structured
+`AbstractDynamicsOperator` payload for `H_drift` (concrete operator types
+defined in Piccolissimo: `DiagonalOperator`, `KronIdentityOperator{DiagonalOperator}`,
+`SumOperator`, ...). The structured operator is stored on the system
+unchanged so the spline integrator's per-substep `apply!` dispatches
+through Piccolissimo's SIMD-fast kernels rather than the generic sparse
+`mul!` path.
+
+A materialized form is computed once at construction for the closure-based
+`H(u, t)` / `G(u, t)` rollouts (which need a matrix-typed thing for `+`
+arithmetic), but it never re-enters the integrator hot path.
+"""
+function QuantumSystem(
+    H_drift::AbstractDynamicsOperator,
+    drives::Vector{<:AbstractDrive},
+    drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
+    time_dependent::Bool = false,
+    global_params::NamedTuple = NamedTuple(),
+    hermitian::Bool = true,
+    simplify::Bool = false,
+)
+    drive_bounds = normalize_drive_bounds(drive_bounds)
+
+    if simplify && !isempty(drives)
+        drives = simplify_drives(drives)
+    end
+
+    H_drift_mat = sparse(ComplexF64.(Matrix(H_drift)))
+
+    if hermitian
+        @assert is_hermitian(H_drift_mat) "Drift Hamiltonian H_drift is not Hermitian"
+    end
+
+    for (i, d) in enumerate(drives)
+        @assert is_hermitian(drive_matrix(d)) "Drive operator drives[$i].H is not Hermitian"
+    end
+
+    n_drives = length(drive_bounds)
+    levels = size(H_drift_mat, 1)
+
+    for (i, d) in enumerate(drives)
+        base = d isa ModulatedDrive ? d.base : d
+        if base isa LinearDrive
+            @assert 1 <= base.index <= n_drives "LinearDrive at drives[$i] has index $(base.index) but control dimension is $n_drives"
+        end
+    end
+
+    for d in drives
+        base = d isa ModulatedDrive ? d.base : d
+        if base isa NonlinearDrive
+            validate_drive_jacobian(base, n_drives)
+        end
+    end
+
+    G_drift_mat = sparse(Isomorphisms.G(H_drift_mat))
+    H_drive_mats = [sparse(ComplexF64.(drive_matrix(d))) for d in drives]
+    G_drive_mats = [sparse(Isomorphisms.G(H_d)) for H_d in H_drive_mats]
+
+    if isempty(drives)
+        H_fn = (u, t) -> H_drift_mat
+        G_fn = (u, t) -> G_drift_mat
+    else
+        H_fn =
+            (u, t) ->
+                H_drift_mat +
+                sum(drive_coeff(d, u, t) * H_d for (d, H_d) in zip(drives, H_drive_mats))
+        G_fn =
+            (u, t) ->
+                G_drift_mat +
+                sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
+    end
+
+    # Store the structured H_drift unchanged so the integrator's
+    # `_to_operator(sys.H_drift)` dispatches on the SIMD-fast kernel rather
+    # than re-materializing every substep.
+    return QuantumSystem(
+        H_fn,
+        G_fn,
+        H_drift,
+        [DriftTerm(H_drift_mat)],
+        collect(AbstractDrive, drives),
+        drive_bounds,
+        n_drives,
+        levels,
+        time_dependent,
+        _float_params(global_params),
+        hermitian,
+    )
+end
+
+
 # ----------------------------------------------------------------------------- #
 # Modulation normalization helpers
 # ----------------------------------------------------------------------------- #

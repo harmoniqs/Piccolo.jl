@@ -27,6 +27,7 @@ export get_drive_terms
 export get_c_ops
 export compact_lindbladian_generators, compact_lindbladian_parts, compact_generator_closure
 
+using ..AbstractOperators
 using ..Isomorphisms
 using ..Pulses
 using ..QuantumObjectUtils
