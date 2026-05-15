@@ -5,12 +5,20 @@
 
 """
     is_hermitian(H::AbstractMatrix; tol=1e-10)
+    is_hermitian(H; tol=1e-10)
 
-Check if a matrix is Hermitian within a tolerance.
+Check if `H` is Hermitian within a tolerance.
+
+For `AbstractMatrix`, compares against the conjugate transpose directly. For
+anything else (e.g. an `AbstractDynamicsOperator` from Piccolissimo) we
+delegate to `Matrix(H)` first so structured-operator payloads can flow
+through the Hermiticity checks unchanged.
 """
 function is_hermitian(H::AbstractMatrix; tol = 1e-10)
     return norm(H - H') < tol
 end
+
+is_hermitian(H; tol = 1e-10) = is_hermitian(Matrix(H); tol = tol)
 
 """
     QuantumSystem <: AbstractQuantumSystem
@@ -378,8 +386,16 @@ function QuantumSystem(
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
     hermitian::Bool = true,
+    simplify::Bool = false,
 )
     drive_bounds = normalize_drive_bounds(drive_bounds)
+
+    # Optionally coalesce duplicate-coefficient drives. Mathematically a no-op
+    # on `H(u, t)`, but reduces the number of operator applications inside the
+    # integrator's per-substep loop.
+    if simplify && !isempty(drives)
+        drives = simplify_drives(drives)
+    end
 
     # Check that H_drift is Hermitian
     if hermitian

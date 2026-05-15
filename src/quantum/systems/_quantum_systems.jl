@@ -14,6 +14,7 @@ export drive_matrix, drive_dim
 export active_controls
 export has_nonlinear_drives
 export validate_drive_jacobian, validate_drive_hessian
+export simplify_drives
 
 export AbstractDissipator, LinearDissipator, NonlinearDissipator
 export rate_coeff, rate_coeff_jac, rate_coeff_hess

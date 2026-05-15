@@ -351,17 +351,22 @@ active_controls(d::NonlinearDrive) = d.active_controls
     drive_matrix(d::AbstractDrive) -> AbstractMatrix
 
 Return the Hermitian operator matrix for this drive term.
+
+When `d.H` is an `AbstractMatrix`, returns it directly. When `d.H` is some
+other operator type (e.g. `AbstractDynamicsOperator` from Piccolissimo),
+delegates to `_ensure_matrix(d.H)` so call sites that broadcast over the
+matrix or pass it to `sparse(ComplexF64.(...))` keep working.
 """
-drive_matrix(d::LinearDrive) = d.H
-drive_matrix(d::NonlinearDrive) = d.H
+drive_matrix(d::LinearDrive) = _ensure_matrix(d.H)
+drive_matrix(d::NonlinearDrive) = _ensure_matrix(d.H)
 
 """
     drive_dim(d::AbstractDrive) -> Int
 
 Return the size (number of rows) of the drive operator.
 """
-drive_dim(d::LinearDrive) = size(d.H, 1)
-drive_dim(d::NonlinearDrive) = size(d.H, 1)
+drive_dim(d::LinearDrive) = size(drive_matrix(d), 1)
+drive_dim(d::NonlinearDrive) = size(drive_matrix(d), 1)
 
 # ModulatedDrive interface delegation
 drive_matrix(d::ModulatedDrive) = drive_matrix(d.base)
@@ -478,6 +483,98 @@ function validate_drive_hessian(
             )
         end
     end
+end
+
+# ----------------------------------------------------------------------------- #
+# Drive simplification (coefficient-signature fusion)
+# ----------------------------------------------------------------------------- #
+
+"""
+    simplify_drives(drives::AbstractVector{<:AbstractDrive}) -> Vector{AbstractDrive}
+
+Coalesce drives that share the same scalar coefficient into a single drive by
+summing their operator matrices. This is mathematically a no-op on the
+Hamiltonian `H(u, t) = Σ_d drive_coeff(d, u, t) * d.H` but produces fewer terms
+in the integrator's per-substep loop.
+
+Fusion rules
+- `LinearDrive(H_a, k)` + `LinearDrive(H_b, k)` → `LinearDrive(H_a + H_b, k)`.
+- `NonlinearDrive(H_a, c)` + `NonlinearDrive(H_b, c)` with identical
+  `objectid(c)` (i.e. literally the same closure object) and identical sorted
+  `active_controls` → `NonlinearDrive(H_a + H_b, c)`. Distinct closures with
+  semantically equal bodies don't fuse — share the closure across drive calls
+  if you want them grouped.
+- `ModulatedDrive` and any other `AbstractDrive` subtype are passed through
+  unchanged.
+
+Ordering
+The first occurrence of each fusion key keeps its position in the result; later
+duplicates collapse onto it. This preserves whatever index conventions
+downstream code may rely on (e.g. `active_controls` indices into the original
+control vector are unchanged — only the *drive* indexing is affected).
+
+Idempotent. Returns a fresh `Vector{AbstractDrive}`; the original is not
+mutated. Original drives are reused if they had no duplicates.
+"""
+function simplify_drives(drives::AbstractVector{<:AbstractDrive})
+    isempty(drives) && return AbstractDrive[]
+
+    # Canonical fusion key: drives with equal keys are mergeable.
+    # Returning a unique sentinel (objectid(d)) marks a drive as unmergeable.
+    _key(d::LinearDrive) = (:linear, d.index)
+    function _key(d::NonlinearDrive)
+        return (:nonlinear, objectid(d.coeff), Tuple(sort(d.active_controls)))
+    end
+    _key(d::AbstractDrive) = (:unmergeable, objectid(d))
+
+    # Build bucket structure preserving first-occurrence order.
+    keys_in_order = Any[]
+    bucket_indices = Dict{Any,Vector{Int}}()
+    for (i, d) in enumerate(drives)
+        k = _key(d)
+        if haskey(bucket_indices, k)
+            push!(bucket_indices[k], i)
+        else
+            bucket_indices[k] = [i]
+            push!(keys_in_order, k)
+        end
+    end
+
+    result = AbstractDrive[]
+    sizehint!(result, length(keys_in_order))
+    for k in keys_in_order
+        idxs = bucket_indices[k]
+        if length(idxs) == 1
+            push!(result, drives[idxs[1]])
+            continue
+        end
+
+        base = drives[idxs[1]]
+        H_total = base.H
+        for j in @view(idxs[2:end])
+            H_total = H_total + drives[j].H
+        end
+
+        if base isa LinearDrive
+            push!(result, LinearDrive(H_total, base.index))
+        elseif base isa NonlinearDrive
+            push!(
+                result,
+                NonlinearDrive(
+                    H_total,
+                    base.coeff,
+                    base.coeff_jac,
+                    base.coeff_hess,
+                    base.active_controls,
+                ),
+            )
+        else
+            # Sentinel keys are unique per drive, so we never get here.
+            push!(result, base)
+        end
+    end
+
+    return result
 end
 
 # ----------------------------------------------------------------------------- #
@@ -840,4 +937,113 @@ end
     # 2-arg backward-compatible shims
     @test drive_coeff(ld, u) == drive_coeff(ld, u, 0.0)
     @test drive_coeff_jac(ld, u, 2) == drive_coeff_jac(ld, u, 0.0, 2)
+end
+
+@testitem "simplify_drives: LinearDrive index grouping" begin
+    using Piccolo
+    using SparseArrays
+
+    H1 = sparse(ComplexF64[0 1; 1 0])
+    H2 = sparse(ComplexF64[0 -im; im 0])
+    H3 = sparse(ComplexF64[1 0; 0 -1])
+
+    # Two drives on channel 1, one on channel 2 — should collapse to 2 drives.
+    drives = [LinearDrive(H1, 1), LinearDrive(H3, 2), LinearDrive(H2, 1)]
+    fused = simplify_drives(drives)
+
+    @test length(fused) == 2
+    @test fused[1] isa LinearDrive
+    @test fused[1].index == 1
+    @test Matrix(fused[1].H) ≈ Matrix(H1 + H2)
+    @test fused[2] isa LinearDrive
+    @test fused[2].index == 2
+    @test Matrix(fused[2].H) ≈ Matrix(H3)
+end
+
+@testitem "simplify_drives: NonlinearDrive coefficient-identity grouping" begin
+    using Piccolo
+    using SparseArrays
+
+    H1 = sparse(ComplexF64[1 0; 0 0])
+    H2 = sparse(ComplexF64[0 0; 0 1])
+    H3 = sparse(ComplexF64[1 0; 0 1])
+
+    coeff_abs2 = u -> u[1]^2 + u[2]^2
+    coeff_product = u -> u[1] * u[2]
+
+    d1 = NonlinearDrive(H1, coeff_abs2; active_controls = [1, 2])
+    d2 = NonlinearDrive(H3, coeff_product; active_controls = [1, 2])
+    d3 = NonlinearDrive(H2, coeff_abs2; active_controls = [1, 2])  # same closure as d1
+
+    fused = simplify_drives([d1, d2, d3])
+
+    @test length(fused) == 2
+    @test fused[1].coeff === coeff_abs2     # d1 + d3 fold
+    @test Matrix(fused[1].H) ≈ Matrix(H1 + H2)
+    @test fused[2].coeff === coeff_product  # d2 alone
+
+    # Different closures with same semantics do NOT fuse — by design.
+    coeff_abs2_copy = u -> u[1]^2 + u[2]^2
+    d4 = NonlinearDrive(H1, coeff_abs2_copy; active_controls = [1, 2])
+    @test length(simplify_drives([d1, d4])) == 2
+end
+
+@testitem "simplify_drives: idempotent and order-preserving" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse(ComplexF64[0 1; 1 0])
+    coeff_abs2 = u -> u[1]^2 + u[2]^2
+
+    drives = [
+        LinearDrive(H, 1),
+        NonlinearDrive(H, coeff_abs2; active_controls = [1, 2]),
+        LinearDrive(H, 2),
+        LinearDrive(H, 1),
+        NonlinearDrive(H, coeff_abs2; active_controls = [1, 2]),
+    ]
+    fused1 = simplify_drives(drives)
+    fused2 = simplify_drives(fused1)
+
+    # Order preserved: linear-1, nonlinear-abs2, linear-2
+    @test length(fused1) == 3
+    @test fused1[1] isa LinearDrive && fused1[1].index == 1
+    @test fused1[2] isa NonlinearDrive
+    @test fused1[3] isa LinearDrive && fused1[3].index == 2
+
+    # Idempotent
+    @test length(fused2) == length(fused1)
+    @test Matrix(fused2[1].H) == Matrix(fused1[1].H)
+    @test Matrix(fused2[3].H) == Matrix(fused1[3].H)
+end
+
+@testitem "simplify_drives: Hamiltonian unchanged after fusion" begin
+    using Piccolo
+    using SparseArrays
+    using LinearAlgebra
+
+    Xq = sparse(ComplexF64[0 1; 1 0])
+    Yq = sparse(ComplexF64[0 -im; im 0])
+    Zq = sparse(ComplexF64[1 0; 0 -1])
+
+    coeff_abs2 = u -> u[1]^2 + u[2]^2
+
+    drives_orig = AbstractDrive[
+        LinearDrive(Xq, 1),
+        LinearDrive(Yq, 1),
+        LinearDrive(Zq, 2),
+        NonlinearDrive(Xq, coeff_abs2; active_controls = [1, 2]),
+        NonlinearDrive(Zq, coeff_abs2; active_controls = [1, 2]),
+    ]
+    drives_fused = simplify_drives(drives_orig)
+
+    @test length(drives_orig) == 5
+    @test length(drives_fused) == 3
+
+    # H(u) = Σ_d coeff(d, u) · d.H must be invariant
+    for u in (randn(2), randn(2), randn(2))
+        H_orig = sum(drive_coeff(d, u, 0.0) * Matrix(d.H) for d in drives_orig)
+        H_fused = sum(drive_coeff(d, u, 0.0) * Matrix(d.H) for d in drives_fused)
+        @test H_orig ≈ H_fused atol = 1e-12
+    end
 end
