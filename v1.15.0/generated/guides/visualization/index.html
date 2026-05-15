@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Visualization · Piccolo.jl</title><meta name="title" content="Visualization · Piccolo.jl"/><meta property="og:title" content="Visualization · Piccolo.jl"/><meta property="twitter:title" content="Visualization · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/visualization/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/visualization/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/visualization/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../../"><img class="docs-light-only" src="../../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li><a class="tocitem" href="../../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../../problem-templates/smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/bang_bang_pulse/">BangBangPulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/spline_pulse/">SplinePulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/minimum_time/">MinimumTimeProblem</a></li><li><a class="tocitem" href="../../problem-templates/sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../../problem-templates/composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../../systems/">Overview</a></li><li><a class="tocitem" href="../../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li><a class="tocitem" href="../saving_loading/">Saving and Loading Pulses</a></li><li><a class="tocitem" href="../leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../global_variables/">Global Variables</a></li><li class="is-active"><a class="tocitem" href>Visualization</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Pulse-Plotting"><span>Pulse Plotting</span></a></li><li><a class="tocitem" href="#Basic-Trajectory-Plotting"><span>Basic Trajectory Plotting</span></a></li><li><a class="tocitem" href="#Quantum-Specific-Plots"><span>Quantum-Specific Plots</span></a></li><li><a class="tocitem" href="#Custom-Plotting"><span>Custom Plotting</span></a></li><li><a class="tocitem" href="#Fidelity-Evolution"><span>Fidelity Evolution</span></a></li><li><a class="tocitem" href="#Comparing-Solutions"><span>Comparing Solutions</span></a></li><li><a class="tocitem" href="#Saving-Figures"><span>Saving Figures</span></a></li><li><a class="tocitem" href="#Plotting-Tips"><span>Plotting Tips</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">How-To Guides</a></li><li class="is-active"><a href>Visualization</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Visualization</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/guides/visualization.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="visualization"><a class="docs-heading-anchor" href="#visualization">Visualization</a><a id="visualization-1"></a><a class="docs-heading-anchor-permalink" href="#visualization" title="Permalink"></a></h1><p>Piccolo.jl provides visualization tools for analyzing optimization results. This guide covers plotting controls, states, and populations.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>Visualization requires a Makie backend. We&#39;ll create a solved problem to work with:</p><pre><code class="language-julia hljs">using Piccolo
+using CairoMakie
+using Random
+Random.seed!(42)
+
+# Create and solve a simple qubit gate problem
+H_drift = 0.5 * PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+T = 10.0
+N = 50
+times = collect(range(0, T, length = N))
+initial_controls = 0.1 * randn(2, N)
+pulse = ZeroOrderPulse(initial_controls, times)
+qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+
+# Lock the time grid to a uniform spacing so the ZOH stair plot has
+# consistent step widths. Without this, the optimizer can vary Δt_k.
+opts = PiccoloOptions(timesteps_all_equal = true, display = :silent)
+
+qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = opts,
+)
+solve!(qcp; max_iter = 50, print_level = 1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/2ZMae/src/problems.jl:66</span>
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+    initializing optimizer...
+      building evaluator: 3 integrators, 0 nonlinear constraints
+      dynamics constraints: 588, nonlinear constraints: 0
+        integrator 1 jacobian structure: 0.106s
+        integrator 2 jacobian structure: 0.008s
+        integrator 3 jacobian structure: 0.0s
+      jacobian structure: 18816 nonzeros (0.126s)
+        integrator 1 hessian structure: 0.01s
+        integrator 2 hessian structure: 0.01s
+        integrator 3 hessian structure: 0.002s
+        computing objective hessian structure (CompositeObjective)...
+          sub-objective 1 (KnotPointObjective): 0.16s
+          sub-objective 2 (QuadraticRegularizer): 0.144s
+          sub-objective 3 (QuadraticRegularizer): 0.0s
+          sub-objective 4 (QuadraticRegularizer): 0.0s
+          sub-objective 5 (NullObjective): 0.003s
+        objective hessian structure: 0.33s
+      hessian structure: 19344 nonzeros (0.353s)
+      linear index maps built (0.005s)
+      evaluator ready (total: 0.542s)
+    evaluator created (0.742s)
+    NL constraint bounds extracted (0.01s)
+    NLP block data built (0.0s)
+    Ipopt optimizer configured (0.005s)
+    variables set (0.092s)
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+    linear constraints added: 11 (0.293s)
+    optimizer initialization complete (total: 1.154s)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from visualization_unitary_f5c089b.jld2</code></pre><p>Inspect the resulting fidelity:</p><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999965881970798</code></pre><h2 id="Pulse-Plotting"><a class="docs-heading-anchor" href="#Pulse-Plotting">Pulse Plotting</a><a id="Pulse-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Plotting" title="Permalink"></a></h2><p><code>plot_pulse</code> renders any <code>AbstractPulse</code> with type-appropriate visuals (step functions for <code>ZeroOrderPulse</code>, line segments for <code>LinearSplinePulse</code>, smooth curves with knots for <code>CubicSplinePulse</code>, dense samples for analytic / <code>FunctionPulse</code> types). For per-pulse-type construction and rendering examples — including hardware bounds, tangent whiskers, theming, and the <code>:stacked</code> vs <code>:overlay</code> layouts — see the <a href="../../concepts/pulses/#pulses-concept">Pulses concept page</a>. This guide focuses on plotting <em>workflow</em> pieces specific to optimization output.</p><h3 id="Plot-directly-from-a-QuantumControlProblem"><a class="docs-heading-anchor" href="#Plot-directly-from-a-QuantumControlProblem">Plot directly from a <code>QuantumControlProblem</code></a><a id="Plot-directly-from-a-QuantumControlProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-directly-from-a-QuantumControlProblem" title="Permalink"></a></h3><p>After solving, <code>plot_pulse(qcp)</code> extracts the optimized pulse and renders it in one call. Per-drive labels default to <code>&quot;&lt;drive_name&gt;_&lt;i&gt;&quot;</code>. Pass <code>bounds=true</code> to shade hardware bounds derived from the system, and <code>components=[:du, :ddu]</code> to stack the derivative trajectories beneath the pulse with their own bounded panels (set <code>component_bounds=true</code> to read bounds from the <code>NamedTrajectory</code>).</p><pre><code class="language-julia hljs">fig = plot_pulse(qcp; title = &quot;Optimized Pulse&quot;)</code></pre><img src="1b934960.png" alt="Example block output"/><p>Add hardware bounds and the smoothness derivatives:</p><pre><code class="language-julia hljs">fig = plot_pulse(
+    qcp;
+    title = &quot;Optimized Pulse + Smoothness&quot;,
+    bounds = true,
+    components = [:du, :ddu],
+    component_bounds = true,
+)</code></pre><img src="0c55ab69.png" alt="Example block output"/><h3 id="Manual-extract-plot"><a class="docs-heading-anchor" href="#Manual-extract-plot">Manual extract + plot</a><a id="Manual-extract-plot-1"></a><a class="docs-heading-anchor-permalink" href="#Manual-extract-plot" title="Permalink"></a></h3><p>If you need to manipulate the pulse before plotting (e.g. resample, convert to a different pulse type), reconstruct it explicitly. The higher-level <code>plot_pulse(qcp; ...)</code> calls do this internally.</p><pre><code class="language-julia hljs">optimized_traj = get_trajectory(qcp)
+optimized_pulse = ZeroOrderPulse(optimized_traj)
+fig = plot_pulse(optimized_pulse; title = &quot;Optimized Pulse&quot;)</code></pre><img src="1b934960-001.png" alt="Example block output"/><h2 id="Basic-Trajectory-Plotting"><a class="docs-heading-anchor" href="#Basic-Trajectory-Plotting">Basic Trajectory Plotting</a><a id="Basic-Trajectory-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Trajectory-Plotting" title="Permalink"></a></h2><p>The <code>plot</code> function from NamedTrajectories.jl plots trajectory components.</p><h3 id="Plot-Controls"><a class="docs-heading-anchor" href="#Plot-Controls">Plot Controls</a><a id="Plot-Controls-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls" title="Permalink"></a></h3><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+fig = plot(traj, [:u])</code></pre><img src="1d3947ac.png" alt="Example block output"/><h3 id="Plot-Controls-and-Derivatives"><a class="docs-heading-anchor" href="#Plot-Controls-and-Derivatives">Plot Controls and Derivatives</a><a id="Plot-Controls-and-Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls-and-Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = plot(traj, [:u, :du, :ddu])</code></pre><img src="978a0622.png" alt="Example block output"/><h2 id="Quantum-Specific-Plots"><a class="docs-heading-anchor" href="#Quantum-Specific-Plots">Quantum-Specific Plots</a><a id="Quantum-Specific-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Specific-Plots" title="Permalink"></a></h2><h3 id="Unitary-Populations"><a class="docs-heading-anchor" href="#Unitary-Populations">Unitary Populations</a><a id="Unitary-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Unitary-Populations" title="Permalink"></a></h3><p>For <code>UnitaryTrajectory</code>, visualize how state populations evolve during the gate:</p><pre><code class="language-julia hljs">fig = plot_unitary_populations(traj)</code></pre><img src="b8619714.png" alt="Example block output"/><h3 id="Ket-State-Populations"><a class="docs-heading-anchor" href="#Ket-State-Populations">Ket State Populations</a><a id="Ket-State-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Ket-State-Populations" title="Permalink"></a></h3><p>For <code>KetTrajectory</code>, use <code>plot_state_populations</code>:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]
+ψ_goal = ComplexF64[0.0, 1.0]
+
+pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
+qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
+solve!(qcp_ket; max_iter = 50, verbose = false, print_level = 1)
+
+traj_ket = get_trajectory(qcp_ket)
+fig = plot_state_populations(traj_ket)</code></pre><img src="c7854357.png" alt="Example block output"/><h3 id="IQ-pairs-(plot_pulse_IQ)"><a class="docs-heading-anchor" href="#IQ-pairs-(plot_pulse_IQ)">IQ pairs (<code>plot_pulse_IQ</code>)</a><a id="IQ-pairs-(plot_pulse_IQ)-1"></a><a class="docs-heading-anchor-permalink" href="#IQ-pairs-(plot_pulse_IQ)" title="Permalink"></a></h3><p>For 4-drive pulses interpreted as two IQ pairs — drive (Ω<em>I, Ω</em>Q) and displacement (α<em>I, α</em>Q) — <code>plot_pulse_IQ</code> renders each pair on its own row along with the magnitude envelope. Typical view for cat-qubit / oscillator control where both the drive and displacement are complex-valued.</p><pre><code class="language-julia hljs">T_iq = 50.0
+Ω_max = 0.5
+α_max = 0.3
+σ = T_iq / 6
+pulse_iq = GaussianPulse([Ω_max, 0.7 * Ω_max, α_max, 0.7 * α_max], σ, T_iq)
+
+fig = plot_pulse_IQ(pulse_iq; title = &quot;IQ view (Ω, α)&quot;)</code></pre><img src="21453c35.png" alt="Example block output"/><h3 id="Magnitude-phase-(plot_pulse_phases)"><a class="docs-heading-anchor" href="#Magnitude-phase-(plot_pulse_phases)">Magnitude + phase (<code>plot_pulse_phases</code>)</a><a id="Magnitude-phase-(plot_pulse_phases)-1"></a><a class="docs-heading-anchor-permalink" href="#Magnitude-phase-(plot_pulse_phases)" title="Permalink"></a></h3><p>Same 4-drive structure, polar form: magnitude and unwrapped phase for the drive on the top row, displacement on the bottom row. Phase is masked to NaN wherever the corresponding amplitude is below 1% of its peak (configurable via <code>phase_threshold</code>) since <code>atan(Q, I)</code> is numerically meaningless in the near-zero region.</p><pre><code class="language-julia hljs">fig = plot_pulse_phases(pulse_iq; title = &quot;Polar view (|·|, ∠·)&quot;)</code></pre><img src="8914076d.png" alt="Example block output"/><h2 id="Custom-Plotting"><a class="docs-heading-anchor" href="#Custom-Plotting">Custom Plotting</a><a id="Custom-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Plotting" title="Permalink"></a></h2><p>For full control, extract trajectory data and use Makie directly.</p><h3 id="Manual-Control-Plots"><a class="docs-heading-anchor" href="#Manual-Control-Plots">Manual Control Plots</a><a id="Manual-Control-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Manual-Control-Plots" title="Permalink"></a></h3><pre><code class="language-julia hljs">plot_times = cumsum([0; get_timesteps(traj)])[1:(end-1)]
+
+fig = Figure(size = (800, 400))
+ax = Axis(fig[1, 1], xlabel = &quot;Time&quot;, ylabel = &quot;Control Amplitude&quot;)
+
+for i = 1:size(traj[:u], 1)
+    lines!(ax, plot_times, traj[:u][i, :], label = &quot;Drive $i&quot;, linewidth = 2)
+end
+
+axislegend(ax, position = :rt)
+fig</code></pre><img src="3e91d975.png" alt="Example block output"/><h3 id="Subplot-Layouts"><a class="docs-heading-anchor" href="#Subplot-Layouts">Subplot Layouts</a><a id="Subplot-Layouts-1"></a><a class="docs-heading-anchor-permalink" href="#Subplot-Layouts" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = Figure(size = (1000, 500))
+
+# Controls
+ax1 = Axis(fig[1, 1], xlabel = &quot;Time&quot;, ylabel = &quot;Amplitude&quot;, title = &quot;Controls&quot;)
+lines!(ax1, plot_times, traj[:u][1, :], label = &quot;u_x&quot;, linewidth = 2)
+lines!(ax1, plot_times, traj[:u][2, :], label = &quot;u_y&quot;, linewidth = 2)
+axislegend(ax1, position = :rt)
+
+# Derivatives
+ax2 = Axis(fig[1, 2], xlabel = &quot;Time&quot;, ylabel = &quot;Derivative&quot;, title = &quot;Control Derivatives&quot;)
+lines!(ax2, plot_times, traj[:du][1, :], label = &quot;du_x&quot;, linewidth = 2)
+lines!(ax2, plot_times, traj[:du][2, :], label = &quot;du_y&quot;, linewidth = 2)
+axislegend(ax2, position = :rt)
+
+fig</code></pre><img src="4f0209a9.png" alt="Example block output"/><h3 id="Phase-Space-Plot"><a class="docs-heading-anchor" href="#Phase-Space-Plot">Phase Space Plot</a><a id="Phase-Space-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-Space-Plot" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = Figure(size = (500, 500))
+ax = Axis(fig[1, 1], xlabel = &quot;u_x&quot;, ylabel = &quot;u_y&quot;, title = &quot;Control Phase Space&quot;)
+lines!(ax, traj[:u][1, :], traj[:u][2, :], linewidth = 2)
+scatter!(
+    ax,
+    [traj[:u][1, 1]],
+    [traj[:u][2, 1]],
+    color = :green,
+    markersize = 15,
+    label = &quot;Start&quot;,
+)
+scatter!(
+    ax,
+    [traj[:u][1, end]],
+    [traj[:u][2, end]],
+    color = :red,
+    markersize = 15,
+    label = &quot;End&quot;,
+)
+axislegend(ax, position = :rt)
+fig</code></pre><img src="b499653f.png" alt="Example block output"/><h2 id="Fidelity-Evolution"><a class="docs-heading-anchor" href="#Fidelity-Evolution">Fidelity Evolution</a><a id="Fidelity-Evolution-1"></a><a class="docs-heading-anchor-permalink" href="#Fidelity-Evolution" title="Permalink"></a></h2><p>Track fidelity during the pulse:</p><pre><code class="language-julia hljs">using LinearAlgebra
+
+U_goal = GATES[:X]
+fidelities = Float64[]
+for k = 1:size(traj[:Ũ⃗], 2)
+    U_k = iso_vec_to_operator(traj[:Ũ⃗][:, k])
+    F_k = abs(tr(U_goal&#39; * U_k))^2 / sys.levels^2
+    push!(fidelities, F_k)
+end
+
+fig = Figure(size = (800, 300))
+ax = Axis(fig[1, 1], xlabel = &quot;Timestep&quot;, ylabel = &quot;Fidelity&quot;)
+lines!(ax, 1:length(fidelities), fidelities, linewidth = 2)
+hlines!(ax, [0.99], color = :red, linestyle = :dash, label = &quot;99% target&quot;)
+axislegend(ax, position = :rb)
+fig</code></pre><img src="b2b3f305.png" alt="Example block output"/><h2 id="Comparing-Solutions"><a class="docs-heading-anchor" href="#Comparing-Solutions">Comparing Solutions</a><a id="Comparing-Solutions-1"></a><a class="docs-heading-anchor-permalink" href="#Comparing-Solutions" title="Permalink"></a></h2><p>Compare solutions with different regularization weights:</p><pre><code class="language-julia hljs">fig = Figure(size = (800, 400))
+ax = Axis(fig[1, 1], xlabel = &quot;Time&quot;, ylabel = &quot;u_x&quot;, title = &quot;Effect of Regularization&quot;)
+
+for (R, label) in [(1e-3, &quot;R=1e-3&quot;), (1e-2, &quot;R=1e-2&quot;), (1e-1, &quot;R=1e-1&quot;)]
+    pulse_r = ZeroOrderPulse(0.1 * randn(2, N), times)
+    qtraj_r = UnitaryTrajectory(sys, pulse_r, GATES[:X])
+    qcp_r = SmoothPulseProblem(qtraj_r, N; Q = 100.0, R = R, ddu_bound = 1.0)
+    solve!(
+        qcp_r;
+        max_iter = 50,
+        verbose = false,
+        print_level = 1,
+    )
+    traj_r = get_trajectory(qcp_r)
+    t_r = cumsum([0; get_timesteps(traj_r)])[1:(end-1)]
+    lines!(ax, t_r, traj_r[:u][1, :], label = label, linewidth = 2)
+end
+
+axislegend(ax, position = :rt)
+fig</code></pre><img src="4f0966ad.png" alt="Example block output"/><h2 id="Saving-Figures"><a class="docs-heading-anchor" href="#Saving-Figures">Saving Figures</a><a id="Saving-Figures-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Figures" title="Permalink"></a></h2><pre><code class="language-julia hljs"># PNG (raster)
+# save(&quot;controls.png&quot;, fig)
+
+# PDF (vector graphics)
+# save(&quot;controls.pdf&quot;, fig)
+
+# SVG (vector graphics)
+# save(&quot;controls.svg&quot;, fig)</code></pre><h2 id="Plotting-Tips"><a class="docs-heading-anchor" href="#Plotting-Tips">Plotting Tips</a><a id="Plotting-Tips-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting-Tips" title="Permalink"></a></h2><h3 id="1.-Use-Appropriate-Resolution"><a class="docs-heading-anchor" href="#1.-Use-Appropriate-Resolution">1. Use Appropriate Resolution</a><a id="1.-Use-Appropriate-Resolution-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Use-Appropriate-Resolution" title="Permalink"></a></h3><p>For publications, use high-res settings:</p><pre><code class="language-julia hljs">fig_hires = Figure(size = (1200, 800), fontsize = 14)</code></pre><img src="e7cf28ae.png" alt="Example block output"/><h3 id="2.-Use-Consistent-Colors"><a class="docs-heading-anchor" href="#2.-Use-Consistent-Colors">2. Use Consistent Colors</a><a id="2.-Use-Consistent-Colors-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Use-Consistent-Colors" title="Permalink"></a></h3><pre><code class="language-julia hljs">colors = Makie.wong_colors()</code></pre><img src='data:image/svg+xml;utf-8,<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="175mm" height="25mm" viewBox="0 0 7 1" stroke="none"
+     preserveAspectRatio="none" shape-rendering="crispEdges">
+<defs>
+    <pattern id="pat_4FoKpX" width=".2" height=".2"
+             patternUnits="userSpaceOnUse" >
+        <path d="M.1,0h.1v.1h-.2v.1h.1z" fill="%23999" opacity=".5" />
+    </pattern>
+</defs>
+<rect width="7" height="1" fill="url(%23pat_4FoKpX)" />
+<path d="M1,0v1h-1z" fill="%230072B2" />
+<path d="M0,0h1v1h-1z" fill="%230072B2" fill-opacity="1" />
+<path d="M2,0v1h-1z" fill="%23E69F00" />
+<path d="M1,0h1v1h-1z" fill="%23E69F00" fill-opacity="1" />
+<path d="M3,0v1h-1z" fill="%23009E73" />
+<path d="M2,0h1v1h-1z" fill="%23009E73" fill-opacity="1" />
+<path d="M4,0v1h-1z" fill="%23CC79A7" />
+<path d="M3,0h1v1h-1z" fill="%23CC79A7" fill-opacity="1" />
+<path d="M5,0v1h-1z" fill="%2356B4E9" />
+<path d="M4,0h1v1h-1z" fill="%2356B4E9" fill-opacity="1" />
+<path d="M6,0v1h-1z" fill="%23D55E00" />
+<path d="M5,0h1v1h-1z" fill="%23D55E00" fill-opacity="1" />
+<path d="M7,0v1h-1z" fill="%23F0E442" />
+<path d="M6,0h1v1h-1z" fill="%23F0E442" fill-opacity="1" />
+</svg>'/><h3 id="3.-Show-Drive-Bounds"><a class="docs-heading-anchor" href="#3.-Show-Drive-Bounds">3. Show Drive Bounds</a><a id="3.-Show-Drive-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Show-Drive-Bounds" title="Permalink"></a></h3><pre><code class="language-julia hljs">bound = 1.0
+fig = Figure(size = (800, 300))
+ax = Axis(fig[1, 1], xlabel = &quot;Time&quot;, ylabel = &quot;Amplitude&quot;)
+band!(
+    ax,
+    plot_times,
+    -bound * ones(length(plot_times)),
+    bound * ones(length(plot_times)),
+    color = (:gray, 0.2),
+    label = &quot;Bounds&quot;,
+)
+lines!(ax, plot_times, traj[:u][1, :], label = &quot;u_x&quot;, linewidth = 2)
+axislegend(ax, position = :rt)
+fig</code></pre><img src="28c128c9.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../../lib/#lib-visualizations">Visualizations API</a> - Complete API reference</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Generating solutions to plot</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> - Understanding trajectory structure</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../global_variables/">« Global Variables</a><a class="docs-footer-nextpage" href="../custom_objectives/">Custom Objectives »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 15 May 2026 22:04">Friday 15 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./visualization.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/guides/visualization.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
+# literate/guides/visualization.jl
+# ```
+#
+# # [Visualization](@id visualization)
+#
+# Piccolo.jl provides visualization tools for analyzing optimization results.
+# This guide covers plotting controls, states, and populations.
+
+# ## Setup
+#
+# Visualization requires a Makie backend. We'll create a solved problem to work with:
+
+using Piccolo
+using CairoMakie
+using Random
+Random.seed!(42)
+
+## Create and solve a simple qubit gate problem
+H_drift = 0.5 * PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+T = 10.0
+N = 50
+times = collect(range(0, T, length = N))
+initial_controls = 0.1 * randn(2, N)
+pulse = ZeroOrderPulse(initial_controls, times)
+qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+
+## Lock the time grid to a uniform spacing so the ZOH stair plot has
+## consistent step widths. Without this, the optimizer can vary Δt_k.
+opts = PiccoloOptions(timesteps_all_equal = true, display = :silent)
+
+qcp = SmoothPulseProblem(
+    qtraj,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = opts,
+)
+solve!(qcp; max_iter = 50, print_level = 1)
+
+# Inspect the resulting fidelity:
+
+fidelity(qcp)
+
+# ## Pulse Plotting
+#
+# `plot_pulse` renders any `AbstractPulse` with type-appropriate visuals (step
+# functions for `ZeroOrderPulse`, line segments for `LinearSplinePulse`, smooth
+# curves with knots for `CubicSplinePulse`, dense samples for analytic /
+# `FunctionPulse` types). For per-pulse-type construction and rendering
+# examples — including hardware bounds, tangent whiskers, theming, and the
+# `:stacked` vs `:overlay` layouts — see the [Pulses concept page](@ref pulses-concept).
+# This guide focuses on plotting *workflow* pieces specific to optimization output.
+
+# ### Plot directly from a `QuantumControlProblem`
+#
+# After solving, `plot_pulse(qcp)` extracts the optimized pulse and renders it
+# in one call. Per-drive labels default to `"<drive_name>_<i>"`. Pass
+# `bounds=true` to shade hardware bounds derived from the system, and
+# `components=[:du, :ddu]` to stack the derivative trajectories beneath the
+# pulse with their own bounded panels (set `component_bounds=true` to read
+# bounds from the `NamedTrajectory`).
+
+fig = plot_pulse(qcp; title = "Optimized Pulse")
+
+# Add hardware bounds and the smoothness derivatives:
+
+fig = plot_pulse(
+    qcp;
+    title = "Optimized Pulse + Smoothness",
+    bounds = true,
+    components = [:du, :ddu],
+    component_bounds = true,
+)
+
+# ### Manual extract + plot
+#
+# If you need to manipulate the pulse before plotting (e.g. resample,
+# convert to a different pulse type), reconstruct it explicitly. The
+# higher-level `plot_pulse(qcp; ...)` calls do this internally.
+
+optimized_traj = get_trajectory(qcp)
+optimized_pulse = ZeroOrderPulse(optimized_traj)
+fig = plot_pulse(optimized_pulse; title = "Optimized Pulse")
+
+# ## Basic Trajectory Plotting
+#
+# The `plot` function from NamedTrajectories.jl plots trajectory components.
+
+# ### Plot Controls
+
+traj = get_trajectory(qcp)
+fig = plot(traj, [:u])
+
+# ### Plot Controls and Derivatives
+
+fig = plot(traj, [:u, :du, :ddu])
+
+# ## Quantum-Specific Plots
+
+# ### Unitary Populations
+#
+# For `UnitaryTrajectory`, visualize how state populations evolve during the gate:
+
+fig = plot_unitary_populations(traj)
+
+# ### Ket State Populations
+#
+# For `KetTrajectory`, use `plot_state_populations`:
+
+ψ_init = ComplexF64[1.0, 0.0]
+ψ_goal = ComplexF64[0.0, 1.0]
+
+pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
+qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
+solve!(qcp_ket; max_iter = 50, verbose = false, print_level = 1)
+
+traj_ket = get_trajectory(qcp_ket)
+fig = plot_state_populations(traj_ket)
+
+# ### IQ pairs (`plot_pulse_IQ`)
+#
+# For 4-drive pulses interpreted as two IQ pairs — drive (Ω_I, Ω_Q) and
+# displacement (α_I, α_Q) — `plot_pulse_IQ` renders each pair on its own row
+# along with the magnitude envelope. Typical view for cat-qubit / oscillator
+# control where both the drive and displacement are complex-valued.
+
+T_iq = 50.0
+Ω_max = 0.5
+α_max = 0.3
+σ = T_iq / 6
+pulse_iq = GaussianPulse([Ω_max, 0.7 * Ω_max, α_max, 0.7 * α_max], σ, T_iq)
+
+fig = plot_pulse_IQ(pulse_iq; title = "IQ view (Ω, α)")
+
+# ### Magnitude + phase (`plot_pulse_phases`)
+#
+# Same 4-drive structure, polar form: magnitude and unwrapped phase for the
+# drive on the top row, displacement on the bottom row. Phase is masked to NaN
+# wherever the corresponding amplitude is below 1% of its peak (configurable
+# via `phase_threshold`) since `atan(Q, I)` is numerically meaningless in the
+# near-zero region.
+
+fig = plot_pulse_phases(pulse_iq; title = "Polar view (|·|, ∠·)")
+
+# ## Custom Plotting
+#
+# For full control, extract trajectory data and use Makie directly.
+
+# ### Manual Control Plots
+
+plot_times = cumsum([0; get_timesteps(traj)])[1:(end-1)]
+
+fig = Figure(size = (800, 400))
+ax = Axis(fig[1, 1], xlabel = "Time", ylabel = "Control Amplitude")
+
+for i = 1:size(traj[:u], 1)
+    lines!(ax, plot_times, traj[:u][i, :], label = "Drive $i", linewidth = 2)
+end
+
+axislegend(ax, position = :rt)
+fig
+
+# ### Subplot Layouts
+
+fig = Figure(size = (1000, 500))
+
+## Controls
+ax1 = Axis(fig[1, 1], xlabel = "Time", ylabel = "Amplitude", title = "Controls")
+lines!(ax1, plot_times, traj[:u][1, :], label = "u_x", linewidth = 2)
+lines!(ax1, plot_times, traj[:u][2, :], label = "u_y", linewidth = 2)
+axislegend(ax1, position = :rt)
+
+## Derivatives
+ax2 = Axis(fig[1, 2], xlabel = "Time", ylabel = "Derivative", title = "Control Derivatives")
+lines!(ax2, plot_times, traj[:du][1, :], label = "du_x", linewidth = 2)
+lines!(ax2, plot_times, traj[:du][2, :], label = "du_y", linewidth = 2)
+axislegend(ax2, position = :rt)
+
+fig
+
+# ### Phase Space Plot
+
+fig = Figure(size = (500, 500))
+ax = Axis(fig[1, 1], xlabel = "u_x", ylabel = "u_y", title = "Control Phase Space")
+lines!(ax, traj[:u][1, :], traj[:u][2, :], linewidth = 2)
+scatter!(
+    ax,
+    [traj[:u][1, 1]],
+    [traj[:u][2, 1]],
+    color = :green,
+    markersize = 15,
+    label = "Start",
+)
+scatter!(
+    ax,
+    [traj[:u][1, end]],
+    [traj[:u][2, end]],
+    color = :red,
+    markersize = 15,
+    label = "End",
+)
+axislegend(ax, position = :rt)
+fig
+
+# ## Fidelity Evolution
+#
+# Track fidelity during the pulse:
+
+using LinearAlgebra
+
+U_goal = GATES[:X]
+fidelities = Float64[]
+for k = 1:size(traj[:Ũ⃗], 2)
+    U_k = iso_vec_to_operator(traj[:Ũ⃗][:, k])
+    F_k = abs(tr(U_goal' * U_k))^2 / sys.levels^2
+    push!(fidelities, F_k)
+end
+
+fig = Figure(size = (800, 300))
+ax = Axis(fig[1, 1], xlabel = "Timestep", ylabel = "Fidelity")
+lines!(ax, 1:length(fidelities), fidelities, linewidth = 2)
+hlines!(ax, [0.99], color = :red, linestyle = :dash, label = "99% target")
+axislegend(ax, position = :rb)
+fig
+
+# ## Comparing Solutions
+#
+# Compare solutions with different regularization weights:
+
+fig = Figure(size = (800, 400))
+ax = Axis(fig[1, 1], xlabel = "Time", ylabel = "u_x", title = "Effect of Regularization")
+
+for (R, label) in [(1e-3, "R=1e-3"), (1e-2, "R=1e-2"), (1e-1, "R=1e-1")]
+    pulse_r = ZeroOrderPulse(0.1 * randn(2, N), times)
+    qtraj_r = UnitaryTrajectory(sys, pulse_r, GATES[:X])
+    qcp_r = SmoothPulseProblem(qtraj_r, N; Q = 100.0, R = R, ddu_bound = 1.0)
+    solve!(
+        qcp_r;
+        max_iter = 50,
+        verbose = false,
+        print_level = 1,
+    )
+    traj_r = get_trajectory(qcp_r)
+    t_r = cumsum([0; get_timesteps(traj_r)])[1:(end-1)]
+    lines!(ax, t_r, traj_r[:u][1, :], label = label, linewidth = 2)
+end
+
+axislegend(ax, position = :rt)
+fig
+
+# ## Saving Figures
+
+## PNG (raster)
+## save("controls.png", fig)
+
+## PDF (vector graphics)
+## save("controls.pdf", fig)
+
+## SVG (vector graphics)
+## save("controls.svg", fig)
+
+# ## Plotting Tips
+#
+# ### 1. Use Appropriate Resolution
+#
+# For publications, use high-res settings:
+
+fig_hires = Figure(size = (1200, 800), fontsize = 14)
+
+# ### 2. Use Consistent Colors
+
+colors = Makie.wong_colors()
+
+# ### 3. Show Drive Bounds
+
+bound = 1.0
+fig = Figure(size = (800, 300))
+ax = Axis(fig[1, 1], xlabel = "Time", ylabel = "Amplitude")
+band!(
+    ax,
+    plot_times,
+    -bound * ones(length(plot_times)),
+    bound * ones(length(plot_times)),
+    color = (:gray, 0.2),
+    label = "Bounds",
+)
+lines!(ax, plot_times, traj[:u][1, :], label = "u_x", linewidth = 2)
+axislegend(ax, position = :rt)
+fig
+
+# ## See Also
+#
+# - [Visualizations API](@ref lib-visualizations) - Complete API reference
+# - [Problem Templates](@ref problem-templates-overview) - Generating solutions to plot
+# - [Trajectories](@ref trajectories-concept) - Understanding trajectory structure
+</script>
+<link rel="stylesheet" href="../../../assets/copybutton.css"/>
+<script src="../../../assets/copybutton.js"></script>
+
+</body></html>
