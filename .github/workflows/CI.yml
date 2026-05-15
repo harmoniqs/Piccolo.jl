@@ -9,8 +9,6 @@ on:
       - main
     tags: ['*']
 concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 jobs:
@@ -32,31 +30,28 @@ jobs:
       PYTHON: ""
     steps:
       - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - uses: julia-actions/install-juliaup@v2
         with:
-          version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
+          channel: ${{ matrix.version }}
       - uses: julia-actions/cache@v3
-      # - uses: actions/cache@v1
-      #   env:
-      #     cache-name: cache-artifacts
-      #   with:
-      #     path: ~/.julia/artifacts
-      #     key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-test-${{ env.cache-name }}-
-      #       ${{ runner.os }}-test-
-      #       ${{ runner.os }}-
       - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
+      - name: Run testitems
+        uses: julia-actions/julia-run-testitems@main
         with:
-          # Default 'auto' forces latest-compatible versions on dependabot/CompatHelper
-          # PRs. JET compat is "0.9, 0.10, 0.11"; JET 0.10+ requires Julia 1.12, so
-          # forcing latest breaks resolution on 1.10/1.11. Restrict the force-latest
-          # behavior to 1.12 (where dependabot can actually exercise the new bound).
-          force_latest_compatible_version: ${{ matrix.version == '1.12' && 'auto' || 'false' }}
+          juliaup-channel: ${{ matrix.version }}
+          profile-name: ${{ format('Julia {0}', matrix.version) }}
+          results-path: ${{ format('testitemresults-{0}.json', matrix.version) }}
+          testitem-timeout: '1800'
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: ${{ format('testitemresults-{0}', matrix.version) }}
+          path: ${{ format('testitemresults-{0}.json', matrix.version) }}
+          retention-days: 1
       - uses: julia-actions/julia-processcoverage@v1
+        if: ${{ !cancelled() }}
       - uses: codecov/codecov-action@v6
+        if: ${{ !cancelled() }}
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
