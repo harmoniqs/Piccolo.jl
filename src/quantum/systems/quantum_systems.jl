@@ -407,7 +407,7 @@ function QuantumSystem(
     for d in drives
         base = d isa ModulatedDrive ? d.base : d
         if base isa NonlinearDrive
-            validate_drive_jacobian(base, n_drives)
+            validate_drive_jacobian(base, n_drives + length(global_params))
         end
     end
 
@@ -679,7 +679,7 @@ function QuantumSystem(
     # Validate NonlinearDrive Jacobians
     for d in drives
         if d isa NonlinearDrive
-            validate_drive_jacobian(d, n_drives)
+            validate_drive_jacobian(d, n_drives + length(global_params))
         end
     end
 
@@ -960,6 +960,22 @@ end
     H_result = sys4.H(u_test, 0.0)
     H_expected = 2.0 * (0.5 * PAULIS[:X] + 0.5 * PAULIS[:Y])
     @test norm(H_result - H_expected) < 1e-10
+end
+
+@testitem "QuantumSystem: NonlinearDrive reading appended global params" begin
+    # Regression: validator must accept drives whose coefficient reads into
+    # the appended global-parameter slots. The typed-drives constructor passes
+    # n_drives + length(global_params) into validate_drive_jacobian.
+    using Piccolo
+    using SparseArrays
+
+    H = sparse([0.0+0im 1.0+0im; 1.0+0im 0.0+0im])
+    # Coefficient reads u[3] = the single appended global parameter.
+    d = NonlinearDrive(H, u -> u[1] * u[2] * u[3])
+
+    sys = QuantumSystem(H, [d], [(0.0, 1.0), (0.0, 1.0)]; global_params = (g1 = 0.5,))
+    @test sys.n_drives == 2
+    @test length(sys.global_params) == 1
 end
 
 @testitem "QuantumSystem Pair-based modulation constructors" begin
