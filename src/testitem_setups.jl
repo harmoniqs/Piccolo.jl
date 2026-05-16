@@ -1,5 +1,3 @@
-using TestItems
-
 @testsetup module QuantumVizStack
     using Reexport
     @reexport using QuantumToolbox
