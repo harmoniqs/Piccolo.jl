@@ -242,11 +242,16 @@ end
 # ============================================================================ #
 
 
-@testitem "Test plot_bloch for Bloch sphere ket trajectory" begin
-    using QuantumToolbox
-    using NamedTrajectories
-    using Piccolo
-    using CairoMakie
+@testsetup module QuantumVizStack
+    using Reexport
+    @reexport using QuantumToolbox
+    @reexport using NamedTrajectories
+    @reexport using Piccolo
+    @reexport using CairoMakie
+end
+
+@testitem "Test plot_bloch for Bloch sphere ket trajectory" setup=[QuantumVizStack] begin
+    using .QuantumVizStack
 
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
@@ -258,11 +263,8 @@ end
     @test fig isa Figure
 end
 
-@testitem "Test plot_bloch for Bloch sphere density trajectory" begin
-    using QuantumToolbox
-    using NamedTrajectories
-    using Piccolo
-    using CairoMakie
+@testitem "Test plot_bloch for Bloch sphere density trajectory" setup=[QuantumVizStack] begin
+    using .QuantumVizStack
 
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
@@ -273,11 +275,8 @@ end
     @test fig isa Figure
 end
 
-@testitem "Test plot_bloch for Bloch sphere trajectory with one vector arrow shown" begin
-    using QuantumToolbox
-    using NamedTrajectories
-    using Piccolo
-    using CairoMakie
+@testitem "Test plot_bloch for Bloch sphere trajectory with one vector arrow shown" setup=[QuantumVizStack] begin
+    using .QuantumVizStack
 
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
@@ -288,11 +287,8 @@ end
     @test fig isa Figure
 end
 
-@testitem "plot_bloch shows expected curved Bloch path" begin
-    using QuantumToolbox
-    using NamedTrajectories
-    using Piccolo
-    using CairoMakie
+@testitem "plot_bloch shows expected curved Bloch path" setup=[QuantumVizStack] begin
+    using .QuantumVizStack
 
     T = 20
     ts = range(0, π / 2; length = T)
@@ -312,11 +308,8 @@ end
     @test fig isa Figure
 end
 
-@testitem "Plot Wigner function of coherent state" begin
-    using QuantumToolbox
-    using NamedTrajectories
-    using Piccolo
-    using CairoMakie
+@testitem "Plot Wigner function of coherent state" setup=[QuantumVizStack] begin
+    using .QuantumVizStack
 
     N = 20
     α = 1.5 + 0.5im
@@ -328,11 +321,8 @@ end
     @test fig isa Figure
 end
 
-@testitem "Plot Wigner function of density" begin
-    using QuantumToolbox
-    using NamedTrajectories
-    using Piccolo
-    using CairoMakie
+@testitem "Plot Wigner function of density" setup=[QuantumVizStack] begin
+    using .QuantumVizStack
 
     N = 20
     α = 1.5 + 0.5im
