@@ -243,8 +243,6 @@ end
 
 
 @testitem "Test plot_bloch for Bloch sphere ket trajectory" setup=[QuantumVizStack] begin
-    using .QuantumVizStack
-
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
 
@@ -256,8 +254,6 @@ end
 end
 
 @testitem "Test plot_bloch for Bloch sphere density trajectory" setup=[QuantumVizStack] begin
-    using .QuantumVizStack
-
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
     ρ̃⃗ = hcat(density_to_iso_vec(x * x'), density_to_iso_vec(y * y'))
@@ -268,8 +264,6 @@ end
 end
 
 @testitem "Test plot_bloch for Bloch sphere trajectory with one vector arrow shown" setup=[QuantumVizStack] begin
-    using .QuantumVizStack
-
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
     ψ̃ = hcat(ket_to_iso(x), ket_to_iso(y))
@@ -280,8 +274,6 @@ end
 end
 
 @testitem "plot_bloch shows expected curved Bloch path" setup=[QuantumVizStack] begin
-    using .QuantumVizStack
-
     T = 20
     ts = range(0, π / 2; length = T)
 
@@ -301,8 +293,6 @@ end
 end
 
 @testitem "Plot Wigner function of coherent state" setup=[QuantumVizStack] begin
-    using .QuantumVizStack
-
     N = 20
     α = 1.5 + 0.5im
     ψ = coherent(N, α)
@@ -314,8 +304,6 @@ end
 end
 
 @testitem "Plot Wigner function of density" setup=[QuantumVizStack] begin
-    using .QuantumVizStack
-
     N = 20
     α = 1.5 + 0.5im
     ψ = coherent(N, α)
