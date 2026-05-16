@@ -263,7 +263,9 @@ end
     @test fig isa Figure
 end
 
-@testitem "Test plot_bloch for Bloch sphere trajectory with one vector arrow shown" setup=[QuantumVizStack] begin
+@testitem "Test plot_bloch for Bloch sphere trajectory with one vector arrow shown" setup=[
+    QuantumVizStack,
+] begin
     x = ComplexF64[1.0; 0.0]
     y = ComplexF64[0.0, 1.0]
     ψ̃ = hcat(ket_to_iso(x), ket_to_iso(y))
