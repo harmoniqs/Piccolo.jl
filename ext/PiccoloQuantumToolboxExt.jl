@@ -242,14 +242,6 @@ end
 # ============================================================================ #
 
 
-@testsetup module QuantumVizStack
-    using Reexport
-    @reexport using QuantumToolbox
-    @reexport using NamedTrajectories
-    @reexport using Piccolo
-    @reexport using CairoMakie
-end
-
 @testitem "Test plot_bloch for Bloch sphere ket trajectory" setup=[QuantumVizStack] begin
     using .QuantumVizStack
 
