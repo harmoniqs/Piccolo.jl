@@ -91,12 +91,10 @@ function MinimumTimeProblem(
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 ) where {QT<:AbstractQuantumTrajectory}
 
-    if piccolo_options.verbose
-        println(
-            "    constructing MinimumTimeProblem from QuantumControlProblem($(nameof(QT)))...",
-        )
-        println("\tfinal fidelity constraint: $(final_fidelity)")
-        println("\tminimum-time weight D: $(D)")
+    if _show_header(piccolo_options)
+        println("constructing MinimumTimeProblem [from $(_typename(QT))]")
+        println("    final fidelity ≥ $(final_fidelity)")
+        println("    min-time weight D = $(D)")
     end
 
     # Copy trajectory and constraints from original problem
@@ -138,7 +136,10 @@ function MinimumTimeProblem(
     new_prob = DirectTrajOptProblem(traj, J, qcp.prob.integrators, constraints)
 
     # Return new QuantumControlProblem with potentially updated qtraj
-    return QuantumControlProblem(qtraj_for_constraint, new_prob)
+    return _maybe_display(
+        QuantumControlProblem(qtraj_for_constraint, new_prob),
+        piccolo_options,
+    )
 end
 
 # ============================================================================= #

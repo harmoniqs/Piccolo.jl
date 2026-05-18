@@ -30,7 +30,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Lock the time grid to a uniform spacing so the ZOH stair plot has
 ## consistent step widths. Without this, the optimizer can vary Δt_k.
-opts = PiccoloOptions(timesteps_all_equal = true, verbose = false)
+opts = PiccoloOptions(timesteps_all_equal = true, display = :silent)
 
 qcp = SmoothPulseProblem(
     qtraj,

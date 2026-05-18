@@ -102,6 +102,7 @@ generate_docs(
     make_index = true,
     make_literate = true,
     make_assets = true,
+    make_contributing = true,
     literate_draft_pages = draft_mode_pages,
     literate_kwargs = (execute = false,),
     format_kwargs = (

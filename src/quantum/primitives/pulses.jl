@@ -166,7 +166,7 @@ struct ZeroOrderPulse{I<:ConstantInterpolation} <: AbstractPulse
 end
 
 """
-    ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing, snap_to_knots=false)
+    ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing, snap_to_knots=true)
 
 Create a zero-order hold pulse from control samples and times.
 
@@ -178,12 +178,14 @@ Create a zero-order hold pulse from control samples and times.
 - `drive_name`: Name of the drive variable (default `:u`)
 - `initial_value`: Initial boundary condition (default: zeros(n_drives))
 - `final_value`: Final boundary condition (default: zeros(n_drives))
-- `snap_to_knots`: When `true`, `evaluate` snaps query times within `1e-12`
-  of a stored knot time to that knot's value, avoiding the off-by-one that
-  arises when recomputed times (e.g. from `range()`) differ from stored times
-  by float roundoff at `ConstantInterpolation` discontinuities.
-  Currently defaults to `false` for backward compatibility; will default to
-  `true` in the next minor release. Set explicitly to opt in now.
+- `snap_to_knots`: When `true` (default), `evaluate` snaps query times within
+  `1e-12` of a stored knot time to that knot's value. This avoids the
+  off-by-one that arises when recomputed times (e.g. from `range()` or a
+  `cumsum` round-trip through `NamedTrajectory`) differ from stored times by
+  float roundoff at `ConstantInterpolation`'s left-continuous discontinuities,
+  silently shifting the entire sampled control vector by one knot.
+  Pass `snap_to_knots=false` to opt back into the raw left-continuous
+  `ConstantInterpolation` semantics.
 """
 function ZeroOrderPulse(
     controls::AbstractMatrix,
@@ -191,7 +193,7 @@ function ZeroOrderPulse(
     drive_name::Symbol = :u,
     initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
-    snap_to_knots::Bool = false,
+    snap_to_knots::Bool = true,
 )
     n_drives = size(controls, 1)
     # :free means "no boundary constraint" (stored as NaN sentinel)
@@ -1042,7 +1044,7 @@ end
 using NamedTrajectories: NamedTrajectory, get_times
 
 """
-    ZeroOrderPulse(traj::NamedTrajectory; drive_name=:u, snap_to_knots=false)
+    ZeroOrderPulse(traj::NamedTrajectory; drive_name=:u, snap_to_knots=true)
 
 Construct a ZeroOrderPulse from a NamedTrajectory.
 
@@ -1051,12 +1053,15 @@ Construct a ZeroOrderPulse from a NamedTrajectory.
 
 # Keyword Arguments
 - `drive_name`: Name of the drive component (default: `:u`)
-- `snap_to_knots`: See primary constructor docstring (default: `false`)
+- `snap_to_knots`: See primary constructor docstring (default: `true`).
+  Round-tripping through `NamedTrajectory` produces `cumsum`-based knot
+  times that differ from `range()`-based resample times by float
+  roundoff, which would otherwise trigger the off-by-one at every knot.
 """
 function ZeroOrderPulse(
     traj::NamedTrajectory;
     drive_name::Symbol = :u,
-    snap_to_knots::Bool = false,
+    snap_to_knots::Bool = true,
 )
     controls = traj[drive_name]
     times = get_times(traj)
@@ -1656,14 +1661,17 @@ end
     @test times_cumsum != times_range
     @test count(!iszero, times_range .- times_cumsum) > 0
 
-    # Default is snap_to_knots=false (backward compat; will flip in next minor)
+    # Default is snap_to_knots=true: pointwise evaluation at range times is
+    # correct even though the stored knots are cumsum-based.
     pulse_default = ZeroOrderPulse(controls, times_cumsum)
-    @test pulse_default.snap_to_knots == false
+    @test pulse_default.snap_to_knots == true
+    stored = Matrix(pulse_default.controls.u)
+    sampled_default = hcat([pulse_default(t) for t in times_range]...)
+    @test sampled_default == stored
 
-    # Explicit snap_to_knots=true: evaluation at range times is correct
+    # Explicit snap_to_knots=true matches the default.
     pulse = ZeroOrderPulse(controls, times_cumsum; snap_to_knots = true)
     @test pulse.snap_to_knots == true
-    stored = Matrix(pulse.controls.u)
     sampled = hcat([pulse(t) for t in times_range]...)
     @test sampled == stored
 
@@ -1671,17 +1679,23 @@ end
     sampled_batch, _ = sample(pulse, N)
     @test sampled_batch == stored
 
-    # Full round-trip: NamedTrajectory → ZeroOrderPulse → resample
+    # Full round-trip: NamedTrajectory → ZeroOrderPulse → resample at
+    # range-based times. This is the path that triggered the bug in the
+    # cryoCMOS spin demo (knot times are reconstructed via get_times(traj),
+    # which uses cumsum).
     Δt_vec = fill(Δt, N)
     data = (u = controls, Δt = reshape(Δt_vec, 1, N))
     traj = NamedTrajectory(data; timestep = :Δt, controls = (:Δt, :u))
-    pulse_rt = ZeroOrderPulse(traj; drive_name = :u, snap_to_knots = true)
+    pulse_rt = ZeroOrderPulse(traj; drive_name = :u)
     @test pulse_rt.snap_to_knots == true
     rt_range = collect(range(0.0, duration(pulse_rt), length = N))
     rt_sampled = hcat([pulse_rt(t) for t in rt_range]...)
     @test rt_sampled == Matrix(pulse_rt.controls.u)
 
-    # snap_to_knots=false reproduces the off-by-one
+    # snap_to_knots=false is the legacy left-continuous path, retained as an
+    # explicit opt-out. It still reproduces the off-by-one (every mismatch
+    # is exactly u[k-1]), which we lock in here so that anyone who flips this
+    # flag back on knows what they're getting.
     pulse_raw = ZeroOrderPulse(controls, times_cumsum; snap_to_knots = false)
     @test pulse_raw.snap_to_knots == false
     sampled_raw = hcat([pulse_raw(t) for t in times_range]...)
@@ -1694,9 +1708,43 @@ end
         end
     end
 
-    # Batch sample() with is_native also works on default (snap=false) pulse
-    sampled_default_batch, _ = sample(pulse_default, N)
-    @test sampled_default_batch == stored
+    # Batch sample() with is_native bypass already returned correct values
+    # regardless of the snap flag — verify that holds for the legacy path too.
+    sampled_legacy_batch, _ = sample(pulse_raw, N)
+    @test sampled_legacy_batch == stored
+end
+
+@testitem "ZeroOrderPulse → NamedTrajectory round-trip preserves knot values" begin
+    # Regression test for the off-by-one: when a NamedTrajectory is built via
+    # the trajectory→pulse→trajectory path with N matching the pulse, every
+    # knot's control should equal the pulse's stored knot value.
+    using NamedTrajectories: NamedTrajectory, get_times
+
+    N = 51
+    T = 10.0
+    # Sharply varying control: u[k] = k makes any shift visible immediately.
+    controls = Float64.(reshape(1:N, 1, N))
+    Δt = T / (N - 1)
+
+    # The path that triggered the bug in the wild: a saved pulse whose
+    # stored knot times come from cumsum is later sampled at range-based
+    # times by NamedTrajectory(qtraj, N).
+    times_cumsum = cumsum([0.0; fill(Δt, N - 1)])
+    pulse = ZeroOrderPulse(controls, times_cumsum)
+    stored = Matrix(pulse.controls.u)
+
+    # Pointwise evaluation at range times: every knot's value is the stored
+    # knot value, not u[k-1].
+    times_range = collect(range(0.0, T, length = N))
+    sampled = hcat([pulse(t) for t in times_range]...)
+    @test sampled == stored
+
+    # Physical-scale alternating ±600 rad/μs (the cryoCMOS J-channel scale).
+    # Without snapping this would sign-flip controls at affected knots.
+    phys = reshape([k % 2 == 0 ? 600.0 : -600.0 for k = 1:N], 1, N)
+    phys_pulse = ZeroOrderPulse(phys, times_cumsum)
+    phys_sampled = hcat([phys_pulse(t) for t in times_range]...)
+    @test maximum(abs, phys_sampled .- Matrix(phys_pulse.controls.u)) == 0.0
 end
 
 @testitem "save / load_pulse round-trip" begin

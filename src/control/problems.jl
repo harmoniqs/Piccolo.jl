@@ -151,18 +151,26 @@ function sync_trajectory!(qcp::QuantumControlProblem)
 end
 
 """
-    solve!(qcp::QuantumControlProblem; sync::Bool=true, kwargs...)
+    solve!(qcp::QuantumControlProblem; sync::Bool=true, verbose::Bool=false, kwargs...)
 
 Solve the quantum control problem by forwarding to the inner DirectTrajOptProblem.
 
 # Arguments
 - `sync::Bool=true`: If true, call `sync_trajectory!` after solving to update `qtraj.trajectory`
   with physical control values. Set to false to skip synchronization (e.g., for debugging).
+- `verbose::Bool=false`: Controls the solver setup trace (evaluator construction, jacobian/hessian
+  structure, NLP block assembly). Defaults to `false` so the log stays clean. Ipopt's iteration
+  log is controlled separately by `print_level` (passed through to Ipopt).
 
 All other keyword arguments are passed to the DirectTrajOpt solver.
 """
-function solve!(qcp::QuantumControlProblem; sync::Bool = true, kwargs...)
-    solve!(qcp.prob; kwargs...)
+function solve!(
+    qcp::QuantumControlProblem;
+    sync::Bool = true,
+    verbose::Bool = false,
+    kwargs...,
+)
+    solve!(qcp.prob; verbose = verbose, kwargs...)
     if sync
         sync_trajectory!(qcp)
     end
@@ -187,37 +195,11 @@ end
 # ============================================================================= #
 # Display
 # ============================================================================= #
-
-function Base.show(io::IO, qcp::QuantumControlProblem)
-    qtraj = qcp.qtraj
-    sys = get_system(qcp)
-    goal = get_goal(qcp)
-    print(
-        io,
-        "QuantumControlProblem(",
-        nameof(typeof(qtraj)),
-        " over ",
-        nameof(typeof(sys)),
-        ", goal::",
-        nameof(typeof(goal)),
-        ", ",
-        qcp.prob.trajectory.N,
-        " knots)",
-    )
-end
-
-function Base.show(io::IO, ::MIME"text/plain", qcp::QuantumControlProblem)
-    qtraj = qcp.qtraj
-    sys = get_system(qcp)
-    goal = get_goal(qcp)
-    println(io, "QuantumControlProblem")
-    println(io, "  trajectory: ", nameof(typeof(qtraj)))
-    println(io, "  system:     ", nameof(typeof(sys)))
-    println(io, "  goal:       ", nameof(typeof(goal)))
-    println(io, "  knots:      ", qcp.prob.trajectory.N)
-    println(io, "  state:      ", state_name(qcp))
-    print(io, "  controls:   ", drive_name(qcp))
-end
+#
+# `Base.show` for QuantumControlProblem is defined in
+# `control/display/show.jl`. The rich display lives in submodule
+# `ProblemDisplay`, which is loaded after this file so it can override the
+# default.
 
 # ============================================================================= #
 # Tests
