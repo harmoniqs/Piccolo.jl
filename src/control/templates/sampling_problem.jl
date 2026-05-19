@@ -136,9 +136,9 @@ function SamplingProblem(
     calibration_targets::Vector{Symbol} = Symbol[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
-    if piccolo_options.verbose
-        println("    constructing SamplingProblem...")
-        println("\tusing $(length(systems)) systems")
+    if _show_header(piccolo_options)
+        println("constructing SamplingProblem")
+        println("    systems: $(length(systems))")
     end
 
     base_qtraj = qcp.qtraj
@@ -216,13 +216,13 @@ function SamplingProblem(
         constraints,
         calibration_targets,
         new_traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob =
         DirectTrajOptProblem(new_traj, J_total, all_integrators; constraints = constraints)
 
-    return QuantumControlProblem(sampling_qtraj, prob)
+    return _maybe_display(QuantumControlProblem(sampling_qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #

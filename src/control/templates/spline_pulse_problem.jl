@@ -108,10 +108,11 @@ function SplinePulseProblem(
     control_sym = drive_name(qtraj)
     state_sym = isomorphism_state_name(qtraj)
 
-    if piccolo_options.verbose
-        println(
-            "    constructing SplinePulseProblem for $(nameof(typeof(qtraj))) with $(nameof(typeof(qtraj.pulse)))...",
-        )
+    if _show_header(piccolo_options)
+        pulse_type = _typename(qtraj.pulse)
+        traj_type = _typename(qtraj)
+        println("constructing SplinePulseProblem [$traj_type / $pulse_type]")
+
     end
 
     # Build global_data from system's global_params if present
@@ -136,7 +137,7 @@ function SplinePulseProblem(
                 global_data,
                 global_bounds;
                 initial_phases = initial_phases,
-                verbose = piccolo_options.verbose,
+                verbose = _show_details(piccolo_options),
             )
         else
             # Unitary free-phase: requires EmbeddedOperator goal
@@ -149,7 +150,7 @@ function SplinePulseProblem(
                 global_data,
                 global_bounds;
                 initial_phases = initial_phases,
-                verbose = piccolo_options.verbose,
+                verbose = _show_details(piccolo_options),
             )
         end
     end
@@ -179,8 +180,8 @@ function SplinePulseProblem(
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         if !isnothing(_du_bounds_vec)
             update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
-            if piccolo_options.verbose
-                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
+            if _show_details(piccolo_options)
+                println("    du bounds (CubicSplinePulse): $(_fmt_bounds(_du_bounds_vec))")
             end
         end
         base_traj
@@ -256,8 +257,8 @@ function SplinePulseProblem(
     # For CubicSplinePulse, :du values are Hermite tangents (independent DOFs), not constrained
     if is_linear_spline
         push!(integrators, DerivativeIntegrator(control_sym, du_sym, traj))
-        if piccolo_options.verbose
-            println("    added DerivativeIntegrator for LinearSplinePulse")
+        if _show_details(piccolo_options)
+            println("    added DerivativeIntegrator (LinearSplinePulse)")
         end
     end
 
@@ -267,7 +268,7 @@ function SplinePulseProblem(
         all_constraints,
         global_bounds,
         traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     # Pin calibration targets at nominal — must run AFTER bounds, since
@@ -276,12 +277,12 @@ function SplinePulseProblem(
         all_constraints,
         calibration_targets,
         traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob = DirectTrajOptProblem(traj, J, integrators; constraints = all_constraints)
 
-    return QuantumControlProblem(qtraj, prob)
+    return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #
@@ -348,11 +349,11 @@ function SplinePulseProblem(
     weights = qtraj.weights
     goals = qtraj.goals
 
-    if piccolo_options.verbose
-        println(
-            "    constructing SplinePulseProblem for $(nameof(typeof(qtraj))) with $(nameof(typeof(qtraj.pulse)))...",
-        )
-        println("\twith $(length(qtraj.initials)) state transfers")
+    if _show_header(piccolo_options)
+        pulse_type = _typename(qtraj.pulse)
+        println("constructing SplinePulseProblem [MultiKetTrajectory / $pulse_type]")
+        println("    state transfers: $(length(qtraj.initials))")
+
     end
 
     # Build global_data explicitly from system global_params
@@ -374,7 +375,7 @@ function SplinePulseProblem(
             global_data,
             global_bounds;
             initial_phases = initial_phases,
-            verbose = piccolo_options.verbose,
+            verbose = _show_details(piccolo_options),
         )
     end
 
@@ -403,8 +404,8 @@ function SplinePulseProblem(
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         if !isnothing(_du_bounds_vec)
             update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
-            if piccolo_options.verbose
-                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
+            if _show_details(piccolo_options)
+                println("    du bounds (CubicSplinePulse): $(_fmt_bounds(_du_bounds_vec))")
             end
         end
         base_traj
@@ -488,8 +489,8 @@ function SplinePulseProblem(
     # For CubicSplinePulse, :du values are Hermite tangents (independent DOFs), not constrained
     if is_linear_spline
         push!(integrators, DerivativeIntegrator(control_sym, du_sym, traj))
-        if piccolo_options.verbose
-            println("    added DerivativeIntegrator for LinearSplinePulse")
+        if _show_details(piccolo_options)
+            println("    added DerivativeIntegrator (LinearSplinePulse)")
         end
     end
 
@@ -499,19 +500,19 @@ function SplinePulseProblem(
         all_constraints,
         global_bounds,
         traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     apply_calibration_targets!(
         all_constraints,
         calibration_targets,
         traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob = DirectTrajOptProblem(traj, J, integrators; constraints = all_constraints)
 
-    return QuantumControlProblem(qtraj, prob)
+    return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #
@@ -780,7 +781,7 @@ end
             leakage_constraint = true,
             leakage_constraint_value = 1e-3,
             leakage_cost = 1.0,
-            verbose = false,
+            display = :silent,
         ),
         state_leakage_indices = [3, 6],
     )
