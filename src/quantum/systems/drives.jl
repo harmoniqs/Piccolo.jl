@@ -177,22 +177,46 @@ function NonlinearDrive(
 end
 
 """
-    _forwarddiff_jacobian(f) -> (u, j) -> ∂f/∂u_j
+    _ForwardDiffJac{F} <: Function
+
+Typed wrapper for an auto-generated Jacobian, callable as `(u, j) -> ∂f/∂u_j`.
+
+The typed wrapper exists so downstream callers (e.g. Piccolissimo's spline
+integrator cache fill) can dispatch on its type and call `ForwardDiff.gradient!`
+**once** per substep instead of paying `u_dim` redundant gradient evaluations
+through scalar-indexed `(u, j) -> ForwardDiff.gradient(f, u)[j]` calls.
+"""
+struct _ForwardDiffJac{F} <: Function
+    f::F
+end
+@inline (w::_ForwardDiffJac)(u::AbstractVector, j::Int) = ForwardDiff.gradient(w.f, u)[j]
+
+"""
+    _ForwardDiffHess{F} <: Function
+
+Typed wrapper for an auto-generated Hessian, callable as `(u, i, j) -> ∂²f/∂u_i∂u_j`.
+
+See `_ForwardDiffJac` — same rationale for full-fill dispatch.
+"""
+struct _ForwardDiffHess{F} <: Function
+    f::F
+end
+@inline (w::_ForwardDiffHess)(u::AbstractVector, i::Int, j::Int) =
+    ForwardDiff.hessian(w.f, u)[i, j]
+
+"""
+    _forwarddiff_jacobian(f) -> _ForwardDiffJac{F}
 
 Create a Jacobian function from a scalar-valued function `f(u)` using ForwardDiff.
 """
-function _forwarddiff_jacobian(f::F) where {F}
-    return (u, j) -> ForwardDiff.gradient(f, u)[j]
-end
+_forwarddiff_jacobian(f::F) where {F} = _ForwardDiffJac{F}(f)
 
 """
-    _forwarddiff_hessian(f) -> (u, i, j) -> ∂²f/∂u_i∂u_j
+    _forwarddiff_hessian(f) -> _ForwardDiffHess{F}
 
 Create a Hessian function from a scalar-valued function `f(u)` using ForwardDiff.
 """
-function _forwarddiff_hessian(f::F) where {F}
-    return (u, i, j) -> ForwardDiff.hessian(f, u)[i, j]
-end
+_forwarddiff_hessian(f::F) where {F} = _ForwardDiffHess{F}(f)
 
 # ----------------------------------------------------------------------------- #
 # Modulation Types
@@ -334,6 +358,102 @@ For `NonlinearDrive`: evaluates the Hessian function (user-provided or auto-gene
     d.coeff_hess(u, i, j)
 @inline drive_coeff_hess(d::ModulatedDrive, u::AbstractVector, i::Int, j::Int) =
     drive_coeff_hess(d.base, u, i, j) * d.modulation(0.0)
+
+# ----------------------------------------------------------------------------- #
+# Full-fill APIs — write the entire gradient / Hessian in one ForwardDiff call.
+#
+# The scalar-indexed `drive_coeff_jac(d, u, j)` for auto-gen NonlinearDrives
+# triggers a full `ForwardDiff.gradient(coeff, u)` and then discards `u_dim-1`
+# entries. In tight cache-fill loops (e.g. Piccolissimo's spline integrator)
+# this means `u_dim` redundant gradients per drive per substep — the
+# full-fill variants below compute each gradient / Hessian exactly once.
+# ----------------------------------------------------------------------------- #
+
+"""
+    drive_coeff_jac!(d::AbstractDrive, u::AbstractVector, out::AbstractVector)
+
+Fill `out[1:length(out)]` with `∂coeff/∂u_j`. Returns `out`.
+
+This is the preferred form when the caller wants every component of the
+gradient (e.g., a sensitivity-ODE coefficient cache). For auto-generated
+NonlinearDrive Jacobians, this collapses what would be `length(out)` separate
+`ForwardDiff.gradient` calls into one.
+"""
+function drive_coeff_jac!(d::LinearDrive, ::AbstractVector, out::AbstractVector)
+    fill!(out, 0.0)
+    if 1 <= d.index <= length(out)
+        out[d.index] = 1.0
+    end
+    return out
+end
+
+# Auto-gen path: one ForwardDiff.gradient! call, full population.
+function drive_coeff_jac!(
+    d::NonlinearDrive{H,F,<:_ForwardDiffJac,HF},
+    u::AbstractVector,
+    out::AbstractVector,
+) where {H,F,HF}
+    ForwardDiff.gradient!(out, d.coeff_jac.f, u)
+    return out
+end
+
+# User-provided coeff_jac: fall back to per-element calls.
+function drive_coeff_jac!(d::NonlinearDrive, u::AbstractVector, out::AbstractVector)
+    @inbounds for j in eachindex(out)
+        out[j] = d.coeff_jac(u, j)
+    end
+    return out
+end
+
+function drive_coeff_jac!(d::ModulatedDrive, u::AbstractVector, out::AbstractVector)
+    drive_coeff_jac!(d.base, u, out)
+    m = d.modulation(0.0)
+    if m != 1.0
+        out .*= m
+    end
+    return out
+end
+
+"""
+    drive_coeff_hess!(d::AbstractDrive, u::AbstractVector, out::AbstractMatrix)
+
+Fill `out[1:n, 1:n]` with `∂²coeff/∂u_i∂u_j`. Returns `out`.
+
+For auto-generated NonlinearDrive Hessians this collapses what would be
+`O(n²)` separate `ForwardDiff.hessian` calls into one.
+"""
+function drive_coeff_hess!(::LinearDrive, ::AbstractVector, out::AbstractMatrix)
+    fill!(out, 0.0)
+    return out
+end
+
+# Auto-gen path: one ForwardDiff.hessian! call.
+function drive_coeff_hess!(
+    d::NonlinearDrive{H,F,DF,<:_ForwardDiffHess},
+    u::AbstractVector,
+    out::AbstractMatrix,
+) where {H,F,DF}
+    ForwardDiff.hessian!(out, d.coeff_hess.f, u)
+    return out
+end
+
+# User-provided coeff_hess: fall back to per-element calls.
+function drive_coeff_hess!(d::NonlinearDrive, u::AbstractVector, out::AbstractMatrix)
+    n = size(out, 1)
+    @inbounds for j = 1:n, i = 1:n
+        out[i, j] = d.coeff_hess(u, i, j)
+    end
+    return out
+end
+
+function drive_coeff_hess!(d::ModulatedDrive, u::AbstractVector, out::AbstractMatrix)
+    drive_coeff_hess!(d.base, u, out)
+    m = d.modulation(0.0)
+    if m != 1.0
+        out .*= m
+    end
+    return out
+end
 
 """
     active_controls(d::AbstractDrive) -> Vector{Int}

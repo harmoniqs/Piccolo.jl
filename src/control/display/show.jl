@@ -311,3 +311,56 @@ function _color_str(c::Symbol, s::AbstractString)
     # printstyled where we have direct io access.
     return s
 end
+
+# ---------------------------------------------------------------------------- #
+# Mutating helpers that keep the displayed view fresh
+# ---------------------------------------------------------------------------- #
+#
+# The auto-display fires once at the end of each outer-template constructor.
+# If you mutate the problem afterwards (add an objective, push a constraint),
+# the previously-printed view goes stale. These helpers do the mutation AND
+# redisplay in one call so the log shows the state the solver actually sees.
+
+"""
+    add_objective!(qcp, obj; redisplay=true, detail=:standard) -> qcp
+
+Append `obj` to the inner `prob.objective` (via `+`) and, by default, redisplay
+the full problem view so the augmented objective appears in the log.
+
+Pass `redisplay=false` for a silent mutation (useful inside batch updates),
+or `detail=:full` to also print the pulse plot after augmenting.
+"""
+function add_objective!(
+    qcp::QuantumControlProblem,
+    obj;
+    redisplay::Bool = true,
+    detail::Symbol = :standard,
+)
+    qcp.prob.objective = qcp.prob.objective + obj
+    if redisplay
+        show_problem(stdout, qcp; detail = detail)
+        println()
+    end
+    return qcp
+end
+
+"""
+    add_constraint!(qcp, c; redisplay=true, detail=:standard) -> qcp
+
+Push `c` onto `prob.constraints` and, by default, redisplay the full problem
+view so the new constraint appears in the log. See [`add_objective!`](@ref) for
+the `redisplay` and `detail` knobs.
+"""
+function add_constraint!(
+    qcp::QuantumControlProblem,
+    c;
+    redisplay::Bool = true,
+    detail::Symbol = :standard,
+)
+    push!(qcp.prob.constraints, c)
+    if redisplay
+        show_problem(stdout, qcp; detail = detail)
+        println()
+    end
+    return qcp
+end

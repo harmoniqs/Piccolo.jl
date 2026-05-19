@@ -30,6 +30,7 @@ using ...Quantum:
 export inspect, ProblemInspection
 export show_problem
 export pulse_lineplot
+export add_objective!, add_constraint!
 
 include("inspect.jl")
 include("show.jl")
