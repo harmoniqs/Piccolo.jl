@@ -123,6 +123,48 @@ cached_solve!(qcp_ket, "visualization_ket"; max_iter = 50, verbose = false, prin
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)
 
+# ### Bloch Sphere Visualization
+#
+# When `QuantumToolbox.jl` is loaded, `plot_bloch` renders a two-level state
+# trajectory on the Bloch sphere. The path connects the Bloch vector at every
+# timestep; pass `index=k` to also drop a vector arrow at frame `k`.
+
+using QuantumToolbox
+fig = plot_bloch(traj_ket)
+
+# Show a vector arrow at a specific timestep:
+
+fig = plot_bloch(traj_ket; index = N)
+
+# For multi-level systems, restrict to the qubit subspace via `subspace=1:2`. For
+# density-matrix trajectories, pass `state_name=:ρ̃⃗, state_type=:density`.
+
+# ### Wigner Function Visualization
+#
+# For bosonic / oscillator systems, `plot_wigner(traj, idx)` renders the Wigner
+# quasi-probability distribution at a chosen timestep. To keep this guide fast
+# we build a small synthetic trajectory of coherent states rotating in phase
+# space — no solver involved — to illustrate the call:
+
+dim_cavity = 20
+N_cav = 30
+ω_cav = 2π
+times_cav = range(0, 2π / ω_cav, length = N_cav)
+cavity_kets = [coherent(dim_cavity, 1.5 * exp(im * ω_cav * t)).data for t in times_cav]
+traj_cavity = NamedTrajectory(
+    (ψ̃ = hcat(ket_to_iso.(cavity_kets)...), Δt = fill(step(times_cav), N_cav)),
+)
+
+fig = plot_wigner(traj_cavity, 1; xvec = -3:0.1:3, yvec = -3:0.1:3)
+
+# Plot at a later timestep:
+
+fig = plot_wigner(traj_cavity, N_cav; xvec = -3:0.1:3, yvec = -3:0.1:3)
+
+# To animate Wigner or Bloch evolution, use `animate_wigner` / `animate_bloch`
+# with `mode = :record` to save to an `.mp4` or `.gif`. Interactive `:inline`
+# playback requires `GLMakie`, which is not available in the docs build.
+
 # ### IQ pairs (`plot_pulse_IQ`)
 #
 # For 4-drive pulses interpreted as two IQ pairs — drive (Ω_I, Ω_Q) and

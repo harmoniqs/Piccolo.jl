@@ -8,6 +8,11 @@ using LinearAlgebra
 
 using TestItems
 
+# `animate_bloch`, `animate_wigner`, `plot_bloch!`, and `plot_wigner!` extend Piccolo
+# stubs. Docstrings for those live in `src/visualizations/quantum_toolbox.jl`. The
+# `plot_bloch` and `plot_wigner` docstrings remain here, attached to the QuantumToolbox-
+# owned methods we extend.
+
 function iso_to_bloch(ψ̃::AbstractVector{<:Real}, subspace::AbstractVector{Int})
     ψ = iso_to_ket(ψ̃)[subspace]
     return density_to_bloch(ψ * ψ')
@@ -32,24 +37,80 @@ bloch_arrow(v, arrow_size) = (1 - arrow_size / norm(v)) * Vec3f(v...)
 """
     plot_bloch(
         traj::NamedTrajectory;
+        index::Union{Nothing, Int} = nothing,
         state_name::Symbol = :ψ̃,
+        state_type::Symbol = :ket,
+        subspace::AbstractVector{Int} = 1:2,
         kwargs...
-    )
+    ) -> Figure
 
 Plot the trajectory of a quantum state on the Bloch sphere.
+
+Visualizes how a two-level quantum state evolves on the Bloch sphere representation.
+The trajectory path is shown as a line connecting Bloch vectors at each timestep.
+
+# Mathematical Background
+
+For a two-level quantum state ``|\\psi\\rangle = \\alpha|0\\rangle + \\beta|1\\rangle``, the Bloch vector is:
+
+```math
+\\vec{r} = (x, y, z) = (\\langle \\sigma_x \\rangle, \\langle \\sigma_y \\rangle, \\langle \\sigma_z \\rangle)
+```
+
+where the components are:
+```math
+\\begin{aligned}
+x &= \\langle \\sigma_x \\rangle = 2\\text{Re}(\\alpha^*\\beta) \\\\
+y &= \\langle \\sigma_y \\rangle = 2\\text{Im}(\\alpha^*\\beta) \\\\
+z &= \\langle \\sigma_z \\rangle = |\\alpha|^2 - |\\beta|^2
+\\end{aligned}
+```
+
+Pure states lie on the surface of the Bloch sphere (``||\\vec{r}|| = 1``), while mixed states
+lie in the interior.
 
 # Arguments
 - `traj::NamedTrajectory`: The trajectory containing quantum states to plot.
 
 # Keyword Arguments
-- `index::Union{Nothing, Int} = nothing`: If provided, add vector at this index.
-- `state_name::Symbol`: The name of the quantum state in the trajectory. Default is `:ψ̃`.
-- `state_type::Symbol`: The type of the quantum state. Can be `:ket` or `:density`. Default is `:ket`.
-- `subspace::AbstractVector{Int}`: The qubit subspace of the state. Default is `1:2`.
+- `index::Union{Nothing, Int}`: If provided, add a vector arrow at this time index.
+  If `nothing`, no arrow is shown. Default is `nothing`.
+- `state_name::Symbol`: The name of the quantum state component in the trajectory. Default is `:ψ̃`.
+- `state_type::Symbol`:
+  - `:ket` - State vector ``|\\psi\\rangle`` in isomorphism form
+  - `:density` - Density matrix ``\\rho`` in isomorphism form
+  Default is `:ket`.
+- `subspace::AbstractVector{Int}`: The qubit subspace indices to extract (for multi-level systems).
+  Default is `1:2` (first two levels).
 - `kwargs...`: Additional keyword arguments passed to `QuantumToolbox.render`.
 
 # Returns
-- `fig`: The Makie `Figure` object.
+- A Makie `Figure` object containing the Bloch sphere visualization.
+
+# Examples
+
+```julia
+using Piccolo
+using QuantumToolbox
+using CairoMakie
+
+# After solving a ket trajectory problem:
+traj_ket = get_trajectory(qcp_ket)
+
+# Plot trajectory
+fig = plot_bloch(traj_ket)
+
+# Show vector at timestep 25
+fig = plot_bloch(traj_ket; index=25)
+
+# For a multi-level system, restrict to the qubit subspace
+fig = plot_bloch(traj_ket; subspace=1:2)
+
+# For a density-matrix trajectory
+fig = plot_bloch(traj_ρ; state_name=:ρ̃⃗, state_type=:density)
+```
+
+See also: `animate_bloch`, `plot_wigner`.
 """
 function QuantumToolbox.plot_bloch(
     traj::NamedTrajectory;
@@ -142,26 +203,65 @@ end
     plot_wigner(
         traj::NamedTrajectory,
         idx::Int;
-        state_name::Symbol=:ψ̃,
+        state_name::Symbol = :ψ̃,
+        state_type::Symbol = :ket,
         xvec = -5:0.1:5,
         yvec = -5:0.1:5,
-        projection::Val=Val(:two_dim),
-        colorbar::Bool=true,
+        projection::Val = Val(:two_dim),
+        colorbar::Bool = true,
         kwargs...
-    )
+    ) -> Figure
 
-Plot the Wigner function of a quantum state in a trajectory.
+Plot the Wigner function of a quantum state at a specific time index.
+
+The Wigner function is a quasi-probability distribution that represents quantum states
+in phase space.
+
+# Mathematical Background
+
+For a quantum state ``\\rho``, the Wigner function is
+
+```math
+W(x, p) = \\frac{1}{\\pi\\hbar} \\int_{-\\infty}^{\\infty} \\langle x - y | \\rho | x + y \\rangle e^{2ipy/\\hbar} dy
+```
+
+- **Classical states** (e.g., coherent): non-negative everywhere, Gaussian peak.
+- **Non-classical states** (e.g., Fock, cat): exhibit negative regions.
 
 # Arguments
 - `traj::NamedTrajectory`: The trajectory containing quantum states.
-- `idx::Int`: The index of the state in the trajectory to plot.
+- `idx::Int`: Time index of the state to plot (`1 ≤ idx ≤ traj.N`).
 
 # Keyword Arguments
-- `name::Symbol`: The name of the quantum state in the trajectory. Default is `:ψ̃`.
-- `xvec`, `yvec`: Grids for plotting the Wigner function.
+- `state_name::Symbol`: Component name for the state. Default `:ψ̃`.
+- `state_type::Symbol`: `:ket` or `:density`. Default `:ket`.
+- `xvec`: Range for x-axis (position / real part). Default `-5:0.1:5`.
+- `yvec`: Range for y-axis (momentum / imaginary part). Default `-5:0.1:5`.
+- `projection::Val`: Projection. Default `Val(:two_dim)`.
+- `colorbar::Bool`: Show colorbar. Default `true`.
+- `kwargs...`: Forwarded to `QuantumToolbox.plot_wigner`.
 
 # Returns
-- `fig`: The Makie `Figure`.
+- A Makie `Figure` containing the Wigner function visualization.
+
+# Examples
+
+```julia
+using Piccolo
+using QuantumToolbox
+using CairoMakie
+
+# Plot Wigner function at final time
+fig = plot_wigner(traj_cavity, traj_cavity.N)
+
+# Plot at a specific timestep with a custom grid
+fig = plot_wigner(traj_cavity, 50; xvec=-4:0.05:4, yvec=-4:0.05:4)
+
+# For a density-matrix trajectory
+fig = plot_wigner(traj_ρ, 1; state_name=:ρ̃⃗, state_type=:density)
+```
+
+See also: `animate_wigner`, `plot_bloch`.
 """
 function QuantumToolbox.plot_wigner(
     traj::NamedTrajectory,
@@ -295,7 +395,7 @@ end
     using CairoMakie
 
     T = 20
-    ts = range(0, π / 2; length = T)
+    ts = range(0, π/2; length = T)
 
     kets = [
         QuantumObject(cos(θ) * [1.0 + 0im, 0.0 + 0im] + sin(θ) * [0.0 + 0im, 1.0 + 0im]) for θ in ts

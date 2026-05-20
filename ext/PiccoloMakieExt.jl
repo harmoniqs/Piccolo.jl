@@ -5,19 +5,9 @@ using Makie
 using NamedTrajectories
 using TestItems
 
-# Animation implementations - extend Piccolo stubs
-"""
-    animate_figure(
-        fig::Figure,
-        frames::AbstractVector{Int},
-        update_frame!::Function;
-        mode::Symbol = :inline,
-        fps::Int = 30,
-        filename::String = "animation.mp4"
-    )
+# Animation implementations - extend Piccolo stubs.
+# Docstrings live on the stubs in `src/visualizations/animations.jl`.
 
-Animate a Makie figure by updating frames. Works best with `GLMakie`.
-"""
 function Piccolo.animate_figure(
     fig::Figure,
     frames::AbstractVector{Int},
@@ -56,18 +46,6 @@ function Piccolo.animate_figure(
 end
 
 
-"""
-    animate_name(
-        traj::NamedTrajectory,
-        name::Symbol;
-        fps::Int = 24,
-        mode::Symbol = :inline,
-        fname::String = "name_animation.mp4",
-        kwargs...
-    )
-
-Animate the evolution of a variable in a `NamedTrajectory`.
-"""
 function Piccolo.animate_name(
     traj::NamedTrajectory,
     name::Symbol;

@@ -113,3 +113,15 @@ Modules = [Piccolo.Control.Options]
 ```@autodocs
 Modules = [Piccolo.Visualizations.QuantumObjectPlots]
 ```
+
+### Animations
+
+```@autodocs
+Modules = [Piccolo.Visualizations.AnimatedPlots]
+```
+
+### QuantumToolbox Plots
+
+```@autodocs
+Modules = [Piccolo.Visualizations.QuantumToolboxPlots]
+```
