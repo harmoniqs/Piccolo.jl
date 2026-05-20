@@ -96,6 +96,42 @@ include("spline_pulse_problem.jl")
 include("minimum_time_problem.jl")
 include("sampling_problem.jl")
 
+"""
+    _unbind_state!(traj::NamedTrajectory, name::Symbol)
+
+Widen the bounds for variable `name` to `(-Inf, Inf)`, effectively removing the
+box constraint while keeping the NamedTuple type stable (cannot delete keys from
+a parametric NamedTuple). No-op if `name` is not in `traj.bounds`.
+"""
+function _unbind_state!(traj::NamedTrajectory, name::Symbol)
+    name ∈ keys(traj.bounds) || return nothing
+    d = traj.dims[name]
+    update_bound!(traj, name, (-fill(Inf, d), fill(Inf, d)))
+    return nothing
+end
+
+"""
+    _safe_bound_times(name::Symbol, traj::NamedTrajectory) -> Vector{Int}
+
+Compute time indices where it is safe to add bounds on variable `name`,
+excluding timesteps already pinned by initial or final equality constraints.
+Follows the same pattern as `get_trajectory_constraints` in DirectTrajOpt
+(`problems.jl:174-187`).
+"""
+function _safe_bound_times(name::Symbol, traj::NamedTrajectory)
+    has_initial = name ∈ keys(traj.initial)
+    has_final = name ∈ keys(traj.final)
+    if has_initial && has_final
+        return collect(2:(traj.N - 1))
+    elseif has_initial
+        return collect(2:traj.N)
+    elseif has_final
+        return collect(1:(traj.N - 1))
+    else
+        return collect(1:traj.N)
+    end
+end
+
 function apply_piccolo_options!(
     piccolo_options::PiccoloOptions,
     constraints::AbstractVector{<:AbstractConstraint},
@@ -159,16 +195,23 @@ function apply_piccolo_options!(
         end
     end
 
-    if piccolo_options.bound_state
-        if isnothing(state_names)
-            throw(ArgumentError("state_names required for bound_state constraint."))
+    if !piccolo_options.bound_state
+        # Widen default [-1, 1] state bounds to (-Inf, Inf), effectively removing
+        # the box constraint. The NamedTuple type is preserved (cannot delete keys).
+        _names = if state_names isa Symbol
+            [state_names]
+        elseif isnothing(state_names)
+            Symbol[]
+        else
+            state_names
         end
-        if _show_details(piccolo_options)
-            println("    applying bound_state constraint: $(state_names) ∈ [-1, 1]")
-        end
-        _names = state_names isa Symbol ? [state_names] : state_names
         for name in _names
-            push!(constraints, BoundsConstraint(name, collect(1:traj.N), 1.0))
+            if name ∈ keys(traj.bounds)
+                if _show_details(piccolo_options)
+                    println("    unbinding state :$name (bound_state=false)")
+                end
+                _unbind_state!(traj, name)
+            end
         end
     end
 
@@ -181,7 +224,9 @@ function apply_piccolo_options!(
         end
         _names = state_names isa Symbol ? [state_names] : state_names
         for name in _names
-            push!(constraints, BoundStateL2Constraint(name, traj, iso_layout))
+            ts = _safe_bound_times(name, traj)
+            isempty(ts) && continue
+            push!(constraints, BoundStateL2Constraint(name, traj, iso_layout; times = ts))
         end
     end
 
@@ -509,7 +554,7 @@ end
     )
 end
 
-@testitem "bound_state adds BoundsConstraint on state variables" begin
+@testitem "bound_state=true preserves state bounds" begin
     using NamedTrajectories
     using DirectTrajOpt
 
@@ -520,6 +565,7 @@ end
         (ψ̃ = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
         timestep = :Δt,
         controls = :u,
+        bounds = (ψ̃ = (-ones(4), ones(4)), u = 1.0),
     )
 
     piccolo_opts = PiccoloOptions(bound_state = true)
@@ -527,15 +573,41 @@ end
 
     apply_piccolo_options!(piccolo_opts, constraints, traj; state_names = :ψ̃)
 
-    # Should have exactly one BoundsConstraint on :ψ̃
+    # bound_state=true (default) keeps existing traj.bounds on ψ̃
+    @test :ψ̃ ∈ keys(traj.bounds)
+    # No extra BoundsConstraint added to the constraints vector
     bc = filter(c -> c isa BoundsConstraint, constraints)
-    @test length(bc) == 1
-    @test bc[1].var_names == :ψ̃
-    @test bc[1].times == collect(1:N)
-    @test bc[1].bounds_values == 1.0
+    @test isempty(bc)
 end
 
-@testitem "bound_state with multiple state names" begin
+@testitem "bound_state=false widens state bounds to ±Inf" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    apply_piccolo_options! = Piccolo.Control.ProblemTemplates.apply_piccolo_options!
+
+    N = 5
+    traj = NamedTrajectory(
+        (ψ̃ = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        bounds = (ψ̃ = (-ones(4), ones(4)), u = 1.0),
+    )
+
+    piccolo_opts = PiccoloOptions(bound_state = false)
+    constraints = AbstractConstraint[]
+
+    apply_piccolo_options!(piccolo_opts, constraints, traj; state_names = :ψ̃)
+
+    # State bounds widened to ±Inf (effectively no constraint)
+    lb, ub = traj.bounds[:ψ̃]
+    @test all(lb .== -Inf)
+    @test all(ub .== Inf)
+    # Control bounds preserved
+    @test all(abs.(traj.bounds[:u][1]) .< Inf)
+end
+
+@testitem "bound_state=false with multiple state names" begin
     using NamedTrajectories
     using DirectTrajOpt
 
@@ -546,35 +618,20 @@ end
         (ψ̃1 = rand(4, N), ψ̃2 = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
         timestep = :Δt,
         controls = :u,
+        bounds = (ψ̃1 = 1.0, ψ̃2 = 1.0, u = 1.0),
     )
 
-    piccolo_opts = PiccoloOptions(bound_state = true)
+    piccolo_opts = PiccoloOptions(bound_state = false)
     constraints = AbstractConstraint[]
 
     apply_piccolo_options!(piccolo_opts, constraints, traj; state_names = [:ψ̃1, :ψ̃2])
 
-    bc = filter(c -> c isa BoundsConstraint, constraints)
-    @test length(bc) == 2
-    @test Set([c.var_names for c in bc]) == Set([:ψ̃1, :ψ̃2])
-end
-
-@testitem "bound_state throws when state_names is nothing" begin
-    using NamedTrajectories
-    using DirectTrajOpt
-
-    apply_piccolo_options! = Piccolo.Control.ProblemTemplates.apply_piccolo_options!
-
-    N = 5
-    traj = NamedTrajectory(
-        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
-        timestep = :Δt,
-        controls = :u,
-    )
-
-    piccolo_opts = PiccoloOptions(bound_state = true)
-    constraints = AbstractConstraint[]
-
-    @test_throws ArgumentError apply_piccolo_options!(piccolo_opts, constraints, traj;)
+    lb1, ub1 = traj.bounds[:ψ̃1]
+    @test all(lb1 .== -Inf) && all(ub1 .== Inf)
+    lb2, ub2 = traj.bounds[:ψ̃2]
+    @test all(lb2 .== -Inf) && all(ub2 .== Inf)
+    # Control bounds preserved
+    @test all(abs.(traj.bounds[:u][1]) .< Inf)
 end
 
 @testitem "bound_state_l2 adds NonlinearKnotPointConstraint (block layout)" begin
@@ -626,6 +683,34 @@ end
     constraints = AbstractConstraint[]
 
     @test_throws ArgumentError apply_piccolo_options!(piccolo_opts, constraints, traj;)
+end
+
+@testitem "_safe_bound_times respects initial/final constraints" begin
+    using NamedTrajectories
+
+    _safe_bound_times = Piccolo.Control.ProblemTemplates._safe_bound_times
+
+    N = 5
+    # No initial/final → all times
+    traj1 = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt, controls = :u,
+    )
+    @test _safe_bound_times(:x, traj1) == collect(1:N)
+
+    # Initial only → skip time 1
+    traj2 = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt, controls = :u, initial = (x = rand(2),),
+    )
+    @test _safe_bound_times(:x, traj2) == collect(2:N)
+
+    # Both initial and final → skip endpoints
+    traj3 = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt, controls = :u, initial = (x = rand(2),), final = (x = rand(2),),
+    )
+    @test _safe_bound_times(:x, traj3) == collect(2:(N - 1))
 end
 
 end

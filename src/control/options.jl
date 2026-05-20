@@ -71,9 +71,10 @@ Options for the Piccolo quantum optimal control library.
 - `zero_initial_and_final_derivative::Bool=false`: Zero the initial and final control pulse derivatives.
 - `complex_control_norm_constraint_name::Union{Nothing, Symbol} = nothing`: Name of the complex control norm constraint.
 - `complex_control_norm_constraint_radius::Float64 = 1.0`: Radius of the complex control norm constraint.
-- `bound_state::Bool = false`: Add box constraints bounding each component of the
-  isomorphism state vector to [-1, 1] at every knot point. Acts as a cheap numerical
-  guard rail; useful for problems with large Hilbert spaces or difficult convergence.
+- `bound_state::Bool = true`: Keep the default [-1, 1] box bounds on each component
+  of the isomorphism state vector at every knot point. These bounds are set
+  automatically during trajectory construction. Set to `false` to remove them,
+  giving the optimizer full freedom on state variables.
 - `bound_state_l2::Bool = false`: Add nonlinear constraints bounding each complex
   component's magnitude (Re² + Im²) ≤ 1 at every knot point. Tighter than `bound_state`
   but adds NLP complexity (Jacobian/Hessian entries). Not yet supported for
@@ -106,7 +107,7 @@ function PiccoloOptions(;
     zero_initial_and_final_derivative::Bool = false,
     complex_control_norm_constraint_name::Union{Nothing,Symbol} = nothing,
     complex_control_norm_constraint_radius::Float64 = 1.0,
-    bound_state::Bool = false,
+    bound_state::Bool = true,
     bound_state_l2::Bool = false,
     leakage_constraint::Bool = false,
     leakage_constraint_value::Float64 = 1e-2,
