@@ -106,6 +106,7 @@ function apply_piccolo_options!(
         AbstractVector{Int},
         AbstractVector{<:AbstractVector{Int}},
     } = nothing,
+    iso_layout::Symbol = :block,
 )
     J = NullObjective(traj)
 
@@ -155,6 +156,32 @@ function apply_piccolo_options!(
                 equality = false,
             )
             push!(constraints, norm_con)
+        end
+    end
+
+    if piccolo_options.bound_state
+        if isnothing(state_names)
+            throw(ArgumentError("state_names required for bound_state constraint."))
+        end
+        if _show_details(piccolo_options)
+            println("    applying bound_state constraint: $(state_names) ∈ [-1, 1]")
+        end
+        _names = state_names isa Symbol ? [state_names] : state_names
+        for name in _names
+            push!(constraints, BoundsConstraint(name, collect(1:traj.N), 1.0))
+        end
+    end
+
+    if piccolo_options.bound_state_l2
+        if isnothing(state_names)
+            throw(ArgumentError("state_names required for bound_state_l2 constraint."))
+        end
+        if _show_details(piccolo_options)
+            println("    applying bound_state_l2 constraint: $(state_names), |z|² ≤ 1")
+        end
+        _names = state_names isa Symbol ? [state_names] : state_names
+        for name in _names
+            push!(constraints, BoundStateL2Constraint(name, traj, iso_layout))
         end
     end
 

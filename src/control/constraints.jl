@@ -15,6 +15,7 @@ export FinalUnitaryFidelityConstraint
 export FinalCoherentKetFidelityConstraint
 export FinalDensityFidelityConstraint
 export LeakageConstraint
+export BoundStateL2Constraint
 
 # ---------------------------------------------------------
 #                        Kets
@@ -310,6 +311,75 @@ function LeakageConstraint(
         equality = false,
         times = times,
     )
+end
+
+# ---------------------------------------------------------
+# Bound State L2 Constraint
+# ---------------------------------------------------------
+
+"""
+    BoundStateL2Constraint(name, traj, iso_layout; times=1:traj.N)
+
+Constrain each complex component's magnitude to ≤ 1 via Re² + Im² - 1 ≤ 0.
+
+`iso_layout` determines the Re/Im index pairing:
+- `:block` — ket iso `ψ̃ = [Re(ψ); Im(ψ)]`, pairs `(k, n+k)` for `k=1:n`
+- `:interleaved_columns` — unitary iso `Ũ⃗`, per-column `[Re(col); Im(col)]`,
+  pairs `(offset+j, offset+d+j)` within each `2d`-stride column block
+"""
+function BoundStateL2Constraint(
+    name::Symbol,
+    traj::NamedTrajectory,
+    iso_layout::Symbol;
+    times = 1:traj.N,
+)
+    dim = traj.dims[name]
+
+    if iso_layout == :block
+        n = dim ÷ 2
+        function block_constraint(x)
+            re = x[1:n]
+            im = x[n+1:2n]
+            return re .^ 2 .+ im .^ 2 .- 1.0
+        end
+        return NonlinearKnotPointConstraint(
+            block_constraint,
+            name,
+            traj;
+            equality = false,
+            times = times,
+        )
+    elseif iso_layout == :interleaved_columns
+        d = isqrt(dim ÷ 2)
+        n_complex = d * d
+        function interleaved_constraint(x)
+            result = Vector{eltype(x)}(undef, n_complex)
+            idx = 1
+            for col in 0:(d-1)
+                offset = col * 2d
+                for row in 1:d
+                    re = x[offset+row]
+                    im = x[offset+d+row]
+                    result[idx] = re^2 + im^2 - 1.0
+                    idx += 1
+                end
+            end
+            return result
+        end
+        return NonlinearKnotPointConstraint(
+            interleaved_constraint,
+            name,
+            traj;
+            equality = false,
+            times = times,
+        )
+    else
+        throw(
+            ArgumentError(
+                "Unknown iso_layout :$iso_layout. Expected :block or :interleaved_columns.",
+            ),
+        )
+    end
 end
 
 # ---------------------------------------------------------

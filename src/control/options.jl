@@ -71,7 +71,13 @@ Options for the Piccolo quantum optimal control library.
 - `zero_initial_and_final_derivative::Bool=false`: Zero the initial and final control pulse derivatives.
 - `complex_control_norm_constraint_name::Union{Nothing, Symbol} = nothing`: Name of the complex control norm constraint.
 - `complex_control_norm_constraint_radius::Float64 = 1.0`: Radius of the complex control norm constraint.
-- `bound_state::Bool = false`: Bound the state variables <= 1.0.
+- `bound_state::Bool = false`: Add box constraints bounding each component of the
+  isomorphism state vector to [-1, 1] at every knot point. Acts as a cheap numerical
+  guard rail; useful for problems with large Hilbert spaces or difficult convergence.
+- `bound_state_l2::Bool = false`: Add nonlinear constraints bounding each complex
+  component's magnitude (Re² + Im²) ≤ 1 at every knot point. Tighter than `bound_state`
+  but adds NLP complexity (Jacobian/Hessian entries). Not yet supported for
+  DensityTrajectory.
 - `leakage_constraint::Bool = false`: Suppress leakage with constraint and cost.
 - `leakage_constraint_value::Float64 = 1e-2`: Value for the leakage constraint.
 - `leakage_cost::Float64 = 1e-2`: Leakage suppression parameter.
@@ -85,6 +91,7 @@ mutable struct PiccoloOptions
     complex_control_norm_constraint_name::Union{Nothing,Symbol}
     complex_control_norm_constraint_radius::Float64
     bound_state::Bool
+    bound_state_l2::Bool
     leakage_constraint::Bool
     leakage_constraint_value::Float64
     leakage_cost::Float64
@@ -100,6 +107,7 @@ function PiccoloOptions(;
     complex_control_norm_constraint_name::Union{Nothing,Symbol} = nothing,
     complex_control_norm_constraint_radius::Float64 = 1.0,
     bound_state::Bool = false,
+    bound_state_l2::Bool = false,
     leakage_constraint::Bool = false,
     leakage_constraint_value::Float64 = 1e-2,
     leakage_cost::Float64 = 1e-2,
@@ -130,6 +138,7 @@ function PiccoloOptions(;
         complex_control_norm_constraint_name,
         complex_control_norm_constraint_radius,
         bound_state,
+        bound_state_l2,
         leakage_constraint,
         leakage_constraint_value,
         leakage_cost,
