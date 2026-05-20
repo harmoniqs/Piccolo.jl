@@ -48,24 +48,16 @@ N = 30  # Fock space cutoff
 ψ_coherent = coherent(N, α)
 
 ## Create trajectory (single timestep for static plot)
-traj_coherent = NamedTrajectory(
-    (ψ̃ = hcat(ket_to_iso(ψ_coherent.data)), Δt = [1.0]),
-    timestep = :Δt
-)
+traj_coherent =
+    NamedTrajectory((ψ̃ = hcat(ket_to_iso(ψ_coherent.data)), Δt = [1.0]), timestep = :Δt)
 
 ## Plot Wigner function
-fig_coherent = plot_wigner(
-    traj_coherent, 
-    1; 
-    state_name = :ψ̃,
-    xvec = -4:0.1:4,
-    yvec = -4:0.1:4
-)
+fig_coherent =
+    plot_wigner(traj_coherent, 1; state_name = :ψ̃, xvec = -4:0.1:4, yvec = -4:0.1:4)
 
 ## Customize for publication quality. `plot_wigner` already drops a
 ## "Timestep N" label at row 0; we replace it with a domain-relevant title.
-fig_coherent.attributes[:label][].text[] =
-    "Coherent State |$(round(real(α), digits=1)) + $(round(imag(α), digits=1))i⟩"
+fig_coherent.attributes[:label][].text[] = "Coherent State |$(round(real(α), digits=1)) + $(round(imag(α), digits=1))i⟩"
 
 fig_coherent
 
@@ -83,19 +75,11 @@ fig_coherent
 n_photons = 3
 ψ_fock = fock(N, n_photons)
 
-traj_fock = NamedTrajectory(
-    (ψ̃ = hcat(ket_to_iso(ψ_fock.data)), Δt = [1.0]),
-    timestep = :Δt
-)
+traj_fock =
+    NamedTrajectory((ψ̃ = hcat(ket_to_iso(ψ_fock.data)), Δt = [1.0]), timestep = :Δt)
 
 ## Plot with higher resolution to capture negative regions
-fig_fock = plot_wigner(
-    traj_fock,
-    1;
-    state_name = :ψ̃,
-    xvec = -4:0.05:4,
-    yvec = -4:0.05:4
-)
+fig_fock = plot_wigner(traj_fock, 1; state_name = :ψ̃, xvec = -4:0.05:4, yvec = -4:0.05:4)
 
 fig_fock.attributes[:label][].text[] = "Fock State |$n_photons⟩ (Quantum Negativity)"
 
@@ -120,18 +104,9 @@ fig_fock
 cat_state = ψ_plus.data + ψ_minus.data
 cat_state = cat_state / norm(cat_state)  # Normalize
 
-traj_cat = NamedTrajectory(
-    (ψ̃ = hcat(ket_to_iso(cat_state)), Δt = [1.0]),
-    timestep = :Δt
-)
+traj_cat = NamedTrajectory((ψ̃ = hcat(ket_to_iso(cat_state)), Δt = [1.0]), timestep = :Δt)
 
-fig_cat = plot_wigner(
-    traj_cat,
-    1;
-    state_name = :ψ̃,
-    xvec = -4:0.08:4,
-    yvec = -4:0.08:4
-)
+fig_cat = plot_wigner(traj_cat, 1; state_name = :ψ̃, xvec = -4:0.08:4, yvec = -4:0.08:4)
 
 fig_cat.attributes[:label][].text[] = "Even Cat State (|α⟩ + |-α⟩)/√2 with α = $α_cat"
 
@@ -155,7 +130,7 @@ ax1 = Axis(
     xlabel = "Re(α)",
     ylabel = "Im(α)",
     title = "Coherent State",
-    aspect = DataAspect()
+    aspect = DataAspect(),
 )
 xvec = -4:0.1:4
 yvec = -4:0.1:4
@@ -169,7 +144,7 @@ ax2 = Axis(
     xlabel = "Re(α)",
     ylabel = "Im(α)",
     title = "Fock State |3⟩",
-    aspect = DataAspect()
+    aspect = DataAspect(),
 )
 W_fock = transpose(wigner(ψ_fock, xvec, yvec))
 heatmap!(ax2, xvec, yvec, W_fock, colormap = :RdBu)
@@ -181,7 +156,7 @@ ax3 = Axis(
     xlabel = "Re(α)",
     ylabel = "Im(α)",
     title = "Even Cat State",
-    aspect = DataAspect()
+    aspect = DataAspect(),
 )
 ψ_cat_qobj = QuantumObject(cat_state)
 W_cat = transpose(wigner(ψ_cat_qobj, xvec, yvec))
@@ -193,7 +168,7 @@ Label(
     fig_comparison[0, :],
     "Wigner Functions of Bosonic Quantum States",
     fontsize = 22,
-    font = :bold
+    font = :bold,
 )
 
 fig_comparison
@@ -218,7 +193,7 @@ ax_3d = Axis3(
     zlabel = "W(α)",
     title = "Cat State Wigner Function (3D)",
     titlesize = 20,
-    aspect = (1, 1, 0.5)
+    aspect = (1, 1, 0.5),
 )
 
 surface!(ax_3d, xvec_3d, yvec_3d, W_cat_3d, colormap = :RdBu, shading = true)
@@ -254,7 +229,7 @@ end
 
 traj_rotating = NamedTrajectory(
     (ψ̃ = hcat(ket_to_iso.(kets_rotating)...), Δt = fill(times[2] - times[1], T)),
-    timestep = :Δt
+    timestep = :Δt,
 )
 
 ## Animate (uncomment to run - requires GLMakie and interactive display)
@@ -305,18 +280,11 @@ cat_sys = (ψ_plus_sys + ψ_minus_sys) / norm(ψ_plus_sys + ψ_minus_sys)
 ## Project to cat subspace
 cat_subspace = cat_sys[1:cat_levels]  # First cat_levels dimensions
 
-traj_cat_sys = NamedTrajectory(
-    (ψ̃ = hcat(ket_to_iso(cat_subspace)), Δt = [1.0]),
-    timestep = :Δt
-)
+traj_cat_sys =
+    NamedTrajectory((ψ̃ = hcat(ket_to_iso(cat_subspace)), Δt = [1.0]), timestep = :Δt)
 
-fig_cat_sys = plot_wigner(
-    traj_cat_sys,
-    1;
-    state_name = :ψ̃,
-    xvec = -4:0.1:4,
-    yvec = -4:0.1:4
-)
+fig_cat_sys =
+    plot_wigner(traj_cat_sys, 1; state_name = :ψ̃, xvec = -4:0.1:4, yvec = -4:0.1:4)
 
 fig_cat_sys.attributes[:label][].text[] = "Cat State from CatSystem Template"
 
