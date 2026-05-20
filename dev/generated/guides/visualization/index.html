@@ -83,7 +83,7 @@ This program contains Ipopt, a library for large-scale nonlinear optimization.
         applying constraint: initial time t₁ = 0
     linear constraints added: 11 (0.293s)
     optimizer initialization complete (total: 1.154s)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from visualization_unitary_f5c089b.jld2</code></pre><p>Inspect the resulting fidelity:</p><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999965881970787</code></pre><h2 id="Pulse-Plotting"><a class="docs-heading-anchor" href="#Pulse-Plotting">Pulse Plotting</a><a id="Pulse-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Plotting" title="Permalink"></a></h2><p><code>plot_pulse</code> renders any <code>AbstractPulse</code> with type-appropriate visuals (step functions for <code>ZeroOrderPulse</code>, line segments for <code>LinearSplinePulse</code>, smooth curves with knots for <code>CubicSplinePulse</code>, dense samples for analytic / <code>FunctionPulse</code> types). For per-pulse-type construction and rendering examples — including hardware bounds, tangent whiskers, theming, and the <code>:stacked</code> vs <code>:overlay</code> layouts — see the <a href="../../concepts/pulses/#pulses-concept">Pulses concept page</a>. This guide focuses on plotting <em>workflow</em> pieces specific to optimization output.</p><h3 id="Plot-directly-from-a-QuantumControlProblem"><a class="docs-heading-anchor" href="#Plot-directly-from-a-QuantumControlProblem">Plot directly from a <code>QuantumControlProblem</code></a><a id="Plot-directly-from-a-QuantumControlProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-directly-from-a-QuantumControlProblem" title="Permalink"></a></h3><p>After solving, <code>plot_pulse(qcp)</code> extracts the optimized pulse and renders it in one call. Per-drive labels default to <code>&quot;&lt;drive_name&gt;_&lt;i&gt;&quot;</code>. Pass <code>bounds=true</code> to shade hardware bounds derived from the system, and <code>components=[:du, :ddu]</code> to stack the derivative trajectories beneath the pulse with their own bounded panels (set <code>component_bounds=true</code> to read bounds from the <code>NamedTrajectory</code>).</p><pre><code class="language-julia hljs">fig = plot_pulse(qcp; title = &quot;Optimized Pulse&quot;)</code></pre><img src="1b934960.png" alt="Example block output"/><p>Add hardware bounds and the smoothness derivatives:</p><pre><code class="language-julia hljs">fig = plot_pulse(
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from visualization_unitary_f5c089b.jld2</code></pre><p>Inspect the resulting fidelity:</p><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999965881970798</code></pre><h2 id="Pulse-Plotting"><a class="docs-heading-anchor" href="#Pulse-Plotting">Pulse Plotting</a><a id="Pulse-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Plotting" title="Permalink"></a></h2><p><code>plot_pulse</code> renders any <code>AbstractPulse</code> with type-appropriate visuals (step functions for <code>ZeroOrderPulse</code>, line segments for <code>LinearSplinePulse</code>, smooth curves with knots for <code>CubicSplinePulse</code>, dense samples for analytic / <code>FunctionPulse</code> types). For per-pulse-type construction and rendering examples — including hardware bounds, tangent whiskers, theming, and the <code>:stacked</code> vs <code>:overlay</code> layouts — see the <a href="../../concepts/pulses/#pulses-concept">Pulses concept page</a>. This guide focuses on plotting <em>workflow</em> pieces specific to optimization output.</p><h3 id="Plot-directly-from-a-QuantumControlProblem"><a class="docs-heading-anchor" href="#Plot-directly-from-a-QuantumControlProblem">Plot directly from a <code>QuantumControlProblem</code></a><a id="Plot-directly-from-a-QuantumControlProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-directly-from-a-QuantumControlProblem" title="Permalink"></a></h3><p>After solving, <code>plot_pulse(qcp)</code> extracts the optimized pulse and renders it in one call. Per-drive labels default to <code>&quot;&lt;drive_name&gt;_&lt;i&gt;&quot;</code>. Pass <code>bounds=true</code> to shade hardware bounds derived from the system, and <code>components=[:du, :ddu]</code> to stack the derivative trajectories beneath the pulse with their own bounded panels (set <code>component_bounds=true</code> to read bounds from the <code>NamedTrajectory</code>).</p><pre><code class="language-julia hljs">fig = plot_pulse(qcp; title = &quot;Optimized Pulse&quot;)</code></pre><img src="1b934960.png" alt="Example block output"/><p>Add hardware bounds and the smoothness derivatives:</p><pre><code class="language-julia hljs">fig = plot_pulse(
     qcp;
     title = &quot;Optimized Pulse + Smoothness&quot;,
     bounds = true,
@@ -91,17 +91,95 @@ This program contains Ipopt, a library for large-scale nonlinear optimization.
     component_bounds = true,
 )</code></pre><img src="0c55ab69.png" alt="Example block output"/><h3 id="Manual-extract-plot"><a class="docs-heading-anchor" href="#Manual-extract-plot">Manual extract + plot</a><a id="Manual-extract-plot-1"></a><a class="docs-heading-anchor-permalink" href="#Manual-extract-plot" title="Permalink"></a></h3><p>If you need to manipulate the pulse before plotting (e.g. resample, convert to a different pulse type), reconstruct it explicitly. The higher-level <code>plot_pulse(qcp; ...)</code> calls do this internally.</p><pre><code class="language-julia hljs">optimized_traj = get_trajectory(qcp)
 optimized_pulse = ZeroOrderPulse(optimized_traj)
-fig = plot_pulse(optimized_pulse; title = &quot;Optimized Pulse&quot;)</code></pre><img src="1b934960-001.png" alt="Example block output"/><h2 id="Basic-Trajectory-Plotting"><a class="docs-heading-anchor" href="#Basic-Trajectory-Plotting">Basic Trajectory Plotting</a><a id="Basic-Trajectory-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Trajectory-Plotting" title="Permalink"></a></h2><p>The <code>plot</code> function from NamedTrajectories.jl plots trajectory components.</p><h3 id="Plot-Controls"><a class="docs-heading-anchor" href="#Plot-Controls">Plot Controls</a><a id="Plot-Controls-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls" title="Permalink"></a></h3><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
-fig = plot(traj, [:u])</code></pre><img src="1d3947ac.png" alt="Example block output"/><h3 id="Plot-Controls-and-Derivatives"><a class="docs-heading-anchor" href="#Plot-Controls-and-Derivatives">Plot Controls and Derivatives</a><a id="Plot-Controls-and-Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls-and-Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = plot(traj, [:u, :du, :ddu])</code></pre><img src="978a0622.png" alt="Example block output"/><h2 id="Quantum-Specific-Plots"><a class="docs-heading-anchor" href="#Quantum-Specific-Plots">Quantum-Specific Plots</a><a id="Quantum-Specific-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Specific-Plots" title="Permalink"></a></h2><h3 id="Unitary-Populations"><a class="docs-heading-anchor" href="#Unitary-Populations">Unitary Populations</a><a id="Unitary-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Unitary-Populations" title="Permalink"></a></h3><p>For <code>UnitaryTrajectory</code>, visualize how state populations evolve during the gate:</p><pre><code class="language-julia hljs">fig = plot_unitary_populations(traj)</code></pre><img src="b8619714.png" alt="Example block output"/><h3 id="Ket-State-Populations"><a class="docs-heading-anchor" href="#Ket-State-Populations">Ket State Populations</a><a id="Ket-State-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Ket-State-Populations" title="Permalink"></a></h3><p>For <code>KetTrajectory</code>, use <code>plot_state_populations</code>:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]
+fig = plot_pulse(optimized_pulse; title = &quot;Optimized Pulse&quot;)</code></pre><img src="1b934960-001.png" alt="Example block output"/><h2 id="Basic-Trajectory-Plotting"><a class="docs-heading-anchor" href="#Basic-Trajectory-Plotting">Basic Trajectory Plotting</a><a id="Basic-Trajectory-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Trajectory-Plotting" title="Permalink"></a></h2><p>The <code>plot</code> function from NamedTrajectories.jl plots trajectory components directly. This is useful for inspecting the raw optimization state, but it is <strong>not</strong> a faithful picture of the pulse you&#39;ll actually play on hardware.</p><h3 id="Plot-Controls"><a class="docs-heading-anchor" href="#Plot-Controls">Plot Controls</a><a id="Plot-Controls-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls" title="Permalink"></a></h3><div class="admonition is-warning" id="Controls-are-optimization-variables,-not-the-pulse-12b6c2cdf64a9866"><header class="admonition-header">Controls are optimization variables, not the pulse<a class="admonition-anchor" href="#Controls-are-optimization-variables,-not-the-pulse-12b6c2cdf64a9866" title="Permalink"></a></header><div class="admonition-body"><p><code>plot(traj, [:u])</code> draws the <em>optimization variable</em> <code>:u</code> as a line plot between knot points. The pulse that physics actually sees is determined by the pulse type you chose (e.g. zero-order hold, linear spline, cubic spline) — <code>plot(traj, [:u])</code> doesn&#39;t know about that and won&#39;t reflect the inter-knot shape. For <code>ZeroOrderPulse</code> the difference is a stair vs. a line; for spline pulses it&#39;s the difference between control samples and the smooth waveform between them.</p><p>Unless you are specifically debugging the optimizer state, prefer <a href="../../concepts/pulses/#pulses-concept"><code>plot_pulse</code></a> — it reconstructs the pulse from the trajectory using the correct pulse type and renders the actual waveform.</p></div></div><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+fig = plot(traj, [:u])</code></pre><img src="1d3947ac.png" alt="Example block output"/><h3 id="Plot-Controls-and-Derivatives"><a class="docs-heading-anchor" href="#Plot-Controls-and-Derivatives">Plot Controls and Derivatives</a><a id="Plot-Controls-and-Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls-and-Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = plot(traj, [:u, :du, :ddu])</code></pre><img src="978a0622.png" alt="Example block output"/><h2 id="Quantum-Specific-Plots"><a class="docs-heading-anchor" href="#Quantum-Specific-Plots">Quantum-Specific Plots</a><a id="Quantum-Specific-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Specific-Plots" title="Permalink"></a></h2><h3 id="Unitary-Populations"><a class="docs-heading-anchor" href="#Unitary-Populations">Unitary Populations</a><a id="Unitary-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Unitary-Populations" title="Permalink"></a></h3><p>For <code>UnitaryTrajectory</code>, visualize how state populations evolve during the gate:</p><pre><code class="language-julia hljs">fig = plot_unitary_populations(traj)</code></pre><img src="b8619714.png" alt="Example block output"/><h3 id="Ket-State-Populations"><a class="docs-heading-anchor" href="#Ket-State-Populations">Ket State Populations</a><a id="Ket-State-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Ket-State-Populations" title="Permalink"></a></h3><p>For <code>KetTrajectory</code>, use <code>plot_state_populations</code>. Set up and solve a <code>|0⟩ → |1⟩</code> transfer on the same <code>sys</code>. As in the unitary example above, pin the time grid with <code>timesteps_all_equal = true</code> so the population plot has a uniform time axis:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]
 ψ_goal = ComplexF64[0.0, 1.0]
 
 pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
-qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp_ket; max_iter = 50, verbose = false, print_level = 1)
+qcp_ket = SmoothPulseProblem(
+    qtraj_ket,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true, verbose = false),
+)
+solve!(qcp_ket; max_iter = 50, print_level = 1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/2ZMae/src/problems.jl:66</span>
 
-traj_ket = get_trajectory(qcp_ket)
-fig = plot_state_populations(traj_ket)</code></pre><img src="c7854357.png" alt="Example block output"/><h3 id="IQ-pairs-(plot_pulse_IQ)"><a class="docs-heading-anchor" href="#IQ-pairs-(plot_pulse_IQ)">IQ pairs (<code>plot_pulse_IQ</code>)</a><a id="IQ-pairs-(plot_pulse_IQ)-1"></a><a class="docs-heading-anchor-permalink" href="#IQ-pairs-(plot_pulse_IQ)" title="Permalink"></a></h3><p>For 4-drive pulses interpreted as two IQ pairs — drive (Ω<em>I, Ω</em>Q) and displacement (α<em>I, α</em>Q) — <code>plot_pulse_IQ</code> renders each pair on its own row along with the magnitude envelope. Typical view for cat-qubit / oscillator control where both the drive and displacement are complex-valued.</p><pre><code class="language-julia hljs">T_iq = 50.0
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+    initializing optimizer...
+      building evaluator: 3 integrators, 0 nonlinear constraints
+      dynamics constraints: 392, nonlinear constraints: 0
+        integrator 1 jacobian structure: 0.132s
+        integrator 2 jacobian structure: 0.011s
+        integrator 3 jacobian structure: 0.0s
+      jacobian structure: 9408 nonzeros (0.16s)
+        integrator 1 hessian structure: 0.013s
+        integrator 2 hessian structure: 0.013s
+        integrator 3 hessian structure: 0.575s
+        computing objective hessian structure (CompositeObjective)...
+          sub-objective 1 (KnotPointObjective): 0.2s
+          sub-objective 2 (QuadraticRegularizer): 0.179s
+          sub-objective 3 (QuadraticRegularizer): 0.0s
+          sub-objective 4 (QuadraticRegularizer): 0.0s
+          sub-objective 5 (NullObjective): 0.004s
+        objective hessian structure: 0.416s
+      hessian structure: 10956 nonzeros (1.017s)
+      linear index maps built (0.004s)
+      evaluator ready (total: 1.266s)
+    evaluator created (1.518s)
+    NL constraint bounds extracted (0.015s)
+    NLP block data built (0.0s)
+    Ipopt optimizer configured (0.005s)
+    variables set (0.072s)
+        applying constraint: timesteps all equal constraint
+        applying constraint: initial value of ψ̃
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on ψ̃
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+    linear constraints added: 11 (0.304s)
+    optimizer initialization complete (total: 1.914s)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from visualization_ket_46df54b.jld2</code></pre><p>Plot the populations:</p><pre><code class="language-julia hljs">traj_ket = get_trajectory(qcp_ket)
+fig = plot_state_populations(traj_ket)</code></pre><img src="6c29f0d6.png" alt="Example block output"/><h3 id="Bloch-Sphere-Visualization"><a class="docs-heading-anchor" href="#Bloch-Sphere-Visualization">Bloch Sphere Visualization</a><a id="Bloch-Sphere-Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Bloch-Sphere-Visualization" title="Permalink"></a></h3><p>When <code>QuantumToolbox.jl</code> is loaded, <code>plot_bloch</code> renders a two-level state trajectory on the Bloch sphere. The path connects the Bloch vector at every timestep; pass <code>index=k</code> to also drop a vector arrow at frame <code>k</code>.</p><pre><code class="language-julia hljs">using QuantumToolbox
+fig = plot_bloch(traj_ket)</code></pre><img src="58080f8d.png" alt="Example block output"/><p>Show a vector arrow at a specific timestep:</p><pre><code class="language-julia hljs">fig = plot_bloch(traj_ket; index = N)</code></pre><img src="27379833.png" alt="Example block output"/><p>For multi-level systems, restrict to the qubit subspace via <code>subspace=1:2</code>. For density-matrix trajectories, pass <code>state_name=:ρ̃⃗, state_type=:density</code>.</p><h3 id="Wigner-Function-Visualization"><a class="docs-heading-anchor" href="#Wigner-Function-Visualization">Wigner Function Visualization</a><a id="Wigner-Function-Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Wigner-Function-Visualization" title="Permalink"></a></h3><p>For bosonic / oscillator systems, <code>plot_wigner(traj, idx)</code> renders the Wigner quasi-probability distribution at a chosen timestep. To keep this guide fast we build a small synthetic trajectory of coherent states rotating in phase space — no solver involved — to illustrate the call:</p><pre><code class="language-julia hljs">dim_cavity = 20
+N_cav = 30
+ω_cav = 2π
+times_cav = range(0, 2π / ω_cav, length = N_cav)
+cavity_kets = [coherent(dim_cavity, 1.5 * exp(im * ω_cav * t)).data for t in times_cav]
+traj_cavity = NamedTrajectory((
+    ψ̃ = hcat(ket_to_iso.(cavity_kets)...),
+    Δt = fill(step(times_cav), N_cav),
+),)
+
+fig = plot_wigner(traj_cavity, 1; xvec = -3:0.1:3, yvec = -3:0.1:3)</code></pre><img src="8c707661.png" alt="Example block output"/><p>A single static frame can&#39;t show the orbital motion (the coherent state at <code>t = 0</code> and <code>t = 2π/ω_cav</code> sits at the same phase-space point). Use <code>animate_wigner</code> with <code>mode = :record</code> to write a <code>.gif</code> next to the generated page and embed it. Interactive <code>:inline</code> playback requires <code>GLMakie</code>, which the docs build doesn&#39;t load.</p><pre><code class="language-julia hljs">animate_wigner(
+    traj_cavity;
+    mode = :record,
+    filename = &quot;wigner_cavity.gif&quot;,
+    fps = 12,
+    xvec = -3:0.1:3,
+    yvec = -3:0.1:3,
+)</code></pre><p><img src="../wigner_cavity.gif" alt="Wigner function of a rotating coherent state"/></p><p>Bloch evolution can be animated the same way with <code>animate_bloch(traj_ket; mode = :record, filename = &quot;bloch.gif&quot;)</code>.</p><h3 id="IQ-pairs-(plot_pulse_IQ)"><a class="docs-heading-anchor" href="#IQ-pairs-(plot_pulse_IQ)">IQ pairs (<code>plot_pulse_IQ</code>)</a><a id="IQ-pairs-(plot_pulse_IQ)-1"></a><a class="docs-heading-anchor-permalink" href="#IQ-pairs-(plot_pulse_IQ)" title="Permalink"></a></h3><p>For 4-drive pulses interpreted as two IQ pairs — drive (Ω<em>I, Ω</em>Q) and displacement (α<em>I, α</em>Q) — <code>plot_pulse_IQ</code> renders each pair on its own row along with the magnitude envelope. Typical view for cat-qubit / oscillator control where both the drive and displacement are complex-valued.</p><pre><code class="language-julia hljs">T_iq = 50.0
 Ω_max = 0.5
 α_max = 0.3
 σ = T_iq / 6
@@ -232,7 +310,7 @@ band!(
 )
 lines!(ax, plot_times, traj[:u][1, :], label = &quot;u_x&quot;, linewidth = 2)
 axislegend(ax, position = :rt)
-fig</code></pre><img src="28c128c9.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../../lib/#lib-visualizations">Visualizations API</a> - Complete API reference</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Generating solutions to plot</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> - Understanding trajectory structure</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../global_variables/">« Global Variables</a><a class="docs-footer-nextpage" href="../custom_objectives/">Custom Objectives »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 20 May 2026 07:35">Wednesday 20 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+fig</code></pre><img src="28c128c9.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../../lib/#lib-visualizations">Visualizations API</a> - Complete API reference</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Generating solutions to plot</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> - Understanding trajectory structure</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../global_variables/">« Global Variables</a><a class="docs-footer-nextpage" href="../custom_objectives/">Custom Objectives »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 20 May 2026 07:54">Wednesday 20 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./visualization.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/guides/visualization.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
@@ -326,9 +404,25 @@ fig = plot_pulse(optimized_pulse; title = "Optimized Pulse")
 
 # ## Basic Trajectory Plotting
 #
-# The `plot` function from NamedTrajectories.jl plots trajectory components.
+# The `plot` function from NamedTrajectories.jl plots trajectory components
+# directly. This is useful for inspecting the raw optimization state, but it
+# is **not** a faithful picture of the pulse you'll actually play on hardware.
 
 # ### Plot Controls
+#
+# !!! warning "Controls are optimization variables, not the pulse"
+#     `plot(traj, [:u])` draws the *optimization variable* `:u` as a line plot
+#     between knot points. The pulse that physics actually sees is determined
+#     by the pulse type you chose (e.g. zero-order hold, linear spline, cubic
+#     spline) — `plot(traj, [:u])` doesn't know about that and won't reflect
+#     the inter-knot shape. For `ZeroOrderPulse` the difference is a stair
+#     vs. a line; for spline pulses it's the difference between control
+#     samples and the smooth waveform between them.
+#
+#     Unless you are specifically debugging the optimizer state, prefer
+#     [`plot_pulse`](@ref pulses-concept) — it reconstructs the pulse from
+#     the trajectory using the correct pulse type and renders the actual
+#     waveform.
 
 traj = get_trajectory(qcp)
 fig = plot(traj, [:u])
@@ -347,18 +441,86 @@ fig = plot_unitary_populations(traj)
 
 # ### Ket State Populations
 #
-# For `KetTrajectory`, use `plot_state_populations`:
+# For `KetTrajectory`, use `plot_state_populations`. Set up and solve a
+# `|0⟩ → |1⟩` transfer on the same `sys`. As in the unitary example above,
+# pin the time grid with `timesteps_all_equal = true` so the population
+# plot has a uniform time axis:
 
 ψ_init = ComplexF64[1.0, 0.0]
 ψ_goal = ComplexF64[0.0, 1.0]
 
 pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
-qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-solve!(qcp_ket; max_iter = 50, verbose = false, print_level = 1)
+qcp_ket = SmoothPulseProblem(
+    qtraj_ket,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true, verbose = false),
+)
+solve!(qcp_ket; max_iter = 50, print_level = 1)
+
+# Plot the populations:
 
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)
+
+# ### Bloch Sphere Visualization
+#
+# When `QuantumToolbox.jl` is loaded, `plot_bloch` renders a two-level state
+# trajectory on the Bloch sphere. The path connects the Bloch vector at every
+# timestep; pass `index=k` to also drop a vector arrow at frame `k`.
+
+using QuantumToolbox
+fig = plot_bloch(traj_ket)
+
+# Show a vector arrow at a specific timestep:
+
+fig = plot_bloch(traj_ket; index = N)
+
+# For multi-level systems, restrict to the qubit subspace via `subspace=1:2`. For
+# density-matrix trajectories, pass `state_name=:ρ̃⃗, state_type=:density`.
+
+# ### Wigner Function Visualization
+#
+# For bosonic / oscillator systems, `plot_wigner(traj, idx)` renders the Wigner
+# quasi-probability distribution at a chosen timestep. To keep this guide fast
+# we build a small synthetic trajectory of coherent states rotating in phase
+# space — no solver involved — to illustrate the call:
+
+dim_cavity = 20
+N_cav = 30
+ω_cav = 2π
+times_cav = range(0, 2π / ω_cav, length = N_cav)
+cavity_kets = [coherent(dim_cavity, 1.5 * exp(im * ω_cav * t)).data for t in times_cav]
+traj_cavity = NamedTrajectory((
+    ψ̃ = hcat(ket_to_iso.(cavity_kets)...),
+    Δt = fill(step(times_cav), N_cav),
+),)
+
+fig = plot_wigner(traj_cavity, 1; xvec = -3:0.1:3, yvec = -3:0.1:3)
+
+# A single static frame can't show the orbital motion (the coherent state at
+# `t = 0` and `t = 2π/ω_cav` sits at the same phase-space point). Use
+# `animate_wigner` with `mode = :record` to write a `.gif` next to the
+# generated page and embed it. Interactive `:inline` playback requires
+# `GLMakie`, which the docs build doesn't load.
+
+animate_wigner(
+    traj_cavity;
+    mode = :record,
+    filename = "wigner_cavity.gif",
+    fps = 12,
+    xvec = -3:0.1:3,
+    yvec = -3:0.1:3,
+)
+nothing # hide
+
+# ![Wigner function of a rotating coherent state](wigner_cavity.gif)
+#
+# Bloch evolution can be animated the same way with
+# `animate_bloch(traj_ket; mode = :record, filename = "bloch.gif")`.
 
 # ### IQ pairs (`plot_pulse_IQ`)
 #
