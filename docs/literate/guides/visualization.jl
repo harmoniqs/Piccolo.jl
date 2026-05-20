@@ -89,9 +89,25 @@ fig = plot_pulse(optimized_pulse; title = "Optimized Pulse")
 
 # ## Basic Trajectory Plotting
 #
-# The `plot` function from NamedTrajectories.jl plots trajectory components.
+# The `plot` function from NamedTrajectories.jl plots trajectory components
+# directly. This is useful for inspecting the raw optimization state, but it
+# is **not** a faithful picture of the pulse you'll actually play on hardware.
 
 # ### Plot Controls
+#
+# !!! warning "Controls are optimization variables, not the pulse"
+#     `plot(traj, [:u])` draws the *optimization variable* `:u` as a line plot
+#     between knot points. The pulse that physics actually sees is determined
+#     by the pulse type you chose (e.g. zero-order hold, linear spline, cubic
+#     spline) — `plot(traj, [:u])` doesn't know about that and won't reflect
+#     the inter-knot shape. For `ZeroOrderPulse` the difference is a stair
+#     vs. a line; for spline pulses it's the difference between control
+#     samples and the smooth waveform between them.
+#
+#     Unless you are specifically debugging the optimizer state, prefer
+#     [`plot_pulse`](@ref pulses-concept) — it reconstructs the pulse from
+#     the trajectory using the correct pulse type and renders the actual
+#     waveform.
 
 traj = get_trajectory(qcp)
 fig = plot(traj, [:u])
@@ -110,15 +126,27 @@ fig = plot_unitary_populations(traj)
 
 # ### Ket State Populations
 #
-# For `KetTrajectory`, use `plot_state_populations`:
+# For `KetTrajectory`, use `plot_state_populations`. Set up and solve a
+# `|0⟩ → |1⟩` transfer on the same `sys`. As in the unitary example above,
+# pin the time grid with `timesteps_all_equal = true` so the population
+# plot has a uniform time axis:
 
 ψ_init = ComplexF64[1.0, 0.0]
 ψ_goal = ComplexF64[0.0, 1.0]
 
 pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_ket = KetTrajectory(sys, pulse_ket, ψ_init, ψ_goal)
-qcp_ket = SmoothPulseProblem(qtraj_ket, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
-cached_solve!(qcp_ket, "visualization_ket"; max_iter = 50, verbose = false, print_level = 1)
+qcp_ket = SmoothPulseProblem(
+    qtraj_ket,
+    N;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true, verbose = false),
+)
+cached_solve!(qcp_ket, "visualization_ket"; max_iter = 50, print_level = 1)
+
+# Plot the populations:
 
 traj_ket = get_trajectory(qcp_ket)
 fig = plot_state_populations(traj_ket)
@@ -158,13 +186,26 @@ traj_cavity = NamedTrajectory((
 
 fig = plot_wigner(traj_cavity, 1; xvec = -3:0.1:3, yvec = -3:0.1:3)
 
-# Plot at a later timestep:
+# A single static frame can't show the orbital motion (the coherent state at
+# `t = 0` and `t = 2π/ω_cav` sits at the same phase-space point). Use
+# `animate_wigner` with `mode = :record` to write a `.gif` next to the
+# generated page and embed it. Interactive `:inline` playback requires
+# `GLMakie`, which the docs build doesn't load.
 
-fig = plot_wigner(traj_cavity, N_cav; xvec = -3:0.1:3, yvec = -3:0.1:3)
+animate_wigner(
+    traj_cavity;
+    mode = :record,
+    filename = "wigner_cavity.gif",
+    fps = 12,
+    xvec = -3:0.1:3,
+    yvec = -3:0.1:3,
+)
+nothing # hide
 
-# To animate Wigner or Bloch evolution, use `animate_wigner` / `animate_bloch`
-# with `mode = :record` to save to an `.mp4` or `.gif`. Interactive `:inline`
-# playback requires `GLMakie`, which is not available in the docs build.
+# ![Wigner function of a rotating coherent state](wigner_cavity.gif)
+#
+# Bloch evolution can be animated the same way with
+# `animate_bloch(traj_ket; mode = :record, filename = "bloch.gif")`.
 
 # ### IQ pairs (`plot_pulse_IQ`)
 #
