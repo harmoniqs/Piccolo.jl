@@ -676,7 +676,7 @@ end
 function _fidelity_at(qtraj::UnitaryTrajectory, traj, θ)
     goal = qtraj.goal
     goal isa EmbeddedOperator || return nothing
-    Ũ⃗ = traj[state_name(qtraj)][:, end]
+    Ũ⃗ = traj[isomorphism_state_name(qtraj)][:, end]
     # `unitary_fidelity_loss` is named misleadingly: it returns F, not 1-F.
     return Float64(QuantumObjectives.unitary_fidelity_loss(Ũ⃗, _phased_goal(goal, θ)))
 end
@@ -687,7 +687,7 @@ function _fidelity_at(qtraj::KetTrajectory, traj, θ)
     sys = QuantumControlProblems.get_system(qtraj)
     levels = hasproperty(sys, :levels) ? sys.levels : nothing
     levels === nothing && return nothing
-    ψ̃ = traj[state_name(qtraj)][:, end]
+    ψ̃ = traj[isomorphism_state_name(qtraj)][:, end]
     ψ_goal_phased = _phased_ket_goal(qtraj.goal, θ, levels)
     return Float64(QuantumObjectives.ket_fidelity_loss(ψ̃, ψ_goal_phased))
 end

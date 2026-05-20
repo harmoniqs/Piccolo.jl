@@ -112,7 +112,6 @@ function SplinePulseProblem(
         pulse_type = _typename(qtraj.pulse)
         traj_type = _typename(qtraj)
         println("constructing SplinePulseProblem [$traj_type / $pulse_type]")
-
     end
 
     # Build global_data from system's global_params if present
@@ -353,7 +352,6 @@ function SplinePulseProblem(
         pulse_type = _typename(qtraj.pulse)
         println("constructing SplinePulseProblem [MultiKetTrajectory / $pulse_type]")
         println("    state transfers: $(length(qtraj.initials))")
-
     end
 
     # Build global_data explicitly from system global_params

@@ -243,7 +243,7 @@ function _final_fidelity_constraint(
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
     constraints = [
-        _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj) for name in state_names(qtraj)
+        _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj) for name in isomorphism_state_names(qtraj)
     ]
     return constraints
 end

@@ -75,7 +75,6 @@ function BangBangPulseProblem(
 )
     if _show_header(piccolo_options)
         println("constructing BangBangPulseProblem [$(_typename(qtraj))]")
-
     end
 
     # Extract info from quantum trajectory

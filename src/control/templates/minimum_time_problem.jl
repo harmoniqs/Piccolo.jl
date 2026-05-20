@@ -95,7 +95,6 @@ function MinimumTimeProblem(
         println("constructing MinimumTimeProblem [from $(_typename(QT))]")
         println("    final fidelity ≥ $(final_fidelity)")
         println("    min-time weight D = $(D)")
-
     end
 
     # Copy trajectory and constraints from original problem

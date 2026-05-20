@@ -144,7 +144,6 @@ function SmoothPulseProblem(
 )
     if _show_header(piccolo_options)
         println("constructing SmoothPulseProblem [$(_typename(qtraj))]")
-
     end
 
     # Extract info from quantum trajectory

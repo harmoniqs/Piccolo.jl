@@ -175,8 +175,10 @@ AbstractQuantumTrajectory{P<:AbstractPulse}
 | `get_initial(qtraj)` | `Matrix`/`Vector` | Initial state |
 | `get_goal(qtraj)` | `Matrix`/`Vector` | Target state |
 | `get_solution(qtraj)` | `ODESolution` | Pre-computed ODE solution |
-| `state_name(qtraj)` | `Symbol` | State component name |
-| `state_names(qtraj)` | `Vector{Symbol}` | All state names (ensemble) |
+| `state_name(qtraj)` | `Symbol` | User-facing state symbol (`:U`, `:ψ`, `:ρ`) |
+| `state_names(qtraj)` | `Vector{Symbol}` | Per-component user-facing names (ensemble/sampling) |
+| `isomorphism_state_name(qtraj)` | `Symbol` | Internal iso-form symbol used by NamedTrajectory (`:Ũ⃗`, `:ψ̃`, `:ρ⃗̃`) |
+| `isomorphism_state_names(qtraj)` | `Vector{Symbol}` | Per-component iso-form names |
 | `drive_name(qtraj)` | `Symbol` | Control component name |
 | `duration(qtraj)` | `Float64` | Total duration |
 | `fidelity(qtraj)` | `Float64` | Fidelity to goal (O(1) - uses stored solution) |
@@ -201,13 +203,19 @@ Map between complex quantum objects and real vectors for optimization.
 
 ### State Naming
 
-| Trajectory Type | state_name | state_names |
-|-----------------|------------|-------------|
-| `UnitaryTrajectory` | `:Ũ⃗` | N/A |
-| `KetTrajectory` | `:ψ̃` | N/A |
-| `MultiKetTrajectory` | `:ψ̃` (prefix) | `[:ψ̃1, :ψ̃2, ...]` |
-| `DensityTrajectory` | `:ρ⃗̃` | N/A |
-| `SamplingTrajectory` | from base | indexed versions |
+Two parallel accessors: `state_name` returns the user-facing native-form
+symbol used by lifted accessors (`qtraj[state_name(qtraj)] === qtraj.solution.u`),
+and `isomorphism_state_name` returns the iso-form symbol that the underlying
+`NamedTrajectory` is keyed on during optimization.
+
+| Trajectory Type | `state_name` | `state_names` | `isomorphism_state_name` | `isomorphism_state_names` |
+|-----------------|--------------|---------------|--------------------------|---------------------------|
+| `UnitaryTrajectory` | `:U` | N/A | `:Ũ⃗` | N/A |
+| `KetTrajectory` | `:ψ` | N/A | `:ψ̃` | N/A |
+| `MultiKetTrajectory` | `:ψ` (prefix) | `[:ψ1, :ψ2, ...]` | `:ψ̃` (prefix) | `[:ψ̃1, :ψ̃2, ...]` |
+| `DensityTrajectory` | `:ρ` | N/A | `:ρ⃗̃` | N/A |
+| `MultiDensityTrajectory` | `:ρ` (prefix) | `[:ρ1, :ρ2, ...]` | `:ρ⃗̃` (prefix) | `[:ρ⃗̃1, :ρ⃗̃2, ...]` |
+| `SamplingTrajectory` | from base | indexed (`[:U1, :U2, ...]`) | from base | indexed (`[:Ũ⃗1, :Ũ⃗2, ...]`) |
 
 ## Quantum System Templates
 
