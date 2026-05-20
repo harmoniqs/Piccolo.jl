@@ -151,9 +151,10 @@ N_cav = 30
 ω_cav = 2π
 times_cav = range(0, 2π / ω_cav, length = N_cav)
 cavity_kets = [coherent(dim_cavity, 1.5 * exp(im * ω_cav * t)).data for t in times_cav]
-traj_cavity = NamedTrajectory(
-    (ψ̃ = hcat(ket_to_iso.(cavity_kets)...), Δt = fill(step(times_cav), N_cav)),
-)
+traj_cavity = NamedTrajectory((
+    ψ̃ = hcat(ket_to_iso.(cavity_kets)...),
+    Δt = fill(step(times_cav), N_cav),
+),)
 
 fig = plot_wigner(traj_cavity, 1; xvec = -3:0.1:3, yvec = -3:0.1:3)
 
