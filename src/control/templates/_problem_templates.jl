@@ -525,9 +525,7 @@ end
     piccolo_opts = PiccoloOptions(bound_state = true)
     constraints = AbstractConstraint[]
 
-    apply_piccolo_options!(
-        piccolo_opts, constraints, traj; state_names = :ψ̃,
-    )
+    apply_piccolo_options!(piccolo_opts, constraints, traj; state_names = :ψ̃)
 
     # Should have exactly one BoundsConstraint on :ψ̃
     bc = filter(c -> c isa BoundsConstraint, constraints)
@@ -553,9 +551,7 @@ end
     piccolo_opts = PiccoloOptions(bound_state = true)
     constraints = AbstractConstraint[]
 
-    apply_piccolo_options!(
-        piccolo_opts, constraints, traj; state_names = [:ψ̃1, :ψ̃2],
-    )
+    apply_piccolo_options!(piccolo_opts, constraints, traj; state_names = [:ψ̃1, :ψ̃2])
 
     bc = filter(c -> c isa BoundsConstraint, constraints)
     @test length(bc) == 2
@@ -578,9 +574,7 @@ end
     piccolo_opts = PiccoloOptions(bound_state = true)
     constraints = AbstractConstraint[]
 
-    @test_throws ArgumentError apply_piccolo_options!(
-        piccolo_opts, constraints, traj;
-    )
+    @test_throws ArgumentError apply_piccolo_options!(piccolo_opts, constraints, traj;)
 end
 
 @testitem "bound_state_l2 adds NonlinearKnotPointConstraint (block layout)" begin
@@ -601,8 +595,11 @@ end
     constraints = AbstractConstraint[]
 
     apply_piccolo_options!(
-        piccolo_opts, constraints, traj;
-        state_names = :ψ̃, iso_layout = :block,
+        piccolo_opts,
+        constraints,
+        traj;
+        state_names = :ψ̃,
+        iso_layout = :block,
     )
 
     nlc = filter(c -> c isa AbstractNonlinearConstraint, constraints)
@@ -628,9 +625,7 @@ end
     piccolo_opts = PiccoloOptions(bound_state_l2 = true)
     constraints = AbstractConstraint[]
 
-    @test_throws ArgumentError apply_piccolo_options!(
-        piccolo_opts, constraints, traj;
-    )
+    @test_throws ArgumentError apply_piccolo_options!(piccolo_opts, constraints, traj;)
 end
 
 end

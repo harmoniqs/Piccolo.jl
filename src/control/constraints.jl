@@ -339,7 +339,7 @@ function BoundStateL2Constraint(
         n = dim ÷ 2
         function block_constraint(x)
             re = x[1:n]
-            im = x[n+1:2n]
+            im = x[(n+1):2n]
             return re .^ 2 .+ im .^ 2 .- 1.0
         end
         return NonlinearKnotPointConstraint(
@@ -355,9 +355,9 @@ function BoundStateL2Constraint(
         function interleaved_constraint(x)
             result = Vector{eltype(x)}(undef, n_complex)
             idx = 1
-            for col in 0:(d-1)
+            for col = 0:(d-1)
                 offset = col * 2d
-                for row in 1:d
+                for row = 1:d
                     re = x[offset+row]
                     im = x[offset+d+row]
                     result[idx] = re^2 + im^2 - 1.0
