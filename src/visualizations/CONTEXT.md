@@ -27,6 +27,52 @@ using WGLMakie
 
 ## Core Visualization Functions
 
+### 0. plot_pulse / plot_pulse_IQ / plot_pulse_phases
+
+**Purpose**: Render an `AbstractPulse` or solved `QuantumControlProblem` with type-appropriate visuals — step functions for `ZeroOrderPulse`, line segments for `LinearSplinePulse`, smooth curves with knots for `CubicSplinePulse`, dense samples for analytic / `FunctionPulse` types.
+
+**Function Signatures** (high-level overloads):
+
+```julia
+plot_pulse(qcp::QuantumControlProblem; title="", bounds=false,
+           components::Vector{Symbol}=Symbol[],
+           component_bounds::Bool=false,
+           kwargs...) -> Figure
+plot_pulse(pulse::AbstractPulse; title="", kwargs...) -> Figure
+
+# For 4-drive pulses interpreted as two IQ pairs (Ω_I, Ω_Q, α_I, α_Q)
+plot_pulse_IQ(pulse_or_qcp; title="", kwargs...) -> Figure
+
+# Same 4-drive structure, polar form: magnitude + unwrapped phase
+plot_pulse_phases(pulse_or_qcp; title="",
+                  phase_threshold::Real=0.01,
+                  kwargs...) -> Figure
+```
+
+**Common Usage Patterns**:
+
+```julia
+# After solving:
+fig = plot_pulse(qcp; title="Optimized Pulse")
+
+# With hardware bounds shaded + smoothness derivatives stacked beneath
+fig = plot_pulse(qcp; bounds=true, components=[:du, :ddu], component_bounds=true)
+
+# Render a standalone pulse object (e.g. resampled, reconstructed, or analytic)
+fig = plot_pulse(my_pulse; title="My Pulse")
+
+# IQ view for 4-drive cat-qubit / oscillator problems
+fig = plot_pulse_IQ(qcp; title="IQ (Ω, α)")
+
+# Magnitude + phase polar view (phase masked where |amp| < 1% of peak)
+fig = plot_pulse_phases(qcp; title="(|·|, ∠·)")
+```
+
+**Key Points for AI Agents**:
+- This is the canonical pulse visualization — prefer over manually extracting `traj[:u]` and calling `lines!`.
+- The `qcp` overload pulls the optimized pulse out for you; the `pulse::AbstractPulse` form is for when you've reconstructed/resampled.
+- See the [Pulses concept page](@ref pulses-concept) for per-pulse-type rendering examples and the `:stacked` vs `:overlay` layouts.
+
 ### 1. plot_unitary_populations
 
 **Purpose**: Visualize how unitary operator populations evolve during gate synthesis.
@@ -298,17 +344,21 @@ using CairoMakie
 # Define system
 H_drift = 0.5 * PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
-sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+drive_bounds = [1.0, 1.0]
+sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 
 # Setup problem
 T = 10.0
 N = 100
-pulse = ZeroOrderPulse(0.1 * randn(2, N), T, N)
+times = collect(range(0.0, T, length=N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 # Solve
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
-solve!(qcp; max_iter=100)
+solve!(qcp; options=IpoptOptions(max_iter=100))
+# Inside docs/literate guides, prefer `cached_solve!(qcp, "cache_name"; max_iter=100)`
+# which transparently caches successful solves.
 
 # Visualize
 traj = get_trajectory(qcp)
@@ -321,17 +371,18 @@ save("populations.png", fig)
 ```julia
 using Piccolo
 using QuantumToolbox
-using GLMakie
+using CairoMakie  # GLMakie also works (required for :inline animation)
 
 # Define system and problem for state transfer
 ψ_init = ComplexF64[1, 0]
 ψ_goal = ComplexF64[0, 1]
 
-pulse = ZeroOrderPulse(0.1 * randn(2, N), T, N)
+times = collect(range(0.0, T, length=N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
-solve!(qcp; max_iter=100)
+solve!(qcp; options=IpoptOptions(max_iter=100))
 
 # Extract trajectory
 traj = get_trajectory(qcp)
@@ -339,32 +390,45 @@ traj = get_trajectory(qcp)
 # Plot populations
 fig1 = plot_state_populations(traj)
 
-# Animate Bloch sphere
-fig2 = animate_bloch(traj; fps=30)
+# Bloch sphere (static)
+fig2 = plot_bloch(traj)
+
+# Animate Bloch sphere — :inline needs GLMakie, :record works with CairoMakie
+fig3 = animate_bloch(traj; mode=:record, filename="bloch.mp4", fps=30)
 ```
 
 ### Example 3: Multi-Level System with Leakage Suppression
+
+For a 3-level transmon, use the `TransmonSystem` template (which constructs a properly
+sized drift Hamiltonian + drive operators) and restrict plots to the computational
+subspace via `subspace=1:2`:
 
 ```julia
 using Piccolo
 using CairoMakie
 
-# 3-level system (qutrit)
-H_drift = create(3) * destroy(3)
-H_drives = [PAULIS[:X] ⊗ I(3), PAULIS[:Y] ⊗ I(3)]
-sys = QuantumSystem(H_drift, H_drives)
+# 3-level transmon: drift = anharmonic ladder, drives = (a + a†), -i(a - a†)
+sys = TransmonSystem(ω_q=5.0, α=-0.2, n_levels=3; drive_bound=0.1)
 
-# ... setup and solve problem ...
+# Setup and solve (target = X gate embedded in the 2-level subspace)
+T = 50.0
+N = 100
+times = collect(range(0.0, T, length=N))
+pulse = ZeroOrderPulse(0.01 * randn(sys.n_drives, N), times)
+qtraj = UnitaryTrajectory(sys, pulse, EmbeddedOperator(GATES[:X], sys; subspace=1:2))
+
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2, ddu_bound=1.0)
+solve!(qcp; options=IpoptOptions(max_iter=200))
 
 traj = get_trajectory(qcp)
 
-# Plot all populations
+# Plot all 3 populations (includes leakage level)
 fig1 = plot_unitary_populations(traj; unitary_columns=[1,2,3])
 
-# Plot only computational subspace
+# Plot only the computational subspace (no leakage row)
 fig2 = plot_state_populations(traj; subspace=1:2)
 
-# Bloch sphere for qubit subspace
+# Bloch sphere — restrict to qubit subspace
 fig3 = plot_bloch(traj; subspace=1:2)
 ```
 
@@ -421,20 +485,30 @@ Key types used in visualization:
 # Import visualization backend
 using CairoMakie  # or GLMakie
 
-# Basic plots (no animation)
-plot_unitary_populations(traj)
-plot_state_populations(traj)
-plot_bloch(traj)  # requires QuantumToolbox
-plot_wigner(traj, idx)  # requires QuantumToolbox
+# Pulses (canonical)
+plot_pulse(qcp)                                    # optimized pulse straight from problem
+plot_pulse(qcp; bounds=true, components=[:du, :ddu], component_bounds=true)
+plot_pulse(my_pulse)                               # any AbstractPulse
+plot_pulse_IQ(qcp)                                 # 4-drive IQ pair view
+plot_pulse_phases(qcp)                             # 4-drive magnitude + phase view
 
-# Animations (need GLMakie for :inline)
-animate_bloch(traj)
-animate_wigner(traj)
-animate_name(traj, :u)
+# Populations
+plot_unitary_populations(traj)                     # |U_{i,j}(t)|²
+plot_state_populations(traj)                       # |ψᵢ(t)|²
+plot_state_populations(traj; subspace=1:2)         # restrict to computational subspace
 
-# Save figures
-save("output.png", fig)  # Static plot
-# Animations auto-save with mode=:record
+# QuantumToolbox plots (require `using QuantumToolbox`)
+plot_bloch(traj)                                   # qubit trajectory on Bloch sphere
+plot_bloch(traj; index=k)                          # add vector arrow at frame k
+plot_wigner(traj, idx)                             # Wigner function at timestep idx
+
+# Animations (`:inline` needs GLMakie; `:record` works with CairoMakie)
+animate_bloch(traj;   mode=:record, filename="bloch.mp4",   fps=30)
+animate_wigner(traj;  mode=:record, filename="wigner.mp4",  fps=24)
+animate_name(traj, :u; mode=:record, filename="ctrls.mp4",  fps=30)
+
+# Save static figures
+save("output.png", fig)                            # PNG / PDF / SVG by extension
 ```
 
 ## Additional Resources
