@@ -174,7 +174,9 @@ otherwise creates new dicts.
 # Keyword Arguments
 - `initial_phases::Union{Nothing,Vector{Float64}}`: Initial values for the phase variables.
   If `nothing`, all phases are initialized to 0. If provided, must have length `n_qubits`.
-- `verbose::Bool`: Print diagnostic information.
+- `verbose::Bool`: Print diagnostic information. Internal helper — template call sites
+  thread this through as `verbose = _show_details(piccolo_options)` so output respects
+  the `PiccoloOptions.display` tier.
 """
 function setup_free_phase_globals!(
     n_qubits::Int,
@@ -255,6 +257,9 @@ Converts bounds from user-friendly formats to the format expected by GlobalBound
 - `Vector` or `Tuple{Vector, Vector}`: Already in correct format (passed through)
 
 Modifies `constraints` in place.
+
+Internal helper — template call sites pass `verbose = _show_details(piccolo_options)`
+so console output respects the `PiccoloOptions.display` tier.
 """
 function add_global_bounds_constraints!(
     constraints::AbstractVector{<:AbstractConstraint},
@@ -309,6 +314,9 @@ variable. Downstream tools (e.g. QILC) selectively unpin individual targets at
 their own discretion.
 
 Modifies `constraints` in place. No-op when `calibration_targets` is empty.
+
+Internal helper — template call sites pass `verbose = _show_details(piccolo_options)`
+so console output respects the `PiccoloOptions.display` tier.
 """
 function apply_calibration_targets!(
     constraints::AbstractVector{<:AbstractConstraint},

@@ -134,11 +134,13 @@ Compact one-line summary for quantum trajectories.
 function Base.summary(io::IO, qtraj::AbstractQuantumTrajectory)
     sys = get_system(qtraj)
     pulse = get_pulse(qtraj)
+    nd = n_drives(pulse)
+    drives_word = nd == 1 ? "drive" : "drives"
     print(
         io,
         nameof(typeof(qtraj)),
         "($(sys.levels)-level $(nameof(typeof(sys))), ",
-        "$(nameof(typeof(pulse))) with $(n_drives(pulse)) drives, ",
+        "$(nameof(typeof(pulse))) with $nd $drives_word, ",
         "T = ",
         duration(qtraj),
         ")",
