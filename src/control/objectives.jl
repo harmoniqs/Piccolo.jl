@@ -274,6 +274,51 @@ function unitary_fidelity_loss(Ũ⃗::AbstractVector{<:Real}, op::EmbeddedOpera
     return 1 / (n * (n + 1)) * (abs(tr(M'M)) + abs2(tr(M)))
 end
 
+# Deterministic principal SU(n) phase: returns the unit-modulus complex number
+# c such that U / c ∈ SU(n) and arg(c) ∈ [0, 2π/n). This pins the rep against
+# the sign-of-zero ambiguity in `imag(det(U))` returned by LAPACK builds: both
+# `-1.0 + 0.0im` and `-1.0 - 0.0im` map to `c = exp(iπ/n)`.
+function _principal_sun_phase(U_goal::AbstractMatrix, n::Int)
+    d = det(U_goal)
+    θ = mod2pi(angle(d))
+    return exp(im * θ / n)
+end
+
+@doc raw"""
+    UnitaryInfidelityObjective(U_goal, Ũ⃗_name, traj; Q=100.0, phase_sensitive=false)
+
+Terminal objective for unitary infidelity against `U_goal`.
+
+# Keyword Arguments
+- `Q::Float64 = 100.0`: weight on the infidelity term.
+- `phase_sensitive::Bool = false`: when `true`, replaces the default
+  phase-blind loss `1 − |tr(U_goal' U)|² / n²` (range `[0, 1]`) with the
+  phase-resolved loss `1 − Re(tr(U_goal_sun' U)) / n` (range `[0, 2]`),
+  where `U_goal_sun = U_goal · exp(−iθ/n)` is the principal SU(n) representative
+  (`θ = mod2pi(angle(det(U_goal)))`). For `U_goal ∉ SU(n)`, the default loss is
+  invariant under the U(1) global-phase orbit of `U_goal`, so solvers can land
+  in any of the n discrete SU(n) reps within that orbit; setting
+  `phase_sensitive=true` breaks that symmetry and selects exactly one rep
+  deterministically.
+
+  Note: the loss scale changes from `[0, 1]` to `[0, 2]`, so the effective
+  weight on infidelity (relative to control regularizers) doubles for the same
+  `Q`. Reduce `Q` by ~½ to keep the regularization balance.
+
+  For `EmbeddedOperator` goals, the phase-resolved loss applies only to the
+  computational block (`M = U[subspace, subspace]`) and does *not* penalize
+  leakage by itself — pair with the `state_leakage_indices` machinery of
+  `SmoothPulseProblem` if leakage matters.
+
+# Relationship to `UnitaryFreePhaseInfidelityObjective`
+`UnitaryFreePhaseInfidelityObjective` parametrizes the global phase as a
+trajectory variable `θ` and lets the optimizer choose any rep, while keeping the
+underlying loss phase-blind. `phase_sensitive=true` is the dual approach: fix
+one rep up front, no extra variable. Use `phase_sensitive=true` when the goal
+is a specific gate and you want deterministic basin selection across solvers;
+use `UnitaryFreePhaseInfidelityObjective` when the global phase is genuinely a
+free parameter to be co-optimized.
+"""
 function UnitaryInfidelityObjective(
     U_goal::AbstractPiccoloOperator,
     Ũ⃗_name::Symbol,
@@ -281,18 +326,27 @@ function UnitaryInfidelityObjective(
     Q = 100.0,
     phase_sensitive::Bool = false,
 )
-    if phase_sensitive
-        U_goal isa AbstractMatrix || throw(
-            ArgumentError(
-                "phase_sensitive=true requires a dense matrix goal; EmbeddedOperator not supported.",
-            ),
-        )
-        n = size(U_goal, 1)
-        d = det(U_goal)
-        U_goal_sun = abs(d - 1) < 1e-10 ? U_goal : U_goal / d^(1 / n)
-        ℓ = Ũ⃗ -> 1 - real(tr(U_goal_sun' * iso_vec_to_operator(Ũ⃗))) / n
+    if !phase_sensitive
+        ℓ = Ũ⃗ -> 1 - unitary_fidelity_loss(Ũ⃗, U_goal)
+        return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
+    end
+
+    if U_goal isa EmbeddedOperator
+        U_sub_goal = unembed(U_goal)
+        subspace = U_goal.subspace
+        n = length(subspace)
+        phase = _principal_sun_phase(U_sub_goal, n)
+        U_goal_sun = U_sub_goal / phase
+        ℓ = Ũ⃗ -> begin
+            U = iso_vec_to_operator(Ũ⃗)
+            M = U[subspace, subspace]
+            return 1 - real(tr(U_goal_sun' * M)) / n
+        end
     else
-        ℓ = Ũ⃗ -> abs(1 - unitary_fidelity_loss(Ũ⃗, U_goal))
+        n = size(U_goal, 1)
+        phase = _principal_sun_phase(U_goal, n)
+        U_goal_sun = U_goal / phase
+        ℓ = Ũ⃗ -> 1 - real(tr(U_goal_sun' * iso_vec_to_operator(Ũ⃗))) / n
     end
     return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
 end
@@ -510,46 +564,124 @@ end
     using DirectTrajOpt
     using LinearAlgebra
 
-    # U(2) target with det=-1 (X gate); SU(2) reps are ±iX
-    U_target = ComplexF64[0 1; 1 0]
-    U_goal_sun = im * U_target  # chosen SU(2) rep → selected basin
+    # ---- helper: minimal trajectory holding a constant Ũ⃗ on every knot
+    function _const_traj(U::AbstractMatrix; N = 5)
+        Ũ⃗_I = operator_to_iso_vec(ComplexF64.(Matrix(I, size(U)...)))
+        Ũ⃗_U = operator_to_iso_vec(ComplexF64.(U))
+        comps = hcat(Ũ⃗_I, fill(Ũ⃗_U, 1, N - 1)...)
+        return NamedTrajectory(
+            (Ũ⃗ = comps, u = zeros(1, N), Δt = fill(0.1, N));
+            timestep = :Δt,
+            controls = :u,
+        )
+    end
 
-    # Minimal trajectory with a unitary state variable Ũ⃗
-    N = 5
-    Ũ⃗_I = operator_to_iso_vec(ComplexF64.(Matrix(I, 2, 2)))
-    Ũ⃗_plus = operator_to_iso_vec(U_goal_sun)
-    Ũ⃗_minus = operator_to_iso_vec(-U_goal_sun)
+    # ---- helper: principal SU(n) rep, matching the implementation's branch
+    _principal(U) = U / exp(im * mod2pi(angle(det(U))) / size(U, 1))
 
-    Ũ⃗_traj_plus = hcat(Ũ⃗_I, Ũ⃗_plus, Ũ⃗_plus, Ũ⃗_plus, Ũ⃗_plus)
-    Ũ⃗_traj_minus = hcat(Ũ⃗_I, Ũ⃗_minus, Ũ⃗_minus, Ũ⃗_minus, Ũ⃗_minus)
-    u = zeros(1, N)
-    Δt = fill(0.1, N)
+    # ===== Deterministic principal-phase is independent of sign(imag(det)) =====
+    # mod2pi(angle(·)) pins both -1.0+0.0im and -1.0-0.0im to arg = π
+    @test mod2pi(angle(complex(-1.0, +0.0))) ≈ mod2pi(angle(complex(-1.0, -0.0)))
 
-    traj_plus =
-        NamedTrajectory((Ũ⃗ = Ũ⃗_traj_plus, u = u, Δt = Δt); timestep = :Δt, controls = :u)
-    traj_minus =
-        NamedTrajectory((Ũ⃗ = Ũ⃗_traj_minus, u = u, Δt = Δt); timestep = :Δt, controls = :u)
+    # ===== n = 2, X gate (det = -1) =====
+    U_X = ComplexF64[0 1; 1 0]
+    @test abs(det(U_X) - (-1)) < 1e-12
+    U_X_sun = _principal(U_X)
+    @test abs(det(U_X_sun) - 1) < 1e-10
+    iX = im * U_X
+    traj_principal = _const_traj(U_X_sun)
+    traj_other = _const_traj(-U_X_sun)
 
-    # phase_sensitive=false (default): both ±iU minimize |tr|²/n²
-    obj_blind = UnitaryInfidelityObjective(U_target, :Ũ⃗, traj_plus; Q = 1.0)
-    @test objective_value(obj_blind, traj_plus) < 1e-10
-    @test objective_value(obj_blind, traj_minus) < 1e-10
+    # Phase-blind: both ±U_X_sun saturate the loss
+    obj_blind = UnitaryInfidelityObjective(U_X, :Ũ⃗, traj_principal; Q = 1.0)
+    @test objective_value(obj_blind, traj_principal) < 1e-10
+    @test objective_value(obj_blind, traj_other) < 1e-10
+    @test objective_value(obj_blind, _const_traj(iX)) < 1e-10
 
-    # phase_sensitive=true: +iU is 0, −iU is ≈ 2 (worst case for 1 − Re(tr)/n)
+    # Phase-sensitive: principal rep ≈ 0, antipodal rep ≈ 2
     obj_sens = UnitaryInfidelityObjective(
-        U_target,
+        U_X,
         :Ũ⃗,
-        traj_plus;
+        traj_principal;
         Q = 1.0,
         phase_sensitive = true,
     )
-    @test objective_value(obj_sens, traj_plus) < 1e-10
-    @test objective_value(obj_sens, traj_minus) ≈ 2.0 atol = 1e-8
+    @test objective_value(obj_sens, traj_principal) < 1e-10
+    @test objective_value(obj_sens, traj_other) ≈ 2.0 atol = 1e-8
 
-    # Non-matrix goal should error under phase_sensitive
-    if @isdefined EmbeddedOperator
-        # smoke; actual EmbeddedOperator construction not available here
+    # ===== n = 2, sqrtX (det = i, non-real) =====
+    U_sqrtX = ComplexF64[(1+im)/2 (1-im)/2; (1-im)/2 (1+im)/2]
+    @test abs(det(U_sqrtX) - im) < 1e-12
+    U_sqrtX_sun = _principal(U_sqrtX)
+    @test abs(det(U_sqrtX_sun) - 1) < 1e-10
+    traj_sx_p = _const_traj(U_sqrtX_sun)
+    traj_sx_o = _const_traj(-U_sqrtX_sun)
+
+    obj_sx_blind = UnitaryInfidelityObjective(U_sqrtX, :Ũ⃗, traj_sx_p; Q = 1.0)
+    @test objective_value(obj_sx_blind, traj_sx_p) < 1e-8
+    @test objective_value(obj_sx_blind, traj_sx_o) < 1e-8
+
+    obj_sx_sens =
+        UnitaryInfidelityObjective(U_sqrtX, :Ũ⃗, traj_sx_p; Q = 1.0, phase_sensitive = true)
+    @test objective_value(obj_sx_sens, traj_sx_p) < 1e-8
+    @test objective_value(obj_sx_sens, traj_sx_o) ≈ 2.0 atol = 1e-8
+
+    # ===== n = 4, CNOT (det = -1) =====
+    CNOT = ComplexF64[1 0 0 0; 0 1 0 0; 0 0 0 1; 0 0 1 0]
+    @test abs(det(CNOT) - (-1)) < 1e-12
+    CNOT_sun = _principal(CNOT)
+    @test abs(det(CNOT_sun) - 1) < 1e-10
+    # Other 3 SU(4) reps: multiply by 4th roots of unity ζ ∈ {i, -1, -i}.
+    ζ_i = exp(im * π / 2)   # = i;  Re(i·n)/n = 0  → loss = 1
+    ζ_m1 = exp(im * π)       # = -1; Re(-1·n)/n = -1 → loss = 2
+    ζ_ni = exp(im * 3π / 2)  # = -i; Re(-i·n)/n = 0  → loss = 1
+    traj_cn_p = _const_traj(CNOT_sun)
+    traj_cn_i = _const_traj(ζ_i * CNOT_sun)
+    traj_cn_m1 = _const_traj(ζ_m1 * CNOT_sun)
+    traj_cn_ni = _const_traj(ζ_ni * CNOT_sun)
+
+    obj_cn_blind = UnitaryInfidelityObjective(CNOT, :Ũ⃗, traj_cn_p; Q = 1.0)
+    @test objective_value(obj_cn_blind, traj_cn_p) < 1e-8
+    @test objective_value(obj_cn_blind, traj_cn_i) < 1e-8  # phase-blind
+    @test objective_value(obj_cn_blind, traj_cn_m1) < 1e-8
+    @test objective_value(obj_cn_blind, traj_cn_ni) < 1e-8
+
+    obj_cn_sens =
+        UnitaryInfidelityObjective(CNOT, :Ũ⃗, traj_cn_p; Q = 1.0, phase_sensitive = true)
+    @test objective_value(obj_cn_sens, traj_cn_p) < 1e-8
+    @test objective_value(obj_cn_sens, traj_cn_i) ≈ 1.0 atol = 1e-8
+    @test objective_value(obj_cn_sens, traj_cn_m1) ≈ 2.0 atol = 1e-8
+    @test objective_value(obj_cn_sens, traj_cn_ni) ≈ 1.0 atol = 1e-8
+
+    # ===== EmbeddedOperator support (X embedded in a 3-level system) =====
+    X_emb = EmbeddedOperator(U_X, [1, 2], [3])
+
+    function _const_traj_3(M_full; N = 5)
+        Ũ⃗_I = operator_to_iso_vec(ComplexF64.(Matrix(I, 3, 3)))
+        Ũ⃗_M = operator_to_iso_vec(ComplexF64.(M_full))
+        comps = hcat(Ũ⃗_I, fill(Ũ⃗_M, 1, N - 1)...)
+        return NamedTrajectory(
+            (Ũ⃗ = comps, u = zeros(1, N), Δt = fill(0.1, N));
+            timestep = :Δt,
+            controls = :u,
+        )
     end
+
+    M_principal = Matrix{ComplexF64}(I, 3, 3)
+    M_principal[1:2, 1:2] = U_X_sun
+    M_other = Matrix{ComplexF64}(I, 3, 3)
+    M_other[1:2, 1:2] = -U_X_sun
+    M_leak = zeros(ComplexF64, 3, 3)
+    traj_emb_p = _const_traj_3(M_principal)
+    traj_emb_o = _const_traj_3(M_other)
+    traj_emb_leak = _const_traj_3(M_leak)
+
+    obj_emb_sens =
+        UnitaryInfidelityObjective(X_emb, :Ũ⃗, traj_emb_p; Q = 1.0, phase_sensitive = true)
+    @test objective_value(obj_emb_sens, traj_emb_p) < 1e-8
+    @test objective_value(obj_emb_sens, traj_emb_o) ≈ 2.0 atol = 1e-8
+    # Full leakage: 1 − Re(tr(0))/2 = 1 (the new loss does not penalize leakage further)
+    @test objective_value(obj_emb_sens, traj_emb_leak) ≈ 1.0 atol = 1e-8
 end
 
 @testitem "coherent_ket_fidelity accepts generic Complex types" begin

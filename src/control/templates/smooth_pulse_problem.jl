@@ -239,12 +239,17 @@ function SmoothPulseProblem(
         [name for name ∈ traj_smooth.names if endswith(string(name), string(control_sym))]
 
     # Build objective: type-specific infidelity + regularization
+    if phase_sensitive && !(qtraj isa UnitaryTrajectory)
+        @warn "phase_sensitive=true has no effect for $(nameof(typeof(qtraj))); only UnitaryTrajectory supports it. Ignoring."
+    end
     J = if free_phase && !isnothing(U_goal_fn)
         UnitaryFreePhaseInfidelityObjective(U_goal_fn, state_sym, θ_names, traj_smooth; Q = Q)
     elseif free_phase && !isnothing(ket_goal_fn)
         KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj_smooth; Q = Q)
-    else
+    elseif qtraj isa UnitaryTrajectory
         _state_objective(qtraj, traj_smooth, state_sym, Q; phase_sensitive = phase_sensitive)
+    else
+        _state_objective(qtraj, traj_smooth, state_sym, Q)
     end
 
     # Add regularization for control and derivatives
@@ -548,8 +553,7 @@ function _state_objective(
     qtraj::KetTrajectory,
     traj::NamedTrajectory,
     state_sym::Symbol,
-    Q::Float64;
-    phase_sensitive::Bool = false,
+    Q::Float64,
 )
     return KetInfidelityObjective(state_sym, traj; Q = Q)
 end
@@ -559,8 +563,7 @@ function _state_objective(
     qtraj::DensityTrajectory,
     traj::NamedTrajectory,
     state_sym::Symbol,
-    Q::Float64;
-    phase_sensitive::Bool = false,
+    Q::Float64,
 )
     ρ_goal = Matrix{ComplexF64}(qtraj.goal)
     return DensityMatrixInfidelityObjective(state_sym, ρ_goal, traj; Q = Q)
