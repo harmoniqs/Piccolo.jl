@@ -5,11 +5,18 @@ using NamedTrajectories
 using ...Quantum
 using TestItems
 
-import ...Quantum: get_system, get_goal, state_name, drive_name, extract_pulse, fidelity
+import ...Quantum:
+    get_system,
+    get_goal,
+    state_name,
+    isomorphism_state_name,
+    drive_name,
+    extract_pulse,
+    fidelity
 import DirectTrajOpt.Solvers: solve!
 
 export QuantumControlProblem
-export get_trajectory, get_system, get_goal, state_name, drive_name
+export get_trajectory, get_system, get_goal, state_name, isomorphism_state_name, drive_name
 export solve!, sync_trajectory!, fidelity
 # Note: solve! is NOT exported to avoid ambiguity with SciMLBase.solve!
 # Users should use: using DirectTrajOpt (to get solve!)
@@ -80,9 +87,18 @@ get_goal(qcp::QuantumControlProblem) = get_goal(qcp.qtraj)
 """
     state_name(qcp::QuantumControlProblem)
 
-Get the state variable name from the quantum trajectory.
+User-facing state variable name (e.g. `:U`, `:ψ`, `:ρ`). Delegates to the
+quantum trajectory.
 """
 state_name(qcp::QuantumControlProblem) = state_name(qcp.qtraj)
+
+"""
+    isomorphism_state_name(qcp::QuantumControlProblem)
+
+Internal isomorphism state variable name used by `NamedTrajectory`
+(e.g. `:Ũ⃗`, `:ψ̃`, `:ρ⃗̃`). Delegates to the quantum trajectory.
+"""
+isomorphism_state_name(qcp::QuantumControlProblem) = isomorphism_state_name(qcp.qtraj)
 
 """
     drive_name(qcp::QuantumControlProblem)

@@ -20,6 +20,8 @@ using ...Quantum:
     SamplingTrajectory,
     state_name,
     state_names,
+    isomorphism_state_name,
+    isomorphism_state_names,
     drive_name,
     get_goal,
     fidelity,

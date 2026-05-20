@@ -241,8 +241,10 @@ end
 
     qtraj = MultiKetTrajectory(system, initials, goals, 1.0)
 
-    @test state_name(qtraj) == :ψ̃
-    @test state_names(qtraj) == [:ψ̃1, :ψ̃2, :ψ̃3]
+    @test state_name(qtraj) == :ψ
+    @test isomorphism_state_name(qtraj) == :ψ̃
+    @test state_names(qtraj) == [:ψ1, :ψ2, :ψ3]
+    @test isomorphism_state_names(qtraj) == [:ψ̃1, :ψ̃2, :ψ̃3]
 end
 
 @testitem "EnsembleSolution .u access returns ODESolution not scalar" begin

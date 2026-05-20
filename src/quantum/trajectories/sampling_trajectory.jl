@@ -74,6 +74,8 @@ duration(qtraj::SamplingTrajectory) = duration(qtraj.base_trajectory)
 
 # Name accessors
 state_name(qtraj::SamplingTrajectory) = state_name(qtraj.base_trajectory)
+isomorphism_state_name(qtraj::SamplingTrajectory) =
+    isomorphism_state_name(qtraj.base_trajectory)
 drive_name(qtraj::SamplingTrajectory) = drive_name(qtraj.base_trajectory)
 time_name(qtraj::SamplingTrajectory) = time_name(qtraj.base_trajectory)
 timestep_name(qtraj::SamplingTrajectory) = timestep_name(qtraj.base_trajectory)
@@ -81,11 +83,23 @@ timestep_name(qtraj::SamplingTrajectory) = timestep_name(qtraj.base_trajectory)
 """
     state_names(qtraj::SamplingTrajectory)
 
-Get the state variable names for all systems (e.g., [:Ũ⃗1, :Ũ⃗2, :Ũ⃗3]).
+Per-system user-facing state names (e.g. `[:U1, :U2, :U3]` for a sampling
+trajectory with three unitary systems).
 """
 function state_names(qtraj::SamplingTrajectory)
-    base = state_name(qtraj)
-    return [Symbol(base, i) for i = 1:length(qtraj.systems)]
+    prefix = state_name(qtraj)
+    return [Symbol(prefix, i) for i = 1:length(qtraj.systems)]
+end
+
+"""
+    isomorphism_state_names(qtraj::SamplingTrajectory)
+
+Per-system isomorphism names (e.g. `[:Ũ⃗1, :Ũ⃗2, :Ũ⃗3]`) — use these to index
+a `NamedTrajectory` that was built from a sampling trajectory.
+"""
+function isomorphism_state_names(qtraj::SamplingTrajectory)
+    prefix = isomorphism_state_name(qtraj)
+    return [Symbol(prefix, i) for i = 1:length(qtraj.systems)]
 end
 
 """
@@ -149,7 +163,7 @@ function NamedTrajectory(
     times = _sample_times(base, N_or_times)
     T = length(times)
     n_systems = length(sampling.systems)
-    snames = state_names(sampling)
+    snames = isomorphism_state_names(sampling)
 
     # Sample base trajectory for initial state data
     base_states = [base(t) for t in times]
@@ -208,7 +222,7 @@ function NamedTrajectory(
     times = _sample_times(base, N_or_times)
     T = length(times)
     n_systems = length(sampling.systems)
-    snames = state_names(sampling)
+    snames = isomorphism_state_names(sampling)
 
     # Sample base trajectory for initial state data
     base_states = [base(t) for t in times]
@@ -294,8 +308,10 @@ end
     @test length(sampling) == 3
     @test get_systems(sampling) === systems
     @test get_weights(sampling) == weights
-    @test state_names(sampling) == [:Ũ⃗1, :Ũ⃗2, :Ũ⃗3]
-    @test state_name(sampling) == :Ũ⃗
+    @test state_names(sampling) == [:U1, :U2, :U3]
+    @test isomorphism_state_names(sampling) == [:Ũ⃗1, :Ũ⃗2, :Ũ⃗3]
+    @test state_name(sampling) == :U
+    @test isomorphism_state_name(sampling) == :Ũ⃗
     @test drive_name(sampling) == :u
 
     # Test NamedTrajectory conversion
@@ -308,7 +324,7 @@ end
     @test :t ∈ traj.names
 
     # Check initial/goal propagated for each state
-    for sn in state_names(sampling)
+    for sn in isomorphism_state_names(sampling)
         @test haskey(traj.initial, sn)
         @test haskey(traj.goal, sn)
         @test haskey(traj.bounds, sn)
@@ -343,8 +359,10 @@ end
     @test sampling isa SamplingTrajectory{<:AbstractPulse,<:KetTrajectory}
     @test length(sampling) == 3
     @test get_weights(sampling) ≈ [1 / 3, 1 / 3, 1 / 3]  # Default equal weights
-    @test state_names(sampling) == [:ψ̃1, :ψ̃2, :ψ̃3]
-    @test state_name(sampling) == :ψ̃
+    @test state_names(sampling) == [:ψ1, :ψ2, :ψ3]
+    @test isomorphism_state_names(sampling) == [:ψ̃1, :ψ̃2, :ψ̃3]
+    @test state_name(sampling) == :ψ
+    @test isomorphism_state_name(sampling) == :ψ̃
 
     # Test NamedTrajectory conversion
     traj = NamedTrajectory(sampling, 11)
