@@ -455,4 +455,76 @@ end
     @test constraint.g_dim == 1
 end
 
+@testitem "BoundStateL2Constraint block layout" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    N = 5
+    # 4-dim iso-vec = 2 complex components (block layout: [Re; Im])
+    traj = NamedTrajectory(
+        (ψ̃ = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    con = BoundStateL2Constraint(:ψ̃, traj, :block)
+    @test con isa DirectTrajOpt.AbstractNonlinearConstraint
+    @test con.equality == false
+    # 2 complex components → 2 inequality constraints
+    @test con.g_dim == 2
+
+    # Evaluate constraint at a known point: ψ̃ = [0.6, 0.8, 0.0, 0.0]
+    # Complex components: z₁ = 0.6+0i, z₂ = 0.8+0i
+    # |z₁|² - 1 = -0.64, |z₂|² - 1 = -0.36 (both satisfied)
+    x = [0.6, 0.8, 0.0, 0.0]
+    g = con.g(x, nothing)
+    @test g ≈ [0.36 - 1.0, 0.64 - 1.0]
+
+    # Point violating constraint: ψ̃ = [0.8, 0.0, 0.8, 0.0]
+    # z₁ = 0.8+0.8i → |z₁|² = 1.28 > 1
+    x2 = [0.8, 0.0, 0.8, 0.0]
+    g2 = con.g(x2, nothing)
+    @test g2[1] > 0  # violated
+end
+
+@testitem "BoundStateL2Constraint interleaved_columns layout" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    N = 5
+    # 2×2 unitary → 8-dim iso-vec (interleaved columns: [Re(col₁); Im(col₁); Re(col₂); Im(col₂)])
+    traj = NamedTrajectory(
+        (Ũ⃗ = rand(8, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    con = BoundStateL2Constraint(:Ũ⃗, traj, :interleaved_columns)
+    @test con isa DirectTrajOpt.AbstractNonlinearConstraint
+    @test con.equality == false
+    # 2×2 = 4 complex entries → 4 inequality constraints
+    @test con.g_dim == 4
+
+    # Identity matrix I₂: iso_vec = [1, 0, 0, 0, 0, 1, 0, 0]
+    # col₀: Re=[1,0], Im=[0,0] → z₁=1+0i, z₂=0+0i → |z|²-1 = [0, -1]
+    # col₁: Re=[0,1], Im=[0,0] → z₃=0+0i, z₄=1+0i → |z|²-1 = [-1, 0]
+    x = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    g = con.g(x, nothing)
+    @test g ≈ [0.0, -1.0, -1.0, 0.0]
+end
+
+@testitem "BoundStateL2Constraint invalid layout" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    N = 5
+    traj = NamedTrajectory(
+        (x = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    @test_throws ArgumentError BoundStateL2Constraint(:x, traj, :invalid)
+end
+
 end

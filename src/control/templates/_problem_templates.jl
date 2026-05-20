@@ -509,4 +509,128 @@ end
     )
 end
 
+@testitem "bound_state adds BoundsConstraint on state variables" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    apply_piccolo_options! = Piccolo.Control.ProblemTemplates.apply_piccolo_options!
+
+    N = 5
+    traj = NamedTrajectory(
+        (ψ̃ = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    piccolo_opts = PiccoloOptions(bound_state = true)
+    constraints = AbstractConstraint[]
+
+    apply_piccolo_options!(
+        piccolo_opts, constraints, traj; state_names = :ψ̃,
+    )
+
+    # Should have exactly one BoundsConstraint on :ψ̃
+    bc = filter(c -> c isa BoundsConstraint, constraints)
+    @test length(bc) == 1
+    @test bc[1].var_names == :ψ̃
+    @test bc[1].times == collect(1:N)
+    @test bc[1].bounds_values == 1.0
+end
+
+@testitem "bound_state with multiple state names" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    apply_piccolo_options! = Piccolo.Control.ProblemTemplates.apply_piccolo_options!
+
+    N = 5
+    traj = NamedTrajectory(
+        (ψ̃1 = rand(4, N), ψ̃2 = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    piccolo_opts = PiccoloOptions(bound_state = true)
+    constraints = AbstractConstraint[]
+
+    apply_piccolo_options!(
+        piccolo_opts, constraints, traj; state_names = [:ψ̃1, :ψ̃2],
+    )
+
+    bc = filter(c -> c isa BoundsConstraint, constraints)
+    @test length(bc) == 2
+    @test Set([c.var_names for c in bc]) == Set([:ψ̃1, :ψ̃2])
+end
+
+@testitem "bound_state throws when state_names is nothing" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    apply_piccolo_options! = Piccolo.Control.ProblemTemplates.apply_piccolo_options!
+
+    N = 5
+    traj = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    piccolo_opts = PiccoloOptions(bound_state = true)
+    constraints = AbstractConstraint[]
+
+    @test_throws ArgumentError apply_piccolo_options!(
+        piccolo_opts, constraints, traj;
+    )
+end
+
+@testitem "bound_state_l2 adds NonlinearKnotPointConstraint (block layout)" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    apply_piccolo_options! = Piccolo.Control.ProblemTemplates.apply_piccolo_options!
+
+    N = 5
+    # 4-dim iso-vec = 2 complex components
+    traj = NamedTrajectory(
+        (ψ̃ = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    piccolo_opts = PiccoloOptions(bound_state_l2 = true)
+    constraints = AbstractConstraint[]
+
+    apply_piccolo_options!(
+        piccolo_opts, constraints, traj;
+        state_names = :ψ̃, iso_layout = :block,
+    )
+
+    nlc = filter(c -> c isa AbstractNonlinearConstraint, constraints)
+    @test length(nlc) == 1
+    @test nlc[1].equality == false
+    # 2 complex components → g_dim = 2 per knot point
+    @test nlc[1].g_dim == 2
+end
+
+@testitem "bound_state_l2 throws when state_names is nothing" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    apply_piccolo_options! = Piccolo.Control.ProblemTemplates.apply_piccolo_options!
+
+    N = 5
+    traj = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    piccolo_opts = PiccoloOptions(bound_state_l2 = true)
+    constraints = AbstractConstraint[]
+
+    @test_throws ArgumentError apply_piccolo_options!(
+        piccolo_opts, constraints, traj;
+    )
+end
+
 end
