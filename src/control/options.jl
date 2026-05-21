@@ -1,7 +1,7 @@
 module Options
 
 export PiccoloOptions
-export DisplayLevel, display_level
+export display_level
 export DISPLAY_SILENT, DISPLAY_COMPACT, DISPLAY_STANDARD, DISPLAY_DETAILED
 
 using ExponentialAction
@@ -13,20 +13,6 @@ using ExponentialAction
 # Display levels
 # ============================================================================ #
 
-"""
-    DisplayLevel
-
-Ordering enum for verbose-output verbosity:
-
-| Level         | What you see                                                          |
-|---------------|-----------------------------------------------------------------------|
-| `:silent`     | Nothing during construction                                           |
-| `:compact`    | One-line "constructing X" header per outer template call              |
-| `:standard`   | Header + rich problem inspection (tree view, no plot) auto-printed    |
-| `:detailed`   | Header + full inspection (tree view + sparsity + terminal pulse plot) |
-
-The default for `PiccoloOptions` is `:standard`.
-"""
 const DISPLAY_SILENT = 0
 const DISPLAY_COMPACT = 1
 const DISPLAY_STANDARD = 2
@@ -42,8 +28,17 @@ const _DISPLAY_LEVELS = (
 """
     display_level(s::Symbol) -> Int
 
-Map a display-level symbol to its ordering integer.  Comparison-friendly:
+Map a display-level symbol to its ordering integer. Comparison-friendly:
 `display_level(opts.display) >= DISPLAY_STANDARD`.
+
+| Level         | What you see                                                          |
+|---------------|-----------------------------------------------------------------------|
+| `:silent`     | Nothing during construction                                           |
+| `:compact`    | One-line "constructing X" header per outer template call              |
+| `:standard`   | Header + rich problem inspection (tree view, no plot) auto-printed    |
+| `:detailed`   | Header + full inspection (tree view + sparsity + terminal pulse plot) |
+
+The default for `PiccoloOptions` is `:standard`.
 """
 function display_level(s::Symbol)
     haskey(_DISPLAY_LEVELS, s) || throw(
@@ -65,7 +60,7 @@ Options for the Piccolo quantum optimal control library.
 
 # Fields
 - `display::Symbol = :standard`: Verbosity for construction-time output. One of
-  `:silent`, `:compact`, `:standard`, `:detailed`. See [`DisplayLevel`](@ref).
+  `:silent`, `:compact`, `:standard`, `:detailed`. See [`display_level`](@ref).
 - `timesteps_all_equal::Bool = false`: Constrain all timesteps to be equal. When
   `false` (default), each knot-point Δt_k is an independent variable bounded by
   `Δt_bounds`, letting the optimizer choose a non-uniform grid (concentrating
@@ -96,7 +91,7 @@ mutable struct PiccoloOptions
 end
 
 function PiccoloOptions(;
-    display::Symbol = :standard,
+    display::Union{Symbol,Nothing} = nothing,
     verbose = nothing,
     timesteps_all_equal::Bool = false,
     rollout_integrator::Function = expv,
@@ -110,14 +105,21 @@ function PiccoloOptions(;
     leakage_cost::Float64 = 1e-2,
 )
     if verbose !== nothing
-        throw(
+        display === nothing || throw(
             ArgumentError(
-                "PiccoloOptions(verbose=$verbose) is no longer supported. " *
-                "Use `display=:silent | :compact | :standard | :detailed` instead. " *
-                "Equivalents: verbose=false → display=:silent, verbose=true → display=:standard.",
+                "PiccoloOptions: pass either `verbose` or `display`, not both " *
+                "(got verbose=$verbose, display=:$display).",
             ),
         )
+        Base.depwarn(
+            "`PiccoloOptions(verbose=$verbose)` is deprecated; use " *
+            "`display=:$(verbose ? :standard : :silent)` instead. " *
+            "Equivalents: verbose=false → display=:silent, verbose=true → display=:standard.",
+            :PiccoloOptions,
+        )
+        display = verbose ? :standard : :silent
     end
+    display === nothing && (display = :standard)
     display_level(display)  # validate
     return PiccoloOptions(
         display,

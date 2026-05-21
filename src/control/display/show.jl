@@ -11,9 +11,9 @@
 # ---------------------------------------------------------------------------- #
 
 const _TREE_BRANCH = "├─ "
-const _TREE_LAST   = "└─ "
-const _TREE_PIPE   = "│  "
-const _TREE_BLANK  = "   "
+const _TREE_LAST = "└─ "
+const _TREE_PIPE = "│  "
+const _TREE_BLANK = "   "
 
 # ---------------------------------------------------------------------------- #
 # One-line compact display (Base.show with no MIME)
@@ -22,10 +22,7 @@ const _TREE_BLANK  = "   "
 function Base.show(io::IO, qcp::QuantumControlProblem)
     ins = inspect(qcp)
     # QuantumControlProblem · KetTrajectory · CubicSplinePulse · 1793 vars · 1519 eq · F₀=0.378
-    parts = String[
-        "QuantumControlProblem",
-        ins.traj_typename,
-    ]
+    parts = String["QuantumControlProblem", ins.traj_typename]
     ins.pulse_typename == "—" || push!(parts, ins.pulse_typename)
     push!(parts, "$(ins.n_vars) vars")
     ins.n_eq > 0 && push!(parts, "$(ins.n_eq) eq")
@@ -79,7 +76,8 @@ function _print_tree(io::IO, ins::ProblemInspection, qcp, detail::Symbol)
 
     # Top stem
     pulse_part = ins.pulse_typename == "—" ? "" : "  ·  $(ins.pulse_typename)"
-    integ_part = isempty(ins.integrator_summary) ? "" : "  ·  " * join(ins.integrator_summary, ", ")
+    integ_part =
+        isempty(ins.integrator_summary) ? "" : "  ·  " * join(ins.integrator_summary, ", ")
     print(io, _TREE_BRANCH, ins.traj_typename, pulse_part, integ_part, "\n")
     print(io, _TREE_PIPE, "\n")
 
@@ -96,7 +94,12 @@ function _print_tree(io::IO, ins::ProblemInspection, qcp, detail::Symbol)
         # Hint about how to drill down
         print(io, "\n")
         printstyled(io, "Hint: ", color = :light_black)
-        printstyled(io, "show_problem(qcp; detail=:full) ", color = :light_black, bold = true)
+        printstyled(
+            io,
+            "show_problem(qcp; detail=:full) ",
+            color = :light_black,
+            bold = true,
+        )
         printstyled(io, "for pulse plot + sparsity\n", color = :light_black)
     end
 end
@@ -116,7 +119,10 @@ function _print_system(io::IO, ins::ProblemInspection)
     end
     push!(sub_lines, join(parts, "   "))
     if !isempty(ins.sys_globals)
-        gs = join(("$name=$(round(val; sigdigits=4))" for (name, val) in ins.sys_globals), "   ")
+        gs = join(
+            ("$name=$(round(val; sigdigits=4))" for (name, val) in ins.sys_globals),
+            "   ",
+        )
         push!(sub_lines, "globals: $gs")
     end
     for line in sub_lines
@@ -145,9 +151,9 @@ function _print_trajectory(io::IO, ins::ProblemInspection)
         for c in ins.components
             namepad = rpad(string(c.name), max_name)
             dimpad = lpad(string(c.dim), max_dim)
-            role_str = c.role === :state ? "state" :
-                       c.role === :control ? "control" :
-                       c.role === :timestep ? "timestep" : ""
+            role_str =
+                c.role === :state ? "state" :
+                c.role === :control ? "control" : c.role === :timestep ? "timestep" : ""
             bound_text = c.bound_repr == "—" ? "" : c.bound_repr
             bound_part = rpad(bound_text, bound_w)
             tick = c.bounded ? "✓" : "·"
@@ -165,8 +171,17 @@ function _print_trajectory(io::IO, ins::ProblemInspection)
         for g in ins.globals
             namepad = rpad(string(g.name), max_name)
             status_str = string(g.status)
-            print(io, _TREE_PIPE, "    ", namepad, "  ",
-                rpad(g.bound_repr, 12), " ", status_str, "\n")
+            print(
+                io,
+                _TREE_PIPE,
+                "    ",
+                namepad,
+                "  ",
+                rpad(g.bound_repr, 12),
+                " ",
+                status_str,
+                "\n",
+            )
         end
     end
     print(io, _TREE_PIPE, "\n")
@@ -184,7 +199,11 @@ function _print_objective(io::IO, ins::ProblemInspection)
     print(io, _TREE_BRANCH)
     printstyled(io, "Objective"; bold = true)
     print(io, "   ")
-    printstyled(io, "total = $(_fmt_val(ins.objective_total))  @ current x"; color = :light_black)
+    printstyled(
+        io,
+        "total = $(_fmt_val(ins.objective_total))  @ current x";
+        color = :light_black,
+    )
     print(io, "\n")
 
     if !isempty(ins.objective_terms)
@@ -192,8 +211,16 @@ function _print_objective(io::IO, ins::ProblemInspection)
         for t in ins.objective_terms
             namepad = rpad(t.name, max_name)
             w_part = isfinite(t.weight) ? "w=$(_fmt_val(t.weight))" : ""
-            print(io, _TREE_PIPE, "  ", namepad, "   ",
-                rpad(w_part, 16), _fmt_val(t.value), "\n")
+            print(
+                io,
+                _TREE_PIPE,
+                "  ",
+                namepad,
+                "   ",
+                rpad(w_part, 16),
+                _fmt_val(t.value),
+                "\n",
+            )
         end
     end
     print(io, _TREE_PIPE, "\n")
@@ -215,9 +242,9 @@ function _print_constraints(io::IO, ins::ProblemInspection)
     if !isempty(ins.constraints)
         max_name = maximum(length(c.name) for c in ins.constraints)
         for c in ins.constraints
-            kind_str = c.kind === :dynamics ? "[dyn]" :
-                       c.kind === :eq ? "[eq]" :
-                       c.kind === :ineq ? "[ineq]" : "[bnd]"
+            kind_str =
+                c.kind === :dynamics ? "[dyn]" :
+                c.kind === :eq ? "[eq]" : c.kind === :ineq ? "[ineq]" : "[bnd]"
             kind_part = rpad(kind_str, 7)
             namepad = rpad(c.name, max_name)
             tick_color = c.feasible ? :green : :red
@@ -260,8 +287,12 @@ function _print_status(io::IO, ins::ProblemInspection; last::Bool = true)
         # Bold + green when essentially 1
         F = ins.F_with_phase
         is_target = F >= 0.99
-        printstyled(io, @sprintf("%.6f", F);
-            bold = true, color = is_target ? :green : :default)
+        printstyled(
+            io,
+            @sprintf("%.6f", F);
+            bold = true,
+            color = is_target ? :green : :default,
+        )
         print(io, "\n")
     end
 end

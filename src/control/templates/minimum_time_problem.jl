@@ -136,7 +136,10 @@ function MinimumTimeProblem(
     new_prob = DirectTrajOptProblem(traj, J, qcp.prob.integrators, constraints)
 
     # Return new QuantumControlProblem with potentially updated qtraj
-    return _maybe_display(QuantumControlProblem(qtraj_for_constraint, new_prob), piccolo_options)
+    return _maybe_display(
+        QuantumControlProblem(qtraj_for_constraint, new_prob),
+        piccolo_options,
+    )
 end
 
 # ============================================================================= #

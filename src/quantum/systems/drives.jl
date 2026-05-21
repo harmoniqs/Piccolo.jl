@@ -553,7 +553,7 @@ Isomorphisms.G(d::AbstractDrive) = Isomorphisms.G(drive_matrix(d))
 # ----------------------------------------------------------------------------- #
 
 """
-    validate_drive_jacobian(d::NonlinearDrive, n_controls::Int; atol=1e-6, n_samples=3)
+    validate_drive_jacobian(d::NonlinearDrive, u_dim::Int; atol=1e-6, n_samples=3)
 
 Spot-check the Jacobian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Jacobian disagrees with the AD Jacobian.
@@ -563,14 +563,14 @@ terms, catching sign errors or off-by-one bugs early.
 """
 function validate_drive_jacobian(
     d::NonlinearDrive,
-    n_controls::Int;
+    u_dim::Int;
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
     for _ = 1:n_samples
-        u = randn(n_controls)
+        u = randn(u_dim)
         grad_ad = ForwardDiff.gradient(d.coeff, u)
-        for j = 1:n_controls
+        for j = 1:u_dim
             user_val = d.coeff_jac(u, j)
             @assert abs(user_val - grad_ad[j]) < atol (
                 "NonlinearDrive Jacobian mismatch at u=$u, j=$j: " *
@@ -581,21 +581,21 @@ function validate_drive_jacobian(
 end
 
 """
-    validate_drive_hessian(d::NonlinearDrive, n_controls::Int; atol=1e-6, n_samples=3)
+    validate_drive_hessian(d::NonlinearDrive, u_dim::Int; atol=1e-6, n_samples=3)
 
 Spot-check the Hessian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Hessian disagrees with the AD Hessian.
 """
 function validate_drive_hessian(
     d::NonlinearDrive,
-    n_controls::Int;
+    u_dim::Int;
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
     for _ = 1:n_samples
-        u = randn(n_controls)
+        u = randn(u_dim)
         hess_ad = ForwardDiff.hessian(d.coeff, u)
-        for i = 1:n_controls, j = i:n_controls
+        for i = 1:u_dim, j = i:u_dim
             user_val = d.coeff_hess(u, i, j)
             @assert abs(user_val - hess_ad[i, j]) < atol (
                 "NonlinearDrive Hessian mismatch at u=$u, (i,j)=($i,$j): " *
@@ -913,6 +913,46 @@ end
         coeff_hess = (u, i, j) -> 0.0,  # wrong: should be 2.0 on diagonal
     )
     @test_throws AssertionError validate_drive_hessian(d_wrong, 2)
+end
+
+@testitem "validate_drive: u_dim extending past n_drives (global params)" begin
+    # Regression: when global_params are appended, callers pass
+    # u_dim = n_drives + length(global_params) so coefficients that read into
+    # the global-parameter slots can be validated without BoundsError.
+    using Piccolo
+    using SparseArrays
+
+    H = sparse([0.0+0im 1.0+0im; 1.0+0im 0.0+0im])
+
+    # Coefficient reads u[3] — i.e. the appended global slot when n_drives = 2
+    # and one global parameter is present.
+    d_auto = NonlinearDrive(H, u -> u[1] * u[2] * u[3])
+    validate_drive_jacobian(d_auto, 3)  # must not BoundsError
+    validate_drive_hessian(d_auto, 3)
+
+    # Explicit jacobian + hessian agreeing with ForwardDiff across the full
+    # u_dim = 3 must pass.
+    d_correct = NonlinearDrive(
+        H,
+        u -> u[1] * u[2] * u[3],
+        (u, j) ->
+            j == 1 ? u[2] * u[3] : j == 2 ? u[1] * u[3] : j == 3 ? u[1] * u[2] : 0.0;
+        coeff_hess = (u, i, j) ->
+            (i == 1 && j == 2) || (i == 2 && j == 1) ? u[3] :
+            (i == 1 && j == 3) || (i == 3 && j == 1) ? u[2] :
+            (i == 2 && j == 3) || (i == 3 && j == 2) ? u[1] : 0.0,
+    )
+    validate_drive_jacobian(d_correct, 3)
+    validate_drive_hessian(d_correct, 3)
+
+    # An explicit jacobian wrong at j = 3 (the global slot) is still caught —
+    # the validator must check the extended range, not just 1:n_drives.
+    d_wrong_global = NonlinearDrive(
+        H,
+        u -> u[1] * u[2] * u[3],
+        (u, j) -> j == 1 ? u[2] * u[3] : j == 2 ? u[1] * u[3] : 0.0,  # wrong at j=3
+    )
+    @test_throws AssertionError validate_drive_jacobian(d_wrong_global, 3)
 end
 
 @testitem "G works on AbstractDrive types" begin
