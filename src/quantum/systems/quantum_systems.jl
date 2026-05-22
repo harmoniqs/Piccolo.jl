@@ -523,21 +523,20 @@ function QuantumSystem(
         @assert is_hermitian(H_drift_sum) "Drift Hamiltonian is not Hermitian"
     end
 
-    # Normalize drives — track linear index separately for LinearDrive(index).
-    # Accumulator is AbstractDrive[] during construction (push! needs flexibility),
-    # then narrowed to the most-specific Union eltype via `identity.()` before
-    # passing to QuantumSystem. This preserves type stability in the per-substep
-    # RHS hot loops.
-    drives = AbstractDrive[]
+    # Normalize drives. Use a separate accumulator name so the final `drives`
+    # binding is assigned exactly once — otherwise downstream closures (H_fn,
+    # G_fn → Padé Ĝ at src/control/integrators.jl) box `drives` as Core.Box
+    # and lose type info on the per-substep dispatch path (~8% / +5 allocs).
+    drives_acc = AbstractDrive[]
     linear_idx = 1
     for d_input in H_drives_input
         if d_input isa Pair{<:AbstractDrive,<:Function}
-            push!(drives, ModulatedDrive(d_input.first, d_input.second))
+            push!(drives_acc, ModulatedDrive(d_input.first, d_input.second))
         elseif d_input isa AbstractDrive
-            push!(drives, d_input)
+            push!(drives_acc, d_input)
         elseif d_input isa Pair{<:AbstractMatrix,<:Function}
             push!(
-                drives,
+                drives_acc,
                 ModulatedDrive(
                     LinearDrive(sparse(ComplexF64.(d_input.first)), linear_idx),
                     d_input.second,
@@ -546,12 +545,12 @@ function QuantumSystem(
             linear_idx += 1
         else
             # Plain matrix
-            push!(drives, LinearDrive(sparse(ComplexF64.(d_input)), linear_idx))
+            push!(drives_acc, LinearDrive(sparse(ComplexF64.(d_input)), linear_idx))
             linear_idx += 1
         end
     end
-    # Narrow eltype to the most specific Union after dynamic construction.
-    drives = identity.(drives)
+    # Narrow eltype — fresh `drives` binding, assigned exactly once.
+    drives = identity.(drives_acc)
 
     # Check drive operators are Hermitian
     if hermitian
