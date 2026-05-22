@@ -47,13 +47,21 @@ sys = QuantumSystem([H_z, H_x => t -> cos(ω*t)], [H_y], [1.0])
 
 See also [`OpenQuantumSystem`](@ref), [`VariationalQuantumSystem`](@ref).
 """
-struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple,DT,HD} <:
-       AbstractQuantumSystem
+struct QuantumSystem{
+    F1<:Function,
+    F2<:Function,
+    PT<:NamedTuple,
+    DT,
+    HD,
+    DD<:AbstractVector{<:AbstractDrive},
+} <: AbstractQuantumSystem
     H::F1
     G::F2
     H_drift::HD
     drift_terms::DT
-    H_drives::Vector{AbstractDrive}
+    H_drives::DD   # parametric — preserves caller's concrete eltype (e.g. Vector{LinearDrive}
+    # or Vector{Union{LinearDrive,NonlinearDrive}}), avoiding dynamic dispatch
+    # on drive_coeff / drive_coeff_jac in per-substep RHS hot loops.
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
@@ -220,8 +228,10 @@ function QuantumSystem(
 
     levels = size(H_drift, 1)
 
-    # Build LinearDrive objects from H_drives matrices
-    linear_drives = AbstractDrive[LinearDrive(H_drives[i], i) for i = 1:n_drives]
+    # Build LinearDrive objects from H_drives matrices.
+    # Use concrete eltype LinearDrive (not AbstractDrive) for type-stable
+    # iteration in per-substep RHS loops.
+    linear_drives = [LinearDrive(H_drives[i], i) for i = 1:n_drives]
 
     return QuantumSystem(
         H,
@@ -430,12 +440,16 @@ function QuantumSystem(
                 sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
     end
 
+    # Type-stability fix: preserve the caller's concrete eltype on `drives`
+    # instead of widening to AbstractDrive. The struct's `DD` type parameter
+    # captures it. Callers can pass Vector{LinearDrive}, Vector{NonlinearDrive},
+    # or Vector{Union{LinearDrive,NonlinearDrive}} for fully type-stable iteration.
     return QuantumSystem(
         H_fn,
         G_fn,
         H_drift,
         [DriftTerm(H_drift)],
-        collect(AbstractDrive, drives),
+        drives,
         drive_bounds,
         n_drives,
         levels,
@@ -515,17 +529,20 @@ function QuantumSystem(
         @assert is_hermitian(H_drift_sum) "Drift Hamiltonian is not Hermitian"
     end
 
-    # Normalize drives — track linear index separately for LinearDrive(index)
-    drives = AbstractDrive[]
+    # Normalize drives. Use a separate accumulator name so the final `drives`
+    # binding is assigned exactly once — otherwise downstream closures (H_fn,
+    # G_fn → Padé Ĝ at src/control/integrators.jl) box `drives` as Core.Box
+    # and lose type info on the per-substep dispatch path (~8% / +5 allocs).
+    drives_acc = AbstractDrive[]
     linear_idx = 1
     for d_input in H_drives_input
         if d_input isa Pair{<:AbstractDrive,<:Function}
-            push!(drives, ModulatedDrive(d_input.first, d_input.second))
+            push!(drives_acc, ModulatedDrive(d_input.first, d_input.second))
         elseif d_input isa AbstractDrive
-            push!(drives, d_input)
+            push!(drives_acc, d_input)
         elseif d_input isa Pair{<:AbstractMatrix,<:Function}
             push!(
-                drives,
+                drives_acc,
                 ModulatedDrive(
                     LinearDrive(sparse(ComplexF64.(d_input.first)), linear_idx),
                     d_input.second,
@@ -534,10 +551,12 @@ function QuantumSystem(
             linear_idx += 1
         else
             # Plain matrix
-            push!(drives, LinearDrive(sparse(ComplexF64.(d_input)), linear_idx))
+            push!(drives_acc, LinearDrive(sparse(ComplexF64.(d_input)), linear_idx))
             linear_idx += 1
         end
     end
+    # Narrow eltype — fresh `drives` binding, assigned exactly once.
+    drives = identity.(drives_acc)
 
     # Check drive operators are Hermitian
     if hermitian
