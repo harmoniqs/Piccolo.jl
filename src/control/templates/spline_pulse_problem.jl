@@ -527,12 +527,11 @@ function SplinePulseProblem(
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     kwargs...,
 ) where {P<:AbstractPulse}
-    pulse_type = P
     error(
         """
   SplinePulseProblem is only for spline-based pulses (LinearSplinePulse, CubicSplinePulse).
 
-  You provided a trajectory with pulse type: $(pulse_type)
+  You provided a trajectory with pulse type: $(nameof(P))
 
   For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
       qcp = SmoothPulseProblem(qtraj, N; ...)
