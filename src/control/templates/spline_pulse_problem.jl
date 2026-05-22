@@ -107,6 +107,7 @@ function SplinePulseProblem(
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
     state_sym = state_name(qtraj)
+    timestep_sym = timestep_name(qtraj)
 
     if piccolo_options.verbose
         pulse_type = typeof(qtraj.pulse)
@@ -160,41 +161,97 @@ function SplinePulseProblem(
     N = base_traj.N  # Get actual number of timesteps
 
     # Always add control derivatives to trajectory
-    # For CubicSplinePulse, :du is already included in the base trajectory (Hermite tangents)
+    # For CubicSplinePulse, :du is already included in the base trajectory (Hermite tangents). A :du_mid is added for the interior bounds.
     # For LinearSplinePulse, we add :du explicitly (will be constrained by DerivativeIntegrator)
     du_sym = Symbol(:d, control_sym)
+    du_mid_sym = Symbol(du_sym, :_mid)
+    u_b1_sym = Symbol(control_sym, :_b1)
+    u_b2_sym = Symbol(control_sym, :_b2)
+    # TODO: Could check this with the Pulse type
     is_linear_spline = !haskey(base_traj.components, du_sym)
 
     # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
     _du_bounds_vec = if !isnothing(du_bounds)
         du_bounds
-    elseif isfinite(du_bound)
-        fill(du_bound, sys.n_drives)
     else
-        nothing
+        fill(du_bound, sys.n_drives)
     end
 
-    traj = if haskey(base_traj.components, du_sym)
+    if piccolo_options.verbose
+        println("    set du bounds to ±$(_du_bounds_vec)")
+    end
+
+    # TODO: The constraint/integrator should have a constructor that augments the trajectory
+    traj = if !is_linear_spline
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
-        if !isnothing(_du_bounds_vec)
-            update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
-            if piccolo_options.verbose
-                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
-            end
+        # Add Bezier midpoint to bound interior derivative DOF
+        update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
+
+        Δt = base_traj[timestep_sym]
+        du = base_traj[du_sym]
+        u = base_traj[control_sym]
+
+        # 3 * (u[k+1] - u[k]) / Δt[k] - du[k] - du[k+1]
+        du_mid = zeros(sys.n_drives, N)
+        du_mid[:, 1:N-1] =
+            3 .* (u[:, 2:N] .- u[:, 1:N-1]) ./ Δt[:, 1:N-1] .-
+            du[:, 1:N-1] .-
+            du[:, 2:N]
+
+        # u[k]​ + Δt[k]/3 * du[k]
+        u_b1 = zeros(sys.n_drives, N)
+        u_b1[:, 1:N-1] =
+            u[:, 1:N-1] .+
+            (1/3) .* Δt[:, 1:N-1] .* du[:, 1:N-1]
+
+        # u[k+1]​ - Δt[k+1]/3 * du[k+1]
+        u_b2 = zeros(sys.n_drives, N)
+        u_b2[:, 1:N-1] =
+            u[:, 2:N] .-
+            (1/3) .* Δt[:, 1:N-1] .* du[:, 2:N]
+
+        du_mid_bound = NamedTuple{(du_mid_sym,)}(((-_du_bounds_vec, _du_bounds_vec),))
+        traj = add_component(
+            base_traj,
+            du_mid_sym,
+            du_mid;
+            type = :control,
+            bounds = merge(base_traj.bounds, du_mid_bound),
+        )
+
+        u_bounds = if haskey(traj.bounds, control_sym)
+            traj.bounds[control_sym]
+        else
+            (-fill(Inf, n_u), fill(Inf, n_u))
         end
-        base_traj
+
+        u_b1_bounds = NamedTuple{(u_b1_sym,)}((u_bounds,))
+        traj = add_component(
+            traj,
+            u_b1_sym,
+            u_b1;
+            type = :control,
+            bounds = merge(traj.bounds, u_b1_bounds),
+        )
+
+        u_b2_bounds = NamedTuple{(u_b2_sym,)}((u_bounds,))
+        traj = add_component(
+            traj,
+            u_b2_sym,
+            u_b2;
+            type = :control,
+            bounds = merge(traj.bounds, u_b2_bounds),
+        )
+        
+        traj
     else
         # LinearSplinePulse: always add derivatives
-        if !isnothing(_du_bounds_vec)
-            add_control_derivatives(
-                base_traj,
-                1;  # Only 1 derivative for spline pulses
-                control_name = control_sym,
-                derivative_bounds = (_du_bounds_vec,),
-            )
-        else
-            add_control_derivatives(base_traj, 1; control_name = control_sym)
-        end
+        add_control_derivatives(
+            base_traj,
+            1;  # Only 1 derivative for spline pulses
+            control_name = control_sym,
+            derivative_bounds = (_du_bounds_vec,),
+        )
     end
 
     # Initialize dynamics integrators
@@ -238,6 +295,12 @@ function SplinePulseProblem(
     J += QuadraticRegularizer(control_sym, traj, R_u)
     J += QuadraticRegularizer(du_sym, traj, R_du)
 
+    if !is_linear_spline
+        J += QuadraticRegularizer(u_b1_sym, traj, R_u)
+        J += QuadraticRegularizer(u_b2_sym, traj, R_u)
+        J += QuadraticRegularizer(du_mid_sym, traj, R_du)
+    end
+
     # Apply piccolo options
     J += _apply_piccolo_options(
         qtraj,
@@ -253,11 +316,32 @@ function SplinePulseProblem(
 
     # Add DerivativeIntegrator for LinearSplinePulse to enforce du[k] = (u[k+1] - u[k]) / Δt
     # For CubicSplinePulse, :du values are Hermite tangents (independent DOFs), not constrained
+    # For CubicSplinePulse, :du_mid needs an integrator constraint
     if is_linear_spline
         push!(integrators, DerivativeIntegrator(control_sym, du_sym, traj))
         if piccolo_options.verbose
             println("    added DerivativeIntegrator for LinearSplinePulse")
         end
+    else
+        push!(
+            integrators,
+            HermiteBezierDerivativeIntegrator(
+                control_sym,
+                du_sym,
+                du_mid_sym,
+                traj,
+            ),
+        )
+        push!(
+            integrators,
+            HermiteBezierIntegrator(
+                control_sym,
+                du_sym,
+                u_b1_sym,
+                u_b2_sym,
+                traj,
+            ),
+        )
     end
 
     # Add global bounds constraints if specified
