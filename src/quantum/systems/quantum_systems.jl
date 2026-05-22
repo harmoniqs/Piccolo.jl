@@ -47,15 +47,21 @@ sys = QuantumSystem([H_z, H_x => t -> cos(ω*t)], [H_y], [1.0])
 
 See also [`OpenQuantumSystem`](@ref), [`VariationalQuantumSystem`](@ref).
 """
-struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple,DT,HD,DD<:AbstractVector{<:AbstractDrive}} <:
-       AbstractQuantumSystem
+struct QuantumSystem{
+    F1<:Function,
+    F2<:Function,
+    PT<:NamedTuple,
+    DT,
+    HD,
+    DD<:AbstractVector{<:AbstractDrive},
+} <: AbstractQuantumSystem
     H::F1
     G::F2
     H_drift::HD
     drift_terms::DT
     H_drives::DD   # parametric — preserves caller's concrete eltype (e.g. Vector{LinearDrive}
-                   # or Vector{Union{LinearDrive,NonlinearDrive}}), avoiding dynamic dispatch
-                   # on drive_coeff / drive_coeff_jac in per-substep RHS hot loops.
+    # or Vector{Union{LinearDrive,NonlinearDrive}}), avoiding dynamic dispatch
+    # on drive_coeff / drive_coeff_jac in per-substep RHS hot loops.
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int

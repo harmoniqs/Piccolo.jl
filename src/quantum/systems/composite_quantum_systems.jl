@@ -35,7 +35,11 @@ H_coupling = 0.1 * kron(PAULIS[:Z], PAULIS[:Z])
 csys = CompositeQuantumSystem(H_coupling, [sys1, sys2], Float64[])
 ```
 """
-struct CompositeQuantumSystem{F1<:Function,F2<:Function,DD<:AbstractVector{<:AbstractDrive}} <: AbstractQuantumSystem
+struct CompositeQuantumSystem{
+    F1<:Function,
+    F2<:Function,
+    DD<:AbstractVector{<:AbstractDrive},
+} <: AbstractQuantumSystem
     H::F1
     G::F2
     H_drift::SparseMatrixCSC{ComplexF64,Int}
@@ -132,8 +136,7 @@ function CompositeQuantumSystem(
     # (and anything else consuming the AbstractDrive interface) works uniformly
     # across QuantumSystem and CompositeQuantumSystem. Use concrete eltype
     # LinearDrive (not AbstractDrive) for type-stable iteration.
-    H_drives_wrapped =
-        [LinearDrive(H_drive_matrices[idx], idx) for idx = 1:n_drives]
+    H_drives_wrapped = [LinearDrive(H_drive_matrices[idx], idx) for idx = 1:n_drives]
 
     return CompositeQuantumSystem{typeof(H),typeof(G),typeof(H_drives_wrapped)}(
         H,
