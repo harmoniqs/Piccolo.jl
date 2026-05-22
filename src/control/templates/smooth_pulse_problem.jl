@@ -608,21 +608,13 @@ function _apply_piccolo_options(
     state_sym::Symbol;
     state_leakage_indices::Union{Nothing,AbstractVector{Int}} = nothing,
 )
-    if piccolo_options.bound_state_l2
-        throw(
-            ArgumentError(
-                "bound_state_l2 is not yet supported for DensityTrajectory " *
-                "(compact iso Re/Im pairing is non-trivial).",
-            ),
-        )
-    end
     return apply_piccolo_options!(
         piccolo_options,
         constraints,
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
-        iso_layout = :block,
+        iso_layout = :compact_density,
     )
 end
 
