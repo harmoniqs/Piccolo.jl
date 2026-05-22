@@ -162,9 +162,11 @@ Richer plain-text display for REPL and notebooks.
 function Base.show(io::IO, ::MIME"text/plain", qtraj::AbstractQuantumTrajectory)
     sys = get_system(qtraj)
     pulse = get_pulse(qtraj)
+    nd = n_drives(pulse)
+    drives_word = nd == 1 ? "drive" : "drives"
     println(io, nameof(typeof(qtraj)))
     println(io, "  system: $(sys.levels)-level $(nameof(typeof(sys)))")
-    println(io, "  drives: $(nameof(typeof(pulse))) with $(n_drives(pulse)) drives")
+    println(io, "  drives: $(nameof(typeof(pulse))) with $nd $drives_word")
     print(io, "  duration: ", duration(qtraj))
 end
 
@@ -261,7 +263,7 @@ end
     s = String(take!(buf))
     @test occursin("UnitaryTrajectory", s)
     @test occursin("QuantumSystem", s)
-    @test occursin("drives", s)
+    @test occursin(r"\d+ drives?\b", s)
     @test occursin("T =", s)
 
     # Plain-text (multi-line) display
