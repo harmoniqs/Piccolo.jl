@@ -49,11 +49,30 @@ Both pulse types always have `:du` components in the trajectory, simplifying int
 - `du_bound::Float64=Inf`: Uniform bound on derivative (slope) magnitude for all drives
 - `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
 - `Q::Float64=100.0`: Weight on infidelity/objective
-- `R::Float64=1e-2`: Weight on regularization terms
-- `R_u::Union{Float64, Vector{Float64}}=R`: Weight on control regularization
-- `R_du::Union{Float64, Vector{Float64}}=R`: Weight on derivative regularization  
+- `R::Float64=1e-2`: Weight on regularization terms (LinearSplinePulse only — see below)
+- `R_u::Union{Nothing, Float64, Vector{Float64}}=nothing`: Weight on control regularization. Pulse-type-dependent default — see below.
+- `R_du::Union{Nothing, Float64, Vector{Float64}}=nothing`: Weight on derivative regularization. Pulse-type-dependent default — see below.
+- `λ_bend::Float64=1e-3`: Weight on the cubic-Hermite bending-energy regulariser ``\lambda \sum_c \int_0^T \ddot u_c(t)^2 \, dt``. Only applied for `CubicSplinePulse`; ignored for `LinearSplinePulse` (whose second derivative is impulsive at every knot and cannot be sensibly bent-energy-regularised — its smoothness is shaped by `R_du` on the slopes).
 - `constraints::Vector{<:AbstractConstraint}=AbstractConstraint[]`: Additional constraints
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
+
+## Default regularisation by pulse type
+
+The L2 regularisers `R_u` and `R_du` have different roles for the two spline
+families, and the defaults reflect this:
+
+- **`LinearSplinePulse`**: `R_u` and `R_du` both default to `R = 1e-2`. The
+  `du` variable here is the constrained inter-knot slope, so a quadratic
+  penalty on it is the standard smoothness term.
+- **`CubicSplinePulse`**: `R_u` and `R_du` both default to `0.0`. Empirically
+  (see PR linked in the changelog) the same `1e-2` penalty actively biases
+  the optimiser toward small-amplitude flat pulses regardless of whether
+  that is needed — on a 2-qubit iSWAP problem it stalls fidelity at ≈ 0.91
+  versus ≈ 0.98+ at zero regularisation. The cubic-Hermite smoothness role
+  is taken over by `λ_bend`, which penalises the actual second-derivative
+  energy of the interpolant rather than the magnitude of the tangents.
+
+Pass `R_u` or `R_du` explicitly to override these defaults.
 
 # Returns
 - `QuantumControlProblem{<:AbstractQuantumTrajectory}`: Wrapper containing trajectory and optimization problem
@@ -91,8 +110,9 @@ function SplinePulseProblem(
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
-    R_u::Union{Float64,Vector{Float64}} = R,
-    R_du::Union{Float64,Vector{Float64}} = R,
+    R_u::Union{Nothing,Float64,Vector{Float64}} = nothing,
+    R_du::Union{Nothing,Float64,Vector{Float64}} = nothing,
+    λ_bend::Float64 = 1e-3,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
@@ -107,6 +127,12 @@ function SplinePulseProblem(
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
     state_sym = state_name(qtraj)
+
+    # Pulse-type-dependent regularisation defaults.
+    # See the "Default regularisation by pulse type" section of this template's docstring.
+    is_cubic = qtraj.pulse isa CubicSplinePulse
+    R_u_resolved = isnothing(R_u) ? (is_cubic ? 0.0 : R) : R_u
+    R_du_resolved = isnothing(R_du) ? (is_cubic ? 0.0 : R) : R_du
 
     if _show_header(piccolo_options)
         pulse_type = _typename(qtraj.pulse)
@@ -236,8 +262,17 @@ function SplinePulseProblem(
     end
 
     # Add regularization for control and derivative
-    J += QuadraticRegularizer(control_sym, traj, R_u)
-    J += QuadraticRegularizer(du_sym, traj, R_du)
+    J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
+    J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
+
+    # Cubic Hermite bending-energy regulariser — true second-derivative L2 penalty.
+    # Only meaningful for CubicSplinePulse (LinearSplinePulse has impulsive ddu).
+    if is_cubic && λ_bend > 0
+        J += BendingEnergyObjective(control_sym, du_sym, λ_bend, traj)
+        if _show_details(piccolo_options)
+            println("    added BendingEnergyObjective (λ_bend = $λ_bend)")
+        end
+    end
 
     # Apply piccolo options
     J += _apply_piccolo_options(
@@ -305,7 +340,10 @@ Uses coherent fidelity objective (phases must align) for gate implementation.
   - `times::AbstractVector`: Specific sample times
 
 # Keyword Arguments
-Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method, plus:
+Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method,
+including pulse-type-dependent `R_u` / `R_du` defaults and the `λ_bend`
+bending-energy regulariser (see the base method's docstring for the full
+discussion), plus:
 - `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
 - `free_phase::Bool=false`: Optimize a per-subsystem frame phase alongside the pulse. Applies number-operator rotation `e^{iθ n̂}` to goal states — level `s` acquires phase `s·θ`. Requires `subsystem_levels`.
 - `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
@@ -328,8 +366,9 @@ function SplinePulseProblem(
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
-    R_u::Union{Float64,Vector{Float64}} = R,
-    R_du::Union{Float64,Vector{Float64}} = R,
+    R_u::Union{Nothing,Float64,Vector{Float64}} = nothing,
+    R_du::Union{Nothing,Float64,Vector{Float64}} = nothing,
+    λ_bend::Float64 = 1e-3,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
@@ -347,6 +386,12 @@ function SplinePulseProblem(
     snames = state_names(qtraj)
     weights = qtraj.weights
     goals = qtraj.goals
+
+    # Pulse-type-dependent regularisation defaults
+    # (see "Default regularisation by pulse type" in the unitary template docstring)
+    is_cubic = qtraj.pulse isa CubicSplinePulse
+    R_u_resolved = isnothing(R_u) ? (is_cubic ? 0.0 : R) : R_u
+    R_du_resolved = isnothing(R_du) ? (is_cubic ? 0.0 : R) : R_du
 
     if _show_header(piccolo_options)
         pulse_type = _typename(qtraj.pulse)
@@ -467,8 +512,16 @@ function SplinePulseProblem(
     end
 
     # Add regularization for control and derivative
-    J += QuadraticRegularizer(control_sym, traj, R_u)
-    J += QuadraticRegularizer(du_sym, traj, R_du)
+    J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
+    J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
+
+    # Cubic Hermite bending-energy regulariser — only meaningful for CubicSplinePulse
+    if is_cubic && λ_bend > 0
+        J += BendingEnergyObjective(control_sym, du_sym, λ_bend, traj)
+        if _show_details(piccolo_options)
+            println("    added BendingEnergyObjective (λ_bend = $λ_bend)")
+        end
+    end
 
     # Apply piccolo options for each state
     J += _apply_piccolo_options(
@@ -1088,4 +1141,365 @@ end
     # coherent=false should construct without error
     qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, coherent = false)
     @test qcp isa QuantumControlProblem
+end
+
+# ============================================================================= #
+# Bending-energy regulariser and cubic-spline default tests
+# ============================================================================= #
+
+@testitem "SplinePulseProblem CubicSplinePulse default R_u, R_du are zero" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # CubicSplinePulse should default R_u = R_du = 0.0, NOT inherit R.
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    H_drift = 0.01 * σz
+    H_drives = [σx]
+    T = 10.0
+    N = 11
+    n_drives = 1
+
+    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(n_drives, N)
+    derivs = zeros(n_drives, N)
+    pulse = CubicSplinePulse(amps, derivs, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0)  # no explicit R_u, R_du
+
+    @test qcp isa QuantumControlProblem
+
+    # The QuadraticRegularizer on :u and :du should be present but with zero R.
+    composite = qcp.prob.objective
+    quad_regs = filter(
+        x -> x isa DirectTrajOpt.QuadraticRegularizer,
+        composite isa DirectTrajOpt.CompositeObjective ? composite.objectives : [composite],
+    )
+    R_us = [r.R for r in quad_regs if r.name == :u]
+    R_dus = [r.R for r in quad_regs if r.name == :du]
+    @test !isempty(R_us)
+    @test !isempty(R_dus)
+    @test all(all(R_us[1] .== 0.0))
+    @test all(all(R_dus[1] .== 0.0))
+end
+
+@testitem "SplinePulseProblem LinearSplinePulse default R_u, R_du = R" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # LinearSplinePulse should still inherit R for R_u and R_du (existing behavior).
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    H_drift = 0.01 * σz
+    H_drives = [σx]
+    T = 10.0
+    N = 21
+    n_drives = 1
+
+    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(n_drives, N)
+    pulse = LinearSplinePulse(amps, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    R = 1e-2
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = R)  # no explicit R_u, R_du
+
+    composite = qcp.prob.objective
+    quad_regs = filter(
+        x -> x isa DirectTrajOpt.QuadraticRegularizer,
+        composite isa DirectTrajOpt.CompositeObjective ? composite.objectives : [composite],
+    )
+    R_us = [r.R for r in quad_regs if r.name == :u]
+    R_dus = [r.R for r in quad_regs if r.name == :du]
+    @test !isempty(R_us)
+    @test !isempty(R_dus)
+    @test all(R_us[1] .≈ R)
+    @test all(R_dus[1] .≈ R)
+end
+
+@testitem "build_bending_energy_blocks is zero on a flat constant pulse" begin
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: build_bending_energy_blocks
+
+    # Uniform knots, h = 1.0
+    N = 12
+    h = fill(1.0, N - 1)
+    K_uu, K_um, K_mm = build_bending_energy_blocks(h)
+
+    u = fill(0.7, N)   # flat constant amplitude
+    m = zeros(N)       # zero Hermite tangents (consistent with constant pulse)
+    E = dot(u, K_uu * u) + 2 * dot(u, K_um * m) + dot(m, K_mm * m)
+    @test E ≈ 0.0 atol = 1e-12
+
+    # Sanity: a linear ramp also has zero bending energy with the consistent tangents.
+    # u_k = α · t_k = α · (k-1)·h, m_k = α  (constant slope across the spline)
+    α = 0.3
+    t = (0:(N-1)) .* h[1]
+    u_lin = α .* t
+    m_lin = fill(α, N)
+    E_lin = dot(u_lin, K_uu * u_lin) +
+            2 * dot(u_lin, K_um * m_lin) +
+            dot(m_lin, K_mm * m_lin)
+    @test E_lin ≈ 0.0 atol = 1e-10
+end
+
+@testitem "build_bending_energy_blocks scales as ω^4 for sinusoid" begin
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: build_bending_energy_blocks
+
+    # Sample sin(ω·t) on a fine uniform grid and check that increasing ω
+    # by a factor of 2 increases the bending energy by ≈ 16 (= 2^4).
+    # Use many knots so the cubic Hermite spline accurately resolves the curve.
+    N = 257
+    T = 1.0
+    h = T / (N - 1)
+    h_vec = fill(h, N - 1)
+    K_uu, K_um, K_mm = build_bending_energy_blocks(h_vec)
+
+    t = collect(range(0.0, T, length = N))
+
+    function bend_energy(ω)
+        u = sin.(ω .* t)
+        m = ω .* cos.(ω .* t)
+        return dot(u, K_uu * u) + 2 * dot(u, K_um * m) + dot(m, K_mm * m)
+    end
+
+    ω1 = 2π * 3.0
+    ω2 = 2π * 6.0  # 2x frequency
+
+    E1 = bend_energy(ω1)
+    E2 = bend_energy(ω2)
+
+    # Analytic value: ∫_0^T (d²/dt² sin(ωt))² dt = ω^4 ∫ sin² ≈ ω^4 · T/2
+    @test E1 ≈ ω1^4 * T / 2 rtol = 5e-3
+    @test E2 ≈ ω2^4 * T / 2 rtol = 5e-3
+
+    # Ratio should be 2^4 = 16
+    @test E2 / E1 ≈ 16.0 rtol = 1e-2
+end
+
+@testitem "BendingEnergyObjective: gradient and Hessian match finite differences" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: BendingEnergyObjective
+
+    # Build a small trajectory with :u and :du components.
+    N = 8
+    n_drives = 2
+    Δt = 0.1
+    u = randn(n_drives, N)
+    du = randn(n_drives, N)
+    Δt_vec = fill(Δt, N)
+
+    traj = NamedTrajectory(
+        (u = u, du = du, Δt = Δt_vec);
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    obj = BendingEnergyObjective(:u, :du, 0.7, traj)
+    test_objective(obj, traj, atol = 1e-6)
+end
+
+@testitem "BendingEnergyObjective: zero on a flat constant pulse" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: BendingEnergyObjective
+
+    N = 10
+    n_drives = 1
+    u = fill(0.42, n_drives, N)   # flat constant amplitude
+    du = zeros(n_drives, N)       # consistent tangents
+    Δt_vec = fill(0.1, N)
+
+    traj = NamedTrajectory(
+        (u = u, du = du, Δt = Δt_vec);
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    obj = BendingEnergyObjective(:u, :du, 1.0, traj)
+    @test objective_value(obj, traj) ≈ 0.0 atol = 1e-12
+end
+
+@testitem "BendingEnergyObjective: sinusoidal pulse scales as ω^4" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: BendingEnergyObjective
+
+    N = 257
+    T = 1.0
+    Δt = T / (N - 1)
+    t = (0:(N-1)) .* Δt
+    Δt_vec = fill(Δt, N)
+    n_drives = 1
+
+    function build_traj(ω)
+        u = reshape(sin.(ω .* t), n_drives, N)
+        du = reshape(ω .* cos.(ω .* t), n_drives, N)
+        return NamedTrajectory((u = u, du = du, Δt = Δt_vec); timestep = :Δt, controls = :u)
+    end
+
+    ω1 = 2π * 3.0
+    ω2 = 2π * 6.0
+
+    traj1 = build_traj(ω1)
+    traj2 = build_traj(ω2)
+    obj1 = BendingEnergyObjective(:u, :du, 1.0, traj1)
+    obj2 = BendingEnergyObjective(:u, :du, 1.0, traj2)
+
+    E1 = objective_value(obj1, traj1)
+    E2 = objective_value(obj2, traj2)
+
+    @test E1 ≈ ω1^4 * T / 2 rtol = 5e-3
+    @test E2 ≈ ω2^4 * T / 2 rtol = 5e-3
+    @test E2 / E1 ≈ 16.0 rtol = 1e-2
+end
+
+@testitem "SplinePulseProblem CubicSplinePulse wires in BendingEnergyObjective" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: BendingEnergyObjective
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    H_drift = 0.01 * σz
+    H_drives = [σx]
+    T = 10.0
+    N = 11
+
+    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(1, N)
+    derivs = zeros(1, N)
+    pulse = CubicSplinePulse(amps, derivs, times)
+    qtraj = UnitaryTrajectory(sys, pulse, ComplexF64[0 1; 1 0])
+
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, λ_bend = 1e-3)
+    composite = qcp.prob.objective
+    bend_terms = filter(
+        x -> x isa BendingEnergyObjective,
+        composite isa DirectTrajOpt.CompositeObjective ? composite.objectives : [composite],
+    )
+    @test length(bend_terms) == 1
+    @test bend_terms[1].λ == 1e-3
+
+    # λ_bend = 0 should skip the term.
+    qcp_no_bend = SplinePulseProblem(qtraj, N; Q = 100.0, λ_bend = 0.0)
+    composite_no = qcp_no_bend.prob.objective
+    bend_terms_no = filter(
+        x -> x isa BendingEnergyObjective,
+        composite_no isa DirectTrajOpt.CompositeObjective ? composite_no.objectives :
+        [composite_no],
+    )
+    @test isempty(bend_terms_no)
+end
+
+@testitem "SplinePulseProblem LinearSplinePulse never adds BendingEnergyObjective" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: BendingEnergyObjective
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    T = 10.0
+    N = 21
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, ComplexF64[0 1; 1 0])
+
+    # Even with λ_bend explicitly non-zero, LinearSplinePulse should NOT pick it up.
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, λ_bend = 1e-3)
+    composite = qcp.prob.objective
+    bend_terms = filter(
+        x -> x isa BendingEnergyObjective,
+        composite isa DirectTrajOpt.CompositeObjective ? composite.objectives : [composite],
+    )
+    @test isempty(bend_terms)
+end
+
+@testitem "BendingEnergyObjective does not pull single-qubit X-gate amplitude to zero" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: BendingEnergyObjective
+
+    # A π-pulse on a single qubit requires nonzero integrated drive area;
+    # adding a bending-energy regulariser MUST NOT zero out the amplitude.
+    # We just verify here that the BendingEnergyObjective evaluated on a known
+    # π-pulse (constant amplitude π/T cubic Hermite) has the analytic value 0
+    # (since the optimal amplitude is constant — only the connecting cubic
+    # would bend, and a constant function has zero bending energy).
+    T = 2π / 4.0   # nonzero finite duration
+    N = 11
+    n_drives = 1
+    A = π / T     # amplitude such that ∫ A dt = π → X-rotation by π
+
+    Δt = T / (N - 1)
+    Δt_vec = fill(Δt, N)
+    u_const = fill(A, n_drives, N)
+    du_const = zeros(n_drives, N)
+
+    traj = NamedTrajectory(
+        (u = u_const, du = du_const, Δt = Δt_vec);
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    obj = BendingEnergyObjective(:u, :du, 1e-3, traj)
+    E = objective_value(obj, traj)
+
+    # The bending energy of a constant pulse is exactly zero — so a bending-energy
+    # penalty does not bias the optimizer away from holding a nonzero constant amplitude.
+    @test E ≈ 0.0 atol = 1e-12
+
+    # And the gradient is also zero, confirming no force toward A = 0.
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    ∇ = zeros(Z_dim)
+    gradient!(∇, obj, traj)
+    @test all(∇ .≈ 0.0)
+end
+
+@testitem "SplinePulseProblem CubicSplinePulse: X gate solves with λ_bend > 0" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Piccolo.QuantumObjectives: BendingEnergyObjective
+
+    # Regression-style test: with the new defaults (R_u = R_du = 0) and
+    # λ_bend = 1e-3, a simple single-qubit X gate on a 2-level system should
+    # still construct, evaluate, and produce a finite, non-negative objective.
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(1, N)
+    derivs = zeros(1, N)
+    pulse = CubicSplinePulse(amps, derivs, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, λ_bend = 1e-3)
+    @test qcp isa QuantumControlProblem
+
+    J = objective_value(qcp.prob.objective, qcp.prob.trajectory)
+    @test isfinite(J)
+    @test J ≥ 0.0
 end

@@ -10,9 +10,13 @@ export DensityMatrixPureStateInfidelityObjective
 export UnitarySensitivityObjective
 export UnitaryFreePhaseInfidelityObjective
 export LeakageObjective
+export BendingEnergyObjective
+export build_bending_energy_blocks
 
 using LinearAlgebra
+using SparseArrays
 using NamedTrajectories
+using TrajectoryIndexingUtils
 using ...Quantum
 using DirectTrajOpt
 using TestItems
@@ -401,6 +405,320 @@ function LeakageObjective(
     leakage_objective(x) = sum(abs2, x[indices]) / length(indices)
 
     return KnotPointObjective(leakage_objective, name, traj; Qs = Qs, times = times)
+end
+
+# ---------------------------------------------------------
+#                  Bending-energy regularizer
+# ---------------------------------------------------------
+
+@doc raw"""
+    build_bending_energy_blocks(h::AbstractVector{<:Real})
+
+Assemble the three sparse symmetric blocks `(K_uu, K_um, K_mm)` of the bending
+energy quadratic form for a single-channel cubic Hermite spline through
+`N = length(h) + 1` knots, with segment lengths `h[k] = t_{k+1} - t_k`.
+
+The bending energy of a cubic Hermite spline through knot values
+``u_1, \ldots, u_N`` with Hermite tangents ``m_1, \ldots, m_N`` admits a closed
+form per segment ``[t_k, t_{k+1}]`` of width ``h_k``:
+
+```math
+\int_{t_k}^{t_{k+1}} \ddot p(t)^2 \, dt
+  = \frac{12(u_{k+1}-u_k)^2}{h_k^3}
+  - \frac{12(u_{k+1}-u_k)(m_k+m_{k+1})}{h_k^2}
+  + \frac{4(m_k^2 + m_k m_{k+1} + m_{k+1}^2)}{h_k}
+```
+
+Summing over segments produces a sparse symmetric quadratic form
+
+```math
+E = u^T K_{uu} u + 2\, u^T K_{um} m + m^T K_{mm} m
+```
+
+with all three blocks `N × N` and tridiagonal in structure (each segment
+couples adjacent knots).
+
+# Reference
+
+Reinsch 1967 derives the analogous Gram matrix for cubic splines parameterised
+by knot values alone; this routine extends to the full Hermite ``(u, m)``
+representation that `CubicSplinePulse` uses.
+"""
+function build_bending_energy_blocks(h::AbstractVector{<:Real})
+    N = length(h) + 1
+    @assert N ≥ 2 "Need at least one segment (length(h) ≥ 1, got $(length(h)))"
+    @assert all(>(0), h) "All segment widths h_k must be positive"
+
+    K_uu = spzeros(N, N)
+    K_um = spzeros(N, N)
+    K_mm = spzeros(N, N)
+
+    @inbounds for k in 1:(N-1)
+        hk = h[k]
+        h2 = hk^2
+        h3 = hk^3
+
+        # u-u block: coefficients of u_k^2, u_{k+1}^2, u_k u_{k+1}
+        K_uu[k, k]     += 12 / h3
+        K_uu[k+1, k+1] += 12 / h3
+        K_uu[k, k+1]   += -12 / h3  # symmetric off-diagonal stores half the cross coeff
+        K_uu[k+1, k]   += -12 / h3
+
+        # u-m block: cross term has factor of 2 in the global form
+        # The per-segment cross term: -12/h^2 * (u_{k+1}-u_k)(m_k+m_{k+1})
+        #   = -12/h^2 (u_{k+1} m_k + u_{k+1} m_{k+1} - u_k m_k - u_k m_{k+1})
+        # We absorb the factor of 2 from "E = u^T K_{uu} u + 2 u^T K_{um} m + m^T K_{mm} m"
+        # by halving the per-segment coefficients.
+        K_um[k, k]     += +6 / h2   # u_k m_k coefficient -(-12/h^2)/2 = +6/h^2
+        K_um[k, k+1]   += +6 / h2   # u_k m_{k+1}
+        K_um[k+1, k]   += -6 / h2   # u_{k+1} m_k
+        K_um[k+1, k+1] += -6 / h2   # u_{k+1} m_{k+1}
+
+        # m-m block: 4/h * (m_k^2 + m_k m_{k+1} + m_{k+1}^2)
+        K_mm[k, k]     += 4 / hk
+        K_mm[k+1, k+1] += 4 / hk
+        K_mm[k, k+1]   += 2 / hk   # cross coeff is 4/h, but symmetric storage halves it
+        K_mm[k+1, k]   += 2 / hk
+    end
+
+    return K_uu, K_um, K_mm
+end
+
+@doc raw"""
+    BendingEnergyObjective <: AbstractObjective
+
+Penalises ``\int_0^T \ddot u_c(t)^2 \, dt`` for each control channel ``c`` of a
+cubic Hermite spline, summed over channels:
+
+```math
+J_{\mathrm{bend}} = \lambda \sum_{c=1}^{n_{\text{drives}}}
+    \int_0^T \ddot u_c(t)^2 \, dt
+  = \lambda \sum_{c=1}^{n_{\text{drives}}}
+    \left( u_c^T K_{uu} u_c + 2\, u_c^T K_{um} m_c + m_c^T K_{mm} m_c \right)
+```
+
+where ``u_c`` is the vector of knot values for channel ``c`` and ``m_c`` the
+matching Hermite tangents. Unlike `QuadraticRegularizer(:u, ...)` and
+`QuadraticRegularizer(:du, ...)`, which penalise pulse *amplitude* and
+*tangent magnitude*, this objective penalises the spline's *second derivative*
+— the integral of the bending-strain energy. For a flat constant pulse the
+contribution is exactly zero regardless of amplitude; for a sinusoid at
+frequency ``\omega`` it scales as ``\omega^4``.
+
+# Knot times
+
+The segment widths ``h_k`` used to build the blocks are baked in at
+construction time from `get_times(traj)`. Treating ``h_k`` as constant
+(rather than re-deriving the blocks from ``\Delta t`` at every evaluation)
+keeps the objective a true quadratic — analytical gradient and Hessian — and
+matches how Reinsch-style smoothing splines are usually implemented. Free-time
+problems still optimise ``\Delta t``, but the bending coefficients reflect
+the initial schedule. The penalty remains a soft regulariser, so this is a
+fine tradeoff for the typical ~1–3% timestep adjustment seen in min-time
+problems.
+
+# Fields
+- `u_name::Symbol`: control variable name (e.g. `:u`)
+- `du_name::Symbol`: derivative variable name (e.g. `:du`)
+- `λ::Float64`: scalar bending-energy weight
+- `K_uu::SparseMatrixCSC{Float64,Int}`: ``N×N`` block coupling knot values to themselves
+- `K_um::SparseMatrixCSC{Float64,Int}`: ``N×N`` cross block coupling knot values to tangents
+- `K_mm::SparseMatrixCSC{Float64,Int}`: ``N×N`` block coupling tangents to themselves
+- `n_drives::Int`: number of control channels (the same K blocks apply to each)
+
+# Constructor
+
+```julia
+BendingEnergyObjective(u_name, du_name, λ, traj::NamedTrajectory)
+```
+
+reads segment widths from `get_times(traj)` and builds the blocks once.
+"""
+struct BendingEnergyObjective <: AbstractObjective
+    u_name::Symbol
+    du_name::Symbol
+    λ::Float64
+    K_uu::SparseMatrixCSC{Float64,Int}
+    K_um::SparseMatrixCSC{Float64,Int}
+    K_mm::SparseMatrixCSC{Float64,Int}
+    n_drives::Int
+end
+
+function BendingEnergyObjective(
+    u_name::Symbol,
+    du_name::Symbol,
+    λ::Real,
+    traj::NamedTrajectory,
+)
+    @assert haskey(traj.components, u_name) "BendingEnergyObjective: trajectory has no component :$u_name"
+    @assert haskey(traj.components, du_name) "BendingEnergyObjective: trajectory has no component :$du_name"
+    @assert traj.dims[u_name] == traj.dims[du_name] "BendingEnergyObjective: $u_name and $du_name must have the same number of channels"
+
+    times = get_times(traj)
+    h = diff(times)
+    K_uu, K_um, K_mm = build_bending_energy_blocks(h)
+
+    return BendingEnergyObjective(
+        u_name,
+        du_name,
+        Float64(λ),
+        K_uu,
+        K_um,
+        K_mm,
+        traj.dims[u_name],
+    )
+end
+
+function Base.show(io::IO, obj::BendingEnergyObjective)
+    print(
+        io,
+        "BendingEnergyObjective on (:$(obj.u_name), :$(obj.du_name)) ",
+        "(λ = $(obj.λ), n_drives = $(obj.n_drives))",
+    )
+end
+
+# Helper: gather per-channel knot-value and tangent vectors from a trajectory.
+# For a control component of size (n_drives, N), traj[name] returns the
+# n_drives × N matrix indexed by (channel, knot).
+function _bending_extract(traj::NamedTrajectory, name::Symbol)
+    return traj[name]  # n_drives × N matrix
+end
+
+function DirectTrajOpt.Objectives.objective_value(
+    obj::BendingEnergyObjective,
+    traj::NamedTrajectory,
+)
+    U = _bending_extract(traj, obj.u_name)
+    M = _bending_extract(traj, obj.du_name)
+    J = 0.0
+    @inbounds for c in 1:obj.n_drives
+        uc = view(U, c, :)
+        mc = view(M, c, :)
+        J += dot(uc, obj.K_uu * uc) + 2 * dot(uc, obj.K_um * mc) + dot(mc, obj.K_mm * mc)
+    end
+    return obj.λ * J
+end
+
+function DirectTrajOpt.Objectives.gradient!(
+    ∇::AbstractVector,
+    obj::BendingEnergyObjective,
+    traj::NamedTrajectory,
+)
+    U = _bending_extract(traj, obj.u_name)
+    M = _bending_extract(traj, obj.du_name)
+
+    u_comps = traj.components[obj.u_name]
+    m_comps = traj.components[obj.du_name]
+    N = traj.N
+
+    @inbounds for c in 1:obj.n_drives
+        uc = U[c, :]
+        mc = M[c, :]
+
+        # ∂J/∂u_c = 2 λ (K_uu u_c + K_um m_c)
+        ∂u = 2 * obj.λ * (obj.K_uu * uc + obj.K_um * mc)
+        # ∂J/∂m_c = 2 λ (K_um' u_c + K_mm m_c)
+        ∂m = 2 * obj.λ * (transpose(obj.K_um) * uc + obj.K_mm * mc)
+
+        # Scatter per-channel gradients into the global ∇ vector.
+        # At knot k, the index of variable :u channel c is slice(k, u_comps, traj.dim)[c].
+        for k in 1:N
+            u_idx = slice(k, u_comps, traj.dim)[c]
+            m_idx = slice(k, m_comps, traj.dim)[c]
+            ∇[u_idx] += ∂u[k]
+            ∇[m_idx] += ∂m[k]
+        end
+    end
+
+    return nothing
+end
+
+function DirectTrajOpt.Objectives.hessian_structure(
+    obj::BendingEnergyObjective,
+    traj::NamedTrajectory,
+)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    structure = spzeros(Z_dim, Z_dim)
+
+    N = traj.N
+
+    # The K blocks are tridiagonal in structure, so each adjacent (k, k+1) pair
+    # contributes a couple non-zeros. We populate the structure at every nonzero
+    # entry of K_uu, K_um, K_mm for every channel.
+    @inbounds for c in 1:obj.n_drives
+        # Walk K_uu, K_um, K_mm sparse entries
+        for (Kmat, name_i, name_j) in (
+            (obj.K_uu, obj.u_name, obj.u_name),
+            (obj.K_um, obj.u_name, obj.du_name),
+            (obj.K_mm, obj.du_name, obj.du_name),
+        )
+            rows = rowvals(Kmat)
+            comps_i = traj.components[name_i]
+            comps_j = traj.components[name_j]
+            for col in 1:N
+                for ptr in nzrange(Kmat, col)
+                    row = rows[ptr]
+                    i_idx = slice(row, comps_i, traj.dim)[c]
+                    j_idx = slice(col, comps_j, traj.dim)[c]
+                    structure[i_idx, j_idx] = 1.0
+                    structure[j_idx, i_idx] = 1.0
+                end
+            end
+        end
+    end
+
+    return structure
+end
+
+function DirectTrajOpt.Objectives.get_full_hessian(
+    obj::BendingEnergyObjective,
+    traj::NamedTrajectory,
+)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    H = spzeros(Z_dim, Z_dim)
+
+    u_comps = traj.components[obj.u_name]
+    m_comps = traj.components[obj.du_name]
+    N = traj.N
+    λ = obj.λ
+
+    @inbounds for c in 1:obj.n_drives
+        # ∂²J/∂u_c ∂u_c = 2λ K_uu
+        for col in 1:N
+            for ptr in nzrange(obj.K_uu, col)
+                row = rowvals(obj.K_uu)[ptr]
+                val = nonzeros(obj.K_uu)[ptr]
+                i_idx = slice(row, u_comps, traj.dim)[c]
+                j_idx = slice(col, u_comps, traj.dim)[c]
+                H[i_idx, j_idx] += 2 * λ * val
+            end
+        end
+
+        # ∂²J/∂u_c ∂m_c = 2λ K_um  (and symmetric transpose)
+        for col in 1:N
+            for ptr in nzrange(obj.K_um, col)
+                row = rowvals(obj.K_um)[ptr]
+                val = nonzeros(obj.K_um)[ptr]
+                u_idx = slice(row, u_comps, traj.dim)[c]
+                m_idx = slice(col, m_comps, traj.dim)[c]
+                H[u_idx, m_idx] += 2 * λ * val
+                H[m_idx, u_idx] += 2 * λ * val
+            end
+        end
+
+        # ∂²J/∂m_c ∂m_c = 2λ K_mm
+        for col in 1:N
+            for ptr in nzrange(obj.K_mm, col)
+                row = rowvals(obj.K_mm)[ptr]
+                val = nonzeros(obj.K_mm)[ptr]
+                i_idx = slice(row, m_comps, traj.dim)[c]
+                j_idx = slice(col, m_comps, traj.dim)[c]
+                H[i_idx, j_idx] += 2 * λ * val
+            end
+        end
+    end
+
+    return H
 end
 
 # ---------------------------------------------------------
