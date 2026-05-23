@@ -2,6 +2,7 @@ module AnimatedPlots
 
 export animate_figure
 export animate_name
+export animate_pulse
 
 """
     animate_figure(
@@ -117,5 +118,57 @@ See also: `animate_figure`, `animate_bloch`, and
 [`NamedTrajectories.plot`](https://docs.harmoniqs.co/NamedTrajectories/dev/generated/plotting/).
 """
 function animate_name end
+
+"""
+    animate_pulse(
+        pulses::AbstractVector{<:AbstractPulse};
+        fps::Int = 12,
+        mode::Symbol = :inline,
+        filename::String = "pulse_sweep_animation.mp4",
+        n_samples::Int = 240,
+        layout::Symbol = :stacked,
+        title::AbstractString = "Pulse parameter sweep",
+        labels = nothing,
+        parameter_values = nothing,
+        parameter_label::AbstractString = "Frame"
+    ) -> Figure
+
+Animate a sequence of pulses, one pulse per frame, for visualizing parameter sweeps
+or optimization snapshots.
+
+For progressive trajectory/control reveal animations, use `animate_name`.
+
+Defined as a stub here; the implementation is provided by the `PiccoloMakieExt`
+extension and is loaded when a Makie backend is available.
+
+# Arguments
+- `pulses::AbstractVector{<:AbstractPulse}`: Pulses with the same number of drives,
+  sampled and shown as a sweep.
+
+# Keyword Arguments
+- `fps::Int`: Frames per second.
+- `mode::Symbol`: `:inline` or `:record`; see `animate_figure`.
+- `filename::String`: Output path when `mode = :record`.
+- `n_samples::Int`: Number of samples per pulse.
+- `layout::Symbol`: `:stacked` for one axis per drive or `:overlay` for all drives
+  on one axis.
+- `title::AbstractString`: Figure title.
+- `labels`: Optional drive labels.
+- `parameter_values`: Optional values to show for each frame in a pulse sweep.
+- `parameter_label::AbstractString`: Label used with `parameter_values`.
+
+# Examples
+
+```julia
+using GLMakie
+
+amps = range(0.2, 1.0, length=40)
+pulses = [GaussianPulse([amp, 0.5amp], 1.0, 10.0) for amp in amps]
+animate_pulse(pulses; parameter_values=amps, parameter_label="amplitude")
+```
+
+See also: `plot_pulse`, `animate_figure`, and `animate_name`.
+"""
+function animate_pulse end
 
 end
