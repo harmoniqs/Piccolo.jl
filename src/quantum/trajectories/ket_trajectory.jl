@@ -27,7 +27,7 @@ mutable struct KetTrajectory{P<:AbstractPulse,S<:ODESolution} <:
 end
 
 """
-    KetTrajectory(system, pulse, initial, goal; algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8, n_save=101)
+    KetTrajectory(system, pulse, initial, goal; algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8, n_save=101, progress=false, progress_steps=10)
 
 Create a ket trajectory by solving the Schrödinger equation.
 
@@ -42,6 +42,10 @@ Create a ket trajectory by solving the Schrödinger equation.
 - `abstol`: Absolute tolerance for adaptive integration (default: 1e-8)
 - `reltol`: Relative tolerance for adaptive integration (default: 1e-8)
 - `n_save`: Number of output time points (default: 101)
+- `progress`: If true, emit ProgressLogging events during the ODE rollout (default: false).
+  To see a progress bar in the terminal, install `TerminalLoggers` and set
+  `global_logger(TerminalLogger())` before calling.
+- `progress_steps`: Granularity of progress reports (default: 10, i.e. ~10% increments)
 """
 function KetTrajectory(
     system::QuantumSystem,
@@ -52,6 +56,8 @@ function KetTrajectory(
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
+    progress::Bool = false,
+    progress_steps::Int = 10,
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
@@ -64,8 +70,17 @@ function KetTrajectory(
     knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = KetOperatorODEProblem(system, pulse, ψ0, tstops)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
+    # Choose the ODE problem form to match the algorithm. Magnus-class methods
+    # need H(t) materialized as a MatrixOperator (KetOperatorODEProblem). Explicit
+    # RK methods (Tsit5, Vern9, DP8, ...) only need the dψ/dt = -iH(t)·ψ matvec
+    # and should use KetODEProblem to avoid a per-step dense materialization
+    # of H — a major hot-path penalty on high-dimensional sparse systems.
+    prob = _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(system, pulse, ψ0, tstops) :
+        KetODEProblem(system, pulse, ψ0, tstops)
+    sol = solve(prob, algorithm;
+                saveat = save_times, abstol = abstol, reltol = reltol,
+                progress = progress, progress_steps = progress_steps)
 
     return KetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0, ψg, sol)
 end

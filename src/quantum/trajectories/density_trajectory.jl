@@ -52,6 +52,8 @@ function DensityTrajectory(
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
+    progress::Bool = false,
+    progress_steps::Int = 10,
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
@@ -61,7 +63,9 @@ function DensityTrajectory(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(system, pulse, ρ0, tstops)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
+    sol = solve(prob, algorithm;
+                saveat = save_times, abstol = abstol, reltol = reltol,
+                progress = progress, progress_steps = progress_steps)
 
     return DensityTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ρ0, ρg, sol)
 end
