@@ -107,6 +107,7 @@ function Piccolo.LivePulsePlotCallback(
     save_dir::Union{Nothing,String} = nothing,
     title_prefix::String = "iter",
 )
+    every >= 1 || throw(ArgumentError("every must be >= 1, got $every"))
     if save_dir !== nothing
         mkpath(save_dir)
     end
@@ -114,6 +115,11 @@ function Piccolo.LivePulsePlotCallback(
 end
 
 function (cb::_LivePulsePlotCallback)(primal::AbstractVector, iter::Integer)
+    # Gate skipped iters before any allocation.
+    if (iter % cb.every) != 0
+        return true
+    end
+
     traj = cb.trajectory
     data_dim = traj.dim * traj.N
     expected = data_dim + traj.global_dim
@@ -121,7 +127,7 @@ function (cb::_LivePulsePlotCallback)(primal::AbstractVector, iter::Integer)
         @warn "primal-vector length mismatch ($(length(primal)) vs $expected); " *
               "trajectory reconstruction skipped. (For MadNLP, this usually " *
               "means `fixed_variable_treatment` was set to `MakeParameter` " *
-              "explicitly, overriding DTO's default RelaxBound coupling.)"
+              "explicitly, overriding DTO's default RelaxBound coupling.)" maxlog = 1
         return true
     end
 
@@ -131,15 +137,11 @@ function (cb::_LivePulsePlotCallback)(primal::AbstractVector, iter::Integer)
         update!(traj, collect(view(primal, 1:data_dim)); type = :data)
     end
 
-    if (iter % cb.every) != 0
-        return true
-    end
-
     pulse = extract_pulse(cb.qtraj, traj)
     fig = plot_pulse(pulse; title = "$(cb.title_prefix) $iter")
 
     if cb.save_dir !== nothing
-        Makie.save(joinpath(cb.save_dir, "iter_$(lpad(iter, 3, '0')).png"), fig)
+        Makie.save(joinpath(cb.save_dir, "iter_$(lpad(iter, 5, '0')).png"), fig)
     end
     return true
 end
@@ -161,18 +163,14 @@ end
 end
 
 
-@testitem "LivePulsePlotCallback fires through MadNLP via abstract adapter" begin
+@testitem "LivePulsePlotCallback subtype + direct invocation" begin
     using DirectTrajOpt
     using NamedTrajectories
     using CairoMakie
-    import MadNLP
     using Random
 
     Random.seed!(42)
-    H_drift = 0.5 * PAULIS[:Z]
-    H_drives = [PAULIS[:X], PAULIS[:Y]]
-    sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
-
+    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
     T, N = 10.0, 30
     times = collect(range(0, T, length = N))
     pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
@@ -183,18 +181,70 @@ end
                              piccolo_options = opts)
 
     save_dir = mktempdir()
-    cb = LivePulsePlotCallback(qtraj, qcp.prob.trajectory;
-                               every = 1, save_dir = save_dir)
+    cb = LivePulsePlotCallback(qtraj, qcp.prob.trajectory; save_dir = save_dir)
+
+    # Type contract: the callback subtypes DTO's solver-agnostic abstract type,
+    # so any DTO backend can install it via its intermediate_callback option.
     @test cb isa DirectTrajOpt.AbstractIntermediateCallback
 
-    # No explicit fixed_variable_treatment — DTO auto-couples RelaxBound.
-    DirectTrajOpt.solve!(qcp; options = DirectTrajOpt.MadNLPOptions(
-        max_iter = 3,
-        intermediate_callback = cb,
-    ), verbose = false)
+    # Direct invocation with a synthesized primal vector of the right length.
+    traj = qcp.prob.trajectory
+    expected = traj.dim * traj.N + traj.global_dim
+    @test cb(randn(expected), 0) === true
+    @test cb(randn(expected), 1) === true
 
     pngs = filter(f -> endswith(f, ".png"), readdir(save_dir))
-    @test !isempty(pngs)
+    @test length(pngs) == 2
+
+    # Each call produces a distinct frame.
+    @test stat(joinpath(save_dir, pngs[1])).size != stat(joinpath(save_dir, pngs[2])).size
+end
+
+@testitem "LivePulsePlotCallback every > 1 skips renders" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using CairoMakie
+    using Random
+
+    Random.seed!(7)
+    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
+    times = collect(range(0, 5.0, length = 20))
+    qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(0.1 * randn(1, 20), times), GATES[:X])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        20;
+        piccolo_options = PiccoloOptions(timesteps_all_equal = true, verbose = false),
+    )
+
+    save_dir = mktempdir()
+    cb = LivePulsePlotCallback(qtraj, qcp.prob.trajectory; every = 3, save_dir = save_dir)
+
+    traj = qcp.prob.trajectory
+    expected = traj.dim * traj.N + traj.global_dim
+    for iter = 0:10
+        cb(randn(expected), iter)
+    end
+
+    # iter % 3 == 0 fires on iters 0, 3, 6, 9 → 4 PNGs out of 11 invocations.
+    pngs = filter(f -> endswith(f, ".png"), readdir(save_dir))
+    @test length(pngs) == 4
+end
+
+@testitem "LivePulsePlotCallback rejects every <= 0" begin
+    using NamedTrajectories
+    using CairoMakie
+
+    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
+    times = collect(range(0, 1.0, length = 5))
+    qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(zeros(1, 5), times), GATES[:X])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        5;
+        piccolo_options = PiccoloOptions(timesteps_all_equal = true, verbose = false),
+    )
+
+    @test_throws ArgumentError LivePulsePlotCallback(qtraj, qcp.prob.trajectory; every = 0)
+    @test_throws ArgumentError LivePulsePlotCallback(qtraj, qcp.prob.trajectory; every = -1)
 end
 
 
