@@ -742,6 +742,53 @@ end
     @test_throws AssertionError validate_drive_jacobian(d_wrong_global, 3)
 end
 
+@testitem "QuantumSystem construction does not advance the global RNG" begin
+    # Regression: validators previously sampled with `randn(u_dim)` on the
+    # global stream during `QuantumSystem` construction, silently shifting
+    # downstream `rand`/`randn` results in user scripts that seed once at
+    # the top.
+
+    using Piccolo
+    using Random
+    using SparseArrays
+
+    H_drift = sparse(ComplexF64[1.0 0.0; 0.0 -1.0])
+    H1 = sparse(ComplexF64[0.0 1.0; 1.0 0.0])
+    H2 = sparse(ComplexF64[0.0 -1.0im; 1.0im 0.0])
+
+    # 1. Direct validator entry points.
+    d_simple = NonlinearDrive(H1, u -> u[1] * u[2] * u[3])
+    Random.seed!(42)
+    baseline = rand(5)
+    Random.seed!(42)
+    validate_drive_jacobian(d_simple, 3)
+    validate_drive_hessian(d_simple, 3)
+    @test rand(5) == baseline
+
+    # 2. Full QuantumSystem path with NonlinearDrives + globals — this is
+    #    the surface that hit the user. Multiple nonlinear drives × a
+    #    larger u_dim is the worst case for randn consumption.
+    drives = AbstractDrive[
+        LinearDrive(H1, 1),
+        NonlinearDrive(H2, u -> u[1]^2 + u[2] * u[3]),
+        NonlinearDrive(H1, u -> u[2] * u[3]),
+    ]
+    bounds = [(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)]
+    Random.seed!(42)
+    baseline2 = rand(5)
+    Random.seed!(42)
+    QuantumSystem(H_drift, drives, bounds; global_params = (g1 = 0.5,))
+    @test rand(5) == baseline2
+
+    # 3. Same again but with no globals — verifies the no-globals path is
+    #    also RNG-clean.
+    Random.seed!(42)
+    baseline3 = rand(5)
+    Random.seed!(42)
+    QuantumSystem(H_drift, drives, bounds)
+    @test rand(5) == baseline3
+end
+
 @testitem "G works on AbstractDrive types" begin
     using Piccolo
     using SparseArrays
