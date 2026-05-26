@@ -19,20 +19,30 @@ export AbstractPulse, AbstractSplinePulse
 export ZeroOrderPulse,
     LinearSplinePulse,
     CubicSplinePulse,
+    BSplinePulse,
     GaussianPulse,
     ErfPulse,
     CompositePulse,
     FunctionPulse
 export duration, n_drives, sample, drive_name
 export load_pulse
+export get_control_points, get_knots
 
 using DataInterpolations
 using DataInterpolations:
     ConstantInterpolation, LinearInterpolation, CubicHermiteSpline, ExtrapolationType
 using ForwardDiff
 using JLD2
+using LinearAlgebra: norm
 using SpecialFunctions: erf
 using TestItems
+
+# Sibling submodule for B-spline basis support (BSplinePulse)
+using ..BsplineBases:
+    BsplineBasis,
+    evaluate_curve,
+    evaluate_linear_in_control_points,
+    num_basis_functions
 
 const DEFAULT_SAMPLES::Int = 100
 
@@ -636,6 +646,167 @@ function CubicSplinePulse(
 end
 
 # ============================================================================ #
+# BSplinePulse
+# ============================================================================ #
+
+"""
+    BSplinePulse{T, B<:BsplineBasis{T}} <: AbstractSplinePulse
+
+Control-point-native B-spline pulse parameterization. Decision variables are
+control points; the curve `u(t) = control_points * M_0(τ)` lies in the convex
+hull of its control points. C^{degree-1} continuity is structural (no
+regularizer needed).
+
+# Fields
+- `basis::B`: defines order, knots, normalized parameter τ ∈ [0, 1]
+- `control_points::Matrix{T}`: `n_drives × num_basis_functions(basis)`
+- `duration::Float64`
+- `n_drives::Int`
+- `drive_name::Symbol`
+- `initial_value::Union{Vector{Float64},Symbol}`: clamped to `control_points[:, 1]` or `:free`
+- `final_value::Union{Vector{Float64},Symbol}`: clamped to `control_points[:, end]` or `:free`
+
+# Convention
+The basis lives on normalized parameter τ ∈ [0, 1]; see the spec's Conventions
+section for free-time (per-segment Δt) compatibility.
+"""
+struct BSplinePulse{T<:Real,B<:BsplineBasis{T}} <: AbstractSplinePulse
+    basis::B
+    control_points::Matrix{T}
+    duration::Float64
+    n_drives::Int
+    drive_name::Symbol
+    initial_value::Union{Vector{Float64},Symbol}
+    final_value::Union{Vector{Float64},Symbol}
+end
+
+function _resolve_bspline_boundary(spec, cps::AbstractMatrix, which::Symbol)
+    if spec === nothing
+        col = which == :first ? cps[:, 1] : cps[:, end]
+        return Vector{Float64}(col)
+    elseif spec === :free
+        return :free
+    elseif spec isa Symbol
+        throw(ArgumentError("Invalid boundary symbol: $spec (only :free is supported)"))
+    elseif spec isa AbstractVector
+        return Vector{Float64}(spec)
+    else
+        throw(ArgumentError("Invalid boundary spec: $spec"))
+    end
+end
+
+"""
+    BSplinePulse(control_points::AbstractMatrix, times::AbstractVector;
+                 degree=3, drive_name=:u, initial_value=nothing, final_value=nothing)
+
+Primary constructor. The `times` vector is used only for its duration
+(`times[end] - times[1]`) — the actual time parameterization lives in
+the basis on normalized τ ∈ [0, 1].
+
+`initial_value` / `final_value`:
+- `nothing` (default): set to `control_points[:, 1]` / `control_points[:, end]`
+- A vector: enforces invariant `control_points[:, 1] ≈ initial_value` (atol 1e-12)
+- `:free`: no pinning; the boundary CP is a free decision variable
+"""
+function BSplinePulse(
+    control_points::AbstractMatrix{T},
+    times::AbstractVector{<:Real};
+    degree::Int = 3,
+    drive_name::Symbol = :u,
+    initial_value::Union{Nothing,AbstractVector,Symbol} = nothing,
+    final_value::Union{Nothing,AbstractVector,Symbol} = nothing,
+) where {T<:Real}
+    n_drv = size(control_points, 1)
+    nbf = size(control_points, 2)
+    nbf >= degree + 1 || throw(ArgumentError(
+        "BSplinePulse requires n_control_points ($nbf) >= degree + 1 ($(degree+1))"))
+    length(times) >= 2 || throw(ArgumentError(
+        "BSplinePulse requires at least 2 time entries"))
+
+    dur = Float64(times[end] - times[1])
+    dur > 0 || throw(ArgumentError("BSplinePulse duration must be positive"))
+
+    iv = _resolve_bspline_boundary(initial_value, control_points, :first)
+    fv = _resolve_bspline_boundary(final_value, control_points, :last)
+
+    # Invariant check (only when iv/fv are concrete vectors and user-supplied)
+    if initial_value isa AbstractVector
+        isapprox(control_points[:, 1], iv; atol = 1e-12) || throw(ArgumentError(
+            "BSplinePulse: initial_value $iv must match control_points[:, 1] = $(control_points[:, 1])"))
+    end
+    if final_value isa AbstractVector
+        isapprox(control_points[:, end], fv; atol = 1e-12) || throw(ArgumentError(
+            "BSplinePulse: final_value $fv must match control_points[:, end] = $(control_points[:, end])"))
+    end
+
+    Tp = promote_type(T, Float64)
+    cps_p = Matrix{Tp}(control_points)
+    # Build a basis with matching T parameter for compatibility with cps storage type
+    basis_p = BsplineBasis(degree + 1, nbf;
+        knot_vector_type = :clamped_uniform,
+        initial_parameter_value = zero(Tp),
+        final_parameter_value = one(Tp),
+    )
+    return BSplinePulse{Tp,typeof(basis_p)}(
+        basis_p, cps_p, dur, n_drv, drive_name, iv, fv,
+    )
+end
+
+"""
+    BSplinePulse(pulse::AbstractPulse, n_control_points::Int; degree=3)
+
+Warm-start constructor. Samples `pulse` densely, then uses
+`DataInterpolations.BSplineApprox` to compute a least-squares-fit set of
+control points. Inherits duration / n_drives / drive_name from `pulse`.
+"""
+function BSplinePulse(
+    pulse::AbstractPulse,
+    n_control_points::Int;
+    degree::Int = 3,
+)
+    n_control_points >= degree + 1 || throw(ArgumentError(
+        "n_control_points must be >= degree + 1"))
+
+    T_dur = duration(pulse)
+    n_drv = n_drives(pulse)
+    n_samples = max(4 * n_control_points, 200)
+    sample_ts = collect(range(0.0, T_dur, length = n_samples))
+
+    samples = Matrix{Float64}(undef, n_drv, n_samples)
+    for (k, t) in enumerate(sample_ts)
+        samples[:, k] = evaluate(pulse, t)
+    end
+
+    C = Matrix{Float64}(undef, n_drv, n_control_points)
+    for j in 1:n_drv
+        approx = DataInterpolations.BSplineApprox(
+            samples[j, :], sample_ts, degree, n_control_points, :Uniform, :Uniform,
+        )
+        C[j, :] = approx.c
+    end
+
+    times = collect(range(0.0, T_dur, length = n_control_points))
+    return BSplinePulse(C, times; degree = degree, drive_name = drive_name(pulse))
+end
+
+# --- evaluate / derivative / accessors ---
+
+function evaluate(p::BSplinePulse, t::Real)
+    τ = t / p.duration
+    return evaluate_curve(p.basis, p.control_points, τ)
+end
+
+function derivative(p::BSplinePulse, t::Real)
+    τ = t / p.duration
+    M1 = evaluate_linear_in_control_points(p.basis, τ; derivative_order = 1)
+    # Chain rule: du/dt = (du/dτ) * (dτ/dt) = (C * M1) / duration
+    return (p.control_points * M1) ./ p.duration
+end
+
+get_control_points(p::BSplinePulse) = p.control_points
+get_knots(p::BSplinePulse) = p.basis.knots
+
+# ============================================================================ #
 # GaussianPulse (analytic)
 # ============================================================================ #
 
@@ -1166,6 +1337,19 @@ function _rebuild_like(p::ZeroOrderPulse, vars::NamedTuple)
         initial_value = p.initial_value,
         final_value = p.final_value,
         snap_to_knots = p.snap_to_knots,
+    )
+end
+
+function _rebuild_like(p::BSplinePulse, vars::NamedTuple)
+    haskey(vars, :u) || throw(ArgumentError(
+        "BSplinePulse._rebuild_like requires :u in NamedTuple; got keys $(keys(vars))"))
+    new_cps = vars.u
+    size(new_cps) == size(p.control_points) || throw(DimensionMismatch(
+        "new control_points size $(size(new_cps)) != original $(size(p.control_points))"))
+    Tnew = promote_type(eltype(new_cps), Float64)
+    return BSplinePulse{Tnew,typeof(p.basis)}(
+        p.basis, Matrix{Tnew}(new_cps), p.duration, p.n_drives,
+        p.drive_name, p.initial_value, p.final_value,
     )
 end
 
@@ -1888,6 +2072,195 @@ end
     # Missing-key error contracts
     @test_throws ArgumentError Piccolo.Pulses._rebuild_like(p_lin, (v = u0,))
     @test_throws ArgumentError Piccolo.Pulses._rebuild_like(p_cub, (u = u0,))
+end
+
+@testitem "BSplinePulse: primary constructor + struct invariants" begin
+    using Piccolo
+    using Random
+    Random.seed!(20260525)
+
+    nbf = 22  # for d=3, with arbitrary >= d+1
+    times = collect(range(0.0, 1.0, length = 20))
+    C = randn(2, nbf)
+    iv = randn(2)
+    C[:, 1] = iv
+    fv = randn(2)
+    C[:, end] = fv
+
+    p = BSplinePulse(C, times; degree = 3,
+        initial_value = iv, final_value = fv, drive_name = :u)
+    @test p isa BSplinePulse
+    @test n_drives(p) == 2
+    @test duration(p) == 1.0
+    @test p.initial_value ≈ iv
+    @test p.final_value ≈ fv
+    @test p.basis.order == 4
+    @test num_basis_functions(p.basis) == nbf
+
+    # Inconsistent clamp should error
+    C_bad = copy(C)
+    C_bad[:, 1] .+= 0.1
+    @test_throws ArgumentError BSplinePulse(C_bad, times; degree = 3,
+        initial_value = iv, final_value = fv)
+
+    # Too-few CPs should error
+    @test_throws ArgumentError BSplinePulse(randn(2, 3), times; degree = 3)
+
+    # :free boundary semantics
+    p_free = BSplinePulse(C, times; degree = 3, initial_value = :free, final_value = :free)
+    @test p_free.initial_value === :free
+    @test p_free.final_value === :free
+end
+
+@testitem "BSplinePulse: evaluate / derivative / accessors" begin
+    using Piccolo
+
+    using Random
+    Random.seed!(20260525)
+
+    nbf, T_dur = 18, 2.5
+    times = collect(range(0.0, T_dur, length = 16))
+    C = randn(2, nbf)
+    p = BSplinePulse(C, times; degree = 3, initial_value = :free, final_value = :free)
+
+    # Endpoint exactness via call form
+    @test p(0.0) ≈ C[:, 1] atol = 1e-12
+    @test p(T_dur) ≈ C[:, end] atol = 1e-12
+
+    # Pointwise consistency with basis
+    for _ in 1:30
+        t = T_dur * rand()
+        τ = t / T_dur
+        @test p(t) ≈ evaluate_curve(p.basis, p.control_points, τ) atol = 1e-12
+    end
+
+    # Derivative consistency: du/dt = (1/T) du/dτ via FD
+    h = 1e-6
+    for _ in 1:10
+        t = 0.1 * T_dur + 0.8 * T_dur * rand()
+        analytic = Piccolo.Pulses.derivative(p, t)
+        fd = (p(t + h) .- p(t - h)) ./ (2h)
+        @test analytic ≈ fd atol = 1e-4
+    end
+
+    # Accessors
+    @test get_control_points(p) === p.control_points
+    @test get_knots(p) === p.basis.knots
+    @test drive_name(p) == :u
+    @test duration(p) == T_dur
+    @test n_drives(p) == 2
+end
+
+@testitem "BSplinePulse: warm-start from AbstractPulse via BSplineApprox" begin
+    using Piccolo
+    using Random
+    Random.seed!(20260525)
+
+    N = 20
+    times = collect(range(0.0, 1.0, length = N))
+    u_vals = randn(2, N)
+    du_vals = randn(2, N) .* 0.5
+    p_cub = CubicSplinePulse(u_vals, du_vals, times)
+
+    # Fit with 1.5x oversampling
+    n_cp = Int(round(1.5 * N))
+    p_bsp = BSplinePulse(p_cub, n_cp; degree = 3)
+    @test p_bsp isa BSplinePulse
+    @test num_basis_functions(p_bsp.basis) == n_cp
+
+    # Fit error: sample original at 50 points, compare to bspline approx
+    diffs = Float64[]
+    for t in range(0.05, 0.95, length = 50)
+        diff = p_cub(t) .- p_bsp(t)
+        push!(diffs, sqrt(sum(abs2, diff)))
+    end
+    @test maximum(diffs) < 5e-1  # generous: BSplineApprox is L2-fit, not interp
+end
+
+@testitem "BSplinePulse: JLD2 round-trip" begin
+    using Piccolo
+    using JLD2
+    using Random
+    Random.seed!(20260525)
+
+    nbf = 16
+    times = collect(range(0.0, 1.0, length = 14))
+    C = randn(2, nbf)
+    p = BSplinePulse(C, times; degree = 3, initial_value = :free, final_value = :free)
+
+    mktempdir() do dir
+        path = joinpath(dir, "bspline_pulse.jld2")
+        JLD2.save(path, p)
+        p_loaded = load_pulse(path)
+        @test p_loaded isa BSplinePulse
+        @test get_control_points(p_loaded) ≈ get_control_points(p)
+        @test p_loaded.basis.order == p.basis.order
+        @test p_loaded.basis.knots ≈ p.basis.knots
+        @test p_loaded.duration == p.duration
+        # Evaluate at a few points to verify functional equivalence after load
+        for t in (0.0, 0.25, 0.5, 1.0)
+            @test p_loaded(t) ≈ p(t) atol = 1e-12
+        end
+    end
+end
+
+@testitem "BSplinePulse: _rebuild_like" begin
+    using Piccolo
+    using Random
+    Random.seed!(20260525)
+
+    nbf = 16
+    times = collect(range(0.0, 1.0, length = 14))
+    C = randn(2, nbf)
+    p = BSplinePulse(C, times; degree = 3, initial_value = :free, final_value = :free)
+
+    # _rebuild_like with :u key
+    C_new = C .+ 0.1
+    p_new = Piccolo.Pulses._rebuild_like(p, (u = C_new,))
+    @test p_new isa BSplinePulse
+    @test get_control_points(p_new) ≈ C_new
+    @test duration(p_new) == duration(p)
+    @test p_new.basis.order == p.basis.order
+    @test p_new.basis === p.basis  # basis is shared (immutable structure)
+    @test_throws ArgumentError Piccolo.Pulses._rebuild_like(p, (du = C_new,))
+end
+
+@testitem "BSplinePulse ↔ CubicSplinePulse round-trip identity (degree 3)" begin
+    using Piccolo
+    using Random
+    Random.seed!(20260525)
+
+    # Construct a known B-spline with random CPs
+    N = 20
+    n_cp = N + 2  # n_cp = N + d - 1 for d=3
+    T_dur = 1.0
+    times = collect(range(0.0, T_dur, length = N))
+    C = randn(2, n_cp)
+    p_bsp = BSplinePulse(C, times; degree = 3, initial_value = :free, final_value = :free)
+
+    # Sample at knot times (the Hermite knots — the N data-point times)
+    u_vals = Matrix{Float64}(undef, 2, N)
+    du_vals = Matrix{Float64}(undef, 2, N)
+    for (k, t) in enumerate(times)
+        u_vals[:, k] = p_bsp(t)
+        du_vals[:, k] = Piccolo.Pulses.derivative(p_bsp, t)
+    end
+
+    # Build CubicSplinePulse from those samples
+    p_cub = CubicSplinePulse(u_vals, du_vals, times)
+
+    # Round-trip identity: must agree pointwise on each segment (same cubic poly)
+    for _ in 1:300
+        t = T_dur * rand()
+        v_bsp = p_bsp(t)
+        v_cub = p_cub(t)
+        @test v_bsp ≈ v_cub atol = 1e-10
+    end
+
+    # Knot-time exactness
+    for k in 1:N
+        @test p_bsp(times[k]) ≈ u_vals[:, k] atol = 1e-14
+    end
 end
 
 end # module Pulses
