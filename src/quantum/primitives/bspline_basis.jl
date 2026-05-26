@@ -160,6 +160,55 @@ end
 
 export find_containing_interval, active_basis_function_indices
 
+"""
+    evaluate_curve(b::BsplineBasis, control_points::AbstractMatrix, t::Real) -> Vector
+
+Evaluate a B-spline curve at parameter `t` via de Boor's flattened algorithm.
+
+# Arguments
+- `b`: the basis.
+- `control_points`: matrix with `n_drives` rows and `num_basis_functions(b)` columns.
+- `t`: parameter value in `[knots[order], knots[end - order + 1]]`.
+
+Returns a vector of length `n_drives`.
+
+Port of Drake's `math::BsplineBasis::EvaluateCurve` (bspline_basis.h:133-180).
+AD-friendly: pure arithmetic on the promoted (eltype(C), typeof(t)) type.
+"""
+function evaluate_curve(b::BsplineBasis, control_points::AbstractMatrix, t::Real)
+    size(control_points, 2) == num_basis_functions(b) || throw(DimensionMismatch(
+        "control_points has $(size(control_points,2)) columns; basis has $(num_basis_functions(b))"))
+    n_drives = size(control_points, 1)
+    k = b.order
+    ℓ = find_containing_interval(b, t)
+    knots = b.knots
+    # Promote element type to handle ForwardDiff Duals on either side
+    Tp = promote_type(eltype(control_points), typeof(t), eltype(knots))
+
+    # p[:, r+1] holds the de Boor point pᵢʲ at recursion stage j; i = ℓ - r.
+    p = Matrix{Tp}(undef, n_drives, k)
+    for r in 0:(k-1)
+        i = ℓ - r
+        @views p[:, r+1] .= control_points[:, i]
+    end
+    # For j = 1, ..., k-1
+    for j in 1:(k-1)
+        for r in 0:(k-j-1)
+            i = ℓ - r
+            denom = knots[i+k-j] - knots[i]
+            # In a well-formed clamped basis this can be zero only at boundary
+            # collapses where both numerator and denominator vanish and the
+            # corresponding p column is already correct. Guard against 0/0.
+            if denom == 0
+                continue
+            end
+            α = (t - knots[i]) / denom
+            @views @. p[:, r+1] = (1 - α) * p[:, r+2] + α * p[:, r+1]
+        end
+    end
+    return p[:, 1]
+end
+
 @testitem "BsplineBasis: constructor preconditions" begin
     using Piccolo
     # Reject degree 0 / order 1
@@ -208,6 +257,64 @@ end
     # DomainError outside range
     @test_throws DomainError find_containing_interval(b, -0.1)
     @test_throws DomainError find_containing_interval(b, 1.5)
+end
+
+@testitem "BsplineBasis: d=1 hand-computed piecewise linear interpolation" begin
+    using Piccolo
+
+    # Degree-1 clamped basis on [0, 1] with 4 CPs → knots [0,0, 1/3, 2/3, 1,1]
+    b = BsplineBasis(2, 4)
+    C = reshape([0.0, 1.0, -1.0, 2.0], 1, 4)  # 1 drive, 4 CPs
+
+    # At each clamped endpoint, curve passes through corresponding CP
+    @test evaluate_curve(b, C, 0.0)[1] == 0.0
+    @test evaluate_curve(b, C, 1.0)[1] == 2.0
+    # Clamped d=1 curve passes through P_2 at 1/3, P_3 at 2/3
+    @test evaluate_curve(b, C, 1/3)[1] ≈ 1.0 atol = 1e-14
+    @test evaluate_curve(b, C, 2/3)[1] ≈ -1.0 atol = 1e-14
+
+    # Midpoint of segment [0, 1/3]: half-way between CP_1=0 and CP_2=1
+    @test evaluate_curve(b, C, 1/6)[1] ≈ 0.5 atol = 1e-14
+    # Midpoint of segment [1/3, 2/3]: half-way between CP_2=1 and CP_3=-1
+    @test evaluate_curve(b, C, 0.5)[1] ≈ 0.0 atol = 1e-14
+end
+
+@testitem "BsplineBasis: clamped endpoint exactness" begin
+    using Piccolo
+    using Random
+    Random.seed!(20260525)
+
+    for d in (2, 3, 4)
+        nbf = 10
+        b = BsplineBasis(d + 1, nbf)
+        C = randn(2, nbf)  # 2 drives
+        t_min = b.knots[b.order]
+        t_max = b.knots[end-b.order+1]
+        # Clamped basis: curve passes through first and last control points
+        @test evaluate_curve(b, C, t_min) ≈ C[:, 1] atol = 1e-14
+        @test evaluate_curve(b, C, t_max) ≈ C[:, end] atol = 1e-14
+    end
+end
+
+@testitem "BsplineBasis: evaluate_curve continuity at interior knots" begin
+    using Piccolo
+    using Random
+    Random.seed!(20260525)
+
+    # For a cubic clamped basis, the curve must be continuous across interior knots.
+    for d in (2, 3, 4)
+        nbf = 12
+        b = BsplineBasis(d + 1, nbf)
+        C = randn(1, nbf)
+        # Interior knots
+        interior_knots = unique(b.knots[(b.order+1):(end-b.order)])
+        for τ in interior_knots
+            ε = 1e-10
+            left = evaluate_curve(b, C, τ - ε)[1]
+            right = evaluate_curve(b, C, τ + ε)[1]
+            @test isapprox(left, right; atol = 1e-6)
+        end
+    end
 end
 
 end # module BsplineBases
