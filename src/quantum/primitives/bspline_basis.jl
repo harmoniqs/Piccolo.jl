@@ -7,6 +7,7 @@
 
 module BsplineBases
 
+using LinearAlgebra
 using SparseArrays
 using TestItems: @testitem
 
@@ -209,6 +210,142 @@ function evaluate_curve(b::BsplineBasis, control_points::AbstractMatrix, t::Real
     return p[:, 1]
 end
 
+"""
+    _derivative_basis(b::BsplineBasis, m::Int) -> BsplineBasis
+
+Internal helper: the m-th derivative of a degree-d B-spline is a degree-(d-m)
+B-spline. The new basis has order `b.order - m`, with the same interior knots
+but reduced boundary multiplicity.
+"""
+function _derivative_basis(b::BsplineBasis{T}, m::Int) where {T}
+    m == 0 && return b
+    new_order = b.order - m
+    new_order >= 2 || throw(ArgumentError(
+        "derivative order $m on degree-$(degree(b)) basis would give order $new_order < 2"))
+    # Drop first m and last m knots
+    new_knots = b.knots[(m+1):(end-m)]
+    return BsplineBasis{T}(new_order, new_knots)
+end
+
+"""
+    as_linear_in_control_points(b::BsplineBasis, derivative_order::Int) -> SparseMatrixCSC
+
+Returns a sparse matrix `M` of size `nbf × (nbf - derivative_order)` such that
+for any control point matrix `C`:
+
+    derivative_curve_control_points = C * M
+
+The derivative of a degree-d B-spline is a degree-(d - derivative_order) B-spline
+whose control points are a sparse linear function of the original control points.
+
+Cached per basis: subsequent calls with the same `derivative_order` return the
+identically same matrix object.
+
+Port of Drake's `BsplineTrajectory::AsLinearInControlPoints`.
+"""
+function as_linear_in_control_points(b::BsplineBasis{T}, derivative_order::Int) where {T}
+    derivative_order >= 0 || throw(ArgumentError(
+        "derivative_order must be >= 0; got $derivative_order"))
+    nbf = num_basis_functions(b)
+    if derivative_order == 0
+        return sparse(I, nbf, nbf) * one(T)
+    end
+    if derivative_order >= b.order
+        return spzeros(T, nbf, nbf - derivative_order)
+    end
+    if haskey(b._as_linear_cache, derivative_order)
+        return b._as_linear_cache[derivative_order]
+    end
+
+    # Order-1 derivative operator for a generic basis.
+    # Q_j = d / (t_{j+d+1} - t_{j+1}) * (P_{j+1} - P_j)  (Drake, 0-indexed)
+    # In 1-indexed: column j of M (size nbf × (nbf-1)) has rows j (coef -coef) and j+1 (coef +coef).
+    function _order1_op(basis::BsplineBasis{S}) where {S}
+        nbf_b = num_basis_functions(basis)
+        d_b = degree(basis)
+        knots_b = basis.knots
+        I_idx = Int[]
+        J_idx = Int[]
+        V_val = S[]
+        for j in 1:(nbf_b-1)
+            denom = knots_b[j+d_b+1] - knots_b[j+1]
+            if denom == 0
+                continue
+            end
+            coef = S(d_b) / denom
+            push!(I_idx, j)
+            push!(J_idx, j)
+            push!(V_val, -coef)
+            push!(I_idx, j + 1)
+            push!(J_idx, j)
+            push!(V_val, +coef)
+        end
+        return sparse(I_idx, J_idx, V_val, nbf_b, nbf_b - 1)
+    end
+
+    # Compose: M_total = M^{(1)}_b * M^{(1)}_{b'} * ...
+    M_total = _order1_op(b)
+    current_basis = _derivative_basis(b, 1)
+    for m in 2:derivative_order
+        M_total = M_total * _order1_op(current_basis)
+        current_basis = _derivative_basis(current_basis, 1)
+    end
+
+    b._as_linear_cache[derivative_order] = M_total
+    return M_total
+end
+
+"""
+    evaluate_linear_in_control_points(b::BsplineBasis, t::Real; derivative_order::Int=0) -> SparseVector
+
+Returns a sparse vector `M` of length `num_basis_functions(b)` such that for any
+control point matrix `C` (size `n_drives × num_basis_functions`):
+
+    C * M == evaluate_curve(b, C, t)                            (derivative_order = 0)
+    C * M == d^k curve(t) / dt^k                                (derivative_order = k)
+
+The result has at most `b.order` nonzero entries — the active basis function indices.
+
+Port of Drake's `BsplineBasis::EvaluateLinearInControlPoints`.
+"""
+function evaluate_linear_in_control_points(
+    b::BsplineBasis{T},
+    t::Real;
+    derivative_order::Int = 0,
+) where {T}
+    nbf = num_basis_functions(b)
+    if derivative_order < 0
+        throw(ArgumentError("derivative_order must be >= 0"))
+    end
+    if derivative_order >= b.order
+        return spzeros(T, nbf)
+    end
+    if derivative_order == 0
+        # Basis function values N_{j,d}(t) via de Boor on identity CPs.
+        # Only active entries can be non-zero; pull them out of the dense column.
+        I_full = Matrix{T}(I, nbf, nbf)
+        vals = evaluate_curve(b, I_full, t)
+        ℓ = find_containing_interval(b, t)
+        actives = (ℓ-b.order+1):ℓ
+        I_idx = Int[]
+        V_val = T[]
+        for i in actives
+            v = vals[i]
+            if v != 0
+                push!(I_idx, i)
+                push!(V_val, v)
+            end
+        end
+        return sparsevec(I_idx, V_val, nbf)
+    end
+
+    # Derivative case: curve^{(m)}(t) = (C * M_op) * M_deriv = C * (M_op * M_deriv)
+    M_op = as_linear_in_control_points(b, derivative_order)  # nbf × (nbf - m)
+    deriv_basis = _derivative_basis(b, derivative_order)
+    M_deriv = evaluate_linear_in_control_points(deriv_basis, t; derivative_order = 0)  # length nbf - m
+    return M_op * M_deriv
+end
+
 @testitem "BsplineBasis: constructor preconditions" begin
     using Piccolo
     # Reject degree 0 / order 1
@@ -294,6 +431,94 @@ end
         @test evaluate_curve(b, C, t_min) ≈ C[:, 1] atol = 1e-14
         @test evaluate_curve(b, C, t_max) ≈ C[:, end] atol = 1e-14
     end
+end
+
+@testitem "BsplineBasis: linear-in-CP identity (order 0)" begin
+    using Piccolo
+    using SparseArrays
+    using Random
+    Random.seed!(20260525)
+    for d in (2, 3, 4), nbf in (8, 20)
+        b = BsplineBasis(d + 1, nbf)
+        C = randn(3, nbf)  # 3 drives
+        for _ in 1:30
+            t = rand() * 0.99 + 0.005  # avoid exact endpoints
+            M = evaluate_linear_in_control_points(b, t; derivative_order = 0)
+            @test C * M ≈ evaluate_curve(b, C, t) atol = 1e-12
+            @test nnz(M) <= b.order
+        end
+    end
+end
+
+@testitem "BsplineBasis: linear-in-CP derivative (order 1) via finite difference" begin
+    using Piccolo
+    using Random
+    Random.seed!(20260525)
+    h = 1e-7
+    b = BsplineBasis(4, 16)  # cubic
+    C = randn(2, 16)
+    for _ in 1:20
+        t = 0.1 + 0.8 * rand()  # interior
+        M1 = evaluate_linear_in_control_points(b, t; derivative_order = 1)
+        analytic = C * M1
+        fd = (evaluate_curve(b, C, t + h) .- evaluate_curve(b, C, t - h)) ./ (2h)
+        @test analytic ≈ fd atol = 1e-5
+    end
+end
+
+@testitem "BsplineBasis: linear-in-CP sparsity matches active_basis_function_indices" begin
+    using Piccolo
+    using SparseArrays
+    b = BsplineBasis(4, 16)
+    for t in (0.05, 0.3, 0.5, 0.7, 0.95)
+        M0 = evaluate_linear_in_control_points(b, t; derivative_order = 0)
+        actives = active_basis_function_indices(b, t)
+        @test Set(findnz(M0)[1]) ⊆ Set(actives)
+        @test nnz(M0) <= b.order
+    end
+end
+
+@testitem "BsplineBasis: as_linear_in_control_points produces correct derivative CPs" begin
+    using Piccolo
+    using Random
+    Random.seed!(20260525)
+    b = BsplineBasis(4, 16)
+    C = randn(2, 16)
+    h = 1e-7
+    M1 = as_linear_in_control_points(b, 1)
+
+    # Derivative curve has nbf - 1 control points
+    @test size(M1) == (size(C, 2), size(C, 2) - 1)
+
+    Q = C * M1
+    deriv_basis = Piccolo.BsplineBases._derivative_basis(b, 1)
+    @test num_basis_functions(deriv_basis) == size(Q, 2)
+
+    for _ in 1:20
+        t = 0.1 + 0.8 * rand()
+        deriv_curve = evaluate_curve(deriv_basis, Q, t)
+        fd_deriv = (evaluate_curve(b, C, t + h) .- evaluate_curve(b, C, t - h)) ./ (2h)
+        @test deriv_curve ≈ fd_deriv atol = 1e-5
+    end
+end
+
+@testitem "BsplineBasis: as_linear_in_control_points caching" begin
+    using Piccolo
+    b = BsplineBasis(4, 16)
+    M1_a = as_linear_in_control_points(b, 1)
+    M1_b = as_linear_in_control_points(b, 1)
+    # Cached operator must be identical (same object, no recomputation)
+    @test M1_a === M1_b
+end
+
+@testitem "BsplineBasis: as_linear_in_control_points composes for higher derivatives" begin
+    using Piccolo
+    b = BsplineBasis(4, 16)
+    M1 = as_linear_in_control_points(b, 1)
+    M2 = as_linear_in_control_points(b, 2)
+    deriv_basis_1 = Piccolo.BsplineBases._derivative_basis(b, 1)
+    M1_from_deriv = as_linear_in_control_points(deriv_basis_1, 1)
+    @test Matrix(M2) ≈ Matrix(M1 * M1_from_deriv) atol = 1e-14
 end
 
 @testitem "BsplineBasis: evaluate_curve continuity at interior knots" begin
