@@ -119,7 +119,9 @@ function (cb::_LivePulsePlotCallback)(primal::AbstractVector, iter::Integer)
     expected = data_dim + traj.global_dim
     if length(primal) != expected
         @warn "primal-vector length mismatch ($(length(primal)) vs $expected); " *
-              "pass `fixed_variable_treatment = MadNLP.RelaxBound` to MadNLPOptions"
+              "trajectory reconstruction skipped. (For MadNLP, this usually " *
+              "means `fixed_variable_treatment` was set to `MakeParameter` " *
+              "explicitly, overriding DTO's default RelaxBound coupling.)"
         return true
     end
 
@@ -185,10 +187,10 @@ end
                                every = 1, save_dir = save_dir)
     @test cb isa DirectTrajOpt.AbstractIntermediateCallback
 
+    # No explicit fixed_variable_treatment — DTO auto-couples RelaxBound.
     DirectTrajOpt.solve!(qcp; options = DirectTrajOpt.MadNLPOptions(
         max_iter = 3,
         intermediate_callback = cb,
-        fixed_variable_treatment = MadNLP.RelaxBound,
     ), verbose = false)
 
     pngs = filter(f -> endswith(f, ".png"), readdir(save_dir))

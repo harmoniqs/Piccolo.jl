@@ -21,10 +21,7 @@ so it can be passed directly to any DTO solver backend:
 
 ```julia
 cb = LivePulsePlotCallback(qtraj, qcp.prob.trajectory; save_dir = "out/")
-solve!(qcp; options = MadNLPOptions(
-    intermediate_callback    = cb,
-    fixed_variable_treatment = MadNLP.RelaxBound,  # required for trajectory reconstruction
-))
+solve!(qcp; options = MadNLPOptions(intermediate_callback = cb))
 ```
 
 # Arguments
@@ -36,10 +33,11 @@ solve!(qcp; options = MadNLPOptions(
 - `save_dir`: if non-`nothing`, save `iter_NNN.png` per rendered iter.
 - `title_prefix`: title-bar prefix, joined to the iter count.
 
-# MadNLP caveat
-With default `fixed_variable_treatment = MadNLP.MakeParameter`, MadNLP eliminates
-fixed boundary variables from the primal vector and trajectory reconstruction
-breaks. Pass `MadNLP.RelaxBound` so the callback receives the full primal.
+# MadNLP note
+The callback needs the full primal vector (including fixed boundary variables) to
+reconstruct the trajectory faithfully. DTO sets `fixed_variable_treatment =
+MadNLP.RelaxBound` automatically when it sees an `AbstractIntermediateCallback`
+installed without an explicit value — you don't need to set it yourself.
 
 Defined as a stub here; the implementation is provided by the `PiccoloMakieExt`
 extension and is loaded when a Makie backend (`CairoMakie`, `GLMakie`, `WGLMakie`)
