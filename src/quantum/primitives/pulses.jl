@@ -502,6 +502,7 @@ For CompositePulse, returns the sorted union of all sub-pulse knot times.
 get_knot_times(p::ZeroOrderPulse) = p.controls.t
 get_knot_times(p::LinearSplinePulse) = p.controls.t
 get_knot_times(p::CubicSplinePulse) = p.controls.t
+# get_knot_times for BSplinePulse is defined below, after the type declaration.
 
 """
     get_knot_count(pulse::AbstractSplinePulse)
@@ -679,6 +680,10 @@ struct BSplinePulse{T<:Real,B<:BsplineBasis{T}} <: AbstractSplinePulse
     initial_value::Union{Vector{Float64},Symbol}
     final_value::Union{Vector{Float64},Symbol}
 end
+
+# Basis knots live on normalized τ ∈ [0,1]; map to physical time
+# and dedupe the clamped boundary repetitions.
+get_knot_times(p::BSplinePulse) = unique(p.basis.knots) .* p.duration
 
 function _resolve_bspline_boundary(spec, cps::AbstractMatrix, which::Symbol)
     if spec === nothing
