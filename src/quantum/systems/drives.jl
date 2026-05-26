@@ -434,7 +434,8 @@ Spot-check the Jacobian of a `NonlinearDrive` against ForwardDiff at random cont
 Throws an `AssertionError` if the user-provided Jacobian disagrees with the AD Jacobian.
 
 This is called automatically during `QuantumSystem` construction for all `NonlinearDrive`
-terms, catching sign errors or off-by-one bugs early.
+terms, catching sign errors or off-by-one bugs early. Sampling uses a local RNG so
+construction does not advance the global `Random` stream as a side effect.
 """
 function validate_drive_jacobian(
     d::NonlinearDrive,
@@ -461,6 +462,9 @@ end
 
 Spot-check the Hessian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Hessian disagrees with the AD Hessian.
+
+Sampling uses a local RNG so construction does not advance the global `Random` stream
+as a side effect.
 """
 function validate_drive_hessian(
     d::NonlinearDrive,
@@ -738,6 +742,35 @@ end
         (u, j) -> j == 1 ? u[2] * u[3] : j == 2 ? u[1] * u[3] : 0.0,  # wrong at j=3
     )
     @test_throws AssertionError validate_drive_jacobian(d_wrong_global, 3)
+end
+
+@testitem "validators do not advance global RNG state" begin
+    # Regression: validators must use a local RNG. Otherwise QuantumSystem
+    # construction silently consumes draws from the global `Random` stream,
+    # making downstream `rand`/`randn` non-deterministic across validator
+    # implementations (e.g. different n_drives × n_samples × u_dim).
+    using Piccolo
+    using Random
+    using SparseArrays
+
+    H = sparse(ComplexF64[0 1; 1 0])
+    d = NonlinearDrive(
+        H,
+        u -> u[1] * u[2],
+        (u, j) -> j == 1 ? u[2] : j == 2 ? u[1] : 0.0;
+        coeff_hess = (u, i, j) ->
+            (i == 1 && j == 2) || (i == 2 && j == 1) ? 1.0 : 0.0,
+    )
+
+    Random.seed!(0)
+    expected = randn(8)
+
+    Random.seed!(0)
+    validate_drive_jacobian(d, 2)
+    validate_drive_hessian(d, 2)
+    got = randn(8)
+
+    @test expected == got
 end
 
 @testitem "G works on AbstractDrive types" begin
