@@ -76,12 +76,19 @@ function UnitaryTrajectory(
     # See KetTrajectory for rationale: Magnus methods need the matrix-operator
     # form; explicit RK methods should use the sparse mul! RHS form to avoid
     # per-step dense materialization of H.
-    prob = _needs_operator_form(algorithm) ?
+    prob =
+        _needs_operator_form(algorithm) ?
         UnitaryOperatorODEProblem(system, pulse, tstops; U0 = U0) :
         UnitaryODEProblem(system, pulse, tstops; U0 = U0)
-    sol = solve(prob, algorithm;
-                saveat = save_times, abstol = abstol, reltol = reltol,
-                progress = progress, progress_steps = progress_steps)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        progress = progress,
+        progress_steps = progress_steps,
+    )
 
     return UnitaryTrajectory{typeof(pulse),typeof(sol)}(system, pulse, U0, goal_stored, sol)
 end

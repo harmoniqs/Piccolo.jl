@@ -77,7 +77,8 @@ function MultiKetTrajectory(
     # Magnus needs the operator (matrix) form; explicit RK methods (Tsit5/Vern9/etc.)
     # use KetODEProblem to avoid per-step dense materialization of H.
     dummy = zeros(ComplexF64, system.levels)
-    base_prob = _needs_operator_form(algorithm) ?
+    base_prob =
+        _needs_operator_form(algorithm) ?
         KetOperatorODEProblem(system, pulse, dummy, tstops) :
         KetODEProblem(system, pulse, dummy, tstops)
     prob_func(prob, i_or_ctx, _repeat = nothing) =

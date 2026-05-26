@@ -75,12 +75,18 @@ function KetTrajectory(
     # RK methods (Tsit5, Vern9, DP8, ...) only need the dψ/dt = -iH(t)·ψ matvec
     # and should use KetODEProblem to avoid a per-step dense materialization
     # of H — a major hot-path penalty on high-dimensional sparse systems.
-    prob = _needs_operator_form(algorithm) ?
-        KetOperatorODEProblem(system, pulse, ψ0, tstops) :
+    prob =
+        _needs_operator_form(algorithm) ? KetOperatorODEProblem(system, pulse, ψ0, tstops) :
         KetODEProblem(system, pulse, ψ0, tstops)
-    sol = solve(prob, algorithm;
-                saveat = save_times, abstol = abstol, reltol = reltol,
-                progress = progress, progress_steps = progress_steps)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        progress = progress,
+        progress_steps = progress_steps,
+    )
 
     return KetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0, ψg, sol)
 end

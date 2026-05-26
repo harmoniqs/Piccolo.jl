@@ -63,9 +63,15 @@ function DensityTrajectory(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(system, pulse, ρ0, tstops)
-    sol = solve(prob, algorithm;
-                saveat = save_times, abstol = abstol, reltol = reltol,
-                progress = progress, progress_steps = progress_steps)
+    sol = solve(
+        prob,
+        algorithm;
+        saveat = save_times,
+        abstol = abstol,
+        reltol = reltol,
+        progress = progress,
+        progress_steps = progress_steps,
+    )
 
     return DensityTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ρ0, ρg, sol)
 end
