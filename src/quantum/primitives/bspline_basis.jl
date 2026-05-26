@@ -126,14 +126,16 @@ Note: at `t == final_parameter_value`, returns the largest valid ℓ where the
 right-endpoint inclusion holds — matches Drake's `FindContainingInterval`
 at bspline_basis.cc.
 """
-function find_containing_interval(b::BsplineBasis{T}, t::Real) where {T}
-    t_typed = T(t)
+function find_containing_interval(b::BsplineBasis, t::Real)
+    # Compare in real(t)'s type — supports ForwardDiff.Dual inputs without
+    # round-tripping through Float64 (which would strip derivative info AND
+    # error since Float64(::Dual) is not defined).
     a = b.knots[b.order]                  # initial_parameter_value
     bmax = b.knots[end - b.order + 1]     # final_parameter_value
-    (a <= t_typed <= bmax) || throw(DomainError(t,
+    (a <= t <= bmax) || throw(DomainError(t,
         "parameter $t outside basis range [$a, $bmax]"))
     # At exactly bmax, return the largest ℓ with knots[ℓ] < bmax.
-    if t_typed == bmax
+    if t == bmax
         ℓ = length(b.knots)
         while ℓ > 1 && b.knots[ℓ] >= bmax
             ℓ -= 1
@@ -142,7 +144,7 @@ function find_containing_interval(b::BsplineBasis{T}, t::Real) where {T}
     end
     # Otherwise: largest ℓ with knots[ℓ] <= t
     ℓ = b.order
-    while ℓ < length(b.knots) - 1 && b.knots[ℓ+1] <= t_typed
+    while ℓ < length(b.knots) - 1 && b.knots[ℓ+1] <= t
         ℓ += 1
     end
     return ℓ
@@ -540,6 +542,50 @@ end
             @test isapprox(left, right; atol = 1e-6)
         end
     end
+end
+
+@testitem "BsplineBasis: ForwardDiff through evaluate_curve" begin
+    using Piccolo
+    using ForwardDiff
+    using Random
+    Random.seed!(20260525)
+
+    b = BsplineBasis(4, 12)
+    n_drives = 2
+    C0 = randn(n_drives, num_basis_functions(b))
+    t = 0.42
+
+    # ForwardDiff w.r.t. the control points (vectorized)
+    f(C_vec) = sum(evaluate_curve(b, reshape(C_vec, n_drives, :), t))
+    ad_grad = ForwardDiff.gradient(f, vec(C0))
+
+    # Compare to finite difference
+    h = 1e-7
+    fd_grad = similar(ad_grad)
+    for i in eachindex(vec(C0))
+        Cp = copy(vec(C0))
+        Cp[i] += h
+        Cm = copy(vec(C0))
+        Cm[i] -= h
+        fd_grad[i] = (f(Cp) - f(Cm)) / (2h)
+    end
+
+    @test ad_grad ≈ fd_grad atol = 1e-5 rtol = 1e-5
+end
+
+@testitem "BsplineBasis: ForwardDiff through evaluate_curve w.r.t. parameter t" begin
+    using Piccolo
+    using ForwardDiff
+    using Random
+    Random.seed!(20260525)
+
+    b = BsplineBasis(4, 10)
+    C = randn(2, num_basis_functions(b))
+    f_t(t::Real) = sum(evaluate_curve(b, C, t))
+    ad_deriv = ForwardDiff.derivative(f_t, 0.5)
+    h = 1e-7
+    fd_deriv = (f_t(0.5 + h) - f_t(0.5 - h)) / (2h)
+    @test ad_deriv ≈ fd_deriv atol = 1e-5
 end
 
 end # module BsplineBases
