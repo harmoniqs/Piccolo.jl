@@ -676,27 +676,19 @@ end
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
     qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 
-    # Capture initial control samples for comparison.
-    traj_initial = get_trajectory(qcp)
-    u_initial = copy(traj_initial[:u])
+    # Capture initial values BY COPY (get_trajectory returns a live reference).
+    u_initial = copy(get_trajectory(qcp)[:u])
+    Ũ_final_init = copy(get_trajectory(qcp)[:Ũ⃗][:, end])
+    Ũ_goal = copy(get_trajectory(qcp).goal[:Ũ⃗])
 
     # Solve a few iterations.
     solve!(qcp; max_iter = 30, print_level = 0)
 
-    traj_final = get_trajectory(qcp)
-    u_final = traj_final[:u]
+    u_final = copy(get_trajectory(qcp)[:u])
+    Ũ_final_solved = copy(get_trajectory(qcp)[:Ũ⃗][:, end])
 
-    # Convergence proxy: the optimizer must move the control values meaningfully
-    # (not just regularization tweaks). If the integrator doesn't see optimizer
-    # updates, u stays roughly at the initial guess.
     Δu_norm = norm(u_final .- u_initial)
     @test Δu_norm > 0.01
-
-    # Stronger check: the final iso-vec state should be closer to the goal than
-    # the initial one. Pull the goal and the final-knot state.
-    Ũ_final_init = traj_initial[:Ũ⃗][:, end]
-    Ũ_final_solved = traj_final[:Ũ⃗][:, end]
-    Ũ_goal = traj_final.goal[:Ũ⃗]
 
     err_init = norm(Ũ_final_init .- Ũ_goal)
     err_final = norm(Ũ_final_solved .- Ũ_goal)
