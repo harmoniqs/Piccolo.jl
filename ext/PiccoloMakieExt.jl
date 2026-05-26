@@ -177,8 +177,14 @@ end
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
     opts = PiccoloOptions(timesteps_all_equal = true, verbose = false)
-    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0,
-                             piccolo_options = opts)
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        ddu_bound = 1.0,
+        piccolo_options = opts,
+    )
 
     save_dir = mktempdir()
     cb = LivePulsePlotCallback(qtraj, qcp.prob.trajectory; save_dir = save_dir)
