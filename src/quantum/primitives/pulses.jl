@@ -1110,6 +1110,66 @@ function CubicSplinePulse(
 end
 
 # ============================================================================ #
+# _rebuild_like: NamedTuple-keyed warm-restart reconstruction
+# ============================================================================ #
+
+"""
+    _rebuild_like(p::AbstractPulse, vars::NamedTuple) -> AbstractPulse
+
+Reconstruct a pulse of the same concrete type with new decision-variable values.
+Used by the optimizer's warm-restart utility. The `vars` NamedTuple keys must
+match the decision-variable component symbols owned by the pulse type:
+
+- `LinearSplinePulse`: `(u = new_values,)`
+- `CubicSplinePulse`:  `(u = new_values, du = new_tangents)`
+- `ZeroOrderPulse`:    `(u = new_values,)`
+- `BSplinePulse`:      `(u = new_control_points,)` (added in BSplinePulse PR)
+
+Additional pulse-type implementations may be added later under the same
+NamedTuple contract. The pulse's basis / time grid / duration / boundary
+metadata is preserved.
+"""
+function _rebuild_like end
+
+function _rebuild_like(p::LinearSplinePulse, vars::NamedTuple)
+    haskey(vars, :u) || throw(ArgumentError(
+        "LinearSplinePulse._rebuild_like requires :u in NamedTuple; got keys $(keys(vars))"))
+    return LinearSplinePulse(
+        vars.u,
+        get_knot_times(p);
+        drive_name = p.drive_name,
+        initial_value = p.initial_value,
+        final_value = p.final_value,
+    )
+end
+
+function _rebuild_like(p::CubicSplinePulse, vars::NamedTuple)
+    (haskey(vars, :u) && haskey(vars, :du)) || throw(ArgumentError(
+        "CubicSplinePulse._rebuild_like requires :u and :du in NamedTuple; got keys $(keys(vars))"))
+    return CubicSplinePulse(
+        vars.u,
+        vars.du,
+        get_knot_times(p);
+        drive_name = p.drive_name,
+        initial_value = p.initial_value,
+        final_value = p.final_value,
+    )
+end
+
+function _rebuild_like(p::ZeroOrderPulse, vars::NamedTuple)
+    haskey(vars, :u) || throw(ArgumentError(
+        "ZeroOrderPulse._rebuild_like requires :u in NamedTuple; got keys $(keys(vars))"))
+    return ZeroOrderPulse(
+        vars.u,
+        get_knot_times(p);
+        drive_name = p.drive_name,
+        initial_value = p.initial_value,
+        final_value = p.final_value,
+        snap_to_knots = p.snap_to_knots,
+    )
+end
+
+# ============================================================================ #
 # Tests
 # ============================================================================ #
 
@@ -1796,6 +1856,38 @@ end
         @test data["gate"] == "X"
         @test data["pulse"](0.5) ≈ pulse(0.5)
     end
+end
+
+@testitem "_rebuild_like NamedTuple dispatch for existing pulse types" begin
+    using Piccolo
+
+    N = 8
+    times = collect(range(0.0, 1.0, length = N))
+    u0 = randn(2, N)
+
+    # LinearSplinePulse
+    p_lin = LinearSplinePulse(u0, times)
+    p_lin_new = Piccolo.Pulses._rebuild_like(p_lin, (u = u0 .+ 0.1,))
+    @test p_lin_new isa LinearSplinePulse
+    @test get_knot_values(p_lin_new) ≈ u0 .+ 0.1
+    @test duration(p_lin_new) == duration(p_lin)
+
+    # CubicSplinePulse
+    du0 = randn(2, N)
+    p_cub = CubicSplinePulse(u0, du0, times)
+    p_cub_new = Piccolo.Pulses._rebuild_like(p_cub, (u = u0 .+ 0.1, du = du0 .+ 0.01))
+    @test p_cub_new isa CubicSplinePulse
+    @test get_knot_values(p_cub_new) ≈ u0 .+ 0.1
+    @test get_knot_derivatives(p_cub_new) ≈ du0 .+ 0.01
+
+    # ZeroOrderPulse
+    p_zoh = ZeroOrderPulse(u0, times)
+    p_zoh_new = Piccolo.Pulses._rebuild_like(p_zoh, (u = u0 .+ 0.1,))
+    @test p_zoh_new isa ZeroOrderPulse
+
+    # Missing-key error contracts
+    @test_throws ArgumentError Piccolo.Pulses._rebuild_like(p_lin, (v = u0,))
+    @test_throws ArgumentError Piccolo.Pulses._rebuild_like(p_cub, (u = u0,))
 end
 
 end # module Pulses
