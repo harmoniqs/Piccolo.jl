@@ -3,6 +3,7 @@ export SplinePulseProblem
 # Helper function to determine spline order from pulse type
 _get_spline_order(::LinearSplinePulse) = 1
 _get_spline_order(::CubicSplinePulse) = 3
+_get_spline_order(p::BSplinePulse) = Piccolo.BsplineBases.degree(p.basis)
 
 # _make_free_phase_goal is defined in _problem_templates.jl (shared across all templates)
 
@@ -163,8 +164,11 @@ function SplinePulseProblem(
     # Always add control derivatives to trajectory
     # For CubicSplinePulse, :du is already included in the base trajectory (Hermite tangents)
     # For LinearSplinePulse, we add :du explicitly (will be constrained by DerivativeIntegrator)
+    # For BSplinePulse, no :du component — derivative bounds go through
+    # BSplineDerivativeBoundConstraint (Piccolissimo Task 24) instead.
     du_sym = Symbol(:d, control_sym)
-    is_linear_spline = !haskey(base_traj.components, du_sym)
+    is_bspline_pulse = qtraj.pulse isa BSplinePulse
+    is_linear_spline = !haskey(base_traj.components, du_sym) && !is_bspline_pulse
 
     # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
     _du_bounds_vec = if !isnothing(du_bounds)
@@ -175,7 +179,17 @@ function SplinePulseProblem(
         nothing
     end
 
-    traj = if haskey(base_traj.components, du_sym)
+    traj = if is_bspline_pulse
+        # BSplinePulse: trajectory's :u holds sampled values; derivatives are
+        # not first-class trajectory DOFs (controlled via constraints instead).
+        if !isnothing(_du_bounds_vec) && _show_details(piccolo_options)
+            println(
+                "    du bounds (BSplinePulse): $(_fmt_bounds(_du_bounds_vec)) — " *
+                "will be enforced by BSplineDerivativeBoundConstraint (TODO Task 24)",
+            )
+        end
+        base_traj
+    elseif haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         if !isnothing(_du_bounds_vec)
             update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
@@ -237,7 +251,10 @@ function SplinePulseProblem(
 
     # Add regularization for control and derivative
     J += QuadraticRegularizer(control_sym, traj, R_u)
-    J += QuadraticRegularizer(du_sym, traj, R_du)
+    if !is_bspline_pulse
+        # BSplinePulse has no :du component; derivative regularization is a no-op.
+        J += QuadraticRegularizer(du_sym, traj, R_du)
+    end
 
     # Apply piccolo options
     J += _apply_piccolo_options(
@@ -386,8 +403,11 @@ function SplinePulseProblem(
     # Always add control derivatives to trajectory
     # For CubicSplinePulse, :du is already included in the base trajectory (Hermite tangents)
     # For LinearSplinePulse, we add :du explicitly (will be constrained by DerivativeIntegrator)
+    # For BSplinePulse, no :du component — derivative bounds go through
+    # BSplineDerivativeBoundConstraint (Piccolissimo Task 24) instead.
     du_sym = Symbol(:d, control_sym)
-    is_linear_spline = !haskey(base_traj.components, du_sym)
+    is_bspline_pulse = qtraj.pulse isa BSplinePulse
+    is_linear_spline = !haskey(base_traj.components, du_sym) && !is_bspline_pulse
 
     # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
     _du_bounds_vec = if !isnothing(du_bounds)
@@ -398,7 +418,17 @@ function SplinePulseProblem(
         nothing
     end
 
-    traj = if haskey(base_traj.components, du_sym)
+    traj = if is_bspline_pulse
+        # BSplinePulse: trajectory's :u holds sampled values; derivatives are
+        # not first-class trajectory DOFs (controlled via constraints instead).
+        if !isnothing(_du_bounds_vec) && _show_details(piccolo_options)
+            println(
+                "    du bounds (BSplinePulse): $(_fmt_bounds(_du_bounds_vec)) — " *
+                "will be enforced by BSplineDerivativeBoundConstraint (TODO Task 24)",
+            )
+        end
+        base_traj
+    elseif haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         if !isnothing(_du_bounds_vec)
             update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
@@ -468,7 +498,10 @@ function SplinePulseProblem(
 
     # Add regularization for control and derivative
     J += QuadraticRegularizer(control_sym, traj, R_u)
-    J += QuadraticRegularizer(du_sym, traj, R_du)
+    if !is_bspline_pulse
+        # BSplinePulse has no :du component; derivative regularization is a no-op.
+        J += QuadraticRegularizer(du_sym, traj, R_du)
+    end
 
     # Apply piccolo options for each state
     J += _apply_piccolo_options(
@@ -579,6 +612,40 @@ end
     traj = get_trajectory(qcp)
     @test haskey(traj.components, :u) || haskey(traj.components, :θ)
     @test !haskey(traj.components, :ddu)  # No second derivative for splines
+end
+
+@testitem "SplinePulseProblem with BSplinePulse (constructs without :du)" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    H_drift = 0.01 * σz
+    H_drives = [σx]
+    T = 10.0
+    N = 21
+    n_drives = 1
+
+    sys = QuantumSystem(H_drift, H_drives, [1.0])
+
+    nbf = N + 2  # degree 3, aligned
+    times = collect(range(0.0, T, length = N))
+    C = 0.1 .* randn(n_drives, nbf)
+    pulse = BSplinePulse(C, times; degree = 3, initial_value = :free, final_value = :free)
+
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    @test qcp isa QuantumControlProblem
+
+    traj = get_trajectory(qcp)
+    @test haskey(traj.components, :u)
+    # BSpline path skips the LinearSpline DerivativeIntegrator and the :du component;
+    # derivative bounds (when added in Task 24) go through a separate constraint.
+    @test !haskey(traj.components, :du)
 end
 
 @testitem "SplinePulseProblem with CubicSplinePulse" begin
