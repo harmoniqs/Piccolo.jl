@@ -56,6 +56,25 @@ function extract_pulse(
     return CubicSplinePulse(u, du, times; drive_name = u_name)
 end
 
+function extract_pulse(
+    qtraj::AbstractQuantumTrajectory{<:BSplinePulse},
+    traj::NamedTrajectory,
+)
+    # The trajectory's :u holds *samples* of the spline at knot times (Task 17
+    # _get_control_data convention). Reconstruct a BSplinePulse by fitting CPs
+    # via the warm-start constructor (BSplineApprox least-squares). Preserves
+    # the original basis degree and n_control_points from the source pulse.
+    times = collect(get_times(traj))
+    u_name = drive_name(qtraj)
+    u_samples = Matrix(traj[u_name])
+    src_basis = qtraj.pulse.basis
+    deg = BsplineBases.degree(src_basis)
+    nbf = BsplineBases.num_basis_functions(src_basis)
+
+    linear_proxy = LinearSplinePulse(u_samples, times; drive_name = u_name)
+    return BSplinePulse(linear_proxy, nbf; degree = deg)
+end
+
 # SamplingTrajectory delegates to base_trajectory
 function extract_pulse(qtraj::SamplingTrajectory, traj::NamedTrajectory)
     return extract_pulse(qtraj.base_trajectory, traj)
