@@ -100,6 +100,66 @@ function BsplineBasis(
     return BsplineBasis{T}(k, knots)
 end
 
+"""
+    degree(b::BsplineBasis) -> Int
+
+The polynomial degree of the basis (= order - 1).
+"""
+degree(b::BsplineBasis) = b.order - 1
+
+"""
+    num_basis_functions(b::BsplineBasis) -> Int
+
+The number of basis functions in this basis (= number of control points the
+basis can be applied to).
+"""
+num_basis_functions(b::BsplineBasis) = length(b.knots) - b.order
+
+"""
+    find_containing_interval(b::BsplineBasis, t::Real) -> Int
+
+Returns the index ℓ such that `b.knots[ℓ] <= t < b.knots[ℓ+1]` and
+`b.knots[ℓ] < b.knots[end - order + 1]` (the final parameter value).
+
+Note: at `t == final_parameter_value`, returns the largest valid ℓ where the
+right-endpoint inclusion holds — matches Drake's `FindContainingInterval`
+at bspline_basis.cc.
+"""
+function find_containing_interval(b::BsplineBasis{T}, t::Real) where {T}
+    t_typed = T(t)
+    a = b.knots[b.order]                  # initial_parameter_value
+    bmax = b.knots[end - b.order + 1]     # final_parameter_value
+    (a <= t_typed <= bmax) || throw(DomainError(t,
+        "parameter $t outside basis range [$a, $bmax]"))
+    # At exactly bmax, return the largest ℓ with knots[ℓ] < bmax.
+    if t_typed == bmax
+        ℓ = length(b.knots)
+        while ℓ > 1 && b.knots[ℓ] >= bmax
+            ℓ -= 1
+        end
+        return ℓ
+    end
+    # Otherwise: largest ℓ with knots[ℓ] <= t
+    ℓ = b.order
+    while ℓ < length(b.knots) - 1 && b.knots[ℓ+1] <= t_typed
+        ℓ += 1
+    end
+    return ℓ
+end
+
+"""
+    active_basis_function_indices(b::BsplineBasis, t::Real) -> Vector{Int}
+
+Returns the `order` (= d+1) indices of basis functions that are non-zero at `t`.
+Other basis functions are strictly zero at this parameter value.
+"""
+function active_basis_function_indices(b::BsplineBasis, t::Real)
+    ℓ = find_containing_interval(b, t)
+    return collect((ℓ-b.order+1):ℓ)
+end
+
+export find_containing_interval, active_basis_function_indices
+
 @testitem "BsplineBasis: constructor preconditions" begin
     using Piccolo
     # Reject degree 0 / order 1
@@ -121,6 +181,33 @@ end
     @test length(b.knots) == 8 + 4
     @test b.knots[1:4] == zeros(4)
     @test b.knots[end-3:end] == ones(4)
+end
+
+@testitem "BsplineBasis: degree / num_basis_functions / find_containing_interval / active indices" begin
+    using Piccolo
+
+    b = BsplineBasis(4, 8)  # cubic, 8 CPs, clamped uniform on [0, 1]
+    @test Piccolo.BsplineBases.degree(b) == 3
+    @test num_basis_functions(b) == 8
+
+    # Initial / final parameter values: knots[order] and knots[end - order + 1]
+    @test b.knots[b.order] == 0.0
+    @test b.knots[end-b.order+1] == 1.0
+
+    # find_containing_interval at start: ℓ = order = 4 (since knots[4]=0 <= 0 < knots[5]=0.2)
+    @test find_containing_interval(b, 0.0) == 4
+    @test find_containing_interval(b, 0.5) >= 4
+    # At t = final_parameter_value, ℓ = length(knots) - order = 12 - 4 = 8
+    @test find_containing_interval(b, 1.0) == length(b.knots) - b.order
+
+    # active_basis_function_indices returns the d+1 nonzero ones at t
+    actives = active_basis_function_indices(b, 0.5)
+    @test length(actives) == b.order  # d+1 = 4 for cubic
+    @test all(1 .<= actives .<= num_basis_functions(b))
+
+    # DomainError outside range
+    @test_throws DomainError find_containing_interval(b, -0.1)
+    @test_throws DomainError find_containing_interval(b, 1.5)
 end
 
 end # module BsplineBases
