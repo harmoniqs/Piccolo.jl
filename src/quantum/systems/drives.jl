@@ -442,8 +442,11 @@ function validate_drive_jacobian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
+    # Local RNG so QuantumSystem construction does not advance the caller's
+    # global RNG stream.
+    rng = MersenneTwister(0)
     for _ = 1:n_samples
-        u = randn(u_dim)
+        u = randn(rng, u_dim)
         grad_ad = ForwardDiff.gradient(d.coeff, u)
         for j = 1:u_dim
             user_val = d.coeff_jac(u, j)
@@ -467,8 +470,9 @@ function validate_drive_hessian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
+    rng = MersenneTwister(0)
     for _ = 1:n_samples
-        u = randn(u_dim)
+        u = randn(rng, u_dim)
         hess_ad = ForwardDiff.hessian(d.coeff, u)
         for i = 1:u_dim, j = i:u_dim
             user_val = d.coeff_hess(u, i, j)
