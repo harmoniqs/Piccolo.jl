@@ -136,6 +136,46 @@ function _get_control_data(
 end
 
 """
+    _get_control_data(pulse::BSplinePulse, times, sys)
+
+For BSplinePulse: sample the spline curve at `times` to populate the
+trajectory's `:u` component. The optimizer-facing knot-point variables
+are these samples; the SplinePulseProblem template (Piccolissimo Task 23)
+will replace this with control-point-native packing. Today the
+SplineIntegrator's forward RHS reads `evaluate_curve` from the captured
+pulse, so the sampled `:u` values are not used during integration —
+they exist to satisfy the NamedTrajectory schema only.
+
+Boundary conditions follow the same `:free` semantics as LinearSpline:
+a `:free` initial/final value means no boundary constraint; a vector
+pin or `nothing` (the default — pins to `control_points[:, 1/end]`)
+becomes a boundary constraint on the sampled `u` at the matching knot.
+"""
+function _get_control_data(
+    pulse::BSplinePulse,
+    times::AbstractVector,
+    sys::AbstractQuantumSystem,
+)
+    u_name = drive_name(pulse)
+    u = sample(pulse, times)
+    u_bounds = _get_drive_bounds(sys)
+
+    initial_u = pulse.initial_value
+    final_u = pulse.final_value
+
+    initial_constraints =
+        initial_u === :free ? NamedTuple() : _named_tuple(u_name => initial_u)
+    final_constraints =
+        final_u === :free ? NamedTuple() : _named_tuple(u_name => final_u)
+
+    return _named_tuple(u_name => u),
+    (u_name,),
+    _named_tuple(u_name => u_bounds),
+    initial_constraints,
+    final_constraints
+end
+
+"""
     _get_control_data(pulse::CubicSplinePulse, times, sys)
 
 For CubicSplinePulse: return `u` and `du` data with system bounds and boundary conditions.

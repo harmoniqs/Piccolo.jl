@@ -15,6 +15,7 @@ using ..Pulses:
     ZeroOrderPulse,
     LinearSplinePulse,
     CubicSplinePulse,
+    BSplinePulse,
     GaussianPulse,
     ErfPulse,
     CompositePulse
