@@ -434,7 +434,8 @@ Spot-check the Jacobian of a `NonlinearDrive` against ForwardDiff at random cont
 Throws an `AssertionError` if the user-provided Jacobian disagrees with the AD Jacobian.
 
 This is called automatically during `QuantumSystem` construction for all `NonlinearDrive`
-terms, catching sign errors or off-by-one bugs early.
+terms, catching sign errors or off-by-one bugs early. Sampling uses a local RNG so
+construction does not advance the global `Random` stream as a side effect.
 """
 function validate_drive_jacobian(
     d::NonlinearDrive,
@@ -442,8 +443,6 @@ function validate_drive_jacobian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
-    # Local RNG so QuantumSystem construction does not advance the caller's
-    # global RNG stream.
     rng = MersenneTwister(0)
     for _ = 1:n_samples
         u = randn(rng, u_dim)
@@ -463,6 +462,9 @@ end
 
 Spot-check the Hessian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Hessian disagrees with the AD Hessian.
+
+Sampling uses a local RNG so construction does not advance the global `Random` stream
+as a side effect.
 """
 function validate_drive_hessian(
     d::NonlinearDrive,
