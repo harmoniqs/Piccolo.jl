@@ -28,6 +28,9 @@ include("primitives/gates.jl")
 include("primitives/isomorphisms.jl")
 @reexport using .Isomorphisms
 
+include("primitives/bspline_basis.jl")
+@reexport using .BsplineBases
+
 include("primitives/pulses.jl")
 @reexport using .Pulses
 
