@@ -32,6 +32,7 @@ using ..QuantumObjectUtils
 using ..LiftedOperators
 
 using LinearAlgebra
+using Random
 using SparseArrays
 using TestItems
 using ForwardDiff
