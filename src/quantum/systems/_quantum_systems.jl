@@ -131,7 +131,7 @@ function get_drives(sys::AbstractQuantumSystem)
     end
     H_drift = get_drift(sys)
     # Basis vectors for controls will extract drive operators (linear systems only)
-    return [sys.H(I[1:sys.n_drives, i], 0.0) - H_drift for i ∈ 1:sys.n_drives]
+    return [sys.H(I[1:(sys.n_drives), i], 0.0) - H_drift for i ∈ 1:(sys.n_drives)]
 end
 
 """

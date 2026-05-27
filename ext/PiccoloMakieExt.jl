@@ -79,7 +79,7 @@ function Piccolo.animate_name(
 
     return Piccolo.animate_figure(
         fig,
-        1:traj.N,
+        1:(traj.N),
         update_frame!,
         mode = mode,
         fps = fps,
