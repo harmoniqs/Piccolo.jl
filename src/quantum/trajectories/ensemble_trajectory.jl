@@ -73,9 +73,14 @@ function MultiKetTrajectory(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
 
-    # Build ensemble problem
+    # Build ensemble problem. Choose the ODE problem form to match the algorithm:
+    # Magnus needs the operator (matrix) form; explicit RK methods (Tsit5/Vern9/etc.)
+    # use KetODEProblem to avoid per-step dense materialization of H.
     dummy = zeros(ComplexF64, system.levels)
-    base_prob = KetOperatorODEProblem(system, pulse, dummy, tstops)
+    base_prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(system, pulse, dummy, tstops) :
+        KetODEProblem(system, pulse, dummy, tstops)
     prob_func(prob, i_or_ctx, _repeat = nothing) =
         remake(prob, u0 = ψ0s[_sim_index(i_or_ctx)])
     ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)

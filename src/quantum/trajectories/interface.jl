@@ -152,10 +152,13 @@ function Rollouts.rollout!(
     knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+    prob =
+        _needs_operator_form(algorithm) ?
+        UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial) :
+        UnitaryODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
@@ -200,10 +203,13 @@ function Rollouts.rollout!(
     knot_times = get_knot_times(qtraj.pulse)
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+    prob =
+        _needs_operator_form(algorithm) ?
+        UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial) :
+        UnitaryODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
     sol = solve(
         prob,
         algorithm;
@@ -234,10 +240,13 @@ function Rollouts.rollout!(
     knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+    prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops) :
+        KetODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
 
     qtraj.pulse = pulse
@@ -262,10 +271,13 @@ function Rollouts.rollout!(
     knot_times = get_knot_times(qtraj.pulse)
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+    prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops) :
+        KetODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
     sol = solve(
         prob,
         algorithm;
@@ -297,15 +309,19 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
 
-    # Build ensemble problem
-    dummy = zeros(ComplexF64, qtraj.system.levels)
-    base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat = nothing) =
-        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+
+    # Build ensemble problem
+    dummy = zeros(ComplexF64, qtraj.system.levels)
+    base_prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops) :
+        KetODEProblem(qtraj.system, pulse, dummy, tstops)
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -338,15 +354,19 @@ function Rollouts.rollout!(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
 
-    # Build ensemble problem
-    dummy = zeros(ComplexF64, qtraj.system.levels)
-    base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat = nothing) =
-        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+
+    # Build ensemble problem
+    dummy = zeros(ComplexF64, qtraj.system.levels)
+    base_prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops) :
+        KetODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -595,10 +615,13 @@ function Rollouts.rollout(
     knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+    prob =
+        _needs_operator_form(algorithm) ?
+        UnitaryOperatorODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial) :
+        UnitaryODEProblem(qtraj.system, pulse, tstops; U0 = qtraj.initial)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return UnitaryTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
@@ -620,10 +643,13 @@ function Rollouts.rollout(
     knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+    prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(qtraj.system, pulse, qtraj.initial, tstops) :
+        KetODEProblem(qtraj.system, pulse, qtraj.initial, tstops)
     sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
     return KetTrajectory(qtraj.system, pulse, qtraj.initial, qtraj.goal, sol)
 end
@@ -646,15 +672,19 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
 
-    # Build ensemble problem
-    dummy = zeros(ComplexF64, qtraj.system.levels)
-    base_prob = KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat = nothing) =
-        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+
+    # Build ensemble problem
+    dummy = zeros(ComplexF64, qtraj.system.levels)
+    base_prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(qtraj.system, pulse, dummy, tstops) :
+        KetODEProblem(qtraj.system, pulse, dummy, tstops)
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
         algorithm;
@@ -785,10 +815,13 @@ function Rollouts.rollout(
     knot_times = get_knot_times(qtraj.pulse)
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+    prob =
+        _needs_operator_form(algorithm) ?
+        UnitaryOperatorODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial) :
+        UnitaryODEProblem(qtraj.system, qtraj.pulse, tstops; U0 = qtraj.initial)
     sol = solve(
         prob,
         algorithm;
@@ -817,10 +850,13 @@ function Rollouts.rollout(
     knot_times = get_knot_times(qtraj.pulse)
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
-    prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+    prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops) :
+        KetODEProblem(qtraj.system, qtraj.pulse, qtraj.initial, tstops)
     sol = solve(
         prob,
         algorithm;
@@ -850,15 +886,19 @@ function Rollouts.rollout(
     save_times = collect(range(0.0, duration(qtraj.pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
 
-    # Build ensemble problem
-    dummy = zeros(ComplexF64, qtraj.system.levels)
-    base_prob = KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat = nothing) =
-        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     if isnothing(algorithm)
         algorithm = default_algorithm(qtraj.system)
     end
+
+    # Build ensemble problem
+    dummy = zeros(ComplexF64, qtraj.system.levels)
+    base_prob =
+        _needs_operator_form(algorithm) ?
+        KetOperatorODEProblem(qtraj.system, qtraj.pulse, dummy, tstops) :
+        KetODEProblem(qtraj.system, qtraj.pulse, dummy, tstops)
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = qtraj.initials[_sim_index(i_or_ctx)])
+    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
     sol = solve(
         ensemble_prob,
         algorithm;

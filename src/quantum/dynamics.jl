@@ -318,6 +318,26 @@ end
 #         SciMLBase v3 passes (prob, ctx::EnsembleContext) where ctx.sim_id is the index.
 _sim_index(i_or_ctx) = i_or_ctx isa Integer ? i_or_ctx : i_or_ctx.sim_id
 
+"""
+    _needs_operator_form(algorithm) -> Bool
+
+Return true if this ODE algorithm requires the matrix-valued operator form of the
+problem (`H(t)` materialized as a `SciMLOperators.MatrixOperator`). True for
+Magnus-class / Lie-group methods (which compute `exp(-iH·dt)·ψ` at each step
+and therefore need the operator matrix). False for explicit RK methods (Tsit5,
+Vern9, DP5, DP8, Verner family, etc.) which only need the
+`dψ/dt = -iH(t)·ψ` matvec — they should use the sparse `mul!`-based RHS form
+to avoid the cost of materializing `H` densely on every ODE step.
+
+The detection is structural: Magnus methods live in the `OrdinaryDiffEqLinear`
+package; we look up the parent module of the algorithm's type. This avoids
+hardcoding a list of algorithm names.
+"""
+function _needs_operator_form(algorithm)
+    mod = parentmodule(typeof(algorithm))
+    return nameof(mod) === :OrdinaryDiffEqLinear
+end
+
 function _construct_operator(sys::AbstractQuantumSystem, u::F) where {F}
     A0 = zeros(ComplexF64, sys.levels, sys.levels)
 
