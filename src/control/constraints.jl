@@ -299,7 +299,7 @@ function LeakageConstraint(
     indices::AbstractVector{Int},
     name::Symbol,
     traj::NamedTrajectory;
-    times = 1:traj.N,
+    times = 1:(traj.N),
 )
     leakage_constraint(x) = abs2.(x[indices]) .- value
 
