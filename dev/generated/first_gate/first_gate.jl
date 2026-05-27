@@ -103,6 +103,11 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 # - Fidelity objective (weight `Q`)
 # - Control regularization (weight `R`)
 # - Smoothness via derivative bounds
+#
+# By default each timestep ``\Delta t_k`` is an independent variable, so the
+# optimizer is free to choose a non-uniform time grid. Here we want the fixed,
+# evenly-spaced grid we defined above, so we set `timesteps_all_equal = true`
+# via [`PiccoloOptions`](@ref) to constrain every ``\Delta t_k`` to be equal.
 
 qcp = SmoothPulseProblem(
     qtraj,
@@ -110,6 +115,7 @@ qcp = SmoothPulseProblem(
     Q = 100.0,       # Fidelity weight (higher = prioritize fidelity)
     R = 1e-2,        # Regularization weight (higher = smoother controls)
     ddu_bound = 1.0,  # Limit on control acceleration
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true),
 )
 
 # ## Step 5: Solve!
