@@ -184,7 +184,7 @@ otherwise creates new dicts.
 function setup_free_phase_globals!(
     n_qubits::Int,
     global_data::Union{Nothing,Dict{Symbol,Vector{Float64}}},
-    global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}};
+    global_bounds::Union{Nothing,AbstractDict{Symbol}};
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
     verbose::Bool = false,
 )
