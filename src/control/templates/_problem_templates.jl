@@ -20,7 +20,10 @@ using ...Quantum:
     AbstractPulse,
     ZeroOrderPulse,
     LinearSplinePulse,
-    CubicSplinePulse
+    CubicSplinePulse,
+    BSplinePulse,
+    get_order
+import ...Quantum.QuantumTrajectories: _get_bspline_globals
 
 using ExponentialAction
 using LinearAlgebra
