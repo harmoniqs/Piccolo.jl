@@ -1156,3 +1156,69 @@ end
     @test !hasfield(typeof(traj_no_g), :global_components) ||
           isempty(traj_no_g.global_components)
 end
+
+@testitem "BSplinePulse — _get_bspline_globals tight-bound pinning (default zero ends)" begin
+    using Piccolo
+    using Piccolo.Quantum.QuantumTrajectories: _get_bspline_globals, _get_drive_bounds
+
+    # Minimal 1-qubit X-Hamiltonian system
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(1.0 * σz, [σx], [1.0])
+
+    M, k, n_d = 10, 4, 1
+    # Default initial_value = nothing → constructor stores zeros → boundary pinned to zero
+    pulse = BSplinePulse(0.1 * randn(n_d, M), [0.0, 1.0]; order = k)
+    g_data, g_bounds = _get_bspline_globals(pulse, sys)
+    cp_name = Symbol(:c_, pulse.drive_name)
+
+    @test haskey(g_data, cp_name)
+    @test length(g_data[cp_name]) == M * n_d
+
+    lo, hi = g_bounds[cp_name]
+    @test length(lo) == M * n_d
+    @test length(hi) == M * n_d
+
+    # c_0 in-block slots (1:n_d) pinned to zero
+    @test lo[1:n_d] == zeros(n_d)
+    @test hi[1:n_d] == zeros(n_d)
+    # c_{M-1} in-block slots ((M-1)*n_d+1 : M*n_d) pinned to zero
+    @test lo[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+    @test hi[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+end
+
+@testitem "BSplinePulse — :free boundary keeps drive bounds" begin
+    using Piccolo
+    using Piccolo.Quantum.QuantumTrajectories: _get_bspline_globals, _get_drive_bounds
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(1.0 * σz, [σx], [1.0])
+
+    M, k, n_d = 10, 4, 1
+    cp = 0.1 * randn(n_d, M)
+    cp[:, end] .= 0.0  # explicit final endpoint to pass the constructor's consistency check
+    # :free initial; explicit zero final
+    pulse = BSplinePulse(
+        cp, [0.0, 1.0]; order = k,
+        initial_value = :free,
+        final_value = [0.0],
+    )
+    _, g_bounds = _get_bspline_globals(pulse, sys)
+    cp_name = Symbol(:c_, pulse.drive_name)
+    lo, hi = g_bounds[cp_name]
+
+    drive_lo, drive_hi = _get_drive_bounds(sys)
+    # initial (c_0) NOT pinned — drive bounds intact
+    @test lo[1:n_d] == drive_lo
+    @test hi[1:n_d] == drive_hi
+    # final (c_{M-1}) pinned to zero
+    @test lo[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+    @test hi[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+end
+
+# Note: BSplinePulse end-to-end boundary pinning tests (fixed-time + free-time)
+# live in Piccolissimo.jl/src/integrators/spline/bspline_integrator.jl since
+# they require both Piccolo (BSplinePulse, SplinePulseProblem, extract_pulse)
+# and Piccolissimo (SplineIntegrator). Piccolo's test env does not depend on
+# Piccolissimo. See spec acceptance criteria 10, 10b.

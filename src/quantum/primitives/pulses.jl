@@ -552,6 +552,25 @@ Drake-style B-spline pulse. Decision variables are the control points
 `c_0, ..., c_{M-1}`; the knot vector is fixed at construction (clamped uniform).
 The curve is evaluated via de Boor recursion.
 
+# Layout A trajectory storage (v2)
+
+When packed into a `NamedTrajectory` for optimization (e.g. via
+`SplinePulseProblem`), all `M` control points live in a single
+matrix-valued global `:c_<drive>` of length `M * n_drives` under
+`NamedTrajectory.global_data`. The layout is column-major over the
+conceptual `(n_drives, M)` matrix — slots `1..n_drives` hold `c_0`,
+`n_drives+1..2*n_drives` hold `c_1`, etc., matching
+`vec(pulse.control_points)`. Boundary value enforcement is realized via
+tight `global_bounds` (lo == hi) on the boundary slots for `c_0` and
+`c_{M-1}`; no per-knot pinning is needed. See
+`amico/vault/specs/spec-20260528-143226-bspline-pulse-layout-a.md`.
+
+# Bound semantics caveat
+
+Per-control-point bounds bound `max_t |u(t)| ≤ max_j |c_j|` via the
+convex-hull property — sufficient but not tight. A future spec will add
+a tight convex-hull bound mechanism.
+
 # Fields
 - `control_points::Matrix{T}`: Control points of shape `(n_drives, M)`.
 - `basis::B`: B-spline basis (knot vector + order).
