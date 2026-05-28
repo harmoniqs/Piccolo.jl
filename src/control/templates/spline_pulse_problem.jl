@@ -303,8 +303,9 @@ function SplinePulseProblem(
         end
     end
 
-    # Add global bounds constraints if specified
-    all_constraints = copy(constraints)
+    # Add global bounds constraints if specified.
+    # Widen element type so heterogeneous constraint types can be pushed.
+    all_constraints = AbstractConstraint[c for c in constraints]
     add_global_bounds_constraints!(
         all_constraints,
         global_bounds,
@@ -534,8 +535,9 @@ function SplinePulseProblem(
         end
     end
 
-    # Add global bounds constraints if specified
-    all_constraints = copy(constraints)
+    # Add global bounds constraints if specified.
+    # Widen element type so heterogeneous constraint types can be pushed.
+    all_constraints = AbstractConstraint[c for c in constraints]
     add_global_bounds_constraints!(
         all_constraints,
         global_bounds,
