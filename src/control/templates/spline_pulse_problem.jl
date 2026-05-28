@@ -322,11 +322,10 @@ function _spline_pulse_problem(
         NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
     N = base_traj.N  # Get actual number of knot points
 
-    # Always add control derivatives to trajectory
-    # For CubicSplinePulse, :du is already included in the base trajectory (Hermite tangents)
-    # For LinearSplinePulse, we add :du explicitly (will be constrained by DerivativeIntegrator)
-    du_sym = Symbol(:d, control_sym)
-    is_linear_spline = !haskey(base_traj.components, du_sym)
+    # Add control derivatives to trajectory for Linear/CubicSplinePulse.
+    # B-spline (Layout B) has no :du; skip the whole block.
+    du_sym = is_bspline ? nothing : Symbol(:d, control_sym)
+    is_linear_spline = is_bspline ? false : !haskey(base_traj.components, du_sym)
 
     # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
     _du_bounds_vec = if !isnothing(du_bounds)
@@ -337,7 +336,10 @@ function _spline_pulse_problem(
         nothing
     end
 
-    traj = if haskey(base_traj.components, du_sym)
+    traj = if is_bspline
+        # B-spline: no :du component, pass through.
+        base_traj
+    elseif haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         if !isnothing(_du_bounds_vec)
             update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
@@ -362,6 +364,14 @@ function _spline_pulse_problem(
 
     # Initialize dynamics integrators
     if isnothing(integrator)
+        if is_bspline
+            error(
+                "BSplinePulse requires an explicit SplineIntegrator from Piccolissimo:\n" *
+                "  using Piccolissimo\n" *
+                "  integrator = SplineIntegrator(qtraj, $(qtraj.pulse.basis.M - get_order(qtraj.pulse) + 2))\n" *
+                "  qcp = SplinePulseProblem(qtraj; integrator=integrator, ...)",
+            )
+        end
         if !isnothing(global_names) && !isempty(global_names)
             error(
                 "global_names requires a custom integrator that supports global variables. " *
@@ -418,8 +428,8 @@ function _spline_pulse_problem(
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
 
-    # Get control names
-    du_sym = Symbol(:d, control_sym)
+    # Get control names (re-derive for non-bspline path; not used for B-spline)
+    du_sym = is_bspline ? nothing : Symbol(:d, control_sym)
 
     # Build objective: type-specific infidelity + regularization
     J = if free_phase && !isnothing(ket_goal_fn)
@@ -430,12 +440,19 @@ function _spline_pulse_problem(
         _state_objective(qtraj, traj, state_sym, Q)
     end
 
-    # Add regularization for control and derivative
+    # Add regularization for control and derivative.
+    # For B-spline, control_sym is :c_<drive> so R_u regularizes control points;
+    # :du regularization has no analog there (control-point smoothness deferred).
     J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
-    J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
+    if !is_bspline
+        J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
+    elseif !isnothing(R_du)
+        @info "BSplinePulse: R_du has no analog; ignored (control-point smoothness regularization is deferred)"
+    end
 
     # Bending energy (#309): default smoothness term for cubic-Hermite pulses.
-    if !isnothing(R_bend_resolved)
+    # Undefined on the B-spline path (its Hermite derivative slot does not exist).
+    if !isnothing(R_bend_resolved) && !is_bspline
         J += HermiteBendingEnergyRegularizer(
             traj;
             R = R_bend_resolved,
