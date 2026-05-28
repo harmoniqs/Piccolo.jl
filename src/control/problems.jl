@@ -170,11 +170,11 @@ function solve!(
     verbose::Bool = false,
     kwargs...,
 )
-    solve!(qcp.prob; verbose = verbose, kwargs...)
+    result = solve!(qcp.prob; verbose = verbose, kwargs...)
     if sync
         sync_trajectory!(qcp)
     end
-    return nothing
+    return result
 end
 
 # Forward other common DirectTrajOptProblem accessors
