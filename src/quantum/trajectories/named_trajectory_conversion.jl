@@ -250,94 +250,71 @@ function _get_control_data(
     times::AbstractVector,
     sys::AbstractQuantumSystem,
 )
-    M = pulse.basis.M
-    order_k = get_order(pulse)
-    n_d = n_drives(pulse)
-    N = M - order_k + 2
-    cp_name = Symbol(:c_, drive_name(pulse))
-
-    # Per-knot control-point matrix: cp_per_knot[:, k] holds the control point
-    # whose Greville abscissa is at trajectory knot k (1-based).
-    cp_per_knot = Matrix{Float64}(undef, n_d, N)
-
-    if order_k == 2
-        # Linear: M = N; trivial 1-to-1 mapping
-        @assert M == N
-        for k_idx in 1:N
-            cp_per_knot[:, k_idx] .= pulse.control_points[:, k_idx]
-        end
-        # No globals for linear
-        u_bounds = _get_drive_bounds(sys)
-
-        initial_u = pulse.initial_value
-        final_u = pulse.final_value
-        u_free_init = any(isnan, initial_u)
-        u_free_final = any(isnan, final_u)
-        initial_constraints =
-            u_free_init ? NamedTuple() : _named_tuple(cp_name => initial_u)
-        final_constraints =
-            u_free_final ? NamedTuple() : _named_tuple(cp_name => final_u)
-
-        return _named_tuple(cp_name => cp_per_knot),
-        (cp_name,),
-        _named_tuple(cp_name => u_bounds),
-        initial_constraints,
-        final_constraints
-    end
-
-    # Cubic (order_k = 4): Greville-aware mapping
-    cp_per_knot[:, 1] .= pulse.control_points[:, 1]               # c_0 → knot 1
-    for k_cp in 2:(M - 3)                                          # c_2..c_{M-3} → knots 2..(N-1)
-        cp_per_knot[:, k_cp] .= pulse.control_points[:, k_cp + 1]
-    end
-    cp_per_knot[:, N] .= pulse.control_points[:, M]               # c_{M-1} → knot N
-
-    u_bounds = _get_drive_bounds(sys)
-
-    initial_u = pulse.initial_value
-    final_u = pulse.final_value
-    u_free_init = any(isnan, initial_u)
-    u_free_final = any(isnan, final_u)
-    initial_constraints =
-        u_free_init ? NamedTuple() : _named_tuple(cp_name => initial_u)
-    final_constraints =
-        u_free_final ? NamedTuple() : _named_tuple(cp_name => final_u)
-
-    return _named_tuple(cp_name => cp_per_knot),
-    (cp_name,),
-    _named_tuple(cp_name => u_bounds),
-    initial_constraints,
-    final_constraints
+    # Layout A (v2): B-spline has no per-knot control component — all M
+    # control points live in NamedTrajectory.global_data via _get_bspline_globals.
+    # Return empty NamedTuples / Symbol[] so the NamedTrajectory builder skips
+    # per-knot control plumbing entirely for B-spline. Boundary value enforcement
+    # also lives in _get_bspline_globals (tight global bounds), so no per-knot
+    # initial / final constraints here either.
+    return (
+        NamedTuple(),       # per_knot_data
+        Symbol[],           # control_names
+        NamedTuple(),       # per_knot_bounds
+        NamedTuple(),       # initial_constraints
+        NamedTuple(),       # final_constraints
+    )
 end
 
 """
     _get_bspline_globals(pulse::BSplinePulse, sys)
         -> (global_data_nt, global_bounds_nt)
 
-For Layout B, return the 2 boundary-shape control points as globals
-(`:c_<drive>_left = c_1`, `:c_<drive>_right = c_{M-2}` for cubic). The
-SplinePulseProblem B-spline branch calls this and passes the data through
-`global_data` / `global_components` keyword arguments of `NamedTrajectory`.
+Layout A (v2): emit the single matrix-valued global `:c_<drive>` of length
+`M * n_drives` holding all M control points (column-major to match
+`vec(pulse.control_points)`), plus per-slot bounds. Boundary value
+enforcement uses tight global bounds (lo == hi) on the c_0 and c_{M-1}
+in-block slots — see `_apply_boundary_pin!`.
 
-For linear (order=2), returns empty NamedTuples (no globals needed).
+Works uniformly for any order `k >= 2`; no Greville-aware split.
 """
 function _get_bspline_globals(pulse::BSplinePulse, sys::AbstractQuantumSystem)
-    order_k = get_order(pulse)
-    if order_k == 2
-        return (NamedTuple(), NamedTuple())
-    end
-    # Cubic: 2 globals
-    drive = drive_name(pulse)
-    cp_left = Symbol(:c_, drive, :_left)
-    cp_right = Symbol(:c_, drive, :_right)
     M = pulse.basis.M
-    cp_left_val = pulse.control_points[:, 2]            # c_1
-    cp_right_val = pulse.control_points[:, M - 1]       # c_{M-2}
-    drive_bounds = _get_drive_bounds(sys)
-    return (
-        _named_tuple(cp_left => cp_left_val, cp_right => cp_right_val),
-        _named_tuple(cp_left => drive_bounds, cp_right => drive_bounds),
-    )
+    n_d = pulse.n_drives
+    cp_name = Symbol(:c_, drive_name(pulse))
+
+    # _get_drive_bounds returns (lower::Vector{Float64}, upper::Vector{Float64})
+    # each of length n_drives.
+    drive_lo, drive_hi = _get_drive_bounds(sys)
+
+    # Single global block: flatten (n_drives, M) column-major to length n_drives*M
+    global_data = _named_tuple(cp_name => Vector{Float64}(vec(pulse.control_points)))
+
+    # Per-slot bounds: repeat per-drive bounds M times (column-major matches
+    # vec(control_points))
+    lo = repeat(drive_lo, M)            # length n_d * M
+    hi = repeat(drive_hi, M)            # length n_d * M
+    _apply_boundary_pin!(lo, hi, pulse.initial_value, 1:n_d)
+    _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 1) * n_d + 1):(M * n_d))
+
+    global_bounds = _named_tuple(cp_name => (lo, hi))
+
+    return (global_data, global_bounds)
+end
+
+# Apply tight global bounds (lo == hi == value) over the given range to
+# enforce clamped-basis boundary values via the GlobalBoundsConstraint
+# machinery. If `value` contains NaN (the :free sentinel), leave bounds untouched.
+function _apply_boundary_pin!(
+    lo::AbstractVector,
+    hi::AbstractVector,
+    value::AbstractVector,
+    range::AbstractUnitRange,
+)
+    any(isnan, value) && return
+    @assert length(value) == length(range) "boundary pin range mismatch"
+    lo[range] .= value
+    hi[range] .= value
+    return
 end
 
 """

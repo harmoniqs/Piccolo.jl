@@ -244,9 +244,9 @@ function _spline_pulse_problem(
 
     is_bspline = qtraj.pulse isa BSplinePulse
     drive_sym = drive_name(qtraj)
-    # For Layout B B-spline, the per-knot trajectory component is :c_<drive>,
-    # not :u. Make control_sym refer to that slot so regularizers etc. hit
-    # the right component.
+    # For Layout A B-spline (v2), :c_<drive> is the matrix-valued global block
+    # in traj.global_data holding all M control points. control_sym names that
+    # global so the regularizer hits the right component.
     control_sym = is_bspline ? Symbol(:c_, drive_sym) : drive_sym
 
     if _show_header(piccolo_options)
@@ -262,8 +262,9 @@ function _spline_pulse_problem(
         nothing
     end
 
-    # For BSplinePulse: inject the 2 boundary-shape globals (c_1, c_{M-2}) into
-    # global_data and global_bounds so they're packaged into the NamedTrajectory.
+    # For BSplinePulse: inject the single matrix-valued global :c_<drive> (length
+    # M*n_drives) and its bounds (including tight pins at the boundary slots
+    # c_0, c_{M-1}) into global_data / global_bounds. Layout A — uniform globals.
     if is_bspline
         bspline_globals, bspline_global_bounds = _get_bspline_globals(qtraj.pulse, sys)
         if !isempty(bspline_globals)
@@ -440,10 +441,25 @@ function _spline_pulse_problem(
         _state_objective(qtraj, traj, state_sym, Q)
     end
 
-    # Add regularization for control and derivative.
-    # For B-spline, control_sym is :c_<drive> so R_u regularizes control points;
-    # :du regularization has no analog there (control-point smoothness deferred).
-    J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
+    # Regularization: for B-spline (Layout A), control points live in
+    # global_data so the regularizer must be a GlobalObjective over the
+    # :c_<drive> global block. For Linear/CubicSplinePulse, use the existing
+    # per-knot QuadraticRegularizer on :u (and :du).
+    if is_bspline
+        if R_u isa Real
+            J += GlobalObjective(g -> sum(abs2, g), control_sym, traj; Q = Float64(R_u))
+        elseif R_u isa AbstractVector
+            # R_u as a per-drive Vector{Float64} (length n_drives); broadcast across the
+            # M control points by repeating to match the (n_drives * M)-length global block.
+            R_u_per_drive = Vector{Float64}(R_u)
+            M = qtraj.pulse.basis.M
+            R_u_vec = repeat(R_u_per_drive, M)
+            J += GlobalObjective(g -> sum(R_u_vec .* abs2.(g)), control_sym, traj; Q = 1.0)
+        end
+        # R_u === nothing: no control-point magnitude regularization (B-spline default)
+    else
+        J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
+    end
     if !is_bspline
         J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
     elseif !isnothing(R_du)
