@@ -105,8 +105,14 @@ function SplinePulseProblem(
     } = nothing,
 )
     sys = get_system(qtraj)
-    control_sym = drive_name(qtraj)
     state_sym = state_name(qtraj)
+
+    is_bspline = qtraj.pulse isa BSplinePulse
+    drive_sym = drive_name(qtraj)
+    # For Layout B B-spline, the per-knot trajectory component is :c_<drive>,
+    # not :u. Make control_sym refer to that slot so regularizers etc. hit
+    # the right component.
+    control_sym = is_bspline ? Symbol(:c_, drive_sym) : drive_sym
 
     if _show_header(piccolo_options)
         pulse_type = _typename(qtraj.pulse)
@@ -119,6 +125,27 @@ function SplinePulseProblem(
         Dict{Symbol,Vector{Float64}}(name => [val] for (name, val) in pairs(sys.global_params))
     else
         nothing
+    end
+
+    # For BSplinePulse: inject the 2 boundary-shape globals (c_1, c_{M-2}) into
+    # global_data and global_bounds so they're packaged into the NamedTrajectory.
+    if is_bspline
+        bspline_globals, bspline_global_bounds = _get_bspline_globals(qtraj.pulse, sys)
+        if !isempty(bspline_globals)
+            global_data = isnothing(global_data) ? Dict{Symbol,Vector{Float64}}() :
+                Dict{Symbol,Vector{Float64}}(global_data)
+            for (k, v) in pairs(bspline_globals)
+                global_data[k] = Vector{Float64}(v)
+            end
+            global_bounds = if isnothing(global_bounds)
+                Dict{Symbol,Any}()
+            else
+                Dict{Symbol,Any}(global_bounds)
+            end
+            for (k, v) in pairs(bspline_global_bounds)
+                global_bounds[k] = v
+            end
+        end
     end
 
     # Free-phase support: add phase variables as globals

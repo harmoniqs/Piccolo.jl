@@ -224,54 +224,120 @@ end
 """
     _get_control_data(pulse::BSplinePulse, times, sys)
 
-For BSplinePulse (MVP): route through the existing CubicSplinePulse machinery
-by sampling the B-spline + its derivatives at the integration node times.
-This means the optimizer sees Hermite (u, du) samples at `times` as decision
-variables, not the underlying B-spline control points. The B-spline itself is
-used only at construction (as a smooth initial guess and for plotting); the
-trajectory's optimized result is a sampled curve.
+For BSplinePulse (Layout B): per-knot control-point storage with 2 boundary
+globals (`:c_<drive>_left`, `:c_<drive>_right`) for the surplus control
+points not anchored at any integration knot. See
+`amico/vault/specs/spec-20260527-173644-bspline-pulse.md` §"NamedTrajectory layout".
 
-A full Route-A path that exposes control points as decision variables is
-tracked by the spec at `amico/vault/specs/spec-20260527-173644-bspline-pulse.md`.
+The per-knot `:c_<drive>` slot at knot k stores the control point whose
+Greville abscissa coincides with knot k's time. For cubic clamped uniform
+(k=4) and M = N + 2 control points:
+- knot 1 → c_0
+- knot k (k=2..N-1) → c_{k}     (NB: stored 1-based knot index k corresponds to 0-based c_k)
+- knot N → c_{M-1}
+- global g_left  → c_1
+- global g_right → c_{M-2}
+
+For linear (k=2), all M = N control points fit per-knot trivially; no globals.
+
+Returns per-knot data + globals via the constraint helper's output tuple. The
+global components are encoded by appending two extra named arrays to the data
+nametuple with names `:c_<drive>_left` and `:c_<drive>_right`; the SplinePulseProblem
+B-spline branch will route these to global_data.
 """
 function _get_control_data(
     pulse::BSplinePulse,
     times::AbstractVector,
     sys::AbstractQuantumSystem,
 )
-    u_name = drive_name(pulse)
-    du_name = Symbol(:d, u_name)
-    n = n_drives(pulse)
+    M = pulse.basis.M
+    order_k = get_order(pulse)
+    n_d = n_drives(pulse)
+    N = M - order_k + 2
+    cp_name = Symbol(:c_, drive_name(pulse))
 
-    u = hcat([pulse(t) for t in times]...)
-    du = hcat([derivative(pulse, t) for t in times]...)
+    # Per-knot control-point matrix: cp_per_knot[:, k] holds the control point
+    # whose Greville abscissa is at trajectory knot k (1-based).
+    cp_per_knot = Matrix{Float64}(undef, n_d, N)
+
+    if order_k == 2
+        # Linear: M = N; trivial 1-to-1 mapping
+        @assert M == N
+        for k_idx in 1:N
+            cp_per_knot[:, k_idx] .= pulse.control_points[:, k_idx]
+        end
+        # No globals for linear
+        u_bounds = _get_drive_bounds(sys)
+
+        initial_u = pulse.initial_value
+        final_u = pulse.final_value
+        u_free_init = any(isnan, initial_u)
+        u_free_final = any(isnan, final_u)
+        initial_constraints =
+            u_free_init ? NamedTuple() : _named_tuple(cp_name => initial_u)
+        final_constraints =
+            u_free_final ? NamedTuple() : _named_tuple(cp_name => final_u)
+
+        return _named_tuple(cp_name => cp_per_knot),
+        (cp_name,),
+        _named_tuple(cp_name => u_bounds),
+        initial_constraints,
+        final_constraints
+    end
+
+    # Cubic (order_k = 4): Greville-aware mapping
+    cp_per_knot[:, 1] .= pulse.control_points[:, 1]               # c_0 → knot 1
+    for k_cp in 2:(M - 3)                                          # c_2..c_{M-3} → knots 2..(N-1)
+        cp_per_knot[:, k_cp] .= pulse.control_points[:, k_cp + 1]
+    end
+    cp_per_knot[:, N] .= pulse.control_points[:, M]               # c_{M-1} → knot N
 
     u_bounds = _get_drive_bounds(sys)
-    du_bounds = (-Inf * ones(n), Inf * ones(n))
 
     initial_u = pulse.initial_value
     final_u = pulse.final_value
-    initial_du = zeros(n)
-    final_du = zeros(n)
-
     u_free_init = any(isnan, initial_u)
     u_free_final = any(isnan, final_u)
-    initial_constraints = if u_free_init
-        NamedTuple()
-    else
-        _named_tuple(u_name => initial_u, du_name => initial_du)
-    end
-    final_constraints = if u_free_final
-        NamedTuple()
-    else
-        _named_tuple(u_name => final_u, du_name => final_du)
-    end
+    initial_constraints =
+        u_free_init ? NamedTuple() : _named_tuple(cp_name => initial_u)
+    final_constraints =
+        u_free_final ? NamedTuple() : _named_tuple(cp_name => final_u)
 
-    return _named_tuple(u_name => u, du_name => du),
-    (u_name, du_name),
-    _named_tuple(u_name => u_bounds, du_name => du_bounds),
+    return _named_tuple(cp_name => cp_per_knot),
+    (cp_name,),
+    _named_tuple(cp_name => u_bounds),
     initial_constraints,
     final_constraints
+end
+
+"""
+    _get_bspline_globals(pulse::BSplinePulse, sys)
+        -> (global_data_nt, global_bounds_nt)
+
+For Layout B, return the 2 boundary-shape control points as globals
+(`:c_<drive>_left = c_1`, `:c_<drive>_right = c_{M-2}` for cubic). The
+SplinePulseProblem B-spline branch calls this and passes the data through
+`global_data` / `global_components` keyword arguments of `NamedTrajectory`.
+
+For linear (order=2), returns empty NamedTuples (no globals needed).
+"""
+function _get_bspline_globals(pulse::BSplinePulse, sys::AbstractQuantumSystem)
+    order_k = get_order(pulse)
+    if order_k == 2
+        return (NamedTuple(), NamedTuple())
+    end
+    # Cubic: 2 globals
+    drive = drive_name(pulse)
+    cp_left = Symbol(:c_, drive, :_left)
+    cp_right = Symbol(:c_, drive, :_right)
+    M = pulse.basis.M
+    cp_left_val = pulse.control_points[:, 2]            # c_1
+    cp_right_val = pulse.control_points[:, M - 1]       # c_{M-2}
+    drive_bounds = _get_drive_bounds(sys)
+    return (
+        _named_tuple(cp_left => cp_left_val, cp_right => cp_right_val),
+        _named_tuple(cp_left => drive_bounds, cp_right => drive_bounds),
+    )
 end
 
 """
