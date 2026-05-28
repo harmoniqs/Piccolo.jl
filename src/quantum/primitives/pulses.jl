@@ -19,11 +19,15 @@ export AbstractPulse, AbstractSplinePulse
 export ZeroOrderPulse,
     LinearSplinePulse,
     CubicSplinePulse,
+    BSplinePulse,
+    AbstractBSplineBasis,
+    ClampedUniformBSplineBasis,
     GaussianPulse,
     ErfPulse,
     CompositePulse,
     FunctionPulse
 export duration, n_drives, sample, drive_name
+export get_control_points, get_basis, get_order, greville_abscissae
 export load_pulse
 
 using DataInterpolations
@@ -476,6 +480,278 @@ end
 evaluate(p::CubicSplinePulse, t) = p.controls(t)
 
 # ============================================================================ #
+# BSplinePulse (Drake-style B-spline with clamped uniform basis)
+# ============================================================================ #
+
+"""
+    AbstractBSplineBasis
+
+Abstract type for B-spline basis types. Concrete subtypes carry the knot
+vector and order required for de Boor evaluation.
+"""
+abstract type AbstractBSplineBasis end
+
+"""
+    ClampedUniformBSplineBasis{Order, T<:Real} <: AbstractBSplineBasis
+
+Clamped-uniform B-spline basis of order `Order` (degree `Order - 1`) with `M`
+control points over a parameter range. The knot vector has length `M + Order`,
+with the first and last `Order` knots coincident with the endpoints, and
+`M - Order` uniformly spaced interior knots.
+
+# Fields
+- `knot_vector::Vector{T}`: Full clamped knot vector (length `M + Order`).
+- `distinct_breakpoints::Vector{T}`: Distinct breakpoints (length `N = M - Order + 2`).
+- `M::Int`: Number of control points.
+"""
+struct ClampedUniformBSplineBasis{Order,T<:Real} <: AbstractBSplineBasis
+    knot_vector::Vector{T}
+    distinct_breakpoints::Vector{T}
+    M::Int
+end
+
+function ClampedUniformBSplineBasis(
+    M::Int,
+    t_start::Real,
+    t_end::Real;
+    order::Int = 4,
+)
+    M >= order || throw(
+        ArgumentError(
+            "BSplinePulse requires M >= order; got M=$M, order=$order. " *
+            "Pass at least $order control points.",
+        ),
+    )
+    order >= 1 || throw(ArgumentError("order must be >= 1; got $order"))
+    t_end > t_start || throw(
+        ArgumentError("times[end] must exceed times[1]; got [$t_start, $t_end]"),
+    )
+
+    T = float(promote_type(typeof(t_start), typeof(t_end)))
+    ts = T(t_start)
+    te = T(t_end)
+
+    n_interior = M - order
+    δ = (te - ts) / (n_interior + 1)
+
+    interior_knots = T[ts + i * δ for i = 1:n_interior]
+    knot_vector = vcat(fill(ts, order), interior_knots, fill(te, order))
+    distinct_breakpoints = vcat([ts], interior_knots, [te])
+
+    return ClampedUniformBSplineBasis{order,T}(
+        knot_vector,
+        distinct_breakpoints,
+        M,
+    )
+end
+
+"""
+    BSplinePulse{Order, T<:Real, B<:AbstractBSplineBasis} <: AbstractSplinePulse
+
+Drake-style B-spline pulse. Decision variables are the control points
+`c_0, ..., c_{M-1}`; the knot vector is fixed at construction (clamped uniform).
+The curve is evaluated via de Boor recursion.
+
+# Fields
+- `control_points::Matrix{T}`: Control points of shape `(n_drives, M)`.
+- `basis::B`: B-spline basis (knot vector + order).
+- `duration::T`: Total pulse duration (`t_end - t_start`).
+- `n_drives::Int`: Number of control drives.
+- `drive_name::Symbol`: Name of the drive variable.
+- `initial_value::Vector{T}`: Initial boundary value. For clamped basis, matches `c_0`.
+- `final_value::Vector{T}`: Final boundary value. For clamped basis, matches `c_{M-1}`.
+"""
+struct BSplinePulse{Order,T<:Real,B<:AbstractBSplineBasis} <: AbstractSplinePulse
+    control_points::Matrix{T}
+    basis::B
+    duration::T
+    n_drives::Int
+    drive_name::Symbol
+    initial_value::Vector{T}
+    final_value::Vector{T}
+end
+
+"""
+    BSplinePulse(control_points::AbstractMatrix, times::AbstractVector; kwargs...)
+
+Construct a B-spline pulse with a clamped-uniform basis.
+
+# Arguments
+- `control_points`: Matrix of shape `(n_drives, M)` of control point values.
+- `times`: Vector defining the parameter range; only `times[1]` and `times[end]` are used.
+
+# Keyword Arguments
+- `order::Int = 4`: B-spline order (cubic by default; degree = order - 1).
+- `drive_name::Symbol = :u`: Drive variable name.
+- `initial_value`, `final_value`: Boundary value handling.
+  - `nothing` (default): boundary set to zero; `control_points[:, 1]` overwritten if non-zero.
+  - `:free`: no boundary constraint (stored as NaN).
+  - `Vector{<:Real}`: explicit value; must match `control_points[:, 1]` (resp. `[:, end]`) within `1e-12`, else `ArgumentError`.
+
+The integration-node count is automatically `N = M - order + 2`. If
+`length(times) != N`, an `@info` is emitted to help align mental models.
+"""
+function BSplinePulse(
+    control_points::AbstractMatrix,
+    times::AbstractVector;
+    order::Int = 4,
+    drive_name::Symbol = :u,
+    initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+    final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
+)
+    n_d = size(control_points, 1)
+    n_d > 0 || throw(ArgumentError("control_points must have at least one drive (row)"))
+    M = size(control_points, 2)
+
+    t_start = first(times)
+    t_end = last(times)
+    basis = ClampedUniformBSplineBasis(M, t_start, t_end; order = order)
+
+    T = float(
+        promote_type(eltype(control_points), typeof(t_start), typeof(t_end)),
+    )
+    cp = Matrix{T}(control_points)
+
+    init_val =
+        _resolve_bspline_boundary!(cp, 1, initial_value, n_d, "initial_value")
+    final_val =
+        _resolve_bspline_boundary!(cp, M, final_value, n_d, "final_value")
+
+    N = M - order + 2
+    if length(times) != N
+        @info "BSplinePulse: $M control points + order $order ⇒ $N integration nodes; got length(times)=$(length(times)). Only times[1]=$t_start and times[end]=$t_end are used."
+    end
+
+    return BSplinePulse{order,T,typeof(basis)}(
+        cp,
+        basis,
+        T(t_end - t_start),
+        n_d,
+        drive_name,
+        Vector{T}(init_val),
+        Vector{T}(final_val),
+    )
+end
+
+# Resolve initial_value/final_value per spec §"Boundary value enforcement policy".
+# Mutates `cp[:, col]` for the default-nothing case (silent overwrite to zeros).
+function _resolve_bspline_boundary!(
+    cp::AbstractMatrix,
+    col::Int,
+    spec,
+    n_d::Int,
+    kwarg_name::AbstractString,
+)
+    if spec === :free
+        return fill(NaN, n_d)
+    elseif spec isa Symbol
+        error("Unknown $kwarg_name symbol: $spec (only :free is supported)")
+    elseif isnothing(spec)
+        cp[:, col] .= zero(eltype(cp))
+        return zeros(n_d)
+    else
+        v = Vector{Float64}(spec)
+        all(isapprox.(@view(cp[:, col]), v; atol = 1e-12)) || throw(
+            ArgumentError(
+                "$kwarg_name=$v conflicts with control_points[:, $col]=$(collect(@view cp[:, col])); " *
+                "pass matching values or set $kwarg_name=:free.",
+            ),
+        )
+        return v
+    end
+end
+
+"""
+    evaluate(p::BSplinePulse, t::Real)
+
+Evaluate the B-spline pulse at parameter `t` via de Boor recursion.
+Returns a vector of length `n_drives`. Out-of-range `t` is clamped to the
+parameter interval (matches the existing pulse types' constant-extrapolation
+convention so ODE integrators tolerate small overshoot).
+"""
+function evaluate(p::BSplinePulse{Order,T}, t::Real) where {Order,T}
+    τ = p.basis.knot_vector
+    t_clamped = clamp(t, τ[1], τ[end])
+    return _deboor_evaluate(p.control_points, τ, Order, t_clamped)
+end
+
+# de Boor recursion. control_points columns are 1-indexed (column j corresponds
+# to c_{j-1} in 0-based math).
+function _deboor_evaluate(
+    control_points::AbstractMatrix,
+    knot_vector::AbstractVector,
+    order::Int,
+    t::Real,
+)
+    n_d = size(control_points, 1)
+    M = size(control_points, 2)
+    k = order
+
+    # 1-based knot index: find j with knot_vector[j] <= t.
+    # Valid range j ∈ [k, M] (clamped basis); clamp to handle endpoint t == t_end.
+    j = clamp(searchsortedlast(knot_vector, t), k, M)
+
+    Tout = promote_type(eltype(control_points), eltype(knot_vector), typeof(t))
+    p_work = Matrix{Tout}(undef, n_d, k)
+
+    # Initialize: p_work[:, r+1] = c_{ℓ - r} (0-based ℓ = j - 1)
+    @inbounds for r = 0:(k - 1)
+        @views p_work[:, r + 1] .= control_points[:, j - r]
+    end
+
+    # de Boor: P_i^level uses knots τ_i and τ_{i + k - level} where i = ℓ - r.
+    # In 1-based: knot_low = knot_vector[j - r], knot_high = knot_vector[j + k - level - r].
+    @inbounds for level = 1:(k - 1)
+        for r = 0:(k - 1 - level)
+            knot_low = knot_vector[j - r]
+            knot_high = knot_vector[j + k - level - r]
+            denom = knot_high - knot_low
+            α = denom > zero(denom) ? Tout((t - knot_low) / denom) : zero(Tout)
+            @views @. p_work[:, r + 1] =
+                (one(Tout) - α) * p_work[:, r + 2] + α * p_work[:, r + 1]
+        end
+    end
+
+    return Vector{Tout}(@view p_work[:, 1])
+end
+
+"""
+    derivative(p::BSplinePulse, t::Real)
+
+Time derivative of the B-spline pulse at parameter `t`. Computed via ForwardDiff
+through `evaluate(pulse, t)`. (A closed-form derivative via the order-`(k-1)`
+B-spline of finite-difference control points is a future optimization.)
+"""
+function derivative(p::BSplinePulse{Order,T}, t::Real) where {Order,T}
+    τ = p.basis.knot_vector
+    eps_pad = 1e-10 * (τ[end] - τ[1])
+    t_safe = clamp(t, τ[1] + eps_pad, τ[end] - eps_pad)
+    return ForwardDiff.derivative(s -> evaluate(p, s), t_safe)
+end
+
+"""
+    greville_abscissae(basis::ClampedUniformBSplineBasis) -> Vector{Float64}
+
+Closed-form Greville abscissae for the clamped-uniform basis. For order `k`
+and control point index `j` (0-based),
+
+    τ_j^* = (1/(k-1)) * Σ_{i=1}^{k-1} τ_{j+i}.
+
+Used for control-polygon visualization (see `plot_pulse` for `BSplinePulse`).
+"""
+function greville_abscissae(
+    basis::ClampedUniformBSplineBasis{Order,T},
+) where {Order,T}
+    M = basis.M
+    k = Order
+    τ = basis.knot_vector
+    if k == 1
+        return collect(τ[1:M])
+    end
+    return T[sum(τ[J + i] for i = 1:(k - 1)) / (k - 1) for J = 1:M]
+end
+
+# ============================================================================ #
 # Spline pulse knot accessors
 # ============================================================================ #
 
@@ -492,6 +768,7 @@ For CompositePulse, returns the sorted union of all sub-pulse knot times.
 get_knot_times(p::ZeroOrderPulse) = p.controls.t
 get_knot_times(p::LinearSplinePulse) = p.controls.t
 get_knot_times(p::CubicSplinePulse) = p.controls.t
+get_knot_times(p::BSplinePulse) = p.basis.distinct_breakpoints
 
 """
     get_knot_count(pulse::AbstractSplinePulse)
@@ -515,6 +792,29 @@ Return the Hermite tangents at knot points (the `du` matrix).
 Only available for CubicSplinePulse.
 """
 get_knot_derivatives(p::CubicSplinePulse) = p.controls.du
+
+"""
+    get_control_points(pulse::BSplinePulse) -> Matrix
+
+Return the B-spline control points (shape `(n_drives, M)`). Distinct from
+`get_knot_values` — control points are the optimization decision variables,
+not values at knot positions.
+"""
+get_control_points(p::BSplinePulse) = p.control_points
+
+"""
+    get_basis(pulse::BSplinePulse) -> AbstractBSplineBasis
+
+Return the B-spline basis object (knot vector + order).
+"""
+get_basis(p::BSplinePulse) = p.basis
+
+"""
+    get_order(pulse::BSplinePulse) -> Int
+
+Return the B-spline order (cubic = 4 = degree 3 by default).
+"""
+get_order(::BSplinePulse{Order}) where {Order} = Order
 
 export get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
 

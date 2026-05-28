@@ -222,6 +222,59 @@ function _get_control_data(
 end
 
 """
+    _get_control_data(pulse::BSplinePulse, times, sys)
+
+For BSplinePulse (MVP): route through the existing CubicSplinePulse machinery
+by sampling the B-spline + its derivatives at the integration node times.
+This means the optimizer sees Hermite (u, du) samples at `times` as decision
+variables, not the underlying B-spline control points. The B-spline itself is
+used only at construction (as a smooth initial guess and for plotting); the
+trajectory's optimized result is a sampled curve.
+
+A full Route-A path that exposes control points as decision variables is
+tracked by the spec at `amico/vault/specs/spec-20260527-173644-bspline-pulse.md`.
+"""
+function _get_control_data(
+    pulse::BSplinePulse,
+    times::AbstractVector,
+    sys::AbstractQuantumSystem,
+)
+    u_name = drive_name(pulse)
+    du_name = Symbol(:d, u_name)
+    n = n_drives(pulse)
+
+    u = hcat([pulse(t) for t in times]...)
+    du = hcat([derivative(pulse, t) for t in times]...)
+
+    u_bounds = _get_drive_bounds(sys)
+    du_bounds = (-Inf * ones(n), Inf * ones(n))
+
+    initial_u = pulse.initial_value
+    final_u = pulse.final_value
+    initial_du = zeros(n)
+    final_du = zeros(n)
+
+    u_free_init = any(isnan, initial_u)
+    u_free_final = any(isnan, final_u)
+    initial_constraints = if u_free_init
+        NamedTuple()
+    else
+        _named_tuple(u_name => initial_u, du_name => initial_du)
+    end
+    final_constraints = if u_free_final
+        NamedTuple()
+    else
+        _named_tuple(u_name => final_u, du_name => final_du)
+    end
+
+    return _named_tuple(u_name => u, du_name => du),
+    (u_name, du_name),
+    _named_tuple(u_name => u_bounds, du_name => du_bounds),
+    initial_constraints,
+    final_constraints
+end
+
+"""
     _get_control_data(pulse::GaussianPulse, times, sys)
 
 For GaussianPulse: sample as u values with system bounds and boundary conditions.

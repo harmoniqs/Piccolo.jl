@@ -15,11 +15,13 @@ using ..Pulses:
     ZeroOrderPulse,
     LinearSplinePulse,
     CubicSplinePulse,
+    BSplinePulse,
     GaussianPulse,
     ErfPulse,
     CompositePulse
-using ..Pulses: duration, drive_name, n_drives, sample
+using ..Pulses: duration, drive_name, n_drives, sample, derivative
 using ..Pulses: get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
+using ..Pulses: get_order, get_basis, get_control_points
 import ..Pulses: duration, drive_name
 import ..Rollouts
 import ..Rollouts: rollout!
