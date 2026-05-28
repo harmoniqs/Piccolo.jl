@@ -63,53 +63,25 @@ function extract_pulse(
     qtraj::AbstractQuantumTrajectory{<:BSplinePulse},
     traj::NamedTrajectory,
 )
-    pulse_orig = qtraj.pulse
-    order_k = get_order(pulse_orig)
-    M = pulse_orig.basis.M
-    n_d = pulse_orig.n_drives
+    pulse = qtraj.pulse
+    M = pulse.basis.M
+    n_d = pulse.n_drives
     drive = drive_name(qtraj)
     cp_name = Symbol(:c_, drive)
-    cp_left_name = Symbol(:c_, drive, :_left)
-    cp_right_name = Symbol(:c_, drive, :_right)
 
-    cp_per_knot = Matrix(traj[cp_name])    # (n_d, N)
-    N = size(cp_per_knot, 2)
+    # Layout A (v2): all M control points live in the single matrix-valued
+    # global :c_<drive> of length n_d * M (column-major matches vec(control_points)).
+    g_range = traj.global_components[cp_name]
+    cp_matrix = reshape(copy(traj.global_data[g_range]), n_d, M)
 
-    cp_matrix = Matrix{Float64}(undef, n_d, M)
-
-    if order_k == 2
-        # Linear: trivial 1-to-1
-        cp_matrix .= cp_per_knot
-    elseif order_k == 4
-        # Cubic Greville-aware: invert _get_control_data's mapping
-        cp_matrix[:, 1] .= cp_per_knot[:, 1]                  # c_0 ← knot 1
-        for k_cp in 2:(M - 3)
-            cp_matrix[:, k_cp + 1] .= cp_per_knot[:, k_cp]    # c_{k_cp} ← knot k_cp
-        end
-        cp_matrix[:, M] .= cp_per_knot[:, N]                  # c_{M-1} ← knot N
-        # Globals: c_1 ← g_left, c_{M-2} ← g_right
-        if haskey(traj.global_components, cp_left_name)
-            cp_matrix[:, 2] .=
-                traj.global_data[traj.global_components[cp_left_name]]
-            cp_matrix[:, M - 1] .=
-                traj.global_data[traj.global_components[cp_right_name]]
-        else
-            error(
-                "extract_pulse: missing $cp_left_name / $cp_right_name globals for cubic BSplinePulse",
-            )
-        end
-    else
-        error("extract_pulse: BSplinePulse order $order_k not supported in v1")
-    end
-
-    τ = pulse_orig.basis.knot_vector
+    τ = pulse.basis.knot_vector
     return BSplinePulse(
         cp_matrix,
         [τ[1], τ[end]];
-        order = order_k,
+        order = get_order(pulse),
         drive_name = drive,
-        initial_value = :free,
-        final_value = :free,
+        initial_value = :free,   # avoid constructor consistency-check on
+        final_value = :free,     # optimized control_points[:, 1] / [:, end]
     )
 end
 

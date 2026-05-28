@@ -2098,4 +2098,119 @@ end
     end
 end
 
+@testitem "BSplinePulse — de Boor parity across orders" begin
+    using Piccolo
+    using Random
+    Random.seed!(100)
+
+    # Reference Cox–de Boor implementation (recursive) for parity check
+    function cox_de_boor(knot_vec, j, k, t)
+        if k == 1
+            return knot_vec[j] <= t < knot_vec[j+1] ? 1.0 :
+                   (t == knot_vec[end] && knot_vec[j+1] == knot_vec[end] ? 1.0 : 0.0)
+        end
+        d1 = knot_vec[j+k-1] - knot_vec[j]
+        d2 = knot_vec[j+k] - knot_vec[j+1]
+        c1 = d1 == 0 ? 0.0 : (t - knot_vec[j]) / d1
+        c2 = d2 == 0 ? 0.0 : (knot_vec[j+k] - t) / d2
+        return c1 * cox_de_boor(knot_vec, j, k-1, t) +
+               c2 * cox_de_boor(knot_vec, j+1, k-1, t)
+    end
+
+    for k in (2, 3, 4, 5, 6), M in (4, 10, 20)
+        M < k && continue
+        cp = randn(1, M)
+        # Pass :free for both endpoints — otherwise the default boundary policy
+        # overwrites control_points[:, 1] and [:, end] to zero, and the test's
+        # reference sum would diverge from the stored control points.
+        pulse = BSplinePulse(
+            cp, [0.0, 1.0]; order = k,
+            initial_value = :free, final_value = :free,
+        )
+        kv = pulse.basis.knot_vector
+
+        for t in rand(20) .* 0.999  # avoid right endpoint edge
+            de_boor_val = pulse(t)[1]
+            cox_val = sum(cp[1, j] * cox_de_boor(kv, j, k, t) for j in 1:M)
+            @test isapprox(de_boor_val, cox_val; atol = 1e-10)
+        end
+    end
+end
+
+@testitem "BSplinePulse — ForwardDiff Jacobian" begin
+    using Piccolo
+    using ForwardDiff
+    using LinearAlgebra: Diagonal
+    using Random
+    Random.seed!(101)
+
+    M, k, n_d = 10, 4, 2
+    t_query = 0.37
+
+    c_test = randn(n_d * M)
+    J = ForwardDiff.jacobian(
+        c -> BSplinePulse(
+            reshape(c, n_d, M), [0.0, 1.0]; order = k,
+            initial_value = :free, final_value = :free,
+        )(t_query),
+        c_test,
+    )
+
+    @test size(J) == (n_d, n_d * M)
+    @test !any(isnan, J)
+    # For each control point j, the (n_d × n_d) sub-block is the basis weight
+    # times the identity — basis is shared across drives, so off-diagonal entries
+    # of each sub-block should be zero.
+    for j in 1:M
+        sub = J[:, ((j - 1) * n_d + 1):(j * n_d)]
+        @test sub ≈ Diagonal(fill(sub[1, 1], n_d)) atol = 1e-12
+    end
+end
+
+@testitem "BSplinePulse — accessors and constructor errors" begin
+    using Piccolo
+    M, k = 10, 4
+    pulse = BSplinePulse(randn(1, M), [0.0, 1.0]; order = k)
+    @test length(get_knot_times(pulse)) == M - k + 2
+    @test size(get_control_points(pulse)) == (1, M)
+    @test get_order(pulse) == k
+    @test get_basis(pulse).M == M
+    @test n_drives(pulse) == 1
+    @test duration(pulse) == 1.0
+    @test drive_name(pulse) == :u
+
+    # Constructor errors
+    @test_throws ArgumentError BSplinePulse(randn(1, 3), [0.0, 1.0]; order = 4)  # M < k
+    @test_throws ArgumentError BSplinePulse(zeros(0, 5), [0.0, 1.0]; order = 4)  # n_drives = 0
+
+    # initial_value / control_points consistency check (the constructor enforces
+    # that, when an explicit initial_value vector is supplied, it agrees with
+    # control_points[:, 1] within 1e-12).
+    @test_throws ArgumentError BSplinePulse(
+        reshape([0.5; randn(M - 1)], 1, M), [0.0, 1.0];
+        order = k, initial_value = [0.1],
+    )
+
+    # get_knot_values / get_knot_derivatives are intentionally NOT defined for
+    # BSplinePulse — its DOFs are control points, not knot-point values. Spec
+    # acceptance criterion 14 requires they throw MethodError.
+    @test_throws MethodError get_knot_values(pulse)
+    @test_throws MethodError get_knot_derivatives(pulse)
+end
+
+@testitem "BSplinePulse — plot smoke test" begin
+    using Piccolo
+    using CairoMakie: Figure, Axis
+    using Random
+    Random.seed!(102)
+
+    pulse = BSplinePulse(randn(1, 10), [0.0, 1.0]; order = 4)
+    fig = plot_pulse(pulse; show_knots = true, show_tangents = true)
+    @test fig isa Figure
+    axes = filter(c -> c isa Axis, fig.content)
+    @test length(axes) >= 1
+    # Smooth line + breakpoint scatter + control-polygon line + cp scatter
+    @test length(axes[1].scene.plots) >= 4
+end
+
 end # module Pulses
