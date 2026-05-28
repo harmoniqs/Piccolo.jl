@@ -56,32 +56,59 @@ function extract_pulse(
     return CubicSplinePulse(u, du, times; drive_name = u_name)
 end
 
-# MVP: B-spline trajectories were routed through the Hermite (u, du) representation
-# at construction time (see `_get_control_data(::BSplinePulse, ...)`). After
-# optimization the trajectory holds Hermite samples at the integration nodes.
-# Recover a BSplinePulse via least-squares fit of control points to those samples
-# (M unknowns vs N = M - k + 2 equations → underdetermined for k > 2; use pinv).
-# The full Route-A path that has control points as decision variables directly
-# is tracked in `amico/vault/specs/spec-20260527-173644-bspline-pulse.md`.
+# Layout B: control points live in per-knot `:c_<drive>` slots (with Greville-aware
+# mapping) and 2 boundary globals `:c_<drive>_left`/`:c_<drive>_right` for cubic.
+# Reconstruct the full control_points matrix by inverting the mapping.
 function extract_pulse(
     qtraj::AbstractQuantumTrajectory{<:BSplinePulse},
     traj::NamedTrajectory,
 )
-    times = collect(get_times(traj))
-    u_name = drive_name(qtraj)
-    du_name = Symbol(:d, u_name)
-    u = Matrix(traj[u_name])
-    du = haskey(traj.components, du_name) ? Matrix(traj[du_name]) : zeros(size(u))
-
     pulse_orig = qtraj.pulse
-    new_cp = _fit_bspline_to_hermite(pulse_orig, u, du, times)
+    order_k = get_order(pulse_orig)
+    M = pulse_orig.basis.M
+    n_d = pulse_orig.n_drives
+    drive = drive_name(qtraj)
+    cp_name = Symbol(:c_, drive)
+    cp_left_name = Symbol(:c_, drive, :_left)
+    cp_right_name = Symbol(:c_, drive, :_right)
+
+    cp_per_knot = Matrix(traj[cp_name])    # (n_d, N)
+    N = size(cp_per_knot, 2)
+
+    cp_matrix = Matrix{Float64}(undef, n_d, M)
+
+    if order_k == 2
+        # Linear: trivial 1-to-1
+        cp_matrix .= cp_per_knot
+    elseif order_k == 4
+        # Cubic Greville-aware: invert _get_control_data's mapping
+        cp_matrix[:, 1] .= cp_per_knot[:, 1]                  # c_0 ← knot 1
+        for k_cp in 2:(M - 3)
+            cp_matrix[:, k_cp + 1] .= cp_per_knot[:, k_cp]    # c_{k_cp} ← knot k_cp
+        end
+        cp_matrix[:, M] .= cp_per_knot[:, N]                  # c_{M-1} ← knot N
+        # Globals: c_1 ← g_left, c_{M-2} ← g_right
+        if haskey(traj.global_components, cp_left_name)
+            cp_matrix[:, 2] .=
+                traj.global_data[traj.global_components[cp_left_name]]
+            cp_matrix[:, M - 1] .=
+                traj.global_data[traj.global_components[cp_right_name]]
+        else
+            error(
+                "extract_pulse: missing $cp_left_name / $cp_right_name globals for cubic BSplinePulse",
+            )
+        end
+    else
+        error("extract_pulse: BSplinePulse order $order_k not supported in v1")
+    end
+
     τ = pulse_orig.basis.knot_vector
     return BSplinePulse(
-        new_cp,
+        cp_matrix,
         [τ[1], τ[end]];
-        order = get_order(pulse_orig),
-        drive_name = u_name,
-        initial_value = :free,  # already constrained by clamped basis; don't overwrite
+        order = order_k,
+        drive_name = drive,
+        initial_value = :free,
         final_value = :free,
     )
 end
