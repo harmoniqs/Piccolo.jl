@@ -190,7 +190,7 @@ function Piccolo.animate_bloch(
 
     return Piccolo.animate_figure(
         fig,
-        1:traj.N,
+        1:(traj.N),
         i -> plot_bloch!(fig, traj, i; kwargs...),
         mode = mode,
         fps = fps,
@@ -328,7 +328,7 @@ function Piccolo.animate_wigner(
 
     Piccolo.animate_figure(
         fig,
-        1:traj.N,
+        1:(traj.N),
         i -> plot_wigner!(fig, traj, i),
         mode = mode,
         fps = fps,

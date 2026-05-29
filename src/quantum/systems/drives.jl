@@ -559,7 +559,8 @@ Spot-check the Jacobian of a `NonlinearDrive` against ForwardDiff at random cont
 Throws an `AssertionError` if the user-provided Jacobian disagrees with the AD Jacobian.
 
 This is called automatically during `QuantumSystem` construction for all `NonlinearDrive`
-terms, catching sign errors or off-by-one bugs early.
+terms, catching sign errors or off-by-one bugs early. Sampling uses a local RNG so
+construction does not advance the global `Random` stream as a side effect.
 """
 function validate_drive_jacobian(
     d::NonlinearDrive,
@@ -567,8 +568,9 @@ function validate_drive_jacobian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
+    rng = MersenneTwister(0)
     for _ = 1:n_samples
-        u = randn(u_dim)
+        u = randn(rng, u_dim)
         grad_ad = ForwardDiff.gradient(d.coeff, u)
         for j = 1:u_dim
             user_val = d.coeff_jac(u, j)
@@ -585,6 +587,9 @@ end
 
 Spot-check the Hessian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Hessian disagrees with the AD Hessian.
+
+Sampling uses a local RNG so construction does not advance the global `Random` stream
+as a side effect.
 """
 function validate_drive_hessian(
     d::NonlinearDrive,
@@ -592,8 +597,9 @@ function validate_drive_hessian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
+    rng = MersenneTwister(0)
     for _ = 1:n_samples
-        u = randn(u_dim)
+        u = randn(rng, u_dim)
         hess_ad = ForwardDiff.hessian(d.coeff, u)
         for i = 1:u_dim, j = i:u_dim
             user_val = d.coeff_hess(u, i, j)
@@ -953,6 +959,53 @@ end
         (u, j) -> j == 1 ? u[2] * u[3] : j == 2 ? u[1] * u[3] : 0.0,  # wrong at j=3
     )
     @test_throws AssertionError validate_drive_jacobian(d_wrong_global, 3)
+end
+
+@testitem "QuantumSystem construction does not advance the global RNG" begin
+    # Regression: validators previously sampled with `randn(u_dim)` on the
+    # global stream during `QuantumSystem` construction, silently shifting
+    # downstream `rand`/`randn` results in user scripts that seed once at
+    # the top.
+
+    using Piccolo
+    using Random
+    using SparseArrays
+
+    H_drift = sparse(ComplexF64[1.0 0.0; 0.0 -1.0])
+    H1 = sparse(ComplexF64[0.0 1.0; 1.0 0.0])
+    H2 = sparse(ComplexF64[0.0 -1.0im; 1.0im 0.0])
+
+    # 1. Direct validator entry points.
+    d_simple = NonlinearDrive(H1, u -> u[1] * u[2] * u[3])
+    Random.seed!(42)
+    baseline = rand(5)
+    Random.seed!(42)
+    validate_drive_jacobian(d_simple, 3)
+    validate_drive_hessian(d_simple, 3)
+    @test rand(5) == baseline
+
+    # 2. Full QuantumSystem path with NonlinearDrives + globals — this is
+    #    the surface that hit the user. Multiple nonlinear drives × a
+    #    larger u_dim is the worst case for randn consumption.
+    drives = AbstractDrive[
+        LinearDrive(H1, 1),
+        NonlinearDrive(H2, u -> u[1]^2 + u[2] * u[3]),
+        NonlinearDrive(H1, u -> u[2] * u[3]),
+    ]
+    bounds = [(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)]
+    Random.seed!(42)
+    baseline2 = rand(5)
+    Random.seed!(42)
+    QuantumSystem(H_drift, drives, bounds; global_params = (g1 = 0.5,))
+    @test rand(5) == baseline2
+
+    # 3. Same again but with no globals — verifies the no-globals path is
+    #    also RNG-clean.
+    Random.seed!(42)
+    baseline3 = rand(5)
+    Random.seed!(42)
+    QuantumSystem(H_drift, drives, bounds)
+    @test rand(5) == baseline3
 end
 
 @testitem "G works on AbstractDrive types" begin

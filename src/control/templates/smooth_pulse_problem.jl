@@ -379,7 +379,7 @@ function SmoothPulseProblem(
 )
     if _show_header(piccolo_options)
         println(
-            "    constructing SmoothPulseProblem for MultiKetTrajectory ($(length(qtraj.initials)) states)...",
+            "    constructing SmoothPulseProblem for $(nameof(typeof(qtraj))) ($(length(qtraj.initials)) states)...",
         )
     end
 

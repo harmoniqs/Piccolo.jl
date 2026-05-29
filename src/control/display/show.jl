@@ -336,13 +336,6 @@ function _fmt_val(v::Real)
     end
 end
 
-function _color_str(c::Symbol, s::AbstractString)
-    # Pre-render with ANSI codes when stdout supports it.
-    # For a buffer-based show, just return the string; color is applied via
-    # printstyled where we have direct io access.
-    return s
-end
-
 # ---------------------------------------------------------------------------- #
 # Mutating helpers that keep the displayed view fresh
 # ---------------------------------------------------------------------------- #
