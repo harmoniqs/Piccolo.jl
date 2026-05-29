@@ -1316,12 +1316,14 @@ end
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
     qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0)
-    qcp_empty = SplinePulseProblem(qtraj, N; Q = 100.0,
-        extra_objectives = AbstractObjective[])
+    qcp_empty =
+        SplinePulseProblem(qtraj, N; Q = 100.0, extra_objectives = AbstractObjective[])
 
-    n_default = qcp_default.prob.objective isa DirectTrajOpt.CompositeObjective ?
+    n_default =
+        qcp_default.prob.objective isa DirectTrajOpt.CompositeObjective ?
         length(qcp_default.prob.objective.objectives) : 1
-    n_empty = qcp_empty.prob.objective isa DirectTrajOpt.CompositeObjective ?
+    n_empty =
+        qcp_empty.prob.objective isa DirectTrajOpt.CompositeObjective ?
         length(qcp_empty.prob.objective.objectives) : 1
     @test n_default == n_empty
 
@@ -1360,12 +1362,18 @@ end
     traj_for_extra = qcp_baseline.prob.trajectory
     extra_reg = QuadraticRegularizer(:u, traj_for_extra, extra_R)
 
-    qcp_extra = SplinePulseProblem(qtraj, N; Q = 100.0,
-        extra_objectives = AbstractObjective[extra_reg])
+    qcp_extra = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        extra_objectives = AbstractObjective[extra_reg],
+    )
 
-    n_baseline = qcp_baseline.prob.objective isa DirectTrajOpt.CompositeObjective ?
+    n_baseline =
+        qcp_baseline.prob.objective isa DirectTrajOpt.CompositeObjective ?
         length(qcp_baseline.prob.objective.objectives) : 1
-    n_extra = qcp_extra.prob.objective isa DirectTrajOpt.CompositeObjective ?
+    n_extra =
+        qcp_extra.prob.objective isa DirectTrajOpt.CompositeObjective ?
         length(qcp_extra.prob.objective.objectives) : 1
     @test n_extra == n_baseline + 1
 
@@ -1402,12 +1410,19 @@ end
     traj_for_extra = qcp_baseline.prob.trajectory
     extra_reg = QuadraticRegularizer(:u, traj_for_extra, extra_R)
 
-    qcp_extra = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2,
-        extra_objectives = AbstractObjective[extra_reg])
+    qcp_extra = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        extra_objectives = AbstractObjective[extra_reg],
+    )
 
-    n_baseline = qcp_baseline.prob.objective isa DirectTrajOpt.CompositeObjective ?
+    n_baseline =
+        qcp_baseline.prob.objective isa DirectTrajOpt.CompositeObjective ?
         length(qcp_baseline.prob.objective.objectives) : 1
-    n_extra = qcp_extra.prob.objective isa DirectTrajOpt.CompositeObjective ?
+    n_extra =
+        qcp_extra.prob.objective isa DirectTrajOpt.CompositeObjective ?
         length(qcp_extra.prob.objective.objectives) : 1
     @test n_extra == n_baseline + 1
 
