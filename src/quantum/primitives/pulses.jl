@@ -20,7 +20,6 @@ export ZeroOrderPulse,
     LinearSplinePulse,
     CubicSplinePulse,
     BSplinePulse,
-    AbstractBSplineBasis,
     ClampedUniformBSplineBasis,
     GaussianPulse,
     ErfPulse,
@@ -484,15 +483,7 @@ evaluate(p::CubicSplinePulse, t) = p.controls(t)
 # ============================================================================ #
 
 """
-    AbstractBSplineBasis
-
-Abstract type for B-spline basis types. Concrete subtypes carry the knot
-vector and order required for de Boor evaluation.
-"""
-abstract type AbstractBSplineBasis end
-
-"""
-    ClampedUniformBSplineBasis{Order, T<:Real} <: AbstractBSplineBasis
+    ClampedUniformBSplineBasis{Order, T<:Real}
 
 Clamped-uniform B-spline basis of order `Order` (degree `Order - 1`) with `M`
 control points over a parameter range. The knot vector has length `M + Order`,
@@ -504,7 +495,7 @@ with the first and last `Order` knots coincident with the endpoints, and
 - `distinct_breakpoints::Vector{T}`: Distinct breakpoints (length `N = M - Order + 2`).
 - `M::Int`: Number of control points.
 """
-struct ClampedUniformBSplineBasis{Order,T<:Real} <: AbstractBSplineBasis
+struct ClampedUniformBSplineBasis{Order,T<:Real}
     knot_vector::Vector{T}
     distinct_breakpoints::Vector{T}
     M::Int
@@ -546,13 +537,13 @@ function ClampedUniformBSplineBasis(
 end
 
 """
-    BSplinePulse{Order, T<:Real, B<:AbstractBSplineBasis} <: AbstractSplinePulse
+    BSplinePulse{Order, T<:Real} <: AbstractSplinePulse
 
 Drake-style B-spline pulse. Decision variables are the control points
 `c_0, ..., c_{M-1}`; the knot vector is fixed at construction (clamped uniform).
 The curve is evaluated via de Boor recursion.
 
-# Layout A trajectory storage (v2)
+# Layout A trajectory storage
 
 When packed into a `NamedTrajectory` for optimization (e.g. via
 `SplinePulseProblem`), all `M` control points live in a single
@@ -573,16 +564,19 @@ a tight convex-hull bound mechanism.
 
 # Fields
 - `control_points::Matrix{T}`: Control points of shape `(n_drives, M)`.
-- `basis::B`: B-spline basis (knot vector + order).
+- `basis::ClampedUniformBSplineBasis{Order}`: B-spline basis (knot vector + order).
+  Its numeric type is independent of `T` so the curve can be differentiated
+  through the control points (e.g. ForwardDiff `Dual` control points over a
+  `Float64` knot vector).
 - `duration::T`: Total pulse duration (`t_end - t_start`).
 - `n_drives::Int`: Number of control drives.
 - `drive_name::Symbol`: Name of the drive variable.
 - `initial_value::Vector{T}`: Initial boundary value. For clamped basis, matches `c_0`.
 - `final_value::Vector{T}`: Final boundary value. For clamped basis, matches `c_{M-1}`.
 """
-struct BSplinePulse{Order,T<:Real,B<:AbstractBSplineBasis} <: AbstractSplinePulse
+struct BSplinePulse{Order,T<:Real} <: AbstractSplinePulse
     control_points::Matrix{T}
-    basis::B
+    basis::ClampedUniformBSplineBasis{Order}
     duration::T
     n_drives::Int
     drive_name::Symbol
@@ -641,7 +635,7 @@ function BSplinePulse(
         @info "BSplinePulse: $M control points + order $order ⇒ $N integration nodes; got length(times)=$(length(times)). Only times[1]=$t_start and times[end]=$t_end are used."
     end
 
-    return BSplinePulse{order,T,typeof(basis)}(
+    return BSplinePulse{order,T}(
         cp,
         basis,
         T(t_end - t_start),
@@ -822,7 +816,7 @@ not values at knot positions.
 get_control_points(p::BSplinePulse) = p.control_points
 
 """
-    get_basis(pulse::BSplinePulse) -> AbstractBSplineBasis
+    get_basis(pulse::BSplinePulse) -> ClampedUniformBSplineBasis
 
 Return the B-spline basis object (knot vector + order).
 """
@@ -834,6 +828,51 @@ get_basis(p::BSplinePulse) = p.basis
 Return the B-spline order (cubic = 4 = degree 3 by default).
 """
 get_order(::BSplinePulse{Order}) where {Order} = Order
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JLD2 backward-compat: pulses saved before BSplinePulse dropped its third type
+# parameter (`{Order,T,B<:AbstractBSplineBasis}` → `{Order,T}`) deserialize as a
+# `JLD2.ReconstructedMutable` — JLD2 can't map the stored 3-parameter type onto
+# the 2-parameter type in the workspace. The on-disk *fields* are unchanged, so
+# we rehydrate a real `BSplinePulse` from them. Order is recovered from the knot
+# vector (length == M + order for a clamped basis). Boundaries are read back as
+# `:free` so the stored control points pass through untouched (they already carry
+# the true boundary values — same trick `extract_pulse` uses).
+_is_reconstructed_bspline(x) =
+    x isa JLD2.AbstractReconstructedType &&
+    startswith(String(typeof(x).parameters[1]), "BSplinePulse")
+
+function _bspline_from_reconstructed(r)
+    basis = getproperty(r, :basis)               # may itself be reconstructed
+    τ = collect(getproperty(basis, :knot_vector))
+    M = Int(getproperty(basis, :M))
+    order = length(τ) - M
+    cp = Matrix{Float64}(getproperty(r, :control_points))
+    return BSplinePulse(
+        cp,
+        [first(τ), last(τ)];
+        order = order,
+        drive_name = Symbol(getproperty(r, :drive_name)),
+        initial_value = :free,
+        final_value = :free,
+    )
+end
+
+# Public converter + the accessors warm-started consumers call on a freshly
+# loaded pulse (e.g. demo `rebuild_pinned`: get_control_points / get_order /
+# drive_name). Each guards on the reconstructed type being a BSplinePulse.
+function BSplinePulse(r::JLD2.AbstractReconstructedType)
+    _is_reconstructed_bspline(r) ||
+        throw(ArgumentError("not a reconstructed BSplinePulse: $(typeof(r).parameters[1])"))
+    return _bspline_from_reconstructed(r)
+end
+
+for f in (:get_control_points, :get_order, :get_basis, :drive_name, :duration, :n_drives)
+    @eval function $f(r::JLD2.AbstractReconstructedType)
+        _is_reconstructed_bspline(r) || throw(MethodError($f, (r,)))
+        return $f(_bspline_from_reconstructed(r))
+    end
+end
 
 export get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
 

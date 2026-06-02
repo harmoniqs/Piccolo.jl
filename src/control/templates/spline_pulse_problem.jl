@@ -109,7 +109,7 @@ function SplinePulseProblem(
 
     is_bspline = qtraj.pulse isa BSplinePulse
     drive_sym = drive_name(qtraj)
-    # For Layout A B-spline (v2), :c_<drive> is the matrix-valued global block
+    # For Layout A B-spline, :c_<drive> is the matrix-valued global block
     # in traj.global_data holding all M control points. control_sym names that
     # global so the regularizer hits the right component.
     control_sym = is_bspline ? Symbol(:c_, drive_sym) : drive_sym
@@ -132,20 +132,18 @@ function SplinePulseProblem(
     # c_0, c_{M-1}) into global_data / global_bounds. Layout A — uniform globals.
     if is_bspline
         bspline_globals, bspline_global_bounds = _get_bspline_globals(qtraj.pulse, sys)
-        if !isempty(bspline_globals)
-            global_data = isnothing(global_data) ? Dict{Symbol,Vector{Float64}}() :
-                Dict{Symbol,Vector{Float64}}(global_data)
-            for (k, v) in pairs(bspline_globals)
-                global_data[k] = Vector{Float64}(v)
-            end
-            global_bounds = if isnothing(global_bounds)
-                Dict{Symbol,Any}()
-            else
-                Dict{Symbol,Any}(global_bounds)
-            end
-            for (k, v) in pairs(bspline_global_bounds)
-                global_bounds[k] = v
-            end
+        global_data = isnothing(global_data) ? Dict{Symbol,Vector{Float64}}() :
+            Dict{Symbol,Vector{Float64}}(global_data)
+        for (k, v) in pairs(bspline_globals)
+            global_data[k] = Vector{Float64}(v)
+        end
+        global_bounds = if isnothing(global_bounds)
+            Dict{Symbol,Any}()
+        else
+            Dict{Symbol,Any}(global_bounds)
+        end
+        for (k, v) in pairs(bspline_global_bounds)
+            global_bounds[k] = v
         end
     end
 
@@ -189,7 +187,7 @@ function SplinePulseProblem(
     N = base_traj.N  # Get actual number of timesteps
 
     # Add control derivatives to trajectory for Linear/CubicSplinePulse.
-    # B-spline (Layout B) has no :du; skip the whole block.
+    # B-spline (Layout A) has no :du; skip the whole block.
     du_sym = is_bspline ? nothing : Symbol(:d, control_sym)
     is_linear_spline = is_bspline ? false : !haskey(base_traj.components, du_sym)
 
@@ -261,9 +259,6 @@ function SplinePulseProblem(
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
 
-    # Get control names (re-derive for non-bspline path; not used for B-spline)
-    du_sym = is_bspline ? nothing : Symbol(:d, control_sym)
-
     # Build objective: type-specific infidelity + regularization
     J = if free_phase && !isnothing(ket_goal_fn)
         KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj; Q = Q)
@@ -288,13 +283,14 @@ function SplinePulseProblem(
             R_u_vec = repeat(R_u_per_drive, M)
             J += GlobalObjective(g -> sum(R_u_vec .* abs2.(g)), control_sym, traj; Q = 1.0)
         end
+        r_du_active = (R_du isa Real && R_du > 0) ||
+                      (R_du isa AbstractVector && any(>(0), R_du))
+        if r_du_active
+            @info "BSplinePulse: R_du has no analog; ignored (control-point smoothness regularization is deferred)"
+        end
     else
         J += QuadraticRegularizer(control_sym, traj, R_u)
-    end
-    if !is_bspline
         J += QuadraticRegularizer(du_sym, traj, R_du)
-    elseif R_du > 0
-        @info "BSplinePulse: R_du has no analog; ignored (control-point smoothness regularization is deferred)"
     end
 
     # Apply piccolo options
