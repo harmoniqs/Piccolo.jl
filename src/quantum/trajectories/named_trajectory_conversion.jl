@@ -221,36 +221,15 @@ function _get_control_data(
     final_constraints
 end
 
-"""
-    _get_control_data(pulse::BSplinePulse, times, sys)
-
-For BSplinePulse (Layout B): per-knot control-point storage with 2 boundary
-globals (`:c_<drive>_left`, `:c_<drive>_right`) for the surplus control
-points not anchored at any integration knot. See
-`amico/vault/specs/spec-20260527-173644-bspline-pulse.md` §"NamedTrajectory layout".
-
-The per-knot `:c_<drive>` slot at knot k stores the control point whose
-Greville abscissa coincides with knot k's time. For cubic clamped uniform
-(k=4) and M = N + 2 control points:
-- knot 1 → c_0
-- knot k (k=2..N-1) → c_{k}     (NB: stored 1-based knot index k corresponds to 0-based c_k)
-- knot N → c_{M-1}
-- global g_left  → c_1
-- global g_right → c_{M-2}
-
-For linear (k=2), all M = N control points fit per-knot trivially; no globals.
-
-Returns per-knot data + globals via the constraint helper's output tuple. The
-global components are encoded by appending two extra named arrays to the data
-nametuple with names `:c_<drive>_left` and `:c_<drive>_right`; the SplinePulseProblem
-B-spline branch will route these to global_data.
-"""
+# B-spline (Layout A): all M control points live in global_data via
+# _get_bspline_globals; there are no per-knot controls — return five empty
+# containers so the caller's merge() is a no-op.
 function _get_control_data(
     pulse::BSplinePulse,
     times::AbstractVector,
     sys::AbstractQuantumSystem,
 )
-    # Layout A (v2): B-spline has no per-knot control component — all M
+    # Layout A: B-spline has no per-knot control component — all M
     # control points live in NamedTrajectory.global_data via _get_bspline_globals.
     # Return empty NamedTuples / Symbol[] so the NamedTrajectory builder skips
     # per-knot control plumbing entirely for B-spline. Boundary value enforcement
@@ -269,7 +248,7 @@ end
     _get_bspline_globals(pulse::BSplinePulse, sys)
         -> (global_data_nt, global_bounds_nt)
 
-Layout A (v2): emit the single matrix-valued global `:c_<drive>` of length
+Layout A: emit the single matrix-valued global `:c_<drive>` of length
 `M * n_drives` holding all M control points (column-major to match
 `vec(pulse.control_points)`), plus per-slot bounds. Boundary value
 enforcement uses tight global bounds (lo == hi) on the c_0 and c_{M-1}

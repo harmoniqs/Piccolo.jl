@@ -56,9 +56,7 @@ function extract_pulse(
     return CubicSplinePulse(u, du, times; drive_name = u_name)
 end
 
-# Layout B: control points live in per-knot `:c_<drive>` slots (with Greville-aware
-# mapping) and 2 boundary globals `:c_<drive>_left`/`:c_<drive>_right` for cubic.
-# Reconstruct the full control_points matrix by inverting the mapping.
+# Layout A: all M control points live in the single matrix-valued global :c_<drive>.
 function extract_pulse(
     qtraj::AbstractQuantumTrajectory{<:BSplinePulse},
     traj::NamedTrajectory,
@@ -69,7 +67,7 @@ function extract_pulse(
     drive = drive_name(qtraj)
     cp_name = Symbol(:c_, drive)
 
-    # Layout A (v2): all M control points live in the single matrix-valued
+    # Layout A: all M control points live in the single matrix-valued
     # global :c_<drive> of length n_d * M (column-major matches vec(control_points)).
     g_range = traj.global_components[cp_name]
     cp_matrix = reshape(copy(traj.global_data[g_range]), n_d, M)
@@ -83,81 +81,6 @@ function extract_pulse(
         initial_value = :free,   # avoid constructor consistency-check on
         final_value = :free,     # optimized control_points[:, 1] / [:, end]
     )
-end
-
-# Fit M B-spline control points to the cubic Hermite curve implied by (u, du)
-# samples by oversampling the Hermite curve at `Ndense` points and solving the
-# overdetermined least-squares B * c = u_dense.
-#
-# This is the MVP path: the actual optimization happens in Hermite space, the
-# B-spline acts as a smooth low-pass approximation of the optimized result so
-# the user sees a recognizable smooth curve. The full Route-A path (control
-# points as native decision variables) lives in
-# `amico/vault/specs/spec-20260527-173644-bspline-pulse.md`.
-function _fit_bspline_to_hermite(
-    pulse::BSplinePulse{Order},
-    u_values::AbstractMatrix,
-    du_values::AbstractMatrix,
-    times::AbstractVector;
-    oversample::Int = 20,
-) where {Order}
-    M = pulse.basis.M
-    n_d = size(u_values, 1)
-    τ = pulse.basis.knot_vector
-
-    # Build a Hermite curve from (u, du, times) and sample it densely
-    hermite = CubicSplinePulse(u_values, du_values, collect(times))
-    t_start, t_end = first(times), last(times)
-    Ndense = oversample * length(times)
-    t_dense = collect(range(t_start, t_end, length = Ndense))
-    u_dense = hcat([hermite(t) for t in t_dense]...)
-
-    # Basis matrix at dense times: B[i, j] = j-th basis at t_dense[i]
-    B = zeros(Ndense, M)
-    cp_indicator = zeros(1, M)
-    for j = 1:M
-        cp_indicator[1, j] = 1.0
-        for (i, t) in enumerate(t_dense)
-            t_clamped = clamp(t, τ[1], τ[end])
-            B[i, j] = _deboor_basis_eval(cp_indicator, τ, Order, t_clamped)
-        end
-        cp_indicator[1, j] = 0.0
-    end
-
-    # Overdetermined least-squares: Ndense >> M
-    C = zeros(n_d, M)
-    for d = 1:n_d
-        C[d, :] = B \ Vector(u_dense[d, :])
-    end
-    return C
-end
-
-# Wrapper that evaluates a single-drive B-spline with a given indicator control-point
-# vector at a clamped t. Type-generic so ForwardDiff can differentiate through `t`.
-function _deboor_basis_eval(
-    cp_indicator::AbstractMatrix,
-    knot_vector::AbstractVector,
-    order::Int,
-    t::Real,
-)
-    M = size(cp_indicator, 2)
-    k = order
-    Tout = promote_type(eltype(cp_indicator), eltype(knot_vector), typeof(t))
-    j = clamp(searchsortedlast(knot_vector, t), k, M)
-    p_work = Vector{Tout}(undef, k)
-    @inbounds for r = 0:(k - 1)
-        p_work[r + 1] = cp_indicator[1, j - r]
-    end
-    @inbounds for level = 1:(k - 1)
-        for r = 0:(k - 1 - level)
-            knot_low = knot_vector[j - r]
-            knot_high = knot_vector[j + k - level - r]
-            denom = knot_high - knot_low
-            α = denom > zero(denom) ? Tout((t - knot_low) / denom) : zero(Tout)
-            p_work[r + 1] = (one(Tout) - α) * p_work[r + 2] + α * p_work[r + 1]
-        end
-    end
-    return p_work[1]
 end
 
 # SamplingTrajectory delegates to base_trajectory
