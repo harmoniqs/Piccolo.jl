@@ -42,6 +42,43 @@ qcp = SmoothPulseProblem(
 )
 cached_solve!(qcp, "visualization_unitary"; max_iter = 50, print_level = 1)
 
+
+# ## Quick Reference for AI-Generated Plotting Code
+#
+# If you are asking an AI coding assistant to generate Piccolo visualization code,
+# give it this rule of thumb: use Piccolo's high-level plotting helpers first,
+# then fall back to Makie primitives only for custom layouts. The most common
+# calls are:
+#
+# ```julia
+# using Piccolo
+# using CairoMakie
+#
+# traj = get_trajectory(qcp)
+#
+# # Physical pulse waveform reconstructed from the solved problem
+# fig = plot_pulse(qcp; bounds = true, components = [:du, :ddu])
+#
+# # Raw optimization variables, useful for debugging the NLP state
+# fig = plot(traj, [:u, :du, :ddu])
+#
+# # Quantum dynamics along the trajectory
+# fig = plot_unitary_populations(traj)  # for UnitaryTrajectory problems
+# fig = plot_state_populations(traj)    # for KetTrajectory problems
+# ```
+#
+# For Bloch and Wigner helpers, also load `QuantumToolbox`:
+#
+# ```julia
+# using QuantumToolbox
+# fig = plot_bloch(traj; index = traj.N)
+# fig = plot_wigner(traj, traj.N; xvec = -3:0.1:3, yvec = -3:0.1:3)
+# ```
+#
+# The root [`llms.txt`](https://github.com/harmoniqs/Piccolo.jl/blob/main/llms.txt)
+# file repeats these patterns in a compact form for coding agents and editor
+# assistants.
+
 # Inspect the resulting fidelity:
 
 fidelity(qcp)

@@ -1,0 +1,102 @@
+# Piccolo.jl guidance for LLMs
+
+Piccolo.jl is a Julia package for quantum optimal control. Use this short guide when generating plotting or visualization code for Piccolo users.
+
+## Imports
+
+```julia
+using Piccolo
+using CairoMakie          # static figures, docs, scripts
+# using GLMakie           # interactive local windows
+# using WGLMakie          # notebooks / browser output
+```
+
+Load `QuantumToolbox` only for Bloch-sphere and Wigner plotting helpers:
+
+```julia
+using QuantumToolbox
+```
+
+## Common plotting workflows
+
+Prefer high-level Piccolo helpers before writing manual Makie code:
+
+```julia
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2, ddu_bound=1.0)
+solve!(qcp)
+
+traj = get_trajectory(qcp)
+fig = plot_pulse(qcp; bounds=true, components=[:du, :ddu])
+fig = plot_unitary_populations(traj)
+```
+
+For state-transfer (`KetTrajectory`) problems:
+
+```julia
+traj = get_trajectory(qcp)
+fig = plot_state_populations(traj)
+```
+
+For Bloch and Wigner visualizations, load `QuantumToolbox`:
+
+```julia
+using QuantumToolbox
+fig = plot_bloch(traj; index=traj.N)
+fig = plot_wigner(traj, traj.N; xvec=-3:0.1:3, yvec=-3:0.1:3)
+```
+
+## Pulse plotting rules
+
+`plot_pulse` is pulse-type aware. It renders:
+
+- `ZeroOrderPulse` as a stair/hold waveform.
+- `LinearSplinePulse` as linearly interpolated segments.
+- `CubicSplinePulse` as smooth spline curves with knots.
+- Analytic/function pulses using dense samples.
+
+Do **not** use `plot(traj, [:u])` when the user asks for the physical pulse played on hardware. `plot(traj, [:u])` plots optimization variables at knot points; `plot_pulse(qcp)` reconstructs and draws the actual pulse waveform.
+
+## Time axis pattern
+
+For manual Makie plots from a `NamedTrajectory`, derive control times from trajectory timesteps:
+
+```julia
+traj = get_trajectory(qcp)
+plot_times = cumsum([0; get_timesteps(traj)])[1:end-1]
+lines!(ax, plot_times, traj[:u][1, :])
+```
+
+If a uniform visual time grid is important for examples, construct the problem with:
+
+```julia
+opts = PiccoloOptions(timesteps_all_equal=true, display=:silent)
+qcp = SmoothPulseProblem(qtraj, N; piccolo_options=opts)
+```
+
+## Figure export
+
+```julia
+save("controls.png", fig)  # raster
+save("controls.pdf", fig)  # vector
+save("controls.svg", fig)  # vector
+```
+
+## Function selection quick reference
+
+- Optimized pulse from a problem: `plot_pulse(qcp; bounds=true)`
+- Raw trajectory variables: `plot(traj, [:u, :du, :ddu])`
+- Gate/unitary population evolution: `plot_unitary_populations(traj)`
+- Ket-state population evolution: `plot_state_populations(traj)`
+- Bloch-sphere path: `plot_bloch(traj; index=k)`
+- Wigner frame: `plot_wigner(traj, k; xvec=..., yvec=...)`
+- Wigner animation: `animate_wigner(traj; mode=:record, filename="wigner.gif")`
+- Rydberg chain drawing: `plot_rydberg_chain(N; blockade_radius=..., populations=...)`
+- Rydberg chain animation: `animate_rydberg_chain(traj, N; filename="rydberg.gif")`
+
+## Common pitfalls
+
+- Always choose a Makie backend (`CairoMakie`, `GLMakie`, or `WGLMakie`) before rendering figures.
+- Use `get_trajectory(qcp)` after solving before calling trajectory plotting helpers.
+- Use `plot_pulse(qcp)` instead of manually plotting `traj[:u]` when the pulse type matters.
+- Keep Bloch examples to two-level state/density trajectories, or pass `subspace=1:2` for larger systems.
+- For docs or CI-friendly scripts, prefer `CairoMakie`; interactive backends may require a display.
