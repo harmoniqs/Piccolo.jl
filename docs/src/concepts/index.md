@@ -117,7 +117,7 @@ The dynamics constraint ``x_{k+1} = \exp(\Delta t_k \cdot G(\boldsymbol{u}_k))\,
 | Real vector representation ``x \in \mathbb{R}^n`` | [`Isomorphism`](@ref isomorphisms-concept) | [Isomorphisms](@ref isomorphisms-concept) |
 | Subspace embeddings | [`Operators`](@ref operators-concept) | [Operators](@ref operators-concept) |
 
-## Decision Variables
+## [Decision Variables](@id decision-variables)
 
 The full NLP decision vector ``z`` is a [`NamedTrajectory`](https://docs.harmoniqs.co/NamedTrajectories.jl/) containing, at each of ``N`` knot points:
 
