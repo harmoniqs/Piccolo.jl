@@ -37,6 +37,8 @@ A constant dictionary `GATES` containing common quantum gate matrices as complex
 - `GATES[:H]` - Hadamard: Creates superposition by transforming basis states.
 - `GATES[:CX]` - Controlled-X (CNOT): Flips the 2nd qubit (target) if the first qubit (control) is |1⟩.
 - `GATES[:CZ]` - Controlled-Z (CZ): Flips the phase of the 2nd qubit (target) if the 1st qubit (control) is |1⟩.
+- `GATES[:CCX]` - Toffoli: Flips the 3rd qubit if the first two qubits are |1⟩.
+- `GATES[:CCZ]` - Controlled-controlled-Z: Flips the phase of |111⟩.
 - `GATES[:XI]` - Complex: A gate for complex operations.
 - `GATES[:sqrtiSWAP]` - Square root of iSWAP: Partially swaps two qubits with a phase.
 """
@@ -60,6 +62,26 @@ const GATES = (
         0 1 0 0
         0 0 1 0
         0 0 0 -1
+    ],
+    CCX = ComplexF64[
+        1 0 0 0 0 0 0 0
+        0 1 0 0 0 0 0 0
+        0 0 1 0 0 0 0 0
+        0 0 0 1 0 0 0 0
+        0 0 0 0 1 0 0 0
+        0 0 0 0 0 1 0 0
+        0 0 0 0 0 0 0 1
+        0 0 0 0 0 0 1 0
+    ],
+    CCZ = ComplexF64[
+        1 0 0 0 0 0 0 0
+        0 1 0 0 0 0 0 0
+        0 0 1 0 0 0 0 0
+        0 0 0 1 0 0 0 0
+        0 0 0 0 1 0 0 0
+        0 0 0 0 0 1 0 0
+        0 0 0 0 0 0 1 0
+        0 0 0 0 0 0 0 -1
     ],
     XI = ComplexF64[
         0 0 -im 0

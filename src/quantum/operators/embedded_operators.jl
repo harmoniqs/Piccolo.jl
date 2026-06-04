@@ -12,12 +12,14 @@ export get_iso_vec_leakage_indices
 export get_iso_vec_subspace_indices
 
 using ..Gates
+using ..DualRailEncodings
 using ..Isomorphisms
 using ..LiftedOperators
 using ..QuantumObjectUtils
 using ..QuantumSystems
 
 using LinearAlgebra
+using SparseArrays
 using TestItems
 
 # ----------------------------------------------------------------------------- #
@@ -38,6 +40,16 @@ function embed(
     op_embedded = zeros(R, levels, levels)
     op_embedded[subspace, subspace] = operator
     return op_embedded
+end
+
+function embed(
+    operator::SparseMatrixCSC{R},
+    subspace::AbstractVector{Int},
+    levels::Int,
+) where {R<:Number}
+    @assert size(operator, 1) == size(operator, 2) "Operator must be square."
+    rows, columns, values = findnz(operator)
+    return sparse(subspace[rows], subspace[columns], values, levels, levels)
 end
 
 """
@@ -61,13 +73,13 @@ Embedded operator type to represent an operator embedded in a subspace of a larg
 quantum system.
 
 # Fields
-- `operator::Matrix{<:Number}`: Embedded operator of size
+- `operator::AbstractMatrix{<:Number}`: Embedded operator of size
     `prod(subsystem_levels) x prod(subsystem_levels)`.
 - `subspace::Vector{Int}`: Indices of the subspace the operator is embedded in.
 - `subsystem_levels::Vector{Int}`: Levels of the subsystems in the composite system.
 """
-struct EmbeddedOperator{T<:Number}
-    operator::Matrix{T}
+struct EmbeddedOperator{T<:Number,M<:AbstractMatrix{T}}
+    operator::M
     subspace::Vector{Int}
     subsystem_levels::Vector{Int}
 
@@ -83,7 +95,11 @@ struct EmbeddedOperator{T<:Number}
         subsystem_levels::AbstractVector{Int},
     ) where {T<:Number}
         embedded_operator = embed(subspace_operator, subspace, prod(subsystem_levels))
-        return new{T}(embedded_operator, subspace, subsystem_levels)
+        return new{T,typeof(embedded_operator)}(
+            embedded_operator,
+            subspace,
+            subsystem_levels,
+        )
     end
 end
 
@@ -160,6 +176,99 @@ function EmbeddedOperator(subspace_operator::Symbol, args...; kwargs...)
         )
     end
     return EmbeddedOperator(GATES[subspace_operator], args...; kwargs...)
+end
+
+function _sparse_lift_qubit_operator(
+    operator::AbstractMatrix{<:Number},
+    qubit_indices::AbstractVector{Int},
+    n_qubits::Int,
+)
+    logical_dimension = 2^n_qubits
+    sparse_operator = sparse(ComplexF64.(operator))
+    operator_rows, operator_columns, operator_values = findnz(sparse_operator)
+    output_rows = Int[]
+    output_columns = Int[]
+    output_values = ComplexF64[]
+
+    for full_column = 0:(logical_dimension-1)
+        selected_column = 0
+        for qubit in qubit_indices
+            selected_column <<= 1
+            selected_column |= (full_column >> (n_qubits - qubit)) & 1
+        end
+
+        for nz_index in eachindex(operator_values)
+            operator_columns[nz_index] == selected_column + 1 || continue
+            full_row = full_column
+            selected_row = operator_rows[nz_index] - 1
+            for (position, qubit) in enumerate(qubit_indices)
+                bit = (selected_row >> (length(qubit_indices) - position)) & 1
+                mask = 1 << (n_qubits - qubit)
+                full_row = bit == 1 ? full_row | mask : full_row & ~mask
+            end
+            push!(output_rows, full_row + 1)
+            push!(output_columns, full_column + 1)
+            push!(output_values, operator_values[nz_index])
+        end
+    end
+
+    return sparse(
+        output_rows,
+        output_columns,
+        output_values,
+        logical_dimension,
+        logical_dimension,
+    )
+end
+
+function EmbeddedOperator(
+    subspace_operator::AbstractMatrix{<:Number},
+    enc::DualRailEncoding;
+    qubit_indices::AbstractVector{Int} = 1:enc.n_qubits,
+)
+    all(qubit -> 1 <= qubit <= enc.n_qubits, qubit_indices) ||
+        throw(ArgumentError("qubit_indices must refer to logical qubits in the encoding."))
+    length(unique(qubit_indices)) == length(qubit_indices) ||
+        throw(ArgumentError("qubit_indices must be unique."))
+    expected_dimension = 2^length(qubit_indices)
+    size(subspace_operator) == (expected_dimension, expected_dimension) || throw(
+        DimensionMismatch(
+            "Operator dimension must be $expected_dimension x $expected_dimension " *
+            "for $(length(qubit_indices)) selected qubits.",
+        ),
+    )
+
+    lifted_operator =
+        _sparse_lift_qubit_operator(subspace_operator, qubit_indices, enc.n_qubits)
+    return EmbeddedOperator(
+        lifted_operator,
+        DualRailEncodings._logical_basis_indices(enc),
+        enc.subspace_levels,
+    )
+end
+
+function EmbeddedOperator(
+    gate::Symbol,
+    enc::DualRailEncoding;
+    qubit_indices::AbstractVector{Int} = 1:enc.n_qubits,
+)
+    gate in keys(GATES) || throw(ArgumentError("Unknown gate: $gate."))
+    return EmbeddedOperator(GATES[gate], enc; qubit_indices = qubit_indices)
+end
+
+@testitem "Dual-rail embedded operators" begin
+    using LinearAlgebra
+    using SparseArrays
+
+    enc = DualRailEncoding(n_qubits = 3, levels_per_rail = 2)
+    embedded_cx = EmbeddedOperator(:CX, enc, qubit_indices = [1, 3])
+    @test embedded_cx.operator isa SparseMatrixCSC{ComplexF64}
+    @test unembed(embedded_cx)' * unembed(embedded_cx) == I(8)
+    @test nnz(embedded_cx.operator) == 8
+
+    basis = logical_basis_states(enc)
+    @test embedded_cx.operator * basis[6] == basis[5]
+    @test embedded_cx.operator * basis[8] == basis[7]
 end
 
 @doc raw"""

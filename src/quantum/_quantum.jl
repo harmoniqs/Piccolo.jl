@@ -31,6 +31,10 @@ include("primitives/isomorphisms.jl")
 include("primitives/pulses.jl")
 @reexport using .Pulses
 
+# Encodings (depend on gates)
+include("encodings/dual_rail.jl")
+@reexport using .DualRailEncodings
+
 # Object utils (depends on gates)
 include("object_utils.jl")
 @reexport using .QuantumObjectUtils
