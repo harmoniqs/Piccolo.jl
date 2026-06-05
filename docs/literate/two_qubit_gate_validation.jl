@@ -4,15 +4,16 @@
 #
 # # [Two-Qubit Gate Validation](@id two-qubit-gate-validation)
 #
-# This tutorial walks through synthesizing a CNOT gate (Controlled NOT or Controlled X gate) on
-# two coupled transmon qubits using three Pulse types with varying degrees of smoothness (numbers
-# continuous derivatives).
+# This tutorial walks through synthesizing a CNOT gate (Controlled NOT or
+# Controlled X gate) on two coupled transmon qubits using three Pulse types
+# with varying degrees of smoothness (numbers of continuous derivatives).
 #
 # Furthermore, we validate the fidelities reported by Piccolo.jl when using
 # those pulses by rolling out the same pulses in
 # [QuantumToolbox.jl](https://github.com/qutip/QuantumToolbox.jl).
 #
 # ## Setup
+# First we import the packages we will use throughout this tutorial.
 
 using Piccolo
 using QuantumToolbox
@@ -22,12 +23,9 @@ using Printf
 using Random
 Random.seed!(1234)  # For reproducibility
 
-# !!! note "A naming clash"
-#     Both Piccolo and QuantumToolbox export `fidelity`. With both packages in
-#     scope we write `Piccolo.fidelity` for Piccolo's trajectory fidelity. The
-#     gate fidelity from the QuantumToolbox rollout we compute by hand below, and
-#     for the honest continuous-time Piccolo fidelity we use
-#     `unitary_rollout_fidelity` (whose name does not clash).
+# !!! note "Naming Clash"
+#     Both `Piccolo` and `QuantumToolbox` export `fidelity`. With both packages in
+#     scope we write `Piccolo.fidelity` for Piccolo's trajectory fidelity.
 #
 # ## Step 1: Define the Two-Qubit System
 #
@@ -47,11 +45,11 @@ Random.seed!(1234)  # For reproducibility
 # where ``g_{ij}`` determines the coupling strength between qubits ``i`` and ``j``.
 #
 # We could build the drift and control Hamiltonians ourselves and
-# contruct the quantum system directly, but Piccolo.jl
-# provides the `MultiTransmonSystem` to easily construct the system.
+# contruct the quantum system directly, but we use Piccolo.jl's
+# `MultiTransmonSystem` constructor to easily build the system.
 
 ωs = [4.0, 4.1]            # transmon frequencies (GHz)
-δs = [0.2, 0.2]            # anharmonicities (GHz) — unused at 2 levels, kept for realism
+δs = [0.2, 0.2]            # anharmonicities (GHz) — unused at 2 levels_per_transmon
 g = 0.1                    # exchange coupling (GHz) — artificially large (see note)
 gs = [0.0 g; g 0.0]
 
@@ -85,23 +83,18 @@ sys = MultiTransmonSystem(ωs, δs, gs; levels_per_transmon = 2, drive_bounds = 
 
 U_goal = EmbeddedOperator(GATES[:CX], sys)
 
-# The indices of computational subspace basis states ``|00\rangle, |01\rangle, |10\rangle,`` and ``|11\rangle`` are:
+# We set an gate duration of ``T = 10`` ns. The timestep size ``\Delta t`` is
+# left as a free optimization variable, so the optimizer may adjust the total
+# duration slightly. For each pulse type, we use the same number of control
+# parameters (knots).
 
-U_goal.subspace
+T = 10.0    # gate duration (ns)
+N_params = 200
 
-# We set an initial gate duration of ``T = 50`` ns. The timestep ``\Delta t`` is
-# left as a free optimization variable, so the optimizer may shorten the gate.
-# Each warm-started stage below inherits the previous stage's optimized duration
-# (and its optimized control parameters), so the three solves share a starting
-# point rather than a fixed duration.
-
-T = 50.0    # initial gate duration (ns)
-
-# Every parameterization uses the same number of control parameters, so the only
-# thing that changes across the three solves is the pulse *type*.
-
-N_params = 100
-
+# !!!note "Number of Parameters"
+#    With ``200`` parameters, the spacing of the knots is ``\approx 0.05`` ns.
+#    This means the `ZeroOrderPulse` can change its value every 
+#
 # ## Step 3: Synthesize the gates
 #
 # We synthesize the gate using three different types of pulses:
@@ -125,7 +118,6 @@ N_params = 100
 # that optimization to a `CubicSplinePulse` and use that as a warm start for
 # our final pulse optimization.
 # 
-#
 # !!! note "Smoothness of `ZeroOrderPulse`"
 #     `ZeroOrderPulse` is not smooth in the mathematical sense, but placing a
 #     penalty on the magnitude of the amplitiude change between constant regions
@@ -150,92 +142,89 @@ qcp_zoh = SmoothPulseProblem(
     piccolo_options = PiccoloOptions(timesteps_all_equal = true),
 )
 
-cached_solve!(qcp_zoh, "two_qubit_zoh"; max_iter = 4)
+cached_solve!(qcp_zoh, "two_qubit_zoh"; max_iter = 150)
 
 #-
 
-Piccolo.fidelity(qcp_zoh), honest_fidelity(qcp_zoh, sys)
+F_zoh_piccolo = Piccolo.fidelity(qcp_zoh)
 
-# We visualize the controls:
-
-plot_pulse(qcp_zoh; title = "Optimized ZeroOrderPulse Controls")
 
 # ### Linear Spline
 #
+# Next we optimize a piecewise-linear control pulse, whose control parameters
+# are the pulse values at the edges of each linear interval.
 #
-#
-# For the warm start we hand the optimized `ZeroOrderPulse` *parameters* straight
-# to the `LinearSplinePulse`. Building it from the solved trajectory reuses the
-# optimized control values as the spline knots, at the optimized knot times —
-# there is no resampling, and the linear spline inherits the ZOH solve's
-# duration.
+# We use the results from the previous optimization to set up a warm start.
+# `LinearSplinePulse` pulls the control parameters directly from
+# `ZeroOrderPulse` to build a similar pulse shape (with the same duration,
+# which has been optimized from the intial duration).
+
 zoh_traj = get_trajectory(qcp_zoh)
 pulse_lin = LinearSplinePulse(zoh_traj)
 qtraj_lin = UnitaryTrajectory(sys, pulse_lin, U_goal)
 
-plot_pulse(qtraj_lin; title = "Warm Start LinearSplinePulse Controls")
+# We now perform the optimization. 
 
-# We now perform the optimization. Omitting the timestep count keeps the native
-# knot grid, so the problem has the same `N_params` control parameters as the
-# `ZeroOrderPulse` solve.
-
+N_timesteps_lin = N_params 
 qcp_lin = SplinePulseProblem(
-    qtraj_lin;
+    qtraj_lin,
+    N_timesteps_lin;
     Q = 100.0,
+    R_du = 0.1,
     piccolo_options = PiccoloOptions(timesteps_all_equal = true),
 )
 
-cached_solve!(qcp_lin, "two_qubit_linear_spline"; max_iter = 4)
+cached_solve!(qcp_lin, "two_qubit_linear_spline"; max_iter = 80)
+
+# !!!note "Number of Timesteps"
+#    The discretized dynamics constraints of the optimizer are not exact when
+#    the control pulses are not piecewise-constant. Consequently, the number of
+#    timesteps may need to be increased, depending the degree of physical
+#    accuracy needed. If the discretized dynamics are not accurate, the
+#    optimizer may maximize the fidelity for the *discretized* dynamics, while
+#    the actual fidelity for the real, *continuous-time* dynamics is not as
+#    good. 
 
 #-
 
-Piccolo.fidelity(qcp_lin), honest_fidelity(qcp_lin, sys)
-
-# We visualize the pulse:
-
-plot_pulse(qcp_lin; title = "Optimized LinearSplinePulse Controls")
+F_lin_piccolo = Piccolo.fidelity(qcp_lin)
 
 # ### Cubic Spline
 #
-# Finally, a cubic Hermite spline — control values *and* tangents are optimized,
-# giving the smoothest waveform. We seed the knot *values* from the optimized
-# linear spline (again passed directly, at its optimized knot times) and start
-# every Hermite *tangent* at zero. We deliberately do **not** reuse the linear
-# spline's slopes: a linear spline is kinked at its knots, so its one-sided
-# derivatives there are not a meaningful starting tangent. Zero tangents give the
-# optimizer a clean, well-defined starting point.
+# Next we optimize a cubic spline control pulse, whose control parameters
+# are control the pulse's value and the slope of the tangent line at several
+# points in time.
+#
+# We use the results from the previous optimization to set up a warm start.
+# From the `LinearSplinePulse`, we use the knot values as our pulse values, and
+# set the initial slope of the tangent line at those points to be zero. 
 
 lin_traj = get_trajectory(qcp_lin)
 pulse_cub = CubicSplinePulse(lin_traj[:u], zero(lin_traj[:u]), get_times(lin_traj))
 qtraj_cub = UnitaryTrajectory(sys, pulse_cub, U_goal)
 
-plot_pulse(qtraj_cub; title = "Warm Start CubicSplinePulse Controls")
+# We now perform the optimization, again noting that the number of timesteps
+# may need to be adjusted for greater physical accuracy.
 
-# We now perform the optimization, again on the native `N_params` knot grid.
+N_timesteps_cub = N_params 
 qcp_cub = SplinePulseProblem(
-    qtraj_cub;
+    qtraj_cub,
+    N_timesteps_cub;
     Q = 100.0,
+    R_du = 0.1,
     piccolo_options = PiccoloOptions(timesteps_all_equal = true),
 )
 
-cached_solve!(qcp_cub, "two_qubit_cubic_spline"; max_iter = 4)
+cached_solve!(qcp_cub, "two_qubit_cubic_spline"; max_iter = 80)
 
 #- 
 
-Piccolo.fidelity(qcp_cub), honest_fidelity(qcp_cub, sys)
+F_cub_piccolo = Piccolo.fidelity(qcp_cub)
 
-# We visualize the pulse:
 
-plot_pulse(qcp_cub; title = "Optimized CubicSplinePulse Controls")
-
-# ### Optimized Pulses
-#
-# Finally, we place the three optimized pulses side by side — one panel per
-# parameterization. We reuse `plot_pulse!`, which draws a pulse onto an existing
-# axis with rendering tailored to its type (stairs for the piecewise-constant
-# `ZeroOrderPulse`, line segments for the kinked `LinearSplinePulse`, a smooth
-# curve for the `CubicSplinePulse`). The y-axes are linked for a fair amplitude
-# comparison.
+# ### Visualizing the Optimized Pulses
+# 
+# Finally, we visualize the optimized pulses side by side. 
 
 let
     optimized = [
@@ -250,7 +239,7 @@ let
         ax = Axis(
             fig[1, col];
             title = name,
-            xlabel = "Time (μs)",
+            xlabel = "Time (ns)",
             ylabel = col == 1 ? "Amplitude (GHz)" : "",
         )
         plot_pulse!(ax, pulse; colors, show_knots = false)
@@ -260,14 +249,22 @@ let
 
     entries = [LineElement(; color = colors[i], linewidth = 2) for i = 1:sys.n_drives]
     Legend(fig[1, length(optimized) + 1], entries, ["Drive $i" for i = 1:sys.n_drives])
-    Label(fig[0, :], "Optimized pulses by parameterization"; font = :bold, fontsize = 18)
+    Label(fig[0, :], "Optimized Pulses"; font = :bold, fontsize = 18)
     fig
 end
 
 # ## Step 5: Validate Pulses
 #
-# Here is the validation machinery. Given the system and an optimized pulse, we
-# reconstruct the implemented unitary with QuantumToolbox.
+# Because the discretized dynamics used by the optimizer are not exact for the
+# `LinearSplinePulse` and `CubicSplinePulse`,  it is important to validate that
+# the reported fidelities are accurate. We can do this using
+# [QuantumToolbox.jl](https://github.com/qutip/QuantumToolbox.jl).
+#
+#
+# ### Helper Functions
+#
+# We set up some helper functions to interface between Piccolo.jl and
+# QuantumToolbox.jl.
 #
 # `pulse_value(pulse, i, t)` samples drive `i` of any pulse at arbitrary time
 # `t`. Every Piccolo pulse is callable — `pulse(t)` returns the full control
@@ -307,8 +304,8 @@ function rollout_qutip(sys, pulse, U_goal; n_save = 200)
     return U_impl, tlist, sols
 end
 
-# The gate fidelity is the standard phase-insensitive overlap on the
-# computational subspace — the same convention Piccolo uses internally:
+# We finally make a function for computing the fidelity using the
+# QuantumToolbox rollout.
 #
 # ```math
 # F = \frac{\left|\operatorname{tr}\!\left(U_\text{goal}^\dagger\, U_\text{impl}\right)\right|^2}{d^2}
@@ -322,34 +319,11 @@ function gate_fidelity_qutip(sys, pulse, U_goal; kwargs...)
     return abs2(tr(U_target' * U_impl)) / d^2
 end
 
-# ## Step XXX: Which Piccolo fidelity to trust
-#
-# Piccolo can report a gate fidelity two ways, and for spline pulses they
-# *disagree* at the ``10^{-4}`` level — a subtlety worth understanding before we
-# compare against QuantumToolbox.
-#
-# - **`Piccolo.fidelity(qcp)`** is the convenient default. After a solve it
-#   reconstructs the pulse from the optimized trajectory and rolls it out. It is
-#   spot-on for `ZeroOrderPulse`, but for splines it comes out slightly
-#   *optimistic* (see the discussion at the end of the page).
-# - **`unitary_rollout_fidelity(traj, sys; interpolation=...)`** rolls
-#   the controls out through an adaptive ODE solve using the interpolation that
-#   *matches the pulse type*. This is the honest continuous-time number — and the
-#   one that agrees with QuantumToolbox.
-#
-# We pick the interpolation from the pulse type:
 
-piccolo_interpolation(::ZeroOrderPulse)   = :constant
-piccolo_interpolation(::LinearSplinePulse) = :linear
-piccolo_interpolation(::CubicSplinePulse)  = :cubic
-
-honest_fidelity(qcp, sys) = unitary_rollout_fidelity(
-    get_trajectory(qcp),
-    sys;
-    interpolation = piccolo_interpolation(get_pulse(qcp.qtraj)),
-)
-
-# With these utilities, we can check the fidelity of the synthesized gates, as given by QuantumToolbox.
+# ### Compute Fidelities with Quantum Toolbox
+#
+# With our helper functions in plase, we can compute the fidelities using
+# QuantumToolbox.
 
 F_zoh_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_zoh.qtraj), U_goal)
 F_lin_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_lin.qtraj), U_goal)
@@ -357,7 +331,13 @@ F_cub_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_cub.qtraj), U_goal)
 
 F_zoh_qutip, F_lin_qutip, F_cub_qutip
 
-#-
+# We need a helper function to get the number of iterations and wall time.
+# !!!note "TODO"
+#    I am currently grabbing the iterations and wall time by grepping the IPOPT
+#    output generated by the cached solve. Is there an easier way to do this?
+#    This is very hacky and user-unfriendly (the user should not have to deal
+#    with caching), but I don't see a way to get the IPOPT iterations and
+#    walltime from a `QuantumControlProblem`.
 
 function cache_stats(name)
     data_dir = joinpath(dirname(Base.active_project()), "data")
@@ -375,42 +355,72 @@ lin_iters, lin_secs = cache_stats("two_qubit_linear_spline")
 cub_iters, cub_secs = cache_stats("two_qubit_cubic_spline")
 
 results = [
-    ("ZeroOrderPulse", N_params, zoh_iters, zoh_secs, Piccolo.fidelity(qcp_zoh), F_zoh_qutip),
-    ("LinearSplinePulse", N_params, lin_iters, lin_secs, Piccolo.fidelity(qcp_lin), F_lin_qutip),
-    ("CubicSplinePulse", N_params, cub_iters, cub_secs, Piccolo.fidelity(qcp_cub), F_cub_qutip),
+    ("ZeroOrderPulse", N_params, zoh_iters, zoh_secs, F_zoh_piccolo, F_zoh_qutip),
+    ("LinearSplinePulse", N_params, lin_iters, lin_secs, F_lin_piccolo, F_lin_qutip),
+    ("CubicSplinePulse", N_params, cub_iters, cub_secs, F_cub_piccolo, F_cub_qutip),
 ]
 
-println(@sprintf("%-18s %5s %6s %9s %12s %12s %9s",
-    "Pulse type", "N", "iters", "solve(s)", "F Piccolo", "F QuTiP", "|Δ|"))
-for (name, n, it, s, fd,fq) in results
-    println(@sprintf("%-18s %5d %6d %9.1f %12.7f %12.7f %9.2e",
-        name, n, it, s, fd, fq, abs(fd - fq)))
+# We now summarize the results for each pulse type:
+
+println(@sprintf("%-18s %5s %6s %9s %11s %11s %10s",
+    "Pulse type", "N", "iters", "solve(s)", "F Piccolo", "F QuTiP", "pic−q"))
+for (name, n, it, s, fd, fq) in results
+    println(@sprintf("%-18s %5d %6d %9.1f %11.7f %11.7f %10.2e",
+        name, n, it, s, fd, fq, fd - fq))
 end
 
+for (name, _, _, _, fd, fq) in results
+    @assert fd ≥ 0.999 "$name: fidelity $fd below 0.999 target"
+    @assert abs(fd - fq) ≤ 1e-4 "$name: |F_Piccolo - F_QuTiP| = $(abs(fd - fq)) exceeds 1e-4"
+end
+println("All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to ≤ 1e-4.")
+
+# We see that all pulses synthesize the CNOT gate with ``\geq 99.9`` %
+# fidelity, and that the reported fidelity agrees with the rollout fidelity
+# computed with QuantumToolbox. Fidelity reported by Piccolo matches the
+# rollout fidelity reported by QuantumToolbox matches more closely for
+# `ZeroOrderPulse` than for the other pulses because the discretized dynamics
+# used in the optimization are exact for `ZeroOrderPulse`.
 
 # ## Step 8: Population Dynamics
 #
-# CNOT flips the target qubit when the control qubit is excited:
-# ``|10\rangle \to |11\rangle``. We take the QuantumToolbox rollout of the
-# ``|10\rangle`` input (reusing the cubic-spline solution) and plot how the
-# computational-state populations evolve.
-
-_, tlist, sols = rollout_qutip(sys, get_pulse(qcp_cub.qtraj), U_goal)
+# Finally, we visualize the population dynamics for each pulse type, side by
+# side. The CNOT gate flips the target qubit when the control qubit is excited:
+# ``|10\rangle \to |11\rangle``. We plot the evolution of the computational-state
+# populations starting from the initial condition ``|10\rangle``, using
+# QuantumToolbox's rollout of the dynamics.
 
 basis_labels = ["|00⟩", "|01⟩", "|10⟩", "|11⟩"]
 sub = U_goal.subspace
-sol_10 = sols[3]   # |10⟩ input
-populations = [abs2.(getindex.(getfield.(sol_10.states, :data), j)) for j in sub]
 
-fig_pop = Figure()
-ax = Axis(
-    fig_pop[1, 1];
-    xlabel = "time (ns)",
-    ylabel = "population",
-    title = "CNOT: evolution of |10⟩ (cubic spline)",
-)
-for (j, label) in enumerate(basis_labels)
-    lines!(ax, collect(tlist), populations[j]; label = label)
+let
+    rollouts = [
+        ("ZeroOrderPulse", get_pulse(qcp_zoh.qtraj)),
+        ("LinearSplinePulse", get_pulse(qcp_lin.qtraj)),
+        ("CubicSplinePulse", get_pulse(qcp_cub.qtraj)),
+    ]
+    colors = Makie.wong_colors()[1:length(sub)]
+
+    fig = Figure(size = (1200, 360))
+    axes = map(enumerate(rollouts)) do (col, (name, pulse))
+        _, tlist, sols = rollout_qutip(sys, pulse, U_goal)
+        sol_10 = sols[3]   # |10⟩ input
+        populations = [abs2.(getindex.(getfield.(sol_10.states, :data), j)) for j in sub]
+        ax = Axis(
+            fig[1, col];
+            title = name,
+            xlabel = "Time (ns)",
+            ylabel = col == 1 ? "Population" : "",
+        )
+        for (j, population) in enumerate(populations)
+            lines!(ax, collect(tlist), population; color = colors[j])
+        end
+        ax
+    end
+    linkyaxes!(axes...)
+
+    entries = [LineElement(; color = colors[j], linewidth = 2) for j = 1:length(sub)]
+    Legend(fig[1, length(rollouts) + 1], entries, basis_labels)
+    Label(fig[0, :], "Population dynamics: evolution of |10⟩"; font = :bold, fontsize = 18)
+    fig
 end
-axislegend(ax; position = :rc)
-fig_pop
