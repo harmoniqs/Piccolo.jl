@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Saving and Loading Pulses · Piccolo.jl</title><meta name="title" content="Saving and Loading Pulses · Piccolo.jl"/><meta property="og:title" content="Saving and Loading Pulses · Piccolo.jl"/><meta property="twitter:title" content="Saving and Loading Pulses · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/saving_loading/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/saving_loading/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/saving_loading/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../../"><img class="docs-light-only" src="../../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li><a class="tocitem" href="../../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../../problem-templates/smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/bang_bang_pulse/">BangBangPulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/spline_pulse/">SplinePulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/minimum_time/">MinimumTimeProblem</a></li><li><a class="tocitem" href="../../problem-templates/sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../../problem-templates/composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../../systems/">Overview</a></li><li><a class="tocitem" href="../../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li class="is-active"><a class="tocitem" href>Saving and Loading Pulses</a><ul class="internal"><li><a class="tocitem" href="#Why-Save-Pulses?"><span>Why Save Pulses?</span></a></li><li><a class="tocitem" href="#Saving-a-Pulse"><span>Saving a Pulse</span></a></li><li><a class="tocitem" href="#Loading-a-Pulse"><span>Loading a Pulse</span></a></li><li><a class="tocitem" href="#Warm-Starting-from-a-Saved-Pulse"><span>Warm-Starting from a Saved Pulse</span></a></li><li><a class="tocitem" href="#Saving-and-Loading-Trajectories"><span>Saving and Loading Trajectories</span></a></li><li><a class="tocitem" href="#Organizing-Saved-Pulses"><span>Organizing Saved Pulses</span></a></li><li><a class="tocitem" href="#Tips"><span>Tips</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../global_variables/">Global Variables</a></li><li><a class="tocitem" href="../visualization/">Visualization</a></li><li><a class="tocitem" href="../custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">How-To Guides</a></li><li class="is-active"><a href>Saving and Loading Pulses</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Saving and Loading Pulses</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/guides/saving_loading.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="saving-loading"><a class="docs-heading-anchor" href="#saving-loading">Saving and Loading Pulses</a><a id="saving-loading-1"></a><a class="docs-heading-anchor-permalink" href="#saving-loading" title="Permalink"></a></h1><p>Optimized pulses are valuable — they can take minutes or hours to compute. This guide shows how to save pulses to disk and reload them for warm-starting, analysis, or deployment to hardware.</p><h2 id="Why-Save-Pulses?"><a class="docs-heading-anchor" href="#Why-Save-Pulses?">Why Save Pulses?</a><a id="Why-Save-Pulses?-1"></a><a class="docs-heading-anchor-permalink" href="#Why-Save-Pulses?" title="Permalink"></a></h2><ul><li><strong>Warm-starting</strong>: Load a solved pulse as the initial guess for a harder problem (e.g., minimum-time optimization, higher fidelity targets, or robustness sweeps).</li><li><strong>Reproducibility</strong>: Archive optimized pulses alongside your scripts so results can be inspected or extended later.</li><li><strong>Hardware deployment</strong>: Export the final pulse for upload to an AWG or other control electronics.</li><li><strong>Sharing</strong>: Send a <code>.jld2</code> file to a collaborator — they can rebuild the trajectory and continue optimizing without re-running the original solve.</li></ul><h2 id="Saving-a-Pulse"><a class="docs-heading-anchor" href="#Saving-a-Pulse">Saving a Pulse</a><a id="Saving-a-Pulse-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-a-Pulse" title="Permalink"></a></h2><p>After solving, extract the optimized pulse with <code>get_pulse</code> and persist it with <code>save</code>. The <code>save(filename, pulse)</code> method writes the pulse under the JLD2 key <code>&quot;pulse&quot;</code>, and <code>load_pulse(filename)</code> reads it back as the original pulse type.</p><pre><code class="language-julia hljs">using Piccolo
+
+# Set up and solve a simple problem
+H_drift = PAULIS[:Z]
+H_drives = [PAULIS[:X], PAULIS[:Y]]
+sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+
+T, N = 10.0, 100
+times = collect(range(0, T, length = N))
+pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
+qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+
+qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, ddu_bound = 1.0)
+solve!(qcp; max_iter = 50)
+
+# Extract the optimized pulse and save it
+optimized_pulse = get_pulse(qcp.qtraj)
+save(&quot;my_pulse.jld2&quot;, optimized_pulse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SmoothPulseProblem [UnitaryTrajectory]
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/RrTX5/src/problems.jl:66</span>
+<span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=10.000   Δt∈[0, Inf]
+│    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt   (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t    (1)                                 <span class="sgr90">·</span>  state
+│    u    (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du   (2)                                 <span class="sgr90">·</span>  control
+│    ddu  (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    U_goal  (2×2)
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 106.5  @ current x</span>
+│    KnotPointObjective           w=1             99.99
+│    QuadraticRegularizer(:u)     w=1             1.128e-04
+│    QuadraticRegularizer(:du)    w=1             0.02192
+│    QuadraticRegularizer(:ddu)   w=1             6.455
+│    NullObjective                w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01756)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 5.551e-17)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 8.882e-16)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 1600   (1200 bounded)
+     equality:  117617
+     inequality: 0
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.000064</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:    38156
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:    38584
+
+Total number of variables............................:     1587
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     1188
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     1287
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  9.5926273e+01 8.32e+00 2.37e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.4988583e+01 6.31e+00 9.99e+01  -0.3 4.14e+00   2.0 9.72e-01 2.42e-01f  1
+   2  8.9396197e+01 4.38e+00 2.08e+02   0.2 3.15e+00   1.5 9.08e-01 3.06e-01f  1
+   3  6.2554324e+01 2.72e+00 1.41e+02  -0.2 2.24e+00   1.0 3.48e-01 3.78e-01f  1
+   4  6.2478376e+01 7.42e-01 4.92e+01  -0.1 1.37e+00   1.5 8.80e-01 7.27e-01f  1
+⋮
+  46  1.8530316e-02 6.47e-06 1.83e-02  -4.0 4.42e-03  -0.5 1.00e+00 1.00e+00h  1
+  47  1.8198220e-02 5.00e-05 1.26e-01  -4.0 1.20e-02  -1.0 1.00e+00 1.00e+00h  1
+  48  1.7457683e-02 2.93e-04 1.01e-01  -4.0 3.27e-02  -1.5 1.00e+00 1.00e+00h  1
+  49  1.5549877e-02 1.74e-03 2.30e-01  -4.0 8.32e-02  -1.9 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  1.4891538e-02 2.74e-04 2.60e-02  -4.0 2.91e-02  -1.5 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 50
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.4891537531292980e-02    1.4891537531292980e-02
+Dual infeasibility......:   2.5988992622093744e-02    2.5988992622093744e-02
+Constraint violation....:   2.7424580025146167e-04    2.7424580025146167e-04
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0186575618335294e-04    1.0186575618335294e-04
+Overall NLP error.......:   2.5988992622093744e-02    2.5988992622093744e-02
+
+
+Number of objective function evaluations             = 51
+Number of objective gradient evaluations             = 51
+Number of equality constraint evaluations            = 51
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 51
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 50
+Total seconds in IPOPT                               = 20.785
+
+EXIT: Maximum Number of Iterations Exceeded.
+    initializing optimizer...
+      building evaluator: 3 integrators, 0 nonlinear constraints
+      dynamics constraints: 1188, nonlinear constraints: 0
+        integrator 1 jacobian structure: 0.225s
+        integrator 2 jacobian structure: 0.014s
+        integrator 3 jacobian structure: 0.002s
+      jacobian structure: 38016 nonzeros (0.261s)
+        integrator 1 hessian structure: 0.069s
+        integrator 2 hessian structure: 0.039s
+        integrator 3 hessian structure: 0.006s
+        computing objective hessian structure (CompositeObjective)...
+          sub-objective 1 (KnotPointObjective): 0.232s
+          sub-objective 2 (QuadraticRegularizer): 0.199s
+          sub-objective 3 (QuadraticRegularizer): 0.001s
+          sub-objective 4 (QuadraticRegularizer): 0.017s
+          sub-objective 5 (NullObjective): 0.005s
+        objective hessian structure: 0.491s
+      hessian structure: 38944 nonzeros (0.606s)
+      linear index maps built (0.026s)
+      evaluator ready (total: 0.994s)
+    evaluator created (1.282s)
+    NL constraint bounds extracted (0.017s)
+    NLP block data built (0.0s)
+    Ipopt optimizer configured (0.006s)
+    variables set (0.084s)
+        applying constraint: initial value of Ũ⃗
+        applying constraint: initial value of u
+        applying constraint: final value of u
+        applying constraint: bounds on Ũ⃗
+        applying constraint: bounds on u
+        applying constraint: bounds on du
+        applying constraint: bounds on ddu
+        applying constraint: bounds on Δt
+        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
+        applying constraint: initial time t₁ = 0
+    linear constraints added: 10 (0.322s)
+    optimizer initialization complete (total: 1.71s)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from saving_loading_base_b6b244c.jld2</code></pre><p>Bundling a pulse with metadata — fidelity, gate name, system parameters, anything you want to remember — uses <code>jldsave</code> from JLD2 directly:</p><pre><code class="language-julia hljs">using JLD2
+
+jldsave(
+    &quot;my_pulse_with_metadata.jld2&quot;;
+    pulse = optimized_pulse,
+    fidelity = fidelity(qcp),
+    duration = sum(get_timesteps(get_trajectory(qcp))),
+    gate = &quot;X&quot;,
+    system_drift = H_drift,
+)</code></pre><h2 id="Loading-a-Pulse"><a class="docs-heading-anchor" href="#Loading-a-Pulse">Loading a Pulse</a><a id="Loading-a-Pulse-1"></a><a class="docs-heading-anchor-permalink" href="#Loading-a-Pulse" title="Permalink"></a></h2><p><code>load_pulse</code> reads back a pulse written with <code>save</code>:</p><pre><code class="language-julia hljs">loaded_pulse = load_pulse(&quot;my_pulse.jld2&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ZeroOrderPulse
+  drives: 2
+  duration: 10.534068838745865</code></pre><p>It is also the right loader for a metadata bundle saved with <code>jldsave(...; pulse=...)</code>:</p><pre><code class="language-julia hljs">loaded_with_metadata = load_pulse(&quot;my_pulse_with_metadata.jld2&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ZeroOrderPulse
+  drives: 2
+  duration: 10.534068838745865</code></pre><p>To inspect every key in a metadata bundle, use <code>JLD2.load</code>:</p><pre><code class="language-julia hljs">bundle = load(&quot;my_pulse_with_metadata.jld2&quot;)
+keys(bundle)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">KeySet for a Dict{String, Any} with 5 entries. Keys:
+  &quot;duration&quot;
+  &quot;system_drift&quot;
+  &quot;gate&quot;
+  &quot;fidelity&quot;
+  &quot;pulse&quot;</code></pre><p>The loaded pulse is a regular pulse object — you can evaluate it, check its duration, and pass it to any trajectory constructor:</p><pre><code class="language-julia hljs">duration(loaded_pulse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">10.534068838745865</code></pre><pre><code class="language-julia hljs">n_drives(loaded_pulse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2</code></pre><pre><code class="language-julia hljs">loaded_pulse(5.0)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Float64}:
+  0.08212236543160609
+ -0.08425623181764982</code></pre><h2 id="Warm-Starting-from-a-Saved-Pulse"><a class="docs-heading-anchor" href="#Warm-Starting-from-a-Saved-Pulse">Warm-Starting from a Saved Pulse</a><a id="Warm-Starting-from-a-Saved-Pulse-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-a-Saved-Pulse" title="Permalink"></a></h2><p>The most common use case: load a previously optimized pulse and use it as the starting point for a new optimization. This works because the pulse already carries good control values — the optimizer just needs to refine them.</p><pre><code class="language-julia hljs"># Load the saved pulse
+loaded = load_pulse(&quot;my_pulse.jld2&quot;)
+
+# Build a new trajectory using the loaded pulse
+qtraj_warm = UnitaryTrajectory(sys, loaded, GATES[:X])
+
+# Optimize — starting from a good initial guess converges faster
+qcp_warm = SmoothPulseProblem(qtraj_warm, N; Q = 1000.0, R = 1e-3, ddu_bound = 1.0)
+solve!(qcp_warm; max_iter = 20)
+fidelity(qcp_warm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999924087336114</code></pre><h3 id="Warm-Starting-for-Minimum-Time-Optimization"><a class="docs-heading-anchor" href="#Warm-Starting-for-Minimum-Time-Optimization">Warm-Starting for Minimum-Time Optimization</a><a id="Warm-Starting-for-Minimum-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-for-Minimum-Time-Optimization" title="Permalink"></a></h3><p>A particularly powerful pattern: solve a fixed-duration problem first, save the pulse, then load it for time-optimal compression.</p><pre><code class="language-julia hljs"># Step 1: Solve and save (in one script)
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.01, 0.5))
+solve!(qcp; max_iter=200)
+save(&quot;gate_pulse.jld2&quot;, get_pulse(qcp.qtraj))
+
+# Step 2: Load and minimize time (in another script)
+saved_pulse = load_pulse(&quot;gate_pulse.jld2&quot;)
+qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.01, 0.5))
+qcp_mintime = MinimumTimeProblem(qcp; final_fidelity=0.999)
+solve!(qcp_mintime; max_iter=100)</code></pre><h2 id="Saving-and-Loading-Trajectories"><a class="docs-heading-anchor" href="#Saving-and-Loading-Trajectories">Saving and Loading Trajectories</a><a id="Saving-and-Loading-Trajectories-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-and-Loading-Trajectories" title="Permalink"></a></h2><p>If you need to save the full optimization state (controls, quantum states at every timestep, and timesteps), save the <code>NamedTrajectory</code> instead. The trajectory-aware <code>save</code> writes under the JLD2 key <code>&quot;traj&quot;</code> and pairs with <code>load_traj</code>:</p><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+save(&quot;my_trajectory.jld2&quot;, traj)</code></pre><p>Load it back:</p><pre><code class="language-julia hljs">loaded_traj = load_traj(&quot;my_trajectory.jld2&quot;)
+typeof(loaded_traj)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">NamedTrajectory{Float64, (:Ũ⃗, :Δt, :t, :u, :du, :ddu), NTuple{6, Int64}, (:Ũ⃗, :u, :du, :ddu, :Δt), NTuple{5, Tuple{Vector{Float64}, Vector{Float64}}}, (:Ũ⃗, :u), Tuple{Vector{Float64}, Vector{Float64}}, (:u,), Tuple{Vector{Float64}}, (:Ũ⃗,), Tuple{Vector{Float64}}, (:Ũ⃗, :Δt, :t, :u, :du, :ddu), NTuple{6, UnitRange{Int64}}, NTuple{6, Symbol}, Tuple{Symbol, Symbol}, NTuple{4, Symbol}, (), Tuple{}, (), Tuple{}, Tuple{}}</code></pre><p>The trajectory contains all NLP decision variables. You can inspect controls, states, and timesteps:</p><pre><code class="language-julia hljs">loaded_traj[:u][:, 1:3]  # First 3 timesteps of controls</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×3 Matrix{Float64}:
+ 0.0  -0.0628788  -0.0664955
+ 0.0  -0.0350897  -0.0495202</code></pre><h2 id="Organizing-Saved-Pulses"><a class="docs-heading-anchor" href="#Organizing-Saved-Pulses">Organizing Saved Pulses</a><a id="Organizing-Saved-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Organizing-Saved-Pulses" title="Permalink"></a></h2><p>For projects with many gates, use a consistent directory structure:</p><pre><code class="nohighlight hljs">my_project/
+├── scripts/
+│   ├── optimize_X.jl
+│   ├── optimize_CZ.jl
+│   └── mintime_CZ.jl      # loads from data/CZ.jld2
+└── data/
+    ├── X.jld2
+    ├── CZ.jld2
+    └── CZ_mintime.jld2</code></pre><p>Each optimization script saves its result to <code>data/</code>, and downstream scripts (like minimum-time solves) load from there. This creates a clear dependency chain and makes results easy to find.</p><h2 id="Tips"><a class="docs-heading-anchor" href="#Tips">Tips</a><a id="Tips-1"></a><a class="docs-heading-anchor-permalink" href="#Tips" title="Permalink"></a></h2><h3 id="Always-Save-After-a-Successful-Solve"><a class="docs-heading-anchor" href="#Always-Save-After-a-Successful-Solve">Always Save After a Successful Solve</a><a id="Always-Save-After-a-Successful-Solve-1"></a><a class="docs-heading-anchor-permalink" href="#Always-Save-After-a-Successful-Solve" title="Permalink"></a></h3><p>Optimization can be expensive. Get in the habit of saving immediately after <code>solve!</code> returns a good result:</p><pre><code class="language-julia hljs">solve!(qcp; max_iter=300)
+if fidelity(qcp) &gt; 0.999
+    save(&quot;data/my_gate.jld2&quot;, get_pulse(qcp.qtraj))
+end</code></pre><h3 id="Include-Metadata"><a class="docs-heading-anchor" href="#Include-Metadata">Include Metadata</a><a id="Include-Metadata-1"></a><a class="docs-heading-anchor-permalink" href="#Include-Metadata" title="Permalink"></a></h3><p>Future-you will thank present-you for saving context:</p><pre><code class="language-julia hljs">using Dates
+jldsave(&quot;data/CZ.jld2&quot;;
+    pulse = get_pulse(qcp.qtraj),
+    fidelity = fidelity(qcp),
+    duration = sum(get_timesteps(get_trajectory(qcp))),
+    gate_name = &quot;CZ&quot;,
+    system_config = &quot;2-atom Rydberg, 8.7 μm spacing&quot;,
+    date = string(Dates.now()),
+)</code></pre><h3 id="Converting-Pulse-Types-Before-Saving"><a class="docs-heading-anchor" href="#Converting-Pulse-Types-Before-Saving">Converting Pulse Types Before Saving</a><a id="Converting-Pulse-Types-Before-Saving-1"></a><a class="docs-heading-anchor-permalink" href="#Converting-Pulse-Types-Before-Saving" title="Permalink"></a></h3><p>If you optimized with <code>ZeroOrderPulse</code> but need a smooth pulse for hardware, convert before saving:</p><pre><code class="language-julia hljs">zop = get_pulse(qcp.qtraj)  # ZeroOrderPulse from SmoothPulseProblem
+
+# Convert to cubic spline
+ctrl = hcat([zop(t) for t in times]...)
+tgts = zeros(size(ctrl))
+for k in 1:(N-1)
+    tgts[:, k] = (ctrl[:, k+1] - ctrl[:, k]) / (times[k+1] - times[k])
+end
+tgts[:, N] = tgts[:, N-1]
+smooth_pulse = CubicSplinePulse(ctrl, tgts, times)
+
+save(&quot;data/CZ_smooth.jld2&quot;, smooth_pulse)</code></pre><pre><code class="language-julia hljs"># Clean up temporary files
+rm(&quot;my_pulse.jld2&quot;; force = true)
+rm(&quot;my_pulse_with_metadata.jld2&quot;; force = true)
+rm(&quot;my_trajectory.jld2&quot;; force = true)</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> — Pulse types and conversions</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> — Full trajectory structure</li><li><a href="../../problem-templates/spline_pulse/#spline-pulse">SplinePulseProblem</a> — Warm-starting with spline pulses</li><li><a href="../../problem-templates/minimum_time/#minimum-time">MinimumTimeProblem</a> — Time-optimal control from saved solutions</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../../guides/">« Overview</a><a class="docs-footer-nextpage" href="../leakage_suppression/">Leakage Suppression »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 5 June 2026 19:34">Friday 5 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
