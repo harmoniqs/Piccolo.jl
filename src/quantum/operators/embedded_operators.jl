@@ -12,12 +12,14 @@ export get_iso_vec_leakage_indices
 export get_iso_vec_subspace_indices
 
 using ..Gates
+using ..DualRailEncodings
 using ..Isomorphisms
 using ..LiftedOperators
 using ..QuantumObjectUtils
 using ..QuantumSystems
 
 using LinearAlgebra
+using SparseArrays
 using TestItems
 
 # ----------------------------------------------------------------------------- #
@@ -66,8 +68,8 @@ quantum system.
 - `subspace::Vector{Int}`: Indices of the subspace the operator is embedded in.
 - `subsystem_levels::Vector{Int}`: Levels of the subsystems in the composite system.
 """
-struct EmbeddedOperator{T<:Number}
-    operator::Matrix{T}
+struct EmbeddedOperator{T<:Number,M<:AbstractMatrix{T}}
+    operator::M
     subspace::Vector{Int}
     subsystem_levels::Vector{Int}
 
@@ -81,9 +83,17 @@ struct EmbeddedOperator{T<:Number}
         subspace_operator::AbstractMatrix{T},
         subspace::AbstractVector{Int},
         subsystem_levels::AbstractVector{Int},
+        ;
+        embedded::Bool = false,
     ) where {T<:Number}
-        embedded_operator = embed(subspace_operator, subspace, prod(subsystem_levels))
-        return new{T}(embedded_operator, subspace, subsystem_levels)
+        embedded_operator = embedded ?
+                            subspace_operator :
+                            embed(subspace_operator, subspace, prod(subsystem_levels))
+        return new{T,typeof(embedded_operator)}(
+            embedded_operator,
+            collect(subspace),
+            collect(subsystem_levels),
+        )
     end
 end
 
@@ -161,6 +171,56 @@ function EmbeddedOperator(subspace_operator::Symbol, args...; kwargs...)
     end
     return EmbeddedOperator(GATES[subspace_operator], args...; kwargs...)
 end
+
+function _sparse_embed(
+    operator::AbstractMatrix{T},
+    subspace::AbstractVector{Int},
+    levels::Int,
+) where {T<:Number}
+    sparse_operator = sparse(operator)
+    rows = Int[]
+    cols = Int[]
+    vals = T[]
+
+    for col in 1:size(sparse_operator, 2)
+        for row_index in nzrange(sparse_operator, col)
+            row = rowvals(sparse_operator)[row_index]
+            push!(rows, subspace[row])
+            push!(cols, subspace[col])
+            push!(vals, nonzeros(sparse_operator)[row_index])
+        end
+    end
+
+    return sparse(rows, cols, vals, levels, levels)
+end
+
+function EmbeddedOperator(
+    subspace_operator::AbstractMatrix{<:Number},
+    enc::DualRailEncoding;
+    qubit_indices::AbstractVector{Int} = collect(1:enc.n_qubits),
+)
+    @assert all(1 ≤ qubit ≤ enc.n_qubits for qubit in qubit_indices)
+    expected_dimension = 2^length(qubit_indices)
+    size(subspace_operator) == (expected_dimension, expected_dimension) ||
+        throw(DimensionMismatch("subspace_operator must act on $(length(qubit_indices)) logical qubits."))
+
+    logical_operator = length(qubit_indices) == enc.n_qubits ?
+                       subspace_operator :
+                       lift_operator(subspace_operator, qubit_indices, fill(2, enc.n_qubits))
+    logical_subspace = DualRailEncodings.logical_subspace_indices(enc)
+    levels = prod(enc.subspace_levels)
+    embedded_operator = _sparse_embed(logical_operator, logical_subspace, levels)
+
+    return EmbeddedOperator(
+        embedded_operator,
+        logical_subspace,
+        enc.subspace_levels;
+        embedded = true,
+    )
+end
+
+EmbeddedOperator(gate::Symbol, enc::DualRailEncoding; kwargs...) =
+    EmbeddedOperator(GATES[gate], enc; kwargs...)
 
 @doc raw"""
     EmbeddedOperator(

@@ -35,6 +35,10 @@ include("primitives/pulses.jl")
 include("object_utils.jl")
 @reexport using .QuantumObjectUtils
 
+# Encodings (depend on gates)
+include("encodings/dual_rail.jl")
+@reexport using .DualRailEncodings
+
 # Operators - lifted (no dependencies)
 include("operators/lifted_operators.jl")
 @reexport using .LiftedOperators
