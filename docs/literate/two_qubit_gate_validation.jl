@@ -257,7 +257,7 @@ let
     fig
 end
 
-# ## Step 5: Validate Pulses
+# ## Step 4: Validate Pulses
 #
 # Because the discretized dynamics used by the optimizer are not exact for the
 # `LinearSplinePulse` and `CubicSplinePulse`,  it is important to validate that
@@ -387,7 +387,7 @@ println("All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to 
 # `ZeroOrderPulse` than for the other pulses because the discretized dynamics
 # used in the optimization are exact for `ZeroOrderPulse`.
 
-# ## Step 8: Population Dynamics
+# ## Step 6: Visualizing Population Dynamics
 #
 # Finally, we visualize the population dynamics for each pulse type, side by
 # side. The CNOT gate flips the target qubit when the control qubit is excited:
