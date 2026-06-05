@@ -62,6 +62,7 @@ export fidelity
 export unitary_fidelity
 export rollout
 export rollout!
+export rollout_with_qutip
 export rollout_fidelity
 export ket_rollout
 export ket_rollout_fidelity
@@ -105,6 +106,42 @@ In-place rollout of quantum trajectory with new pulse or ODE parameters.
 Extended in quantum_trajectories module for specific trajectory types.
 """
 function rollout! end
+
+"""
+    rollout_with_qutip(system, pulse, ψ0; n_save=101, kwargs...)
+
+Evolve the initial state `ψ0` under `pulse` using QuantumToolbox's `sesolve`, as
+an independent cross-check of Piccolo's own integrators.
+
+`system`'s drift and drive Hamiltonians are assembled into a time-dependent
+`QobjEvo`, with each drive modulated by the corresponding component of `pulse(t)`.
+The evolution is sampled at `n_save` points over `[0, duration(pulse)]`.
+
+Defined as a stub here; the implementation is provided by the
+`PiccoloQuantumToolboxExt` extension and loaded when both `QuantumToolbox` and a
+Makie backend are present.
+
+# Arguments
+- `system::AbstractQuantumSystem`: The system whose drift/drives define the Hamiltonian.
+- `pulse::AbstractPulse`: A callable pulse; `pulse(t)` returns the a vector containing the value of each control pulse at time `t`.
+- `ψ0::AbstractVector{<:Number}`: Initial ket in the full Hilbert space.
+
+# Keyword Arguments
+- `n_save::Int`: Number of output time points (default `101`).
+- `kwargs...`: Forwarded to `QuantumToolbox.sesolve`.
+
+# Returns
+A `QuantumToolbox` time-evolution solution; `sol.states` are the kets at `sol.times`.
+
+# Example
+```julia
+using Piccolo, QuantumToolbox, CairoMakie
+
+sol = rollout_with_qutip(system, pulse, ComplexF64[1.0, 0.0])
+ψf = sol.states[end].data
+```
+"""
+function rollout_with_qutip end
 
 """
     update_global_params!(qtraj, traj::NamedTrajectory)
@@ -1203,8 +1240,8 @@ end
     @test !all(x -> x == zero(x), sol.u[2].u[end])
 
     # Norms should be preserved (unitary evolution)
-    @test norm(sol.u[1].u[end]) ≈ 1.0 atol=1e-6
-    @test norm(sol.u[2].u[end]) ≈ 1.0 atol=1e-6
+    @test norm(sol.u[1].u[end]) ≈ 1.0 atol = 1e-6
+    @test norm(sol.u[2].u[end]) ≈ 1.0 atol = 1e-6
 end
 
 @testitem "rollout_fidelity multi-state ensemble uses _sim_index" begin
