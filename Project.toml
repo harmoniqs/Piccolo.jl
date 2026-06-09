@@ -1,6 +1,6 @@
 name = "Piccolo"
 uuid = "c4671d76-df94-11ed-2057-43d4fd632fad"
-version = "1.17.0"
+version = "1.18.0"
 authors = ["Aaron Trowbridge <aaron@harmoniqs.co> and contributors"]
 
 [deps]
@@ -41,7 +41,7 @@ PiccoloQuantumToolboxExt = ["QuantumToolbox", "Makie"]
 Aqua = "0.8"
 CairoMakie = "0.15"
 DataInterpolations = "8.9"
-DirectTrajOpt = "0.8, 0.9"
+DirectTrajOpt = "0.9.5"
 Distributions = "0.25"
 ExponentialAction = "0.2"
 ForwardDiff = "1.3"
