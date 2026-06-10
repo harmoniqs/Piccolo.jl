@@ -37,6 +37,8 @@ A constant dictionary `GATES` containing common quantum gate matrices as complex
 - `GATES[:H]` - Hadamard: Creates superposition by transforming basis states.
 - `GATES[:CX]` - Controlled-X (CNOT): Flips the 2nd qubit (target) if the first qubit (control) is |1⟩.
 - `GATES[:CZ]` - Controlled-Z (CZ): Flips the phase of the 2nd qubit (target) if the 1st qubit (control) is |1⟩.
+- `GATES[:CCX]` - Toffoli (CCNOT): Flips the 3rd qubit (target) if both control qubits are |1⟩.
+- `GATES[:CCZ]` - Controlled-controlled-Z: Flips the phase of |111⟩.
 - `GATES[:XI]` - Complex: A gate for complex operations.
 - `GATES[:sqrtiSWAP]` - Square root of iSWAP: Partially swaps two qubits with a phase.
 """
@@ -60,6 +62,26 @@ const GATES = (
         0 1 0 0
         0 0 1 0
         0 0 0 -1
+    ],
+    CCX = ComplexF64[
+        1 0 0 0 0 0 0 0
+        0 1 0 0 0 0 0 0
+        0 0 1 0 0 0 0 0
+        0 0 0 1 0 0 0 0
+        0 0 0 0 1 0 0 0
+        0 0 0 0 0 1 0 0
+        0 0 0 0 0 0 0 1
+        0 0 0 0 0 0 1 0
+    ],
+    CCZ = ComplexF64[
+        1 0 0 0 0 0 0 0
+        0 1 0 0 0 0 0 0
+        0 0 1 0 0 0 0 0
+        0 0 0 1 0 0 0 0
+        0 0 0 0 1 0 0 0
+        0 0 0 0 0 1 0 0
+        0 0 0 0 0 0 1 0
+        0 0 0 0 0 0 0 -1
     ],
     XI = ComplexF64[
         0 0 -im 0
@@ -85,6 +107,27 @@ const GATES = (
     for k in keys(GATES)
         @test typeof(GATES[k]) == Matrix{ComplexF64}
     end
+end
+
+@testitem "Three-qubit controlled gates" begin
+    using LinearAlgebra: I, Diagonal
+
+    # Both are 8×8 and unitary
+    @test size(GATES[:CCX]) == (8, 8)
+    @test size(GATES[:CCZ]) == (8, 8)
+    @test GATES[:CCX]'GATES[:CCX] ≈ I(8)
+    @test GATES[:CCZ]'GATES[:CCZ] ≈ I(8)
+
+    # CCX swaps |110⟩ (index 7) and |111⟩ (index 8), identity elsewhere
+    expected_CCX = Matrix{ComplexF64}(I(8))
+    expected_CCX[7, 7] = 0
+    expected_CCX[8, 8] = 0
+    expected_CCX[7, 8] = 1
+    expected_CCX[8, 7] = 1
+    @test GATES[:CCX] == expected_CCX
+
+    # CCZ adds a phase only to |111⟩ (index 8)
+    @test GATES[:CCZ] == Matrix(Diagonal(ComplexF64[1, 1, 1, 1, 1, 1, 1, -1]))
 end
 
 @testitem "Paulis are complex matrices" begin

@@ -54,6 +54,12 @@ Modules = [Piccolo.Quantum.Pulses]
 Modules = [Piccolo.Quantum.Rollouts]
 ```
 
+## [Encodings](@id lib-encodings)
+
+```@autodocs
+Modules = [Piccolo.Quantum.Encodings]
+```
+
 ## [Embedded Operators](@id lib-embedded-operators)
 
 ```@autodocs

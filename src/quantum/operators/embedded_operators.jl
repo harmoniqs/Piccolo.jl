@@ -16,6 +16,7 @@ using ..Isomorphisms
 using ..LiftedOperators
 using ..QuantumObjectUtils
 using ..QuantumSystems
+using ..Encodings
 
 using LinearAlgebra
 using TestItems
@@ -148,6 +149,58 @@ function EmbeddedOperator(
     ),
 )
     return EmbeddedOperator(subspace_operator, subsystem_indices, subspaces, system)
+end
+
+@doc raw"""
+    EmbeddedOperator(
+        subspace_operator::AbstractMatrix{<:Number},
+        enc::DualRailEncoding;
+        qubit_indices::AbstractVector{Int} = 1:enc.n_qubits,
+    )
+
+Embed a logical `subspace_operator` into the physical rail space described by a
+[`DualRailEncoding`](@ref). The operator may act on the whole logical register
+(`size == 2^enc.n_qubits`) or on a subset of `qubit_indices` (e.g. a 2-qubit gate
+on a specific pair within a larger register), in which case it is lifted to the full
+register with identities on the remaining qubits before being embedded at the
+dual-rail logical basis indices.
+
+The resulting `EmbeddedOperator` has `subsystem_levels == enc.subspace_levels` and a
+`subspace` given by the encoding's logical-state indices.
+
+# Examples
+```julia
+enc = DualRailEncoding(n_qubits = 3, levels_per_rail = 2, conservation = :exact_N, N = 3)
+
+# Toffoli on the full 3-qubit register
+U_goal = EmbeddedOperator(:CCX, enc)
+
+# CX on qubits 1 and 2 of the register
+U_goal = EmbeddedOperator(GATES[:CX], enc; qubit_indices = [1, 2])
+```
+"""
+function EmbeddedOperator(
+    subspace_operator::AbstractMatrix{<:Number},
+    enc::DualRailEncoding;
+    qubit_indices::AbstractVector{Int} = collect(1:enc.n_qubits),
+)
+    k = length(qubit_indices)
+    @assert size(subspace_operator, 1) == size(subspace_operator, 2) "Operator must be square."
+    @assert size(subspace_operator, 1) == 2^k "Operator dimension $(size(subspace_operator, 1)) does not match 2^length(qubit_indices) = $(2^k)."
+    @assert all(1 ≤ q ≤ enc.n_qubits for q ∈ qubit_indices) "qubit_indices must lie in 1:$(enc.n_qubits)."
+
+    # Lift the (sub-register) logical operator to the full 2^n_qubits logical space.
+    U_full =
+        k == enc.n_qubits && collect(qubit_indices) == collect(1:enc.n_qubits) ?
+        Matrix{ComplexF64}(subspace_operator) :
+        lift_operator(
+            Matrix{ComplexF64}(subspace_operator),
+            collect(qubit_indices),
+            enc.n_qubits,
+        )
+
+    subspace = logical_state_indices(enc)
+    return EmbeddedOperator(U_full, subspace, enc.subspace_levels)
 end
 
 function EmbeddedOperator(subspace_operator::Symbol, args...; kwargs...)
