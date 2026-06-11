@@ -210,6 +210,7 @@ function _spline_pulse_problem(
     free_phase::Bool = false,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
+    pin_endpoint_derivatives::Bool = false,
     state_leakage_indices::Union{
         Nothing,
         AbstractVector{Int},
@@ -266,7 +267,8 @@ function _spline_pulse_problem(
     # M*n_drives) and its bounds (including tight pins at the boundary slots
     # c_0, c_{M-1}) into global_data / global_bounds. Layout A — uniform globals.
     if is_bspline
-        bspline_globals, bspline_global_bounds = _get_bspline_globals(qtraj.pulse, sys)
+        bspline_globals, bspline_global_bounds = _get_bspline_globals(
+            qtraj.pulse, sys; pin_boundary_derivative = pin_endpoint_derivatives)
         global_data = isnothing(global_data) ? Dict{Symbol,Vector{Float64}}() :
             Dict{Symbol,Vector{Float64}}(global_data)
         for (k, v) in pairs(bspline_globals)

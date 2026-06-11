@@ -256,7 +256,11 @@ in-block slots — see `_apply_boundary_pin!`.
 
 Works uniformly for any order `k >= 2`; no Greville-aware split.
 """
-function _get_bspline_globals(pulse::BSplinePulse, sys::AbstractQuantumSystem)
+function _get_bspline_globals(
+    pulse::BSplinePulse,
+    sys::AbstractQuantumSystem;
+    pin_boundary_derivative::Bool = false,
+)
     M = pulse.basis.M
     n_d = pulse.n_drives
     cp_name = Symbol(:c_, drive_name(pulse))
@@ -274,6 +278,32 @@ function _get_bspline_globals(pulse::BSplinePulse, sys::AbstractQuantumSystem)
     hi = repeat(drive_hi, M)            # length n_d * M
     _apply_boundary_pin!(lo, hi, pulse.initial_value, 1:n_d)
     _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 1) * n_d + 1):(M * n_d))
+
+    # Zero endpoint *derivative* for a clamped basis ⟺ c_1 = c_0 and c_{M-2} = c_{M-1}.
+    # Since c_0/c_{M-1} are value-pinned just above, this is equivalently a tight pin
+    # of the boundary-*adjacent* control points c_1, c_{M-2} to the same boundary
+    # values — which is what we do here.
+    #
+    # Why this lives in the bounds vector (not a separate constraint object): pinning
+    # a control point is *variable fixing*, and IPOPT fixes variables most stably as
+    # bounds (lo == hi) — it eliminates them from the KKT system. Expressing the same
+    # pin as a separate linear *equality* constraint instead keeps c_1/c_{M-2} as free
+    # variables whose multipliers are poorly determined (the regularizer already drives
+    # them to the pinned value), and IPOPT then *oscillates* near the optimum (visits
+    # F≈0.9999 but never settles). Measured directly on displaced Fock-1: bounds →
+    # 0.99999; equality-constraint pin → chatters to ~0.83. A boundary slot's bound is
+    # also *conditionally* tight (amplitude bound when unpinned, tight when pinned),
+    # which the per-slot bounds vector expresses naturally but an additive MOI
+    # constraint cannot (one bound per variable). So this is a deliberate design choice,
+    # not an expedient. (For genuine linear *relations/inequalities* on control points —
+    # e.g. a slew bound |c_{i+1}-c_i| ≤ v — use DirectTrajOpt's `GlobalLinearConstraint`,
+    # where there is no equivalent variable-fixing alternative.)
+    if pin_boundary_derivative
+        M >= 4 || throw(ArgumentError(
+            "pin_boundary_derivative requires M ≥ 4 control points; got M=$M"))
+        _apply_boundary_pin!(lo, hi, pulse.initial_value, (n_d + 1):(2 * n_d))
+        _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 2) * n_d + 1):((M - 1) * n_d))
+    end
 
     global_bounds = _named_tuple(cp_name => (lo, hi))
 
