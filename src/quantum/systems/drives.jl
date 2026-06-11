@@ -177,6 +177,52 @@ function NonlinearDrive(
 end
 
 """
+    coupling_drive(H, i::Int, j::Int; strength=1.0)
+
+Construct a [`NonlinearDrive`](@ref) for a pairwise coupling term with a
+**fixed (baked) coupling strength**: `strength · u[i] · u[j] · H`.
+
+This is the recommended way to express coupler-mediated interactions of the
+form `A_ij · u_i(t) · u_j(t) · H_ij` (e.g. photonic networks where a mixing
+circuit couples modes `i` and `j` with controllable rates, as in
+recirculating quantum photonic networks) when the coupling matrix entry
+`A_ij` is a calibration constant rather than an optimization variable.
+
+Baking the strength into the drive — instead of appending it to the control
+vector as a global parameter — removes it from the NLP entirely: no extra
+sensitivity column in every interval's Jacobian ODE, and no gauge-flat
+Hessian directions from the rescaling redundancy
+`u_i → α·u_i, A_ij → A_ij/α`. Empirically (rqpnn C-matrix campaign,
+2026-06-10) this improves both convergence quality and wall time relative
+to co-optimizing the coupling strengths.
+
+The analytic Jacobian and Hessian closures are provided (no ForwardDiff
+fallback), and `active_controls = [i, j]` gives the integrator exact
+structural sparsity.
+
+# Example
+```julia
+# A_12 = 0.85 coupling between modes 1 and 2:
+d = coupling_drive(ad_2 * a_1 + ad_1 * a_2, 1, 2; strength = 0.85)
+```
+"""
+function coupling_drive(H, i::Int, j::Int; strength::Real = 1.0)
+    i == j && throw(ArgumentError("coupling_drive requires i ≠ j (got i = j = $i)"))
+    a = Float64(strength)
+    coeff = let i = i, j = j, a = a
+        u -> a * u[i] * u[j]
+    end
+    coeff_jac = let i = i, j = j, a = a
+        (u, p) -> p == i ? a * u[j] : p == j ? a * u[i] : 0.0
+    end
+    coeff_hess = let i = i, j = j, a = a
+        (u, p, q) -> ((p == i && q == j) || (p == j && q == i)) ? a : 0.0
+    end
+    return NonlinearDrive(H, coeff, coeff_jac;
+        coeff_hess = coeff_hess, active_controls = [i, j])
+end
+
+"""
     _forwarddiff_jacobian(f) -> (u, j) -> ∂f/∂u_j
 
 Create a Jacobian function from a scalar-valued function `f(u)` using ForwardDiff.
@@ -933,4 +979,69 @@ end
     # 2-arg backward-compatible shims
     @test drive_coeff(ld, u) == drive_coeff(ld, u, 0.0)
     @test drive_coeff_jac(ld, u, 2) == drive_coeff_jac(ld, u, 0.0, 2)
+end
+
+@testitem "coupling_drive: values, Jacobian, Hessian, sparsity" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse([0.0+0im 1.0+0im; 1.0+0im 0.0+0im])
+    d = coupling_drive(H, 1, 3; strength = 0.85)
+
+    u = [2.0, 5.0, 3.0, 7.0]
+    @test drive_coeff(d, u) ≈ 0.85 * 2.0 * 3.0
+    @test drive_coeff_jac(d, u, 1) ≈ 0.85 * 3.0
+    @test drive_coeff_jac(d, u, 3) ≈ 0.85 * 2.0
+    @test drive_coeff_jac(d, u, 2) == 0.0
+    @test drive_coeff_jac(d, u, 4) == 0.0
+    @test drive_coeff_hess(d, u, 1, 3) ≈ 0.85
+    @test drive_coeff_hess(d, u, 3, 1) ≈ 0.85
+    @test drive_coeff_hess(d, u, 1, 1) == 0.0
+    @test drive_coeff_hess(d, u, 2, 3) == 0.0
+    @test active_controls(d) == [1, 3]
+
+    # default strength = 1.0
+    d1 = coupling_drive(H, 2, 4)
+    @test drive_coeff(d1, u) ≈ 5.0 * 7.0
+
+    # i == j is rejected
+    @test_throws ArgumentError coupling_drive(H, 2, 2)
+end
+
+@testitem "coupling_drive ≡ trilinear NonlinearDrive with frozen global" begin
+    using Piccolo
+    using SparseArrays
+
+    # The baked form a·u[i]·u[j] must match the trilinear form
+    # u[i]·u[j]·u[g] evaluated at a control vector with u[g] frozen to a.
+    H = sparse([1.0+0im 0.0+0im; 0.0+0im -1.0+0im])
+    i, j, g, a = 1, 2, 5, 0.7321
+
+    baked = coupling_drive(H, i, j; strength = a)
+    trilinear = NonlinearDrive(
+        H,
+        u -> u[i] * u[j] * u[g],
+        (u, p) -> p == i ? u[j] * u[g] : p == j ? u[i] * u[g] : p == g ? u[i] * u[j] : 0.0;
+        coeff_hess = (u, p, q) -> begin
+            if (p == i && q == j) || (p == j && q == i)
+                u[g]
+            elseif (p == i && q == g) || (p == g && q == i)
+                u[j]
+            elseif (p == j && q == g) || (p == g && q == j)
+                u[i]
+            else
+                0.0
+            end
+        end,
+        active_controls = [i, j, g],
+    )
+
+    u = [1.3, -0.4, 9.9, 2.2, a]  # u[g] frozen at the baked strength
+    @test drive_coeff(baked, u) ≈ drive_coeff(trilinear, u)
+    for p in (i, j)
+        @test drive_coeff_jac(baked, u, p) ≈ drive_coeff_jac(trilinear, u, p)
+    end
+    for p in (i, j), q in (i, j)
+        @test drive_coeff_hess(baked, u, p, q) ≈ drive_coeff_hess(trilinear, u, p, q)
+    end
 end
