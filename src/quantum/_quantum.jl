@@ -43,6 +43,10 @@ include("operators/lifted_operators.jl")
 include("systems/_quantum_systems.jl")
 @reexport using .QuantumSystems
 
+# Encodings (depend on gates; used by embedded operators)
+include("encodings/dual_rail.jl")
+@reexport using .DualRailEncodings
+
 # Operators - embedded and direct_sums (depend on systems)
 include("operators/embedded_operators.jl")
 @reexport using .EmbeddedOperators

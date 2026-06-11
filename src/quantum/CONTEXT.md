@@ -10,7 +10,7 @@ The `Quantum` submodule provides the **quantum physics layer** for Piccolo. It d
 - **Quantum Trajectories** - Physics-level problem definitions (before optimization)
 - **Isomorphisms** - Mappings between complex quantum objects and real vectors
 - **Rollouts** - ODE-based simulation of quantum dynamics
-- **Quantum System Templates** - Pre-built systems (transmons, ions, Rydberg, etc.)
+- **Quantum System Templates** - Pre-built systems (transmons, ions, Rydberg, etc.)\n- **Encodings** - Dual-rail logical-qubit encoding: excitation-subspace transforms, logical ↔ physical state maps, encoding-aware embedded operators
 
 This module is **independent of optimization** - it just does quantum physics. The `Control` submodule builds optimization problems on top of these abstractions.
 
@@ -252,7 +252,7 @@ quantum/
 │   ├── ions/                      # IonChainSystem
 │   ├── atoms/                     # RydbergChainSystem
 │   └── cats/                      # CatQubitSystem
-├── embedded_operators.jl          # EmbeddedOperator for subspace gates
+├── encodings/\n│   └── dual_rail.jl               # DualRailEncoding + subspace utilities\n├── embedded_operators.jl          # EmbeddedOperator for subspace gates
 ├── lifted_operators.jl            # Lift operators to larger Hilbert space
 └── direct_sums.jl                 # Direct sum operations
 ```
