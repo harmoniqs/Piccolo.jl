@@ -1,8 +1,75 @@
 export SplinePulseProblem
+export bspline_slew_constraint
 
 # Helper function to determine spline order from pulse type
 _get_spline_order(::LinearSplinePulse) = 1
 _get_spline_order(::CubicSplinePulse) = 3
+
+"""
+    bspline_slew_constraint(pulse::BSplinePulse, v_max; label=...) -> GlobalLinearConstraint
+
+Closed-form per-drive **slew (velocity) bound** `|ṗ(t)| ≤ v_max` for a B-spline
+pulse, as an explicit constraint to add to the problem (`constraints = [...]`).
+
+The derivative of an order-`k` B-spline is an order-`(k-1)` B-spline whose control
+points are the scaled first differences
+
+    dᵢ = (k-1)·(c_{i+1} - cᵢ) / (τ_{i+k} - τ_{i+1}),   i = 0 … M-2,
+
+so by the convex-hull (variation-diminishing) property `|ṗ(t)| ≤ maxᵢ |dᵢ|`.
+Bounding each `|dᵢ| ≤ v_max` is therefore a **conservative, closed-form** slew
+cap — a set of linear inequalities on *differences* of the `:c_<drive>` global
+block (one row per `(channel, i)`), which `GlobalLinearConstraint` expresses
+exactly (and which a box/amplitude bound cannot). Unlike the endpoint-derivative
+*pin* (variable fixing → bounds), this is a genuine inequality relation, so the
+multipliers go inactive when slack and IPOPT stays well-behaved.
+
+`v_max` is per-drive (`Vector`, length `n_drives`) or scalar (same cap on all
+channels); `Inf` on a channel skips it. Conservatism mirrors the amplitude box
+bound: the curve's true slew can sit below `maxᵢ|dᵢ|`.
+"""
+function bspline_slew_constraint(
+    pulse::BSplinePulse,
+    v_max::AbstractVector;
+    label::String = "B-spline slew bound",
+)
+    M = pulse.basis.M
+    n_d = pulse.n_drives
+    k = get_order(pulse)
+    length(v_max) == n_d || throw(ArgumentError(
+        "v_max length $(length(v_max)) ≠ n_drives $n_d"))
+    M >= 2 || throw(ArgumentError("slew bound needs M ≥ 2 control points; got M=$M"))
+    τ = pulse.basis.knot_vector            # 1-based storage of 0-based knots τ_0 … τ_{M+k-1}
+    cp_name = Symbol(:c_, drive_name(pulse))
+    gdim = M * n_d
+
+    # column-major vec((n_drives, M)): cp index jj (1-based), drive d ↦ slot (jj-1)*n_d + d.
+    # 0-based cp i ↦ slot i*n_d + d.
+    rows = Vector{Float64}[]
+    lb = Float64[]
+    ub = Float64[]
+    for ch in 1:n_d
+        isfinite(v_max[ch]) || continue
+        for i in 0:(M - 2)                 # 0-based derivative control-point index
+            denom = τ[i + k + 1] - τ[i + 2]    # τ_{i+k} - τ_{i+1}
+            denom > 0 || continue          # skip degenerate clamped-knot spans
+            coef = (k - 1) / denom
+            row = zeros(gdim)
+            row[(i + 1) * n_d + ch] = coef     # +coef · c_{i+1}
+            row[i * n_d + ch]       = -coef    # -coef · c_i
+            push!(rows, row)
+            push!(lb, -v_max[ch])
+            push!(ub, v_max[ch])
+        end
+    end
+    isempty(rows) && throw(ArgumentError(
+        "bspline_slew_constraint: every channel is Inf (nothing to bound)"))
+    A = reduce(vcat, (r' for r in rows))
+    return GlobalLinearConstraint(cp_name, A, lb, ub; label = label)
+end
+
+bspline_slew_constraint(pulse::BSplinePulse, v_max::Real; kwargs...) =
+    bspline_slew_constraint(pulse, fill(Float64(v_max), pulse.n_drives); kwargs...)
 
 # _make_free_phase_goal is defined in _problem_templates.jl (shared across all templates)
 
