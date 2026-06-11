@@ -7,6 +7,7 @@ export VariationalQuantumSystem
 export CompositeQuantumSystem
 
 export AbstractDrive, LinearDrive, NonlinearDrive, coupling_drive
+export BilinearCouplerCoeff, BilinearCouplerCoeffJac, BilinearCouplerCoeffHess
 export DriftTerm, ModulatedDrive
 export has_modulation
 export drive_coeff, drive_coeff_jac, drive_coeff_dt, drive_coeff_hess

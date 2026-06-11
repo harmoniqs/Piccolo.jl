@@ -177,10 +177,66 @@ function NonlinearDrive(
 end
 
 """
+    BilinearCouplerCoeff
+
+Coefficient functor for [`coupling_drive`](@ref): `a · u[i] · u[j]`.
+
+The drive term it parameterizes is *nonlinear* in the control vector (a
+product of two controls — hence it lives inside a [`NonlinearDrive`](@ref))
+but *bilinear* with respect to the two coupler controls `u[i]` and `u[j]`,
+with a fixed (baked) coupling strength `a`.
+
+A named functor — rather than an anonymous closure — keeps the drive
+introspectable (`d.coeff.i`, `d.coeff.j`, `d.coeff.a`), serializable
+(plain-data fields, no closure types), and concretely typed (all couplings
+share one `NonlinearDrive{H,BilinearCouplerCoeff,...}` type).
+"""
+struct BilinearCouplerCoeff
+    i::Int
+    j::Int
+    a::Float64
+end
+(c::BilinearCouplerCoeff)(u) = c.a * u[c.i] * u[c.j]
+
+"""
+    BilinearCouplerCoeffJac
+
+Analytic Jacobian functor companion to [`BilinearCouplerCoeff`](@ref):
+`∂(a·u[i]·u[j])/∂u_p`. Avoids the per-query ForwardDiff gradient fallback.
+"""
+struct BilinearCouplerCoeffJac
+    i::Int
+    j::Int
+    a::Float64
+end
+(c::BilinearCouplerCoeffJac)(u, p) =
+    p == c.i ? c.a * u[c.j] : p == c.j ? c.a * u[c.i] : 0.0
+
+"""
+    BilinearCouplerCoeffHess
+
+Analytic Hessian functor companion to [`BilinearCouplerCoeff`](@ref):
+`∂²(a·u[i]·u[j])/∂u_p∂u_q` — constant `a` on the `(i,j)`/`(j,i)` entries,
+zero elsewhere.
+"""
+struct BilinearCouplerCoeffHess
+    i::Int
+    j::Int
+    a::Float64
+end
+(c::BilinearCouplerCoeffHess)(u, p, q) =
+    ((p == c.i && q == c.j) || (p == c.j && q == c.i)) ? c.a : 0.0
+
+"""
     coupling_drive(H, i::Int, j::Int; strength=1.0)
 
 Construct a [`NonlinearDrive`](@ref) for a pairwise coupling term with a
 **fixed (baked) coupling strength**: `strength · u[i] · u[j] · H`.
+
+The returned drive *is* a `NonlinearDrive` — parameterized by the named
+functors [`BilinearCouplerCoeff`](@ref) / [`BilinearCouplerCoeffJac`](@ref) /
+[`BilinearCouplerCoeffHess`](@ref) instead of anonymous closures, so coupled
+systems stay introspectable, serializable, and concretely typed.
 
 This is the recommended way to express coupler-mediated interactions of the
 form `A_ij · u_i(t) · u_j(t) · H_ij` (e.g. photonic networks where a mixing
@@ -196,30 +252,22 @@ Hessian directions from the rescaling redundancy
 2026-06-10) this improves both convergence quality and wall time relative
 to co-optimizing the coupling strengths.
 
-The analytic Jacobian and Hessian closures are provided (no ForwardDiff
-fallback), and `active_controls = [i, j]` gives the integrator exact
-structural sparsity.
+The analytic Jacobian and Hessian are provided (no ForwardDiff fallback),
+and `active_controls = [i, j]` gives the integrator exact structural
+sparsity.
 
 # Example
 ```julia
 # A_12 = 0.85 coupling between modes 1 and 2:
 d = coupling_drive(ad_2 * a_1 + ad_1 * a_2, 1, 2; strength = 0.85)
+d.coeff.a  # 0.85 — readable back out of any saved system
 ```
 """
 function coupling_drive(H, i::Int, j::Int; strength::Real = 1.0)
     i == j && throw(ArgumentError("coupling_drive requires i ≠ j (got i = j = $i)"))
     a = Float64(strength)
-    coeff = let i = i, j = j, a = a
-        u -> a * u[i] * u[j]
-    end
-    coeff_jac = let i = i, j = j, a = a
-        (u, p) -> p == i ? a * u[j] : p == j ? a * u[i] : 0.0
-    end
-    coeff_hess = let i = i, j = j, a = a
-        (u, p, q) -> ((p == i && q == j) || (p == j && q == i)) ? a : 0.0
-    end
-    return NonlinearDrive(H, coeff, coeff_jac;
-        coeff_hess = coeff_hess, active_controls = [i, j])
+    return NonlinearDrive(H, BilinearCouplerCoeff(i, j, a), BilinearCouplerCoeffJac(i, j, a);
+        coeff_hess = BilinearCouplerCoeffHess(i, j, a), active_controls = [i, j])
 end
 
 """
@@ -1006,6 +1054,19 @@ end
 
     # i == j is rejected
     @test_throws ArgumentError coupling_drive(H, 2, 2)
+
+    # functor parameterization: introspectable, concrete, serializable
+    @test d.coeff isa BilinearCouplerCoeff
+    @test (d.coeff.i, d.coeff.j, d.coeff.a) == (1, 3, 0.85)
+    @test typeof(d) == typeof(d1)  # one concrete type for all couplings
+
+    using Serialization
+    buf = IOBuffer()
+    serialize(buf, d)
+    seekstart(buf)
+    d2 = deserialize(buf)
+    @test drive_coeff(d2, u) ≈ drive_coeff(d, u)
+    @test d2.coeff.a == 0.85
 end
 
 @testitem "coupling_drive ≡ trilinear NonlinearDrive with frozen global" begin
