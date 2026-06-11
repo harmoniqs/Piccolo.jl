@@ -1106,3 +1106,28 @@ end
         @test drive_coeff_hess(baked, u, p, q) ≈ drive_coeff_hess(trilinear, u, p, q)
     end
 end
+
+@testitem "coupling_drive: AD cross-check + QuantumSystem integration" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse([0.0+0im 1.0+0im; 1.0+0im 0.0+0im])
+
+    # Independent ForwardDiff cross-check of the analytic functors
+    # (validate_* sample random u and compare against AD; throws on mismatch)
+    for (i, j, a) in ((1, 3, 0.85), (2, 4, -1.3), (1, 2, 2))  # incl. negative + Int strength
+        d = coupling_drive(H, i, j; strength = a)
+        validate_drive_jacobian(d, 4)
+        validate_drive_hessian(d, 4)
+    end
+
+    # End-to-end: coupling_drive inside a QuantumSystem
+    σz = sparse([1.0+0im 0.0+0im; 0.0+0im -1.0+0im])
+    drives = AbstractDrive[
+        LinearDrive(σz, 1),
+        coupling_drive(H, 1, 2; strength = 0.5),
+    ]
+    sys = QuantumSystem(zeros(ComplexF64, 2, 2), drives, [(-1.0, 1.0), (-1.0, 1.0)])
+    u = [0.3, -0.8]
+    @test sys.H(u, 0.0) ≈ 0.3 * σz + 0.5 * 0.3 * (-0.8) * H
+end
