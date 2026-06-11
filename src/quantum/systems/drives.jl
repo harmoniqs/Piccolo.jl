@@ -209,8 +209,7 @@ struct BilinearCouplerCoeffJac
     j::Int
     a::Float64
 end
-(c::BilinearCouplerCoeffJac)(u, p) =
-    p == c.i ? c.a * u[c.j] : p == c.j ? c.a * u[c.i] : 0.0
+(c::BilinearCouplerCoeffJac)(u, p) = p == c.i ? c.a * u[c.j] : p == c.j ? c.a * u[c.i] : 0.0
 
 """
     BilinearCouplerCoeffHess
@@ -266,8 +265,13 @@ d.coeff.a  # 0.85 — readable back out of any saved system
 function coupling_drive(H, i::Int, j::Int; strength::Real = 1.0)
     i == j && throw(ArgumentError("coupling_drive requires i ≠ j (got i = j = $i)"))
     a = Float64(strength)
-    return NonlinearDrive(H, BilinearCouplerCoeff(i, j, a), BilinearCouplerCoeffJac(i, j, a);
-        coeff_hess = BilinearCouplerCoeffHess(i, j, a), active_controls = [i, j])
+    return NonlinearDrive(
+        H,
+        BilinearCouplerCoeff(i, j, a),
+        BilinearCouplerCoeffJac(i, j, a);
+        coeff_hess = BilinearCouplerCoeffHess(i, j, a),
+        active_controls = [i, j],
+    )
 end
 
 """
@@ -1082,7 +1086,8 @@ end
     trilinear = NonlinearDrive(
         H,
         u -> u[i] * u[j] * u[g],
-        (u, p) -> p == i ? u[j] * u[g] : p == j ? u[i] * u[g] : p == g ? u[i] * u[j] : 0.0;
+        (u, p) ->
+            p == i ? u[j] * u[g] : p == j ? u[i] * u[g] : p == g ? u[i] * u[j] : 0.0;
         coeff_hess = (u, p, q) -> begin
             if (p == i && q == j) || (p == j && q == i)
                 u[g]
@@ -1123,10 +1128,7 @@ end
 
     # End-to-end: coupling_drive inside a QuantumSystem
     σz = sparse([1.0+0im 0.0+0im; 0.0+0im -1.0+0im])
-    drives = AbstractDrive[
-        LinearDrive(σz, 1),
-        coupling_drive(H, 1, 2; strength = 0.5),
-    ]
+    drives = AbstractDrive[LinearDrive(σz, 1), coupling_drive(H, 1, 2; strength = 0.5)]
     sys = QuantumSystem(zeros(ComplexF64, 2, 2), drives, [(-1.0, 1.0), (-1.0, 1.0)])
     u = [0.3, -0.8]
     @test sys.H(u, 0.0) ≈ 0.3 * σz + 0.5 * 0.3 * (-0.8) * H
