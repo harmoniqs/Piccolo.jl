@@ -309,7 +309,7 @@ end
 
 # ### Compute Fidelities with Quantum Toolbox
 #
-# With our helper functions in plase, we can compute the fidelities using
+# With our helper functions in place, we can compute the fidelities using
 # QuantumToolbox.
 
 F_zoh_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_zoh.qtraj), U_goal)
