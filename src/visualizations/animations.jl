@@ -2,6 +2,7 @@ module AnimatedPlots
 
 export animate_figure
 export animate_name
+export animate_pulse
 
 """
     animate_figure(
@@ -117,5 +118,58 @@ See also: `animate_figure`, `animate_bloch`, and
 [`NamedTrajectories.plot`](https://docs.harmoniqs.co/NamedTrajectories/dev/generated/plotting/).
 """
 function animate_name end
+
+"""
+    animate_pulse(
+        pulse::AbstractPulse;
+        fps::Int = 24,
+        mode::Symbol = :inline,
+        filename::String = "pulse_animation.mp4",
+        n_samples::Int = 240,
+        labels = nothing,
+        populations = nothing,
+        population_times = nothing,
+        population_labels = nothing,
+        title::AbstractString = "Pulse evolution",
+    ) -> Figure
+
+Animate a pulse drawing itself over time, optionally with population/state traces
+in a second panel.
+
+Rendering delegates to `plot_pulse!`, so each pulse type animates with its native
+primitive: `ZeroOrderPulse` reveals as stairs, `LinearSplinePulse` knot-to-knot,
+and cubic/analytic pulses as smooth curves. A faint "ghost" of the full pulse sits
+behind the revealed curve and a marker tracks the leading edge.
+
+Defined as a stub here; the implementation is provided by the `PiccoloMakieExt`
+extension and is loaded when a Makie backend (`CairoMakie`, `GLMakie`, `WGLMakie`)
+is available.
+
+# Arguments
+- `pulse::AbstractPulse`: The pulse to animate.
+
+# Keyword Arguments
+- `fps::Int`: Frames per second. Default `24`.
+- `mode::Symbol`: `:inline` (interactive, requires `GLMakie`) or `:record` (save to
+  file, works with `CairoMakie`). Default `:inline`.
+- `filename::String`: Output path when `mode = :record`. Default `"pulse_animation.mp4"`.
+- `n_samples::Int`: Number of animation frames / pulse sample points (must be ≥ 2).
+- `labels`: Optional drive labels, one per drive. Defaults to the pulse's drive name.
+- `populations`: Optional matrix (rows = populations, columns = time samples) drawn
+  in a second panel.
+- `population_times`: Optional time grid for the population samples.
+- `population_labels`: Optional labels for the population rows.
+- `title::AbstractString`: Title for the pulse panel.
+
+# Returns
+- A Makie `Figure` (potentially mutated by the animation loop).
+
+# Backend Compatibility
+- **GLMakie**: both `:inline` and `:record`.
+- **CairoMakie**: `:record` only (`:inline` cannot re-render).
+
+See also: `animate_figure`, `animate_name`, `plot_pulse`.
+"""
+function animate_pulse end
 
 end
