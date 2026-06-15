@@ -269,7 +269,7 @@ end
 #
 # Piccolo ships a `rollout_with_qutip(system, pulse, ψ0)` helper in its
 # `PiccoloQuantumToolboxExt` extension, which loads once both `QuantumToolbox`
-# and a Makie backend are in scope. Given a a system, a pulse, and an initial
+# and a Makie backend are in scope. Given a system, a pulse, and an initial
 # condition, it allows us to compute solution to the system of ODEs
 # (Schrodinger's equation or the Linlad master equation).
 #
