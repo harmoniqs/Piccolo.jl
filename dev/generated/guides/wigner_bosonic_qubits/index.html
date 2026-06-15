@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Wigner Bosonic Qubits · Piccolo.jl</title><meta name="title" content="Wigner Bosonic Qubits · Piccolo.jl"/><meta property="og:title" content="Wigner Bosonic Qubits · Piccolo.jl"/><meta property="twitter:title" content="Wigner Bosonic Qubits · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/wigner_bosonic_qubits/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/wigner_bosonic_qubits/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/guides/wigner_bosonic_qubits/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../../"><img class="docs-light-only" src="../../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li><a class="tocitem" href="../../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../../problem-templates/smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/bang_bang_pulse/">BangBangPulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/spline_pulse/">SplinePulseProblem</a></li><li><a class="tocitem" href="../../problem-templates/minimum_time/">MinimumTimeProblem</a></li><li><a class="tocitem" href="../../problem-templates/sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../../problem-templates/composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../../systems/">Overview</a></li><li><a class="tocitem" href="../../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li><a class="tocitem" href="../saving_loading/">Saving and Loading Pulses</a></li><li><a class="tocitem" href="../leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../global_variables/">Global Variables</a></li><li><a class="tocitem" href="../visualization/">Visualization</a></li><li class="is-active"><a class="tocitem" href>Wigner Bosonic Qubits</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Mathematical-Background"><span>Mathematical Background</span></a></li><li><a class="tocitem" href="#Coherent-States"><span>Coherent States</span></a></li><li><a class="tocitem" href="#Fock-States"><span>Fock States</span></a></li><li><a class="tocitem" href="#Cat-States"><span>Cat States</span></a></li><li><a class="tocitem" href="#Comparison-Panel"><span>Comparison Panel</span></a></li><li><a class="tocitem" href="#3D-Surface-Plot"><span>3D Surface Plot</span></a></li><li><a class="tocitem" href="#Animation:-Rotating-Cat-State"><span>Animation: Rotating Cat State</span></a></li><li><a class="tocitem" href="#Using-CatSystem-Template"><span>Using CatSystem Template</span></a></li><li><a class="tocitem" href="#Saving-Figures"><span>Saving Figures</span></a></li><li><a class="tocitem" href="#Summary"><span>Summary</span></a></li><li><a class="tocitem" href="#Next-Steps"><span>Next Steps</span></a></li><li><a class="tocitem" href="#References"><span>References</span></a></li></ul></li><li><a class="tocitem" href="../custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">How-To Guides</a></li><li class="is-active"><a href>Wigner Bosonic Qubits</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Wigner Bosonic Qubits</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/guides/wigner_bosonic_qubits.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="wigner_bosonic_qubits"><a class="docs-heading-anchor" href="#wigner_bosonic_qubits">Wigner Function Visualization of Bosonic Qubits</a><a id="wigner_bosonic_qubits-1"></a><a class="docs-heading-anchor-permalink" href="#wigner_bosonic_qubits" title="Permalink"></a></h1><p>This guide demonstrates Wigner function visualizations for bosonic quantum states. Bosonic qubits encode quantum information in the continuous-variable states of a harmonic oscillator (e.g., a superconducting cavity). The Wigner function provides a quasi-probability distribution in phase space that reveals the quantum nature of these states. See the <a href="../visualization/#visualization">Visualization guide</a> for the <code>plot_wigner</code> / <code>animate_wigner</code> API introduction; this page goes deeper on the bosonic physics.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Piccolo
+using QuantumToolbox
+using CairoMakie  # For static plots</code></pre><p>Each section below builds a state, wraps it in a single-timestep <code>NamedTrajectory</code>, and renders its Wigner function. Rather than repeat that ceremony, we capture it once — every section then varies only the physics (the state, the phase-space resolution, and the title). <code>plot_wigner</code> already drops a &quot;Timestep N&quot; label at row 0, which we overwrite with a domain title.</p><pre><code class="language-julia hljs">function wigner_panel(ket; title, res = 0.1, lim = 4.0)
+    traj = NamedTrajectory(
+        (ψ̃ = hcat(ket_to_iso(ComplexF64.(ket))), Δt = [1.0]),
+        timestep = :Δt,
+    )
+    fig =
+        plot_wigner(traj, 1; state_name = :ψ̃, xvec = (-lim):res:lim, yvec = (-lim):res:lim)
+    fig.attributes[:label][].text[] = title
+    return fig
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">wigner_panel (generic function with 1 method)</code></pre><h2 id="Mathematical-Background"><a class="docs-heading-anchor" href="#Mathematical-Background">Mathematical Background</a><a id="Mathematical-Background-1"></a><a class="docs-heading-anchor-permalink" href="#Mathematical-Background" title="Permalink"></a></h2><p>The Wigner function W(α) maps a quantum state |ψ⟩ to phase space coordinates (Re(α), Im(α)). For a density matrix ρ:</p><p class="math-container">\[W(\alpha) = \frac{2}{\pi} \text{Tr}[\rho \hat{D}(\alpha) \hat{\Pi} \hat{D}^\dagger(\alpha)]\]</p><p>where D̂(α) is the displacement operator and Π̂ is the parity operator.</p><p><strong>Key Properties:</strong></p><ul><li>Classical states: W(α) ≥ 0 everywhere</li><li>Quantum states: Can have negative regions (quantum interference)</li><li>Coherent states |α⟩: Gaussian peaks centered at α</li><li>Cat states (|α⟩ + |-α⟩)/√2: Show interference fringes</li></ul><h2 id="Coherent-States"><a class="docs-heading-anchor" href="#Coherent-States">Coherent States</a><a id="Coherent-States-1"></a><a class="docs-heading-anchor-permalink" href="#Coherent-States" title="Permalink"></a></h2><p>Coherent states are the most classical quantum states. Their Wigner functions are Gaussian peaks.</p><pre><code class="language-julia hljs"># Parameters
+N = 30  # Fock space cutoff
+α = 2.0 + 1.5im  # Coherent state parameter
+
+# Create coherent state
+ψ_coherent = coherent(N, α)
+
+fig_coherent = wigner_panel(
+    ψ_coherent.data;
+    title = &quot;Coherent State |$(round(real(α), digits=1)) + $(round(imag(α), digits=1))i⟩&quot;,
+)</code></pre><img src="cf1fe556.png" alt="Example block output"/><div class="admonition is-info" id="Coherent-States-b47b389cd5f94c80"><header class="admonition-header">Coherent States<a class="admonition-anchor" href="#Coherent-States-b47b389cd5f94c80" title="Permalink"></a></header><div class="admonition-body"><p>The Wigner function shows a single Gaussian peak centered at α = 2.0 + 1.5i in phase space. These states minimize the Heisenberg uncertainty principle and are produced by ideal lasers.</p></div></div><h2 id="Fock-States"><a class="docs-heading-anchor" href="#Fock-States">Fock States</a><a id="Fock-States-1"></a><a class="docs-heading-anchor-permalink" href="#Fock-States" title="Permalink"></a></h2><p>Fock states |n⟩ are energy eigenstates with exactly n photons. Higher Fock states exhibit pronounced quantum features in their Wigner functions.</p><pre><code class="language-julia hljs"># Create Fock state |3⟩
+n_photons = 3
+ψ_fock = fock(N, n_photons)
+
+# Higher resolution (`res`) to capture the negative-region rings.
+fig_fock = wigner_panel(
+    ψ_fock.data;
+    title = &quot;Fock State |$n_photons⟩ (Quantum Negativity)&quot;,
+    res = 0.05,
+)</code></pre><img src="8313ae21.png" alt="Example block output"/><div class="admonition is-warning" id="Quantum-Negativity-809a41a3b57bb8cf"><header class="admonition-header">Quantum Negativity<a class="admonition-anchor" href="#Quantum-Negativity-809a41a3b57bb8cf" title="Permalink"></a></header><div class="admonition-body"><p>Notice the negative regions (blue) in the Wigner function! These cannot occur in classical physics and are a signature of quantum behavior. Fock states are highly non-classical and useful for quantum sensing.</p></div></div><h2 id="Cat-States"><a class="docs-heading-anchor" href="#Cat-States">Cat States</a><a id="Cat-States-1"></a><a class="docs-heading-anchor-permalink" href="#Cat-States" title="Permalink"></a></h2><p>Cat states (Schrödinger cat states) are superpositions of coherent states: |cat⟩ = (|α⟩ + |-α⟩)/√2. They exhibit beautiful interference patterns.</p><pre><code class="language-julia hljs"># Create even cat state
+α_cat = 2.0  # Real alpha for symmetry
+ψ_plus = coherent(N, α_cat)
+ψ_minus = coherent(N, -α_cat)
+
+# Superposition (unnormalized initially)
+cat_state = ψ_plus.data + ψ_minus.data
+cat_state = cat_state / norm(cat_state)  # Normalize
+
+fig_cat = wigner_panel(
+    cat_state;
+    title = &quot;Even Cat State (|α⟩ + |-α⟩)/√2 with α = $α_cat&quot;,
+    res = 0.08,
+)</code></pre><img src="731f35b0.png" alt="Example block output"/><div class="admonition is-success" id="Interference-Fringes-1ed4c56f463933ae"><header class="admonition-header">Interference Fringes<a class="admonition-anchor" href="#Interference-Fringes-1ed4c56f463933ae" title="Permalink"></a></header><div class="admonition-body"><p>The cat state Wigner function shows two Gaussian peaks at ±α connected by interference fringes. These fringes are quantum interference between the two coherent state components. Odd cat states (|α⟩ - |-α⟩)/√2 have different fringe patterns.</p></div></div><h2 id="Comparison-Panel"><a class="docs-heading-anchor" href="#Comparison-Panel">Comparison Panel</a><a id="Comparison-Panel-1"></a><a class="docs-heading-anchor-permalink" href="#Comparison-Panel" title="Permalink"></a></h2><p>Create a multi-panel figure comparing different bosonic states.</p><pre><code class="language-julia hljs">fig_comparison = Figure(size = (1400, 450), fontsize = 14)
+
+# Coherent state
+ax1 = Axis(
+    fig_comparison[1, 1],
+    xlabel = &quot;Re(α)&quot;,
+    ylabel = &quot;Im(α)&quot;,
+    title = &quot;Coherent State&quot;,
+    aspect = DataAspect(),
+)
+xvec = -4:0.1:4
+yvec = -4:0.1:4
+W_coherent = transpose(wigner(ψ_coherent, xvec, yvec))
+# Match the single-panel `plot_wigner` convention (QuantumToolbox): a reversed
+# `:RdBu` map (red = positive, blue = negative) over a symmetric, zero-centered
+# range so that white = 0 and the same color means the same value in every panel.
+wlim_coherent = maximum(abs, W_coherent)
+heatmap!(
+    ax1,
+    xvec,
+    yvec,
+    W_coherent,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_coherent, wlim_coherent),
+)
+Colorbar(
+    fig_comparison[1, 1, Right()],
+    limits = (-wlim_coherent, wlim_coherent),
+    colormap = Reverse(:RdBu),
+)
+
+# Fock state
+ax2 = Axis(
+    fig_comparison[1, 2],
+    xlabel = &quot;Re(α)&quot;,
+    ylabel = &quot;Im(α)&quot;,
+    title = &quot;Fock State |3⟩&quot;,
+    aspect = DataAspect(),
+)
+W_fock = transpose(wigner(ψ_fock, xvec, yvec))
+wlim_fock = maximum(abs, W_fock)
+heatmap!(
+    ax2,
+    xvec,
+    yvec,
+    W_fock,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_fock, wlim_fock),
+)
+Colorbar(
+    fig_comparison[1, 2, Right()],
+    limits = (-wlim_fock, wlim_fock),
+    colormap = Reverse(:RdBu),
+)
+
+# Cat state
+ax3 = Axis(
+    fig_comparison[1, 3],
+    xlabel = &quot;Re(α)&quot;,
+    ylabel = &quot;Im(α)&quot;,
+    title = &quot;Even Cat State&quot;,
+    aspect = DataAspect(),
+)
+ψ_cat_qobj = QuantumObject(cat_state)
+W_cat = transpose(wigner(ψ_cat_qobj, xvec, yvec))
+wlim_cat = maximum(abs, W_cat)
+heatmap!(
+    ax3,
+    xvec,
+    yvec,
+    W_cat,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_cat, wlim_cat),
+)
+Colorbar(
+    fig_comparison[1, 3, Right()],
+    limits = (-wlim_cat, wlim_cat),
+    colormap = Reverse(:RdBu),
+)
+
+# Overall title
+Label(
+    fig_comparison[0, :],
+    &quot;Wigner Functions of Bosonic Quantum States&quot;,
+    fontsize = 22,
+    font = :bold,
+)
+
+fig_comparison</code></pre><img src="6a08e47a.png" alt="Example block output"/><h2 id="3D-Surface-Plot"><a class="docs-heading-anchor" href="#3D-Surface-Plot">3D Surface Plot</a><a id="3D-Surface-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#3D-Surface-Plot" title="Permalink"></a></h2><p>For presentations, 3D surface plots can be more visually striking. These static surfaces render with the <code>CairoMakie</code> backend already loaded above; for an interactive, rotatable view, load <code>GLMakie</code> locally (<code>using GLMakie</code>). The docs build renders static images only.</p><pre><code class="language-julia hljs"># Create cat state Wigner data
+xvec_3d = -3:0.15:3
+yvec_3d = -3:0.15:3
+W_cat_3d = transpose(wigner(ψ_cat_qobj, xvec_3d, yvec_3d))
+
+# Create 3D surface
+fig_3d = Figure(size = (800, 700))
+ax_3d = Axis3(
+    fig_3d[1, 1],
+    xlabel = &quot;Re(α)&quot;,
+    ylabel = &quot;Im(α)&quot;,
+    zlabel = &quot;W(α)&quot;,
+    title = &quot;Cat State Wigner Function (3D)&quot;,
+    titlesize = 20,
+    aspect = (1, 1, 0.5),
+)
+
+surface!(ax_3d, xvec_3d, yvec_3d, W_cat_3d, colormap = :RdBu, shading = true)
+Colorbar(fig_3d[1, 2], limits = extrema(W_cat_3d), colormap = :RdBu, label = &quot;W(α)&quot;)
+
+fig_3d</code></pre><img src="57092d1e.png" alt="Example block output"/><div class="admonition is-success" id="3D-Visualization-90978eb3187b568c"><header class="admonition-header">3D Visualization<a class="admonition-anchor" href="#3D-Visualization-90978eb3187b568c" title="Permalink"></a></header><div class="admonition-body"><p>The 3D surface makes the quantum interference pattern more dramatic. The negative &quot;valleys&quot; in the Wigner function are clearly visible as dips below the zero plane.</p></div></div><h2 id="Animation:-Rotating-Cat-State"><a class="docs-heading-anchor" href="#Animation:-Rotating-Cat-State">Animation: Rotating Cat State</a><a id="Animation:-Rotating-Cat-State-1"></a><a class="docs-heading-anchor-permalink" href="#Animation:-Rotating-Cat-State" title="Permalink"></a></h2><p>Animate a coherent state rotating in phase space to create a &quot;rotating cat&quot;. Interactive <code>:inline</code> playback requires <code>GLMakie</code> when run locally; the docs build doesn&#39;t load it, so the <code>animate_wigner</code> call below is left commented. Use <code>mode = :record</code> with <code>CairoMakie</code> to save the animation to a file.</p><pre><code class="language-julia hljs"># Create time-evolving trajectory
+T = 60
+ω = 2π
+times = range(0, 2π/ω, length = T)
+α_amplitude = 2.5
+
+# Generate rotating cat states
+kets_rotating = map(times) do t
+    α_t = α_amplitude * exp(im * ω * t)
+    ψ_plus_t = coherent(N, α_t).data
+    ψ_minus_t = coherent(N, -α_t).data
+    cat_t = ψ_plus_t + ψ_minus_t
+    cat_t / norm(cat_t)
+end
+
+traj_rotating = NamedTrajectory(
+    (ψ̃ = hcat(ket_to_iso.(kets_rotating)...), Δt = fill(times[2] - times[1], T)),
+    timestep = :Δt,
+)
+
+# Animate (uncomment to run - requires GLMakie and interactive display)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">N = 60, (ψ̃ = 1:60, → Δt = 61:61)</code></pre><p>fig<em>anim = animate</em>wigner(     traj_rotating;     fps = 20,     xvec = -4:0.15:4,     yvec = -4:0.15:4,     mode = :inline  # Use :record to save to file )</p><div class="admonition is-info" id="Animation-bcf6ad7947fcdb7a"><header class="admonition-header">Animation<a class="admonition-anchor" href="#Animation-bcf6ad7947fcdb7a" title="Permalink"></a></header><div class="admonition-body"><p>When running interactively with GLMakie, this creates a real-time animation showing the cat state rotating in phase space. The interference fringes rotate with the cat state components. Uncomment the animation code to see it! Use <code>mode = :record, filename = &quot;cat_rotation.mp4&quot;</code> to save to file.</p></div></div><h2 id="Using-CatSystem-Template"><a class="docs-heading-anchor" href="#Using-CatSystem-Template">Using CatSystem Template</a><a id="Using-CatSystem-Template-1"></a><a class="docs-heading-anchor-permalink" href="#Using-CatSystem-Template" title="Permalink"></a></h2><p>Piccolo provides a <code>CatSystem</code> template for cat qubit dynamics with realistic Hamiltonian parameters.</p><pre><code class="language-julia hljs"># Create cat system. We keep `cat_levels` and `buffer_levels` as locals so
+# we can slice the cavity subspace after; reading them back off the system
+# would yield Float64 (params are stored as a homogeneous float tuple).
+cat_levels = 20
+buffer_levels = 3
+sys_cat = CatSystem(
+    g2 = 0.36,
+    χ_aa = -7e-3,
+    χ_bb = -32,
+    χ_ab = 0.79,
+    κa = 53e-3,
+    κb = 13,
+    cat_levels = cat_levels,
+    buffer_levels = buffer_levels,
+)
+
+# Create target cat state using coherent_ket helper
+α_target = 2.0
+
+# Construct even cat state in system Hilbert space
+ψ_plus_sys = kron(coherent_ket(α_target, cat_levels), [1.0; zeros(buffer_levels - 1)])
+ψ_minus_sys = kron(coherent_ket(-α_target, cat_levels), [1.0; zeros(buffer_levels - 1)])
+cat_sys = (ψ_plus_sys + ψ_minus_sys) / norm(ψ_plus_sys + ψ_minus_sys)
+
+# Visualize (reduced subspace for cat cavity only).
+# `cat_sys` lives in the `kron(cavity, buffer)` space, ordered so that the
+# buffer index varies fastest. With the buffer in |0⟩, the cavity amplitudes
+# sit at every `buffer_levels`-th entry — slicing `[1:cat_levels]` would mix
+# cavity/buffer indices and scramble the state. Take the cavity marginal:
+cat_subspace = cat_sys[1:buffer_levels:end]  # cavity levels with buffer in |0⟩
+
+fig_cat_sys = wigner_panel(cat_subspace; title = &quot;Cat State from CatSystem Template&quot;)</code></pre><img src="2c01d634.png" alt="Example block output"/><div class="admonition is-info" id="CatSystem-13fdbc780c4cff30"><header class="admonition-header">CatSystem<a class="admonition-anchor" href="#CatSystem-13fdbc780c4cff30" title="Permalink"></a></header><div class="admonition-body"><p>The <code>CatSystem</code> template provides a realistic model of cat qubit hardware with buffer mode for two-photon processes. It includes Kerr nonlinearities and dissipation. See the system templates guide for optimal control examples.</p></div></div><h2 id="Saving-Figures"><a class="docs-heading-anchor" href="#Saving-Figures">Saving Figures</a><a id="Saving-Figures-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Figures" title="Permalink"></a></h2><p>Export publication-ready figures in various formats.</p><pre><code class="language-julia hljs"># Save as PNG (high resolution)</code></pre><p>save(&quot;wigner<em>cat</em>state.png&quot;, fig<em>cat, px</em>per_unit = 2)</p><pre><code class="language-julia hljs"># Save as PDF (vector graphics for papers)</code></pre><p>save(&quot;wigner<em>cat</em>state.pdf&quot;, fig_cat)</p><pre><code class="language-julia hljs"># Save as SVG (web/presentations)</code></pre><p>save(&quot;wigner<em>cat</em>state.svg&quot;, fig_cat)</p><pre><code class="language-julia hljs"># Save comparison panel</code></pre><p>save(&quot;wigner<em>comparison.png&quot;, fig</em>comparison, px<em>per</em>unit = 2)</p><div class="admonition is-success" id="Publication-Tips-c222eb58e385e416"><header class="admonition-header">Publication Tips<a class="admonition-anchor" href="#Publication-Tips-c222eb58e385e416" title="Permalink"></a></header><div class="admonition-body"><ul><li>Use <code>px_per_unit = 2</code> or higher for high-DPI displays</li><li>PDF format is best for LaTeX documents</li><li>SVG is ideal for web presentations and blogs</li><li>Adjust <code>colormap</code> to match your publication style (<code>:RdBu</code>, <code>:viridis</code>, etc.)</li></ul></div></div><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>This guide demonstrated:</p><ul><li><strong>Coherent states</strong>: Gaussian Wigner functions (most classical)</li><li><strong>Fock states</strong>: Negative regions indicating quantum behavior</li><li><strong>Cat states</strong>: Interference fringes from quantum superposition</li><li><strong>Comparison plots</strong>: Multi-panel publication figures</li><li><strong>3D visualization</strong>: Dramatic rendering of quantum features</li><li><strong>Animation</strong>: Time evolution of quantum states</li><li><strong>CatSystem integration</strong>: Using Piccolo&#39;s templates for realistic dynamics</li></ul><p>The Wigner function is a powerful tool for visualizing and understanding bosonic quantum states. Negative regions and interference patterns directly reveal the quantum nature of these states, making them invaluable for quantum control and quantum information processing.</p><h2 id="Next-Steps"><a class="docs-heading-anchor" href="#Next-Steps">Next Steps</a><a id="Next-Steps-1"></a><a class="docs-heading-anchor-permalink" href="#Next-Steps" title="Permalink"></a></h2><ul><li>Explore <a href="../../../systems/#systems-overview">Quantum Systems</a> for cat qubit control templates</li><li>See <a href="../visualization/#visualization">Visualization</a> for the broader plotting API</li><li>Walk through the <a href="../../quickstart/#quickstart">Quickstart Guide</a> for an end-to-end solve</li></ul><h2 id="References"><a class="docs-heading-anchor" href="#References">References</a><a id="References-1"></a><a class="docs-heading-anchor-permalink" href="#References" title="Permalink"></a></h2><ol><li>Wigner, E. P. (1932). &quot;On the Quantum Correction For Thermodynamic Equilibrium&quot;</li><li>Mirrahimi, M. et al. (2014). &quot;Dynamically protected cat-qubits: a new paradigm&quot;</li><li>Ofek, N. et al. (2016). &quot;Extending the lifetime of a quantum bit with error correction&quot;</li></ol><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../visualization/">« Visualization</a><a class="docs-footer-nextpage" href="../custom_objectives/">Custom Objectives »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 15 June 2026 20:17">Monday 15 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./wigner_bosonic_qubits.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/guides/wigner_bosonic_qubits.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
+# literate/guides/wigner_bosonic_qubits.jl
+# ```
+#
+# # [Wigner Function Visualization of Bosonic Qubits](@id wigner_bosonic_qubits)
+#
+# This guide demonstrates Wigner function visualizations for bosonic
+# quantum states. Bosonic qubits encode quantum information in the continuous-variable
+# states of a harmonic oscillator (e.g., a superconducting cavity). The Wigner function
+# provides a quasi-probability distribution in phase space that reveals the quantum
+# nature of these states. See the [Visualization guide](@ref visualization) for the
+# `plot_wigner` / `animate_wigner` API introduction; this page goes deeper on the
+# bosonic physics.
+
+# ## Setup
+
+using Piccolo
+using QuantumToolbox
+using CairoMakie  # For static plots
+
+# Each section below builds a state, wraps it in a single-timestep
+# `NamedTrajectory`, and renders its Wigner function. Rather than repeat that
+# ceremony, we capture it once — every section then varies only the physics
+# (the state, the phase-space resolution, and the title). `plot_wigner` already
+# drops a "Timestep N" label at row 0, which we overwrite with a domain title.
+
+function wigner_panel(ket; title, res = 0.1, lim = 4.0)
+    traj = NamedTrajectory(
+        (ψ̃ = hcat(ket_to_iso(ComplexF64.(ket))), Δt = [1.0]),
+        timestep = :Δt,
+    )
+    fig =
+        plot_wigner(traj, 1; state_name = :ψ̃, xvec = (-lim):res:lim, yvec = (-lim):res:lim)
+    fig.attributes[:label][].text[] = title
+    return fig
+end
+
+# ## Mathematical Background
+#
+# The Wigner function W(α) maps a quantum state |ψ⟩ to phase space coordinates 
+# (Re(α), Im(α)). For a density matrix ρ:
+#
+# ```math
+# W(\alpha) = \frac{2}{\pi} \text{Tr}[\rho \hat{D}(\alpha) \hat{\Pi} \hat{D}^\dagger(\alpha)]
+# ```
+#
+# where D̂(α) is the displacement operator and Π̂ is the parity operator.
+#
+# **Key Properties:**
+# - Classical states: W(α) ≥ 0 everywhere
+# - Quantum states: Can have negative regions (quantum interference)
+# - Coherent states |α⟩: Gaussian peaks centered at α
+# - Cat states (|α⟩ + |-α⟩)/√2: Show interference fringes
+
+# ## Coherent States
+#
+# Coherent states are the most classical quantum states. Their Wigner functions are 
+# Gaussian peaks.
+
+## Parameters
+N = 30  # Fock space cutoff
+α = 2.0 + 1.5im  # Coherent state parameter
+
+## Create coherent state
+ψ_coherent = coherent(N, α)
+
+fig_coherent = wigner_panel(
+    ψ_coherent.data;
+    title = "Coherent State |$(round(real(α), digits=1)) + $(round(imag(α), digits=1))i⟩",
+)
+
+#md # !!! info "Coherent States"
+#md #     The Wigner function shows a single Gaussian peak centered at α = 2.0 + 1.5i 
+#md #     in phase space. These states minimize the Heisenberg uncertainty principle 
+#md #     and are produced by ideal lasers.
+
+# ## Fock States
+#
+# Fock states |n⟩ are energy eigenstates with exactly n photons. Higher Fock states 
+# exhibit pronounced quantum features in their Wigner functions.
+
+## Create Fock state |3⟩
+n_photons = 3
+ψ_fock = fock(N, n_photons)
+
+## Higher resolution (`res`) to capture the negative-region rings.
+fig_fock = wigner_panel(
+    ψ_fock.data;
+    title = "Fock State |$n_photons⟩ (Quantum Negativity)",
+    res = 0.05,
+)
+
+#md # !!! warning "Quantum Negativity"
+#md #     Notice the negative regions (blue) in the Wigner function! These cannot 
+#md #     occur in classical physics and are a signature of quantum behavior. Fock 
+#md #     states are highly non-classical and useful for quantum sensing.
+
+# ## Cat States
+#
+# Cat states (Schrödinger cat states) are superpositions of coherent states: 
+# |cat⟩ = (|α⟩ + |-α⟩)/√2. They exhibit beautiful interference patterns.
+
+## Create even cat state
+α_cat = 2.0  # Real alpha for symmetry
+ψ_plus = coherent(N, α_cat)
+ψ_minus = coherent(N, -α_cat)
+
+## Superposition (unnormalized initially)
+cat_state = ψ_plus.data + ψ_minus.data
+cat_state = cat_state / norm(cat_state)  # Normalize
+
+fig_cat = wigner_panel(
+    cat_state;
+    title = "Even Cat State (|α⟩ + |-α⟩)/√2 with α = $α_cat",
+    res = 0.08,
+)
+
+#md # !!! tip "Interference Fringes"
+#md #     The cat state Wigner function shows two Gaussian peaks at ±α connected by 
+#md #     interference fringes. These fringes are quantum interference between the 
+#md #     two coherent state components. Odd cat states (|α⟩ - |-α⟩)/√2 have different 
+#md #     fringe patterns.
+
+# ## Comparison Panel
+#
+# Create a multi-panel figure comparing different bosonic states.
+
+fig_comparison = Figure(size = (1400, 450), fontsize = 14)
+
+## Coherent state
+ax1 = Axis(
+    fig_comparison[1, 1],
+    xlabel = "Re(α)",
+    ylabel = "Im(α)",
+    title = "Coherent State",
+    aspect = DataAspect(),
+)
+xvec = -4:0.1:4
+yvec = -4:0.1:4
+W_coherent = transpose(wigner(ψ_coherent, xvec, yvec))
+## Match the single-panel `plot_wigner` convention (QuantumToolbox): a reversed
+## `:RdBu` map (red = positive, blue = negative) over a symmetric, zero-centered
+## range so that white = 0 and the same color means the same value in every panel.
+wlim_coherent = maximum(abs, W_coherent)
+heatmap!(
+    ax1,
+    xvec,
+    yvec,
+    W_coherent,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_coherent, wlim_coherent),
+)
+Colorbar(
+    fig_comparison[1, 1, Right()],
+    limits = (-wlim_coherent, wlim_coherent),
+    colormap = Reverse(:RdBu),
+)
+
+## Fock state
+ax2 = Axis(
+    fig_comparison[1, 2],
+    xlabel = "Re(α)",
+    ylabel = "Im(α)",
+    title = "Fock State |3⟩",
+    aspect = DataAspect(),
+)
+W_fock = transpose(wigner(ψ_fock, xvec, yvec))
+wlim_fock = maximum(abs, W_fock)
+heatmap!(
+    ax2,
+    xvec,
+    yvec,
+    W_fock,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_fock, wlim_fock),
+)
+Colorbar(
+    fig_comparison[1, 2, Right()],
+    limits = (-wlim_fock, wlim_fock),
+    colormap = Reverse(:RdBu),
+)
+
+## Cat state
+ax3 = Axis(
+    fig_comparison[1, 3],
+    xlabel = "Re(α)",
+    ylabel = "Im(α)",
+    title = "Even Cat State",
+    aspect = DataAspect(),
+)
+ψ_cat_qobj = QuantumObject(cat_state)
+W_cat = transpose(wigner(ψ_cat_qobj, xvec, yvec))
+wlim_cat = maximum(abs, W_cat)
+heatmap!(
+    ax3,
+    xvec,
+    yvec,
+    W_cat,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_cat, wlim_cat),
+)
+Colorbar(
+    fig_comparison[1, 3, Right()],
+    limits = (-wlim_cat, wlim_cat),
+    colormap = Reverse(:RdBu),
+)
+
+## Overall title
+Label(
+    fig_comparison[0, :],
+    "Wigner Functions of Bosonic Quantum States",
+    fontsize = 22,
+    font = :bold,
+)
+
+fig_comparison
+
+# ## 3D Surface Plot
+#
+# For presentations, 3D surface plots can be more visually striking. These
+# static surfaces render with the `CairoMakie` backend already loaded above;
+# for an interactive, rotatable view, load `GLMakie` locally (`using GLMakie`).
+# The docs build renders static images only.
+
+## Create cat state Wigner data
+xvec_3d = -3:0.15:3
+yvec_3d = -3:0.15:3
+W_cat_3d = transpose(wigner(ψ_cat_qobj, xvec_3d, yvec_3d))
+
+## Create 3D surface
+fig_3d = Figure(size = (800, 700))
+ax_3d = Axis3(
+    fig_3d[1, 1],
+    xlabel = "Re(α)",
+    ylabel = "Im(α)",
+    zlabel = "W(α)",
+    title = "Cat State Wigner Function (3D)",
+    titlesize = 20,
+    aspect = (1, 1, 0.5),
+)
+
+surface!(ax_3d, xvec_3d, yvec_3d, W_cat_3d, colormap = :RdBu, shading = true)
+Colorbar(fig_3d[1, 2], limits = extrema(W_cat_3d), colormap = :RdBu, label = "W(α)")
+
+fig_3d
+
+#md # !!! tip "3D Visualization"
+#md #     The 3D surface makes the quantum interference pattern more dramatic. 
+#md #     The negative "valleys" in the Wigner function are clearly visible as 
+#md #     dips below the zero plane.
+
+# ## Animation: Rotating Cat State
+#
+# Animate a coherent state rotating in phase space to create a "rotating cat".
+# Interactive `:inline` playback requires `GLMakie` when run locally; the docs
+# build doesn't load it, so the `animate_wigner` call below is left commented.
+# Use `mode = :record` with `CairoMakie` to save the animation to a file.
+
+## Create time-evolving trajectory
+T = 60
+ω = 2π
+times = range(0, 2π/ω, length = T)
+α_amplitude = 2.5
+
+## Generate rotating cat states
+kets_rotating = map(times) do t
+    α_t = α_amplitude * exp(im * ω * t)
+    ψ_plus_t = coherent(N, α_t).data
+    ψ_minus_t = coherent(N, -α_t).data
+    cat_t = ψ_plus_t + ψ_minus_t
+    cat_t / norm(cat_t)
+end
+
+traj_rotating = NamedTrajectory(
+    (ψ̃ = hcat(ket_to_iso.(kets_rotating)...), Δt = fill(times[2] - times[1], T)),
+    timestep = :Δt,
+)
+
+## Animate (uncomment to run - requires GLMakie and interactive display)
+# fig_anim = animate_wigner(
+#     traj_rotating;
+#     fps = 20,
+#     xvec = -4:0.15:4,
+#     yvec = -4:0.15:4,
+#     mode = :inline  # Use :record to save to file
+# )
+
+#md # !!! info "Animation"
+#md #     When running interactively with GLMakie, this creates a real-time animation 
+#md #     showing the cat state rotating in phase space. The interference fringes 
+#md #     rotate with the cat state components. Uncomment the animation code to see it!
+#md #     Use `mode = :record, filename = "cat_rotation.mp4"` to save to file.
+
+# ## Using CatSystem Template
+#
+# Piccolo provides a `CatSystem` template for cat qubit dynamics with realistic
+# Hamiltonian parameters.
+
+## Create cat system. We keep `cat_levels` and `buffer_levels` as locals so
+## we can slice the cavity subspace after; reading them back off the system
+## would yield Float64 (params are stored as a homogeneous float tuple).
+cat_levels = 20
+buffer_levels = 3
+sys_cat = CatSystem(
+    g2 = 0.36,
+    χ_aa = -7e-3,
+    χ_bb = -32,
+    χ_ab = 0.79,
+    κa = 53e-3,
+    κb = 13,
+    cat_levels = cat_levels,
+    buffer_levels = buffer_levels,
+)
+
+## Create target cat state using coherent_ket helper
+α_target = 2.0
+
+## Construct even cat state in system Hilbert space
+ψ_plus_sys = kron(coherent_ket(α_target, cat_levels), [1.0; zeros(buffer_levels - 1)])
+ψ_minus_sys = kron(coherent_ket(-α_target, cat_levels), [1.0; zeros(buffer_levels - 1)])
+cat_sys = (ψ_plus_sys + ψ_minus_sys) / norm(ψ_plus_sys + ψ_minus_sys)
+
+## Visualize (reduced subspace for cat cavity only).
+## `cat_sys` lives in the `kron(cavity, buffer)` space, ordered so that the
+## buffer index varies fastest. With the buffer in |0⟩, the cavity amplitudes
+## sit at every `buffer_levels`-th entry — slicing `[1:cat_levels]` would mix
+## cavity/buffer indices and scramble the state. Take the cavity marginal:
+cat_subspace = cat_sys[1:buffer_levels:end]  # cavity levels with buffer in |0⟩
+
+fig_cat_sys = wigner_panel(cat_subspace; title = "Cat State from CatSystem Template")
+
+#md # !!! info "CatSystem"
+#md #     The `CatSystem` template provides a realistic model of cat qubit hardware 
+#md #     with buffer mode for two-photon processes. It includes Kerr nonlinearities 
+#md #     and dissipation. See the system templates guide for optimal control examples.
+
+# ## Saving Figures
+#
+# Export publication-ready figures in various formats.
+
+## Save as PNG (high resolution)
+# save("wigner_cat_state.png", fig_cat, px_per_unit = 2)
+
+## Save as PDF (vector graphics for papers)
+# save("wigner_cat_state.pdf", fig_cat)
+
+## Save as SVG (web/presentations)
+# save("wigner_cat_state.svg", fig_cat)
+
+## Save comparison panel
+# save("wigner_comparison.png", fig_comparison, px_per_unit = 2)
+
+#md # !!! tip "Publication Tips"
+#md #     - Use `px_per_unit = 2` or higher for high-DPI displays
+#md #     - PDF format is best for LaTeX documents
+#md #     - SVG is ideal for web presentations and blogs
+#md #     - Adjust `colormap` to match your publication style (`:RdBu`, `:viridis`, etc.)
+
+# ## Summary
+#
+# This guide demonstrated:
+#
+# - **Coherent states**: Gaussian Wigner functions (most classical)
+# - **Fock states**: Negative regions indicating quantum behavior
+# - **Cat states**: Interference fringes from quantum superposition
+# - **Comparison plots**: Multi-panel publication figures
+# - **3D visualization**: Dramatic rendering of quantum features
+# - **Animation**: Time evolution of quantum states
+# - **CatSystem integration**: Using Piccolo's templates for realistic dynamics
+#
+# The Wigner function is a powerful tool for visualizing and understanding bosonic 
+# quantum states. Negative regions and interference patterns directly reveal the 
+# quantum nature of these states, making them invaluable for quantum control and 
+# quantum information processing.
+
+#md # ## Next Steps
+#md #
+#md # - Explore [Quantum Systems](@ref systems-overview) for cat qubit control templates
+#md # - See [Visualization](@ref visualization) for the broader plotting API
+#md # - Walk through the [Quickstart Guide](@ref quickstart) for an end-to-end solve
+
+# ## References
+#
+# 1. Wigner, E. P. (1932). "On the Quantum Correction For Thermodynamic Equilibrium"
+# 2. Mirrahimi, M. et al. (2014). "Dynamically protected cat-qubits: a new paradigm"
+# 3. Ofek, N. et al. (2016). "Extending the lifetime of a quantum bit with error correction"
+</script>
+<link rel="stylesheet" href="../../../assets/copybutton.css"/>
+<script src="../../../assets/copybutton.js"></script>
+
+</body></html>
