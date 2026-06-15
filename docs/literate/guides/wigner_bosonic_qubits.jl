@@ -139,8 +139,19 @@ W_coherent = transpose(wigner(ψ_coherent, xvec, yvec))
 ## `:RdBu` map (red = positive, blue = negative) over a symmetric, zero-centered
 ## range so that white = 0 and the same color means the same value in every panel.
 wlim_coherent = maximum(abs, W_coherent)
-heatmap!(ax1, xvec, yvec, W_coherent, colormap = Reverse(:RdBu), colorrange = (-wlim_coherent, wlim_coherent))
-Colorbar(fig_comparison[1, 1, Right()], limits = (-wlim_coherent, wlim_coherent), colormap = Reverse(:RdBu))
+heatmap!(
+    ax1,
+    xvec,
+    yvec,
+    W_coherent,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_coherent, wlim_coherent),
+)
+Colorbar(
+    fig_comparison[1, 1, Right()],
+    limits = (-wlim_coherent, wlim_coherent),
+    colormap = Reverse(:RdBu),
+)
 
 ## Fock state
 ax2 = Axis(
@@ -152,8 +163,19 @@ ax2 = Axis(
 )
 W_fock = transpose(wigner(ψ_fock, xvec, yvec))
 wlim_fock = maximum(abs, W_fock)
-heatmap!(ax2, xvec, yvec, W_fock, colormap = Reverse(:RdBu), colorrange = (-wlim_fock, wlim_fock))
-Colorbar(fig_comparison[1, 2, Right()], limits = (-wlim_fock, wlim_fock), colormap = Reverse(:RdBu))
+heatmap!(
+    ax2,
+    xvec,
+    yvec,
+    W_fock,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_fock, wlim_fock),
+)
+Colorbar(
+    fig_comparison[1, 2, Right()],
+    limits = (-wlim_fock, wlim_fock),
+    colormap = Reverse(:RdBu),
+)
 
 ## Cat state
 ax3 = Axis(
@@ -166,8 +188,19 @@ ax3 = Axis(
 ψ_cat_qobj = QuantumObject(cat_state)
 W_cat = transpose(wigner(ψ_cat_qobj, xvec, yvec))
 wlim_cat = maximum(abs, W_cat)
-heatmap!(ax3, xvec, yvec, W_cat, colormap = Reverse(:RdBu), colorrange = (-wlim_cat, wlim_cat))
-Colorbar(fig_comparison[1, 3, Right()], limits = (-wlim_cat, wlim_cat), colormap = Reverse(:RdBu))
+heatmap!(
+    ax3,
+    xvec,
+    yvec,
+    W_cat,
+    colormap = Reverse(:RdBu),
+    colorrange = (-wlim_cat, wlim_cat),
+)
+Colorbar(
+    fig_comparison[1, 3, Right()],
+    limits = (-wlim_cat, wlim_cat),
+    colormap = Reverse(:RdBu),
+)
 
 ## Overall title
 Label(
