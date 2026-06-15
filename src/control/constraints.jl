@@ -429,7 +429,7 @@ function BoundStateL2Constraint(
         n_pairs = n * (n - 1) ÷ 2
         function density_constraint(x)
             result = Vector{eltype(x)}(undef, n_pairs)
-            for p in 1:n_pairs
+            for p = 1:n_pairs
                 re = x[re_idx[p]]
                 im = x[im_idx[p]]
                 ρ_jj = x[dj_idx[p]]

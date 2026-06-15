@@ -122,11 +122,11 @@ function _safe_bound_times(name::Symbol, traj::NamedTrajectory)
     has_initial = name ∈ keys(traj.initial)
     has_final = name ∈ keys(traj.final)
     if has_initial && has_final
-        return collect(2:(traj.N - 1))
+        return collect(2:(traj.N-1))
     elseif has_initial
         return collect(2:traj.N)
     elseif has_final
-        return collect(1:(traj.N - 1))
+        return collect(1:(traj.N-1))
     else
         return collect(1:traj.N)
     end
@@ -694,23 +694,29 @@ end
     # No initial/final → all times
     traj1 = NamedTrajectory(
         (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
-        timestep = :Δt, controls = :u,
+        timestep = :Δt,
+        controls = :u,
     )
     @test _safe_bound_times(:x, traj1) == collect(1:N)
 
     # Initial only → skip time 1
     traj2 = NamedTrajectory(
         (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
-        timestep = :Δt, controls = :u, initial = (x = rand(2),),
+        timestep = :Δt,
+        controls = :u,
+        initial = (x = rand(2),),
     )
     @test _safe_bound_times(:x, traj2) == collect(2:N)
 
     # Both initial and final → skip endpoints
     traj3 = NamedTrajectory(
         (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
-        timestep = :Δt, controls = :u, initial = (x = rand(2),), final = (x = rand(2),),
+        timestep = :Δt,
+        controls = :u,
+        initial = (x = rand(2),),
+        final = (x = rand(2),),
     )
-    @test _safe_bound_times(:x, traj3) == collect(2:(N - 1))
+    @test _safe_bound_times(:x, traj3) == collect(2:(N-1))
 end
 
 end
