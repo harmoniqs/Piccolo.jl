@@ -390,7 +390,7 @@ println("All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to 
 # any of the other pulses. This is because the discretized dynamics
 # used in the optimization are exact for `ZeroOrderPulse`.
 
-# ## Step 6: Visualizing Population Dynamics
+# ## Step 5: Visualizing Population Dynamics
 #
 # Finally, we visualize the population dynamics for each pulse type, side by
 # side. The CNOT gate flips the target qubit when the control qubit is excited:
