@@ -235,45 +235,83 @@ fig = plot_pulse_phases(pulse_iq; title = "Polar view (|·|, ∠·)")
 # ## Pulse Animations
 #
 # `animate_pulse` shows a pulse drawing itself over time. Rendering delegates to
-# `plot_pulse!`, so each pulse type animates with its native primitive (stairs for
-# `ZeroOrderPulse`, knot-to-knot for `LinearSplinePulse`, smooth curves for
-# cubic/analytic), with a faint ghost of the full pulse behind the playhead.
+# `plot_pulse!`, so each pulse type animates with its native primitive — a faint
+# ghost of the full pulse sits behind a curve that reveals up to a moving
+# playhead. Use `mode = :record` with `CairoMakie` to write a `.gif`/`.mp4`
+# (as below); use `mode = :inline` with `GLMakie` for a looping interactive
+# preview.
 #
-# Use `mode = :record` with `CairoMakie` to export an `.mp4`/`.gif`; use
-# `mode = :inline` with `GLMakie` for a looping interactive preview.
+# A `ZeroOrderPulse` animates as **stairs** (step-and-hold):
+
+zoh_times = collect(range(0, T, length = 12))
+zoh_controls = vcat(
+    permutedims(0.6 .* sin.(2π .* zoh_times ./ T)),
+    permutedims(0.4 .* cos.(2π .* zoh_times ./ T)),
+)
+zoh_pulse = ZeroOrderPulse(zoh_controls, zoh_times)
+
+animate_pulse(
+    zoh_pulse;
+    mode = :record,
+    filename = "pulse_zoh.gif",
+    fps = 24,
+    n_samples = 80,
+    labels = ["Ω_x", "Ω_y"],
+    title = "ZeroOrderPulse",
+)
+nothing # hide
+
+# ![ZeroOrderPulse revealing as stairs](pulse_zoh.gif)
+#
+# A `CubicSplinePulse` animates as a **smooth curve** through its knots — same
+# call, different pulse type, correct primitive chosen automatically:
+
+cubic_times = collect(range(0, T, length = 9))
+cubic_controls = vcat(
+    permutedims(0.5 .* sin.(2π .* cubic_times ./ T)),
+    permutedims(0.3 .* cos.(π .* cubic_times ./ T)),
+)
+cubic_pulse = CubicSplinePulse(cubic_controls, cubic_times)
+
+animate_pulse(
+    cubic_pulse;
+    mode = :record,
+    filename = "pulse_cubic.gif",
+    fps = 24,
+    n_samples = 80,
+    labels = ["Ω_x", "Ω_y"],
+    title = "CubicSplinePulse",
+)
+nothing # hide
+
+# ![CubicSplinePulse revealing as a smooth curve](pulse_cubic.gif)
+#
+# You can add state or population traces in a second panel by passing a matrix
+# whose rows are populations and whose columns are time samples — useful for
+# showing the control pulse and the quantum response in one animation:
 
 animation_pulse = GaussianPulse([0.8, 0.45], T / 6, T)
-
-fig = animate_pulse(
-    animation_pulse;
-    mode = :inline, # use mode = :record and filename = "pulse_evolution.mp4" to export
-    fps = 24,
-    n_samples = 120,
-    labels = ["Ω_x", "Ω_y"],
-    title = "Gaussian control pulse",
-)
-
-# You can add state or population traces underneath the controls by passing a
-# matrix whose rows are populations and whose columns are time samples. This is
-# useful for showing the control pulse and the quantum response in one animation.
-
-population_times = collect(range(0, T, length = 120))
+population_times = collect(range(0, T, length = 80))
 population_trace = vcat(
-    reshape(cos.(π .* population_times ./ (2T)) .^ 2, 1, :),
-    reshape(sin.(π .* population_times ./ (2T)) .^ 2, 1, :),
+    permutedims(cos.(π .* population_times ./ (2T)) .^ 2),
+    permutedims(sin.(π .* population_times ./ (2T)) .^ 2),
 )
 
-fig = animate_pulse(
+animate_pulse(
     animation_pulse;
-    mode = :inline, # use mode = :record and filename = "pulse_with_populations.mp4" to export
+    mode = :record,
+    filename = "pulse_populations.gif",
     fps = 24,
-    n_samples = 120,
+    n_samples = 80,
     labels = ["Ω_x", "Ω_y"],
     populations = population_trace,
     population_times,
     population_labels = ["|0⟩", "|1⟩"],
     title = "Pulse with population evolution",
 )
+nothing # hide
+
+# ![Pulse with population evolution](pulse_populations.gif)
 
 # ## Custom Plotting
 #
