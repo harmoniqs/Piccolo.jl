@@ -135,8 +135,12 @@ ax1 = Axis(
 xvec = -4:0.1:4
 yvec = -4:0.1:4
 W_coherent = transpose(wigner(ψ_coherent, xvec, yvec))
-heatmap!(ax1, xvec, yvec, W_coherent, colormap = :RdBu)
-Colorbar(fig_comparison[1, 1, Right()], limits = extrema(W_coherent), colormap = :RdBu)
+## Match the single-panel `plot_wigner` convention (QuantumToolbox): a reversed
+## `:RdBu` map (red = positive, blue = negative) over a symmetric, zero-centered
+## range so that white = 0 and the same color means the same value in every panel.
+wlim_coherent = maximum(abs, W_coherent)
+heatmap!(ax1, xvec, yvec, W_coherent, colormap = Reverse(:RdBu), colorrange = (-wlim_coherent, wlim_coherent))
+Colorbar(fig_comparison[1, 1, Right()], limits = (-wlim_coherent, wlim_coherent), colormap = Reverse(:RdBu))
 
 ## Fock state
 ax2 = Axis(
@@ -147,8 +151,9 @@ ax2 = Axis(
     aspect = DataAspect(),
 )
 W_fock = transpose(wigner(ψ_fock, xvec, yvec))
-heatmap!(ax2, xvec, yvec, W_fock, colormap = :RdBu)
-Colorbar(fig_comparison[1, 2, Right()], limits = extrema(W_fock), colormap = :RdBu)
+wlim_fock = maximum(abs, W_fock)
+heatmap!(ax2, xvec, yvec, W_fock, colormap = Reverse(:RdBu), colorrange = (-wlim_fock, wlim_fock))
+Colorbar(fig_comparison[1, 2, Right()], limits = (-wlim_fock, wlim_fock), colormap = Reverse(:RdBu))
 
 ## Cat state
 ax3 = Axis(
@@ -160,8 +165,9 @@ ax3 = Axis(
 )
 ψ_cat_qobj = QuantumObject(cat_state)
 W_cat = transpose(wigner(ψ_cat_qobj, xvec, yvec))
-heatmap!(ax3, xvec, yvec, W_cat, colormap = :RdBu)
-Colorbar(fig_comparison[1, 3, Right()], limits = extrema(W_cat), colormap = :RdBu)
+wlim_cat = maximum(abs, W_cat)
+heatmap!(ax3, xvec, yvec, W_cat, colormap = Reverse(:RdBu), colorrange = (-wlim_cat, wlim_cat))
+Colorbar(fig_comparison[1, 3, Right()], limits = (-wlim_cat, wlim_cat), colormap = Reverse(:RdBu))
 
 ## Overall title
 Label(
@@ -276,9 +282,12 @@ sys_cat = CatSystem(
 ψ_minus_sys = kron(coherent_ket(-α_target, cat_levels), [1.0; zeros(buffer_levels - 1)])
 cat_sys = (ψ_plus_sys + ψ_minus_sys) / norm(ψ_plus_sys + ψ_minus_sys)
 
-## Visualize (reduced subspace for cat cavity only)
-## Project to cat subspace
-cat_subspace = cat_sys[1:cat_levels]  # First cat_levels dimensions
+## Visualize (reduced subspace for cat cavity only).
+## `cat_sys` lives in the `kron(cavity, buffer)` space, ordered so that the
+## buffer index varies fastest. With the buffer in |0⟩, the cavity amplitudes
+## sit at every `buffer_levels`-th entry — slicing `[1:cat_levels]` would mix
+## cavity/buffer indices and scramble the state. Take the cavity marginal:
+cat_subspace = cat_sys[1:buffer_levels:end]  # cavity levels with buffer in |0⟩
 
 traj_cat_sys =
     NamedTrajectory((ψ̃ = hcat(ket_to_iso(cat_subspace)), Δt = [1.0]), timestep = :Δt)
