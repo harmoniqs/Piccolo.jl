@@ -387,9 +387,10 @@ function BoundStateL2Constraint(
 
     if iso_layout == :block
         n = dim ÷ 2
+        iseven(dim) || throw(ArgumentError("block layout expects even dim; got $dim"))
         function block_constraint(x)
-            re = x[1:n]
-            im = x[(n+1):2n]
+            re = @view x[1:n]
+            im = @view x[(n+1):(2n)]
             return re .^ 2 .+ im .^ 2 .- 1.0
         end
         return NonlinearKnotPointConstraint(
@@ -401,6 +402,8 @@ function BoundStateL2Constraint(
         )
     elseif iso_layout == :interleaved_columns
         d = isqrt(dim ÷ 2)
+        dim == 2 * d^2 ||
+            throw(ArgumentError("interleaved_columns expects dim = 2d²; got $dim"))
         n_complex = d * d
         function interleaved_constraint(x)
             result = Vector{eltype(x)}(undef, n_complex)
@@ -425,6 +428,7 @@ function BoundStateL2Constraint(
         )
     elseif iso_layout == :compact_density
         n = isqrt(dim)
+        dim == n^2 || throw(ArgumentError("compact_density expects dim = n²; got $dim"))
         re_idx, im_idx, dj_idx, dk_idx = _compact_iso_index_map(n)
         n_pairs = n * (n - 1) ÷ 2
         function density_constraint(x)
