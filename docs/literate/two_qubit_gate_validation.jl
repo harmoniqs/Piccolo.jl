@@ -124,7 +124,7 @@ N_params = 200
 # 
 # !!! note "Smoothness of `ZeroOrderPulse`"
 #     `ZeroOrderPulse` is not smooth in the mathematical sense, but placing a
-#     penalty on the magnitude of the amplitiude change between constant regions
+#     penalty on the magnitude of the amplitude change between constant regions
 #     can reduce the size of the discontinuities.
 #
 # ### Piecewise-Constant Pulse
