@@ -120,53 +120,64 @@ See also: `animate_figure`, `animate_bloch`, and
 function animate_name end
 
 """
-    animate_pulse(
-        pulse::AbstractPulse;
-        fps::Int = 24,
-        mode::Symbol = :inline,
-        filename::String = "pulse_animation.mp4",
-        n_samples::Int = 240,
-        labels = nothing,
-        populations = nothing,
-        population_times = nothing,
-        population_labels = nothing,
-        title::AbstractString = "Pulse evolution",
-    ) -> Figure
+    animate_pulse(pulse::AbstractPulse; kwargs...) -> Figure
+    animate_pulse(pulses::AbstractVector{<:AbstractPulse}; kwargs...) -> Figure
 
-Animate a pulse drawing itself over time, optionally with population/state traces
-in a second panel.
+Animate pulse control channels with a Makie backend. Two methods:
 
-Rendering delegates to `plot_pulse!`, so each pulse type animates with its native
-primitive: `ZeroOrderPulse` reveals as stairs, `LinearSplinePulse` knot-to-knot,
-and cubic/analytic pulses as smooth curves. A faint "ghost" of the full pulse sits
-behind the revealed curve and a marker tracks the leading edge.
+- **Single pulse** — `animate_pulse(pulse)` draws one pulse revealing itself over
+  time: a faint "ghost" of the full pulse with a curve that fills in up to a moving
+  playhead and a marker tracking the leading edge, optionally with a population/state
+  panel below. Rendering delegates to `plot_pulse!`, so each type animates with its
+  native primitive (`ZeroOrderPulse` as stairs, `LinearSplinePulse` knot-to-knot,
+  cubic/analytic as smooth curves).
+- **Sweep** — `animate_pulse(pulses)` shows a sequence of pulses, one complete pulse
+  per frame, for parameter sweeps or optimization snapshots, with `:stacked` or
+  `:overlay` layouts.
+
+Both reuse `animate_figure`, so `:inline` (interactive, needs `GLMakie`) and
+`:record` (writes a file, works with `CairoMakie`) behave consistently. For
+progressive trajectory/control reveal, see `animate_name`.
 
 Defined as a stub here; the implementation is provided by the `PiccoloMakieExt`
 extension and is loaded when a Makie backend (`CairoMakie`, `GLMakie`, `WGLMakie`)
 is available.
 
-# Arguments
-- `pulse::AbstractPulse`: The pulse to animate.
+# Keyword Arguments (shared)
+- `fps::Int`: Frames per second (single-pulse default `24`, sweep default `12`).
+- `mode::Symbol`: `:inline` or `:record`. Default `:inline`.
+- `filename::String`: Output path when `mode = :record`.
+- `n_samples::Int`: Samples per pulse / animation frames (must be ≥ 2).
+- `labels`: Optional drive labels, one per drive.
+- `title::AbstractString`: Figure/panel title.
 
-# Keyword Arguments
-- `fps::Int`: Frames per second. Default `24`.
-- `mode::Symbol`: `:inline` (interactive, requires `GLMakie`) or `:record` (save to
-  file, works with `CairoMakie`). Default `:inline`.
-- `filename::String`: Output path when `mode = :record`. Default `"pulse_animation.mp4"`.
-- `n_samples::Int`: Number of animation frames / pulse sample points (must be ≥ 2).
-- `labels`: Optional drive labels, one per drive. Defaults to the pulse's drive name.
+Single-pulse only:
 - `populations`: Optional matrix (rows = populations, columns = time samples) drawn
-  in a second panel.
-- `population_times`: Optional time grid for the population samples.
-- `population_labels`: Optional labels for the population rows.
-- `title::AbstractString`: Title for the pulse panel.
+  in a second panel; `population_times` and `population_labels` configure it.
+
+Sweep only:
+- `layout::Symbol`: `:stacked` (one axis per drive) or `:overlay` (all drives on one axis).
+- `parameter_values`, `parameter_label`: Per-frame annotation for the sweep.
 
 # Returns
 - A Makie `Figure` (potentially mutated by the animation loop).
 
 # Backend Compatibility
-- **GLMakie**: both `:inline` and `:record`.
-- **CairoMakie**: `:record` only (`:inline` cannot re-render).
+- **GLMakie**: both `:inline` and `:record`. **CairoMakie**: `:record` only.
+
+# Examples
+
+```julia
+using GLMakie
+
+# single-pulse reveal
+animate_pulse(GaussianPulse([0.8, 0.45], 1.0, 10.0))
+
+# parameter sweep
+amps = range(0.2, 1.0, length = 40)
+animate_pulse([GaussianPulse([a, 0.5a], 1.0, 10.0) for a in amps];
+              parameter_values = amps, parameter_label = "amplitude")
+```
 
 See also: `animate_figure`, `animate_name`, `plot_pulse`.
 """

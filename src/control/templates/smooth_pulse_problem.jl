@@ -578,6 +578,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = indices,
+        iso_layout = :interleaved_columns,
     )
 end
 
@@ -595,6 +596,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
+        iso_layout = :block,
     )
 end
 
@@ -612,6 +614,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
+        iso_layout = :compact_density,
     )
 end
 
@@ -693,6 +696,7 @@ function _apply_piccolo_options(
         traj;
         state_names = snames,
         state_leakage_indices = leakage_indices,
+        iso_layout = :block,
     )
 end
 

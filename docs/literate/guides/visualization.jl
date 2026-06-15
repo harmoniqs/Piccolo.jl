@@ -87,6 +87,28 @@ optimized_traj = get_trajectory(qcp)
 optimized_pulse = ZeroOrderPulse(optimized_traj)
 fig = plot_pulse(optimized_pulse; title = "Optimized Pulse")
 
+# ### Pulse animation
+#
+# `animate_pulse` turns a vector of pulses into a parameter sweep animation.
+# This is useful when comparing candidate pulses from a scan or showing how a
+# waveform responds to parameter changes. Use `mode = :record` with `CairoMakie`
+# for documentation-friendly `.gif` or `.mp4` output:
+
+amplitudes = collect(range(0.2, 1.0, length = 24))
+pulse_sweep =
+    [GaussianPulse([amp, 0.5 * amp], 1.0, T; center = T / 2) for amp in amplitudes]
+
+animate_pulse(
+    pulse_sweep;
+    mode = :record,
+    filename = "pulse_parameter_sweep.gif",
+    fps = 12,
+    parameter_values = amplitudes,
+    parameter_label = "amplitude",
+    title = "Gaussian pulse sweep",
+)
+nothing # hide
+
 # ## Basic Trajectory Plotting
 #
 # The `plot` function from NamedTrajectories.jl plots trajectory components

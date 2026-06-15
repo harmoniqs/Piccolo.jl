@@ -175,11 +175,20 @@ save("control_plot.svg", fig1)
 # ## Animating Trajectories
 #
 # Create animations to visualize time evolution.
-# Note: Animation functions like `animate_bloch` and `animate_wigner`
-# are available for specific visualization types.
+# Note: Animation functions like `animate_pulse`, `animate_bloch`, and
+# `animate_wigner` are available for specific visualization types.
 
-## Example: Save an animation of control evolution
-## animate_figure(fig, traj; filename="animation.gif")
+## Animate a simple amplitude sweep
+amps = collect(range(0.2, 1.0, length = 16))
+pulse_sweep = [GaussianPulse([amp, 0.5 * amp], 1.0, T) for amp in amps]
+animate_pulse(
+    pulse_sweep;
+    mode = :record,
+    filename = "pulse_sweep.gif",
+    parameter_values = amps,
+    parameter_label = "amplitude",
+)
+nothing # hide
 
 # # Figure Customization
 #
@@ -260,7 +269,7 @@ fig9
 #
 # - **Basic plotting**: `plot(trajectory, components)` for any trajectory variables
 # - **Quantum plots**: `plot_unitary_populations`, `plot_state_populations`
-# - **Animation**: `animate_figure`, `animate_bloch`, `animate_wigner`
+# - **Animation**: `animate_figure`, `animate_pulse`, `animate_bloch`, `animate_wigner`
 # - **Custom plotting**: Full access to Makie's powerful plotting capabilities
 # - **Multiple backends**: CairoMakie (static), GLMakie (interactive), WGLMakie (web)
 # - **Export options**: PNG, PDF, SVG formats
