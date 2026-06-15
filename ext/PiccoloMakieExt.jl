@@ -279,6 +279,190 @@ end
 
 
 # ---------------------------------------------------------------------------- #
+# animate_pulse — implementation of stub in src/visualizations/animations.jl
+# ---------------------------------------------------------------------------- #
+#
+# Pure orchestration: rendering is delegated to `plot_pulse!`, which already
+# chooses the correct per-type primitive (stairs / knot-lines / dense curve),
+# theme-aware colors, and zero-reference handling. This file only drives the
+# `t_max` playhead observable and lays out the figure.
+
+# Symmetric padding around a value range so the axis limits don't clip the curve
+# or rescale mid-animation. Degenerate (flat) ranges get a unit window.
+function _padded_extrema(values; pad::Float64 = 0.08)
+    lo, hi = extrema(values)
+    if lo == hi
+        return lo - 0.5, hi + 0.5
+    end
+    margin = pad * (hi - lo)
+    return lo - margin, hi + margin
+end
+
+function Piccolo.animate_pulse(
+    pulse::Piccolo.AbstractPulse;
+    fps::Int = 24,
+    mode::Symbol = :inline,
+    filename::String = "pulse_animation.mp4",
+    n_samples::Int = 240,
+    labels = nothing,
+    populations = nothing,
+    population_times = nothing,
+    population_labels = nothing,
+    title::AbstractString = "Pulse evolution",
+)
+    n_samples >= 2 || throw(ArgumentError("n_samples must be at least 2, got $n_samples."))
+
+    nd = n_drives(pulse)
+    pulse_times = collect(range(0.0, duration(pulse), length = n_samples))
+    # Full static sample is only used to lock axis limits and find the ghost extent;
+    # the actual revealed curve is drawn by `plot_pulse!` via the `t_max` observable.
+    pulse_values = sample(pulse, pulse_times)
+
+    drive_labels = if isnothing(labels)
+        QuantumObjectPlots._default_drive_labels(pulse)
+    else
+        length(labels) == nd ||
+            throw(ArgumentError("labels must contain one entry per pulse drive ($nd)."))
+        collect(labels)
+    end
+
+    # --- optional population panel -------------------------------------------
+    has_populations = !isnothing(populations)
+    population_values = nothing
+    pop_times = nothing
+    pop_labels = nothing
+    n_pop = 0
+    if has_populations
+        population_values = Matrix(populations)
+        size(population_values, 2) >= 2 ||
+            throw(ArgumentError("populations must have at least two time samples."))
+        n_pop = size(population_values, 1)
+        pop_times =
+            isnothing(population_times) ?
+            collect(
+                range(
+                    pulse_times[1],
+                    pulse_times[end],
+                    length = size(population_values, 2),
+                ),
+            ) : collect(population_times)
+        length(pop_times) == size(population_values, 2) || throw(
+            ArgumentError("population_times must match the number of population samples."),
+        )
+        pop_labels = if isnothing(population_labels)
+            ["Population $i" for i = 1:n_pop]
+        else
+            length(population_labels) == n_pop || throw(
+                ArgumentError(
+                    "population_labels must contain one entry per population row.",
+                ),
+            )
+            collect(population_labels)
+        end
+    end
+
+    # --- figure + pulse panel ------------------------------------------------
+    fig = Figure(size = has_populations ? (900, 620) : (900, 380))
+    pulse_axis = Axis(
+        fig[1, 1];
+        xlabel = has_populations ? "" : "Time",
+        xticklabelsvisible = !has_populations,
+        ylabel = "Amplitude",
+        title = title,
+        titlealign = :left,
+    )
+    xlims!(pulse_axis, pulse_times[1], pulse_times[end])
+    ylims!(pulse_axis, _padded_extrema(pulse_values)...)
+
+    t_max = Observable(pulse_times[1])
+
+    # (1) Type-aware ghost: full pulse at low alpha, via the same dispatch.
+    ghost_colors = [(QuantumObjectPlots._drive_color(i), 0.18) for i = 1:nd]
+    plot_pulse!(pulse_axis, pulse; show_knots = false, colors = ghost_colors)
+
+    # (2) Type-aware reveal: observable-driven, correct primitive per pulse type.
+    reveal_colors = [QuantumObjectPlots._drive_color(i) for i = 1:nd]
+    plot_pulse!(pulse_axis, pulse; show_knots = false, colors = reveal_colors, t_max)
+
+    # (3) Leading-edge marker per drive. `pulse(t)` gives the right value for any
+    # type automatically; the marker also carries the legend label.
+    for i = 1:nd
+        c = QuantumObjectPlots._drive_color(i)
+        pt = @lift [Point2f($t_max, pulse($t_max)[i])]
+        scatter!(
+            pulse_axis,
+            pt;
+            color = c,
+            markersize = 10,
+            strokewidth = 1,
+            strokecolor = :white,
+            label = string(drive_labels[i]),
+        )
+    end
+    axislegend(pulse_axis, position = :rt)
+
+    # --- population panel (generic line reveal; not pulse-specific) -----------
+    if has_populations
+        population_axis = Axis(
+            fig[2, 1];
+            xlabel = "Time",
+            ylabel = "Population",
+            title = "State populations",
+            titlealign = :left,
+        )
+        xlims!(population_axis, pop_times[1], pop_times[end])
+        ylims!(population_axis, _padded_extrema(population_values)...)
+
+        for j = 1:n_pop
+            c = QuantumObjectPlots._drive_color(nd + j)
+            lines!(
+                population_axis,
+                pop_times,
+                vec(population_values[j, :]);
+                color = (c, 0.18),
+                linewidth = 1,
+            )
+            xs = @lift pop_times[1:max(1, searchsortedlast(pop_times, $t_max))]
+            ys = @lift vec(
+                population_values[j, 1:max(1, searchsortedlast(pop_times, $t_max))],
+            )
+            lines!(
+                population_axis,
+                xs,
+                ys;
+                color = c,
+                linewidth = 3,
+                label = string(pop_labels[j]),
+            )
+            mk = @lift begin
+                k = max(1, searchsortedlast(pop_times, $t_max))
+                [Point2f(pop_times[k], population_values[j, k])]
+            end
+            scatter!(
+                population_axis,
+                mk;
+                color = c,
+                markersize = 10,
+                strokewidth = 1,
+                strokecolor = :white,
+            )
+        end
+        axislegend(population_axis, position = :rt)
+    end
+
+    update_frame!(i) = (t_max[] = pulse_times[i])
+    return Piccolo.animate_figure(
+        fig,
+        1:n_samples,
+        update_frame!;
+        mode = mode,
+        fps = fps,
+        filename = filename,
+    )
+end
+
+
+# ---------------------------------------------------------------------------- #
 # LivePulsePlotCallback — implementation of stub in src/visualizations/live_callbacks.jl
 # ---------------------------------------------------------------------------- #
 
@@ -458,6 +642,90 @@ end
         parameter_label = "amplitude",
     )
     @test fig_sweep isa Figure
+end
+
+
+@testitem "animate_pulse: :record writes mp4 (ZeroOrderPulse, type-aware reveal)" begin
+    using CairoMakie
+
+    times = collect(range(0, 4.0, length = 12))
+    controls = vcat((0.6 .* sin.(times))', (0.4 .* cos.(times))')
+    pulse = ZeroOrderPulse(controls, times)
+
+    file = tempname() * ".mp4"
+    fig = animate_pulse(
+        pulse;
+        mode = :record,
+        filename = file,
+        n_samples = 20,
+        title = "ZOH evolution",
+    )
+
+    # Exercises the record path (CI coverage) and the ZeroOrderPulse stairs reveal.
+    @test fig isa Figure
+    @test isfile(file)
+    @test filesize(file) > 0
+end
+
+@testitem "animate_pulse: LinearSplinePulse reveal (:inline)" begin
+    using CairoMakie
+
+    times = collect(range(0, 3.0, length = 8))
+    controls = vcat((0.5 .* times)', (-0.3 .* times)')
+    pulse = LinearSplinePulse(controls, times)
+
+    fig = animate_pulse(pulse; mode = :inline, n_samples = 12)
+    @test fig isa Figure
+end
+
+@testitem "animate_pulse: no populations (Gaussian, :inline)" begin
+    using CairoMakie
+
+    T = 6.0
+    pulse = GaussianPulse([0.8, 0.45], T / 6, T)
+
+    # Exercises the populations-off branch.
+    fig = animate_pulse(pulse; mode = :inline, n_samples = 16, labels = ["Ω_x", "Ω_y"])
+    @test fig isa Figure
+end
+
+@testitem "animate_pulse: with populations (Gaussian, :inline)" begin
+    using CairoMakie
+
+    T = 6.0
+    pulse = GaussianPulse([0.8, 0.45], T / 6, T)
+    ts = collect(range(0, T, length = 30))
+    pops = vcat((cos.(π .* ts ./ (2T)) .^ 2)', (sin.(π .* ts ./ (2T)) .^ 2)')
+
+    fig = animate_pulse(
+        pulse;
+        mode = :inline,
+        n_samples = 16,
+        populations = pops,
+        population_times = ts,
+        population_labels = ["|0⟩", "|1⟩"],
+    )
+    @test fig isa Figure
+end
+
+@testitem "animate_pulse: error contract" begin
+    using CairoMakie
+
+    T = 4.0
+    pulse = GaussianPulse([0.5, 0.3], T / 6, T)  # 2 drives
+
+    # n_samples must be >= 2
+    @test_throws ArgumentError animate_pulse(pulse; n_samples = 1)
+    # labels must match drive count
+    @test_throws ArgumentError animate_pulse(pulse; labels = ["only-one"])
+    # populations need >= 2 time samples
+    @test_throws ArgumentError animate_pulse(pulse; populations = reshape([0.1, 0.9], 2, 1))
+    # population_labels must match population row count
+    @test_throws ArgumentError animate_pulse(
+        pulse;
+        populations = reshape([0.1, 0.9, 0.2, 0.8], 2, 2),
+        population_labels = ["only-one"],
+    )
 end
 
 
