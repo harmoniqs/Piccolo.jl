@@ -45,7 +45,7 @@ Random.seed!(1234)  # For reproducibility
 # where ``g_{ij}`` determines the coupling strength between qubits ``i`` and ``j``.
 #
 # We could build the drift and control Hamiltonians ourselves and
-# contruct the quantum system directly, but we use Piccolo.jl's
+# construct the quantum system directly, but we use Piccolo.jl's
 # `MultiTransmonSystem` constructor to easily build the system.
 
 ωs = [4.0, 4.1]            # transmon frequencies (GHz)
