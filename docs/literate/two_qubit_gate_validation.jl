@@ -83,7 +83,7 @@ sys = MultiTransmonSystem(ωs, δs, gs; levels_per_transmon = 2, drive_bounds = 
 
 U_goal = EmbeddedOperator(GATES[:CX], sys)
 
-# We set an gate duration of ``T = 10`` ns. The timestep size ``\Delta t`` is
+# We set a gate duration of ``T = 10`` ns. The timestep size ``\Delta t`` is
 # left as a free optimization variable, so the optimizer may adjust the total
 # duration slightly. For each pulse type, we use the same number of control
 # parameters (knots).
