@@ -68,7 +68,7 @@ sys = MultiTransmonSystem(ωs, δs, gs; levels_per_transmon = 2, drive_bounds = 
 #        fidelity.
 #
 #     When synthesizing a gate for real hardware, at least 3 levels should be
-#     modeled for each qubit in order to suppress leakege to excited states
+#     modeled for each qubit in order to suppress leakage to excited states
 #     outside of the computational subspace. Additionally, ``g`` will by in the
 #     1-10 MHz range, which will require a much longer gate duration.
 #
