@@ -15,6 +15,7 @@ export FinalUnitaryFidelityConstraint
 export FinalCoherentKetFidelityConstraint
 export FinalDensityFidelityConstraint
 export LeakageConstraint
+export BoundStateL2Constraint
 
 # ---------------------------------------------------------
 #                        Kets
@@ -313,6 +314,148 @@ function LeakageConstraint(
 end
 
 # ---------------------------------------------------------
+# Bound State L2 Constraint
+# ---------------------------------------------------------
+
+"""
+    _compact_iso_index_map(n::Int)
+
+Precompute index arrays for the compact density isomorphism of an `n × n`
+Hermitian matrix. Returns vectors (not Dicts) for closure-capture performance:
+- `re_idx_pairs`: Re index for each off-diagonal pair (j<k), length n(n-1)/2
+- `im_idx_pairs`: Im index for each off-diagonal pair, same length
+- `diag_j_pairs`: diagonal index ρ_jj for each pair
+- `diag_k_pairs`: diagonal index ρ_kk for each pair
+"""
+function _compact_iso_index_map(n::Int)
+    # Re upper triangle indices (column-major: j <= k)
+    re_map = Matrix{Int}(undef, n, n)
+    idx = 0
+    for k = 1:n, j = 1:k
+        idx += 1
+        re_map[j, k] = idx
+    end
+
+    # Im strict upper triangle indices (column-major: j < k)
+    im_map = Matrix{Int}(undef, n, n)
+    for k = 2:n, j = 1:(k-1)
+        idx += 1
+        im_map[j, k] = idx
+    end
+
+    # Build flat arrays for each off-diagonal pair
+    n_pairs = n * (n - 1) ÷ 2
+    re_idx_pairs = Vector{Int}(undef, n_pairs)
+    im_idx_pairs = Vector{Int}(undef, n_pairs)
+    diag_j_pairs = Vector{Int}(undef, n_pairs)
+    diag_k_pairs = Vector{Int}(undef, n_pairs)
+    p = 0
+    for k = 2:n, j = 1:(k-1)
+        p += 1
+        re_idx_pairs[p] = re_map[j, k]
+        im_idx_pairs[p] = im_map[j, k]
+        diag_j_pairs[p] = re_map[j, j]
+        diag_k_pairs[p] = re_map[k, k]
+    end
+
+    return re_idx_pairs, im_idx_pairs, diag_j_pairs, diag_k_pairs
+end
+
+"""
+    BoundStateL2Constraint(name, traj, iso_layout; times=1:traj.N)
+
+Constrain each complex component's magnitude via a layout-dependent nonlinear
+inequality constraint.
+
+`iso_layout` determines the Re/Im index pairing:
+- `:block` — ket iso `ψ̃ = [Re(ψ); Im(ψ)]`, pairs `(k, n+k)` for `k=1:n`.
+  Constraint: `Re² + Im² - 1 ≤ 0` per complex entry.
+- `:interleaved_columns` — unitary iso `Ũ⃗`, per-column `[Re(col); Im(col)]`,
+  pairs `(offset+j, offset+d+j)` within each `2d`-stride column block.
+  Constraint: `Re² + Im² - 1 ≤ 0` per complex entry.
+- `:compact_density` — compact density iso `ρ⃗̃`, with Re upper-triangle block
+  followed by Im strict-upper-triangle block. Enforces the Cauchy-Schwarz
+  bound `Re(ρ_jk)² + Im(ρ_jk)² - ρ_jj · ρ_kk ≤ 0` per off-diagonal pair.
+"""
+function BoundStateL2Constraint(
+    name::Symbol,
+    traj::NamedTrajectory,
+    iso_layout::Symbol;
+    times = 1:traj.N,
+)
+    dim = traj.dims[name]
+
+    if iso_layout == :block
+        n = dim ÷ 2
+        function block_constraint(x)
+            re = x[1:n]
+            im = x[(n+1):2n]
+            return re .^ 2 .+ im .^ 2 .- 1.0
+        end
+        return NonlinearKnotPointConstraint(
+            block_constraint,
+            name,
+            traj;
+            equality = false,
+            times = times,
+        )
+    elseif iso_layout == :interleaved_columns
+        d = isqrt(dim ÷ 2)
+        n_complex = d * d
+        function interleaved_constraint(x)
+            result = Vector{eltype(x)}(undef, n_complex)
+            idx = 1
+            for col = 0:(d-1)
+                offset = col * 2d
+                for row = 1:d
+                    re = x[offset+row]
+                    im = x[offset+d+row]
+                    result[idx] = re^2 + im^2 - 1.0
+                    idx += 1
+                end
+            end
+            return result
+        end
+        return NonlinearKnotPointConstraint(
+            interleaved_constraint,
+            name,
+            traj;
+            equality = false,
+            times = times,
+        )
+    elseif iso_layout == :compact_density
+        n = isqrt(dim)
+        re_idx, im_idx, dj_idx, dk_idx = _compact_iso_index_map(n)
+        n_pairs = n * (n - 1) ÷ 2
+        function density_constraint(x)
+            result = Vector{eltype(x)}(undef, n_pairs)
+            for p = 1:n_pairs
+                re = x[re_idx[p]]
+                im = x[im_idx[p]]
+                ρ_jj = x[dj_idx[p]]
+                ρ_kk = x[dk_idx[p]]
+                result[p] = re^2 + im^2 - ρ_jj * ρ_kk
+            end
+            return result
+        end
+        return NonlinearKnotPointConstraint(
+            density_constraint,
+            name,
+            traj;
+            equality = false,
+            times = times,
+        )
+    else
+        throw(
+            ArgumentError(
+                "Unknown iso_layout :$iso_layout. " *
+                "Expected :block, :interleaved_columns, or :compact_density.",
+            ),
+        )
+    end
+end
+
+# ---------------------------------------------------------
 #                         Tests
 # ---------------------------------------------------------
 
@@ -383,6 +526,139 @@ end
     @test constraint.equality == false
     @test constraint.times == [traj.N]
     @test constraint.g_dim == 1
+end
+
+@testitem "BoundStateL2Constraint block layout" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    N = 5
+    # 4-dim iso-vec = 2 complex components (block layout: [Re; Im])
+    traj = NamedTrajectory(
+        (ψ̃ = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    con = BoundStateL2Constraint(:ψ̃, traj, :block)
+    @test con isa DirectTrajOpt.AbstractNonlinearConstraint
+    @test con.equality == false
+    # 2 complex components → 2 inequality constraints
+    @test con.g_dim == 2
+
+    # Evaluate constraint at a known point: ψ̃ = [0.6, 0.8, 0.0, 0.0]
+    # Complex components: z₁ = 0.6+0i, z₂ = 0.8+0i
+    # |z₁|² - 1 = -0.64, |z₂|² - 1 = -0.36 (both satisfied)
+    x = [0.6, 0.8, 0.0, 0.0]
+    g = con.g(x, nothing)
+    @test g ≈ [0.36 - 1.0, 0.64 - 1.0]
+
+    # Point violating constraint: ψ̃ = [0.8, 0.0, 0.8, 0.0]
+    # z₁ = 0.8+0.8i → |z₁|² = 1.28 > 1
+    x2 = [0.8, 0.0, 0.8, 0.0]
+    g2 = con.g(x2, nothing)
+    @test g2[1] > 0  # violated
+end
+
+@testitem "BoundStateL2Constraint interleaved_columns layout" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    N = 5
+    # 2×2 unitary → 8-dim iso-vec (interleaved columns: [Re(col₁); Im(col₁); Re(col₂); Im(col₂)])
+    traj = NamedTrajectory(
+        (Ũ⃗ = rand(8, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    con = BoundStateL2Constraint(:Ũ⃗, traj, :interleaved_columns)
+    @test con isa DirectTrajOpt.AbstractNonlinearConstraint
+    @test con.equality == false
+    # 2×2 = 4 complex entries → 4 inequality constraints
+    @test con.g_dim == 4
+
+    # Identity matrix I₂: iso_vec = [1, 0, 0, 0, 0, 1, 0, 0]
+    # col₀: Re=[1,0], Im=[0,0] → z₁=1+0i, z₂=0+0i → |z|²-1 = [0, -1]
+    # col₁: Re=[0,1], Im=[0,0] → z₃=0+0i, z₄=1+0i → |z|²-1 = [-1, 0]
+    x = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    g = con.g(x, nothing)
+    @test g ≈ [0.0, -1.0, -1.0, 0.0]
+end
+
+@testitem "BoundStateL2Constraint invalid layout" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    N = 5
+    traj = NamedTrajectory(
+        (x = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    @test_throws ArgumentError BoundStateL2Constraint(:x, traj, :invalid)
+end
+
+@testitem "BoundStateL2Constraint compact_density layout" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    N = 5
+    # 2×2 density → compact iso dim = 4
+    # Layout: [Re(ρ₁₁), Re(ρ₁₂), Re(ρ₂₂), Im(ρ₁₂)]
+    traj = NamedTrajectory(
+        (ρ⃗̃ = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    con = BoundStateL2Constraint(:ρ⃗̃, traj, :compact_density)
+    @test con isa DirectTrajOpt.AbstractNonlinearConstraint
+    @test con.equality == false
+    # 2×2 has 1 off-diagonal pair → 1 Cauchy-Schwarz constraint
+    @test con.g_dim == 1
+
+    # Identity: ρ = I/2 → compact = [0.5, 0.0, 0.5, 0.0]
+    # Cauchy-Schwarz: 0² + 0² - 0.5*0.5 = -0.25 ≤ 0 (satisfied)
+    g = con.g([0.5, 0.0, 0.5, 0.0], nothing)
+    @test g ≈ [-0.25]
+
+    # Pure state |0⟩⟨0|: ρ = [1 0; 0 0] → compact = [1.0, 0.0, 0.0, 0.0]
+    # Cauchy-Schwarz: 0² + 0² - 1.0*0.0 = 0.0 ≤ 0 (tight, satisfied)
+    g2 = con.g([1.0, 0.0, 0.0, 0.0], nothing)
+    @test g2 ≈ [0.0]
+
+    # Violated: Re(ρ₁₂) = 0.8, ρ₁₁ = 0.5, ρ₂₂ = 0.5
+    # Cauchy-Schwarz: 0.8² + 0² - 0.5*0.5 = 0.64 - 0.25 = 0.39 > 0
+    g3 = con.g([0.5, 0.8, 0.5, 0.0], nothing)
+    @test g3[1] > 0
+end
+
+@testitem "BoundStateL2Constraint compact_density 3x3" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    N = 5
+    # 3×3 density → compact iso dim = 9
+    traj = NamedTrajectory(
+        (ρ⃗̃ = rand(9, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    con = BoundStateL2Constraint(:ρ⃗̃, traj, :compact_density)
+    @test con.equality == false
+    # 3×3 has 3 off-diagonal pairs → 3 constraints
+    @test con.g_dim == 3
+
+    # Identity: ρ = I/3 → compact = [1/3, 0, 1/3, 0, 0, 1/3, 0, 0, 0]
+    # All off-diagonal Re=Im=0, all diag=1/3
+    # Cauchy-Schwarz: 0 - (1/3)*(1/3) = -1/9 for each pair
+    x = [1/3, 0.0, 1/3, 0.0, 0.0, 1/3, 0.0, 0.0, 0.0]
+    g = con.g(x, nothing)
+    @test length(g) == 3
+    @test all(g .≈ -1/9)
 end
 
 end
