@@ -95,10 +95,8 @@ fig = plot_pulse(optimized_pulse; title = "Optimized Pulse")
 # for documentation-friendly `.gif` or `.mp4` output:
 
 amplitudes = collect(range(0.2, 1.0, length = 24))
-pulse_sweep = [
-    GaussianPulse([amp, 0.5 * amp], 1.0, T; center = T / 2)
-    for amp in amplitudes
-]
+pulse_sweep =
+    [GaussianPulse([amp, 0.5 * amp], 1.0, T; center = T / 2) for amp in amplitudes]
 
 animate_pulse(
     pulse_sweep;

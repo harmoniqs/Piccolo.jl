@@ -137,8 +137,9 @@ function Piccolo.animate_pulse(
     x_limits = (minimum(first.(times_by_frame)), maximum(last.(times_by_frame)))
     fig = Figure(size = layout == :stacked ? (800, 120 + 150 * nd) : (850, 460))
 
-    frame_text = isnothing(parameter_values) ? "$parameter_label 1" :
-                 "$parameter_label = $(parameter_values[1])"
+    frame_text =
+        isnothing(parameter_values) ? "$parameter_label 1" :
+        "$parameter_label = $(parameter_values[1])"
     header = Label(
         fig[0, 1],
         _frame_label(title, frame_text);
@@ -152,7 +153,8 @@ function Piccolo.animate_pulse(
     end
 
     y_limits_by_drive = [_pulse_y_limits(drive_values(drive)) for drive = 1:nd]
-    y_limits_overlay = _pulse_y_limits(vcat([vec(controls) for controls in controls_by_frame]...))
+    y_limits_overlay =
+        _pulse_y_limits(vcat([vec(controls) for controls in controls_by_frame]...))
 
     if layout == :stacked
         axes = Axis[]
@@ -167,12 +169,7 @@ function Piccolo.animate_pulse(
             push!(axes, ax)
         end
     else
-        ax = Axis(
-            fig[1, 1];
-            xlabel = "Time",
-            ylabel = "Amplitude",
-            titlealign = :left,
-        )
+        ax = Axis(fig[1, 1]; xlabel = "Time", ylabel = "Amplitude", titlealign = :left)
         Legend(
             fig[1, 2],
             [LineElement(; color = colors[i], linewidth = 2) for i = 1:nd],
@@ -183,8 +180,9 @@ function Piccolo.animate_pulse(
 
     function update_frame!(frame)
         idx = clamp(frame, 1, length(pulses))
-        frame_text = isnothing(parameter_values) ? "$parameter_label $idx" :
-                     "$parameter_label = $(parameter_values[idx])"
+        frame_text =
+            isnothing(parameter_values) ? "$parameter_label $idx" :
+            "$parameter_label = $(parameter_values[idx])"
         header.text[] = _frame_label(title, frame_text)
 
         if layout == :stacked
@@ -449,7 +447,8 @@ end
     using CairoMakie
     using Piccolo
 
-    pulses = [GaussianPulse([amp, 0.5 * amp], 0.2, 1.0) for amp in range(0.2, 0.6, length = 3)]
+    pulses =
+        [GaussianPulse([amp, 0.5 * amp], 0.2, 1.0) for amp in range(0.2, 0.6, length = 3)]
     fig_sweep = animate_pulse(
         pulses;
         mode = :inline,
