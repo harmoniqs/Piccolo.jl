@@ -149,15 +149,24 @@ function Piccolo.animate_pulse(
         n_pop = size(population_values, 1)
         pop_times =
             isnothing(population_times) ?
-            collect(range(pulse_times[1], pulse_times[end], length = size(population_values, 2))) :
-            collect(population_times)
-        length(pop_times) == size(population_values, 2) ||
-            throw(ArgumentError("population_times must match the number of population samples."))
+            collect(
+                range(
+                    pulse_times[1],
+                    pulse_times[end],
+                    length = size(population_values, 2),
+                ),
+            ) : collect(population_times)
+        length(pop_times) == size(population_values, 2) || throw(
+            ArgumentError("population_times must match the number of population samples."),
+        )
         pop_labels = if isnothing(population_labels)
             ["Population $i" for i = 1:n_pop]
         else
-            length(population_labels) == n_pop ||
-                throw(ArgumentError("population_labels must contain one entry per population row."))
+            length(population_labels) == n_pop || throw(
+                ArgumentError(
+                    "population_labels must contain one entry per population row.",
+                ),
+            )
             collect(population_labels)
         end
     end
@@ -224,8 +233,17 @@ function Piccolo.animate_pulse(
                 linewidth = 1,
             )
             xs = @lift pop_times[1:max(1, searchsortedlast(pop_times, $t_max))]
-            ys = @lift vec(population_values[j, 1:max(1, searchsortedlast(pop_times, $t_max))])
-            lines!(population_axis, xs, ys; color = c, linewidth = 3, label = string(pop_labels[j]))
+            ys = @lift vec(
+                population_values[j, 1:max(1, searchsortedlast(pop_times, $t_max))],
+            )
+            lines!(
+                population_axis,
+                xs,
+                ys;
+                color = c,
+                linewidth = 3,
+                label = string(pop_labels[j]),
+            )
             mk = @lift begin
                 k = max(1, searchsortedlast(pop_times, $t_max))
                 [Point2f(pop_times[k], population_values[j, k])]
