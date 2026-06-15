@@ -196,7 +196,7 @@ F_lin_piccolo = Piccolo.fidelity(qcp_lin)
 # ### Cubic Spline
 #
 # Next we optimize a cubic spline control pulse, whose control parameters
-# are control the pulse's value and the slope of the tangent line at several
+# are the pulse's value and the slope of the tangent line at several
 # points in time.
 #
 # We use the results from the previous optimization to set up a warm start.
