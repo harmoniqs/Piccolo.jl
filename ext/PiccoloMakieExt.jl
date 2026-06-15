@@ -50,6 +50,196 @@ function Piccolo.animate_figure(
 end
 
 
+function _pulse_sample_data(pulse::Piccolo.AbstractPulse, n_samples::Int)
+    controls, times = Piccolo.sample(pulse, n_samples)
+    return Matrix(controls), collect(times)
+end
+
+
+function _pulse_y_limits(values)
+    finite_values = Float64[x for x in vec(values) if isfinite(Float64(x))]
+    if isempty(finite_values)
+        return (-1.0, 1.0)
+    end
+
+    lo, hi = extrema(finite_values)
+    pad = 0.08 * (hi - lo)
+    if pad == 0
+        pad = 0.1 * max(abs(lo), 1.0)
+    end
+    return (lo - pad, hi + pad)
+end
+
+
+function _pulse_drive_labels(pulse::Piccolo.AbstractPulse, labels)
+    nd = Piccolo.n_drives(pulse)
+    if isnothing(labels)
+        return ["Drive $i" for i = 1:nd]
+    end
+
+    @assert length(labels) >= nd "labels must include one label per drive"
+    return collect(labels)
+end
+
+
+const _PULSE_ANIMATION_COLORS = Makie.wong_colors()
+
+
+function _pulse_animation_colors(nd::Int)
+    return [_PULSE_ANIMATION_COLORS[mod1(i, length(_PULSE_ANIMATION_COLORS))] for i = 1:nd]
+end
+
+
+function _animation_neutral()
+    try
+        theme = Makie.current_default_theme()
+        if haskey(theme, :textcolor)
+            return Makie.to_value(theme[:textcolor])
+        end
+    catch
+    end
+    return :black
+end
+
+
+function _frame_label(title::AbstractString, frame_text::AbstractString)
+    return isempty(frame_text) ? title : "$title\n$frame_text"
+end
+
+
+function Piccolo.animate_pulse(
+    pulses::AbstractVector{<:Piccolo.AbstractPulse};
+    fps::Int = 12,
+    mode::Symbol = :inline,
+    filename = "pulse_sweep_animation.mp4",
+    n_samples::Int = 240,
+    layout::Symbol = :stacked,
+    title::AbstractString = "Pulse parameter sweep",
+    labels = nothing,
+    parameter_values = nothing,
+    parameter_label::AbstractString = "Frame",
+)
+    @assert !isempty(pulses) "pulses cannot be empty"
+    @assert n_samples >= 2 "n_samples must be at least 2"
+    @assert layout in (:stacked, :overlay) "layout must be :stacked or :overlay"
+
+    nd = Piccolo.n_drives(first(pulses))
+    @assert all(Piccolo.n_drives(p) == nd for p in pulses) "all pulses must have the same number of drives"
+    if !isnothing(parameter_values)
+        @assert length(parameter_values) == length(pulses) "parameter_values must match the number of pulses"
+    end
+
+    sampled = [_pulse_sample_data(pulse, n_samples) for pulse in pulses]
+    controls_by_frame = [item[1] for item in sampled]
+    times_by_frame = [item[2] for item in sampled]
+    drive_labels = _pulse_drive_labels(first(pulses), labels)
+    colors = _pulse_animation_colors(nd)
+    x_limits = (minimum(first.(times_by_frame)), maximum(last.(times_by_frame)))
+    fig = Figure(size = layout == :stacked ? (800, 120 + 150 * nd) : (850, 460))
+
+    frame_text =
+        isnothing(parameter_values) ? "$parameter_label 1" :
+        "$parameter_label = $(parameter_values[1])"
+    header = Label(
+        fig[0, 1],
+        _frame_label(title, frame_text);
+        fontsize = 18,
+        font = :bold,
+        tellwidth = false,
+    )
+
+    function drive_values(drive)
+        return vcat([vec(controls[drive, :]) for controls in controls_by_frame]...)
+    end
+
+    y_limits_by_drive = [_pulse_y_limits(drive_values(drive)) for drive = 1:nd]
+    y_limits_overlay =
+        _pulse_y_limits(vcat([vec(controls) for controls in controls_by_frame]...))
+
+    if layout == :stacked
+        axes = Axis[]
+        for drive = 1:nd
+            ax = Axis(
+                fig[drive, 1];
+                xlabel = drive == nd ? "Time" : "",
+                xticklabelsvisible = drive == nd,
+                ylabel = drive_labels[drive],
+                titlealign = :left,
+            )
+            push!(axes, ax)
+        end
+    else
+        ax = Axis(fig[1, 1]; xlabel = "Time", ylabel = "Amplitude", titlealign = :left)
+        Legend(
+            fig[1, 2],
+            [LineElement(; color = colors[i], linewidth = 2) for i = 1:nd],
+            drive_labels;
+            tellheight = false,
+        )
+    end
+
+    function update_frame!(frame)
+        idx = clamp(frame, 1, length(pulses))
+        frame_text =
+            isnothing(parameter_values) ? "$parameter_label $idx" :
+            "$parameter_label = $(parameter_values[idx])"
+        header.text[] = _frame_label(title, frame_text)
+
+        if layout == :stacked
+            for drive = 1:nd
+                empty!(axes[drive])
+                hlines!(
+                    axes[drive],
+                    [0.0];
+                    color = (_animation_neutral(), 0.35),
+                    linestyle = :dash,
+                    linewidth = 0.5,
+                )
+                Piccolo.plot_pulse!(
+                    axes[drive],
+                    pulses[idx];
+                    drive_indices = [drive],
+                    n_samples = n_samples,
+                    show_knots = false,
+                    colors = [colors[drive]],
+                )
+                xlims!(axes[drive], x_limits...)
+                ylims!(axes[drive], y_limits_by_drive[drive]...)
+            end
+        else
+            empty!(ax)
+            hlines!(
+                ax,
+                [0.0];
+                color = (_animation_neutral(), 0.35),
+                linestyle = :dash,
+                linewidth = 0.5,
+            )
+            Piccolo.plot_pulse!(
+                ax,
+                pulses[idx];
+                n_samples = n_samples,
+                show_knots = false,
+                colors = colors,
+            )
+            xlims!(ax, x_limits...)
+            ylims!(ax, y_limits_overlay...)
+        end
+    end
+
+    update_frame!(1)
+
+    return Piccolo.animate_figure(
+        fig,
+        collect(1:length(pulses)),
+        update_frame!,
+        mode = mode,
+        fps = fps,
+        filename = filename,
+    )
+end
+
+
 function Piccolo.animate_name(
     traj::NamedTrajectory,
     name::Symbol;
@@ -251,6 +441,23 @@ end
 
     @test_throws ArgumentError LivePulsePlotCallback(qtraj, qcp.prob.trajectory; every = 0)
     @test_throws ArgumentError LivePulsePlotCallback(qtraj, qcp.prob.trajectory; every = -1)
+end
+
+@testitem "Test animate_pulse for pulse sweeps" begin
+    using CairoMakie
+    using Piccolo
+
+    pulses =
+        [GaussianPulse([amp, 0.5 * amp], 0.2, 1.0) for amp in range(0.2, 0.6, length = 3)]
+    fig_sweep = animate_pulse(
+        pulses;
+        mode = :inline,
+        fps = 10,
+        n_samples = 8,
+        parameter_values = collect(range(0.2, 0.6, length = 3)),
+        parameter_label = "amplitude",
+    )
+    @test fig_sweep isa Figure
 end
 
 
