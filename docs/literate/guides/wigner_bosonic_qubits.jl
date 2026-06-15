@@ -29,7 +29,8 @@ function wigner_panel(ket; title, res = 0.1, lim = 4.0)
         (ψ̃ = hcat(ket_to_iso(ComplexF64.(ket))), Δt = [1.0]),
         timestep = :Δt,
     )
-    fig = plot_wigner(traj, 1; state_name = :ψ̃, xvec = -lim:res:lim, yvec = -lim:res:lim)
+    fig =
+        plot_wigner(traj, 1; state_name = :ψ̃, xvec = (-lim):res:lim, yvec = (-lim):res:lim)
     fig.attributes[:label][].text[] = title
     return fig
 end
