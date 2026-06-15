@@ -214,9 +214,10 @@ fig_comparison
 
 # ## 3D Surface Plot
 #
-# For presentations, 3D surface plots can be more visually striking.
-
-using GLMakie  # Better for 3D rendering
+# For presentations, 3D surface plots can be more visually striking. These
+# static surfaces render with the `CairoMakie` backend already loaded above;
+# for an interactive, rotatable view, load `GLMakie` locally (`using GLMakie`).
+# The docs build renders static images only.
 
 ## Create cat state Wigner data
 xvec_3d = -3:0.15:3
@@ -248,8 +249,9 @@ fig_3d
 # ## Animation: Rotating Cat State
 #
 # Animate a coherent state rotating in phase space to create a "rotating cat".
-
-using GLMakie  # Required for animations
+# Interactive `:inline` playback requires `GLMakie` when run locally; the docs
+# build doesn't load it, so the `animate_wigner` call below is left commented.
+# Use `mode = :record` with `CairoMakie` to save the animation to a file.
 
 ## Create time-evolving trajectory
 T = 60
