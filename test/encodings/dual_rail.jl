@@ -15,11 +15,11 @@
     @test enc_default.N == 2
 
     # Invalid conservation symbol
-    @test_throws AssertionError DualRailEncoding(n_qubits = 2, conservation = :bogus)
+    @test_throws ArgumentError DualRailEncoding(n_qubits = 2, conservation = :bogus)
     # N not divisible by n_qubits
-    @test_throws AssertionError DualRailEncoding(n_qubits = 2, N = 3)
+    @test_throws ArgumentError DualRailEncoding(n_qubits = 2, N = 3)
     # per-qubit excitation exceeds levels_per_rail - 1
-    @test_throws AssertionError DualRailEncoding(n_qubits = 1, levels_per_rail = 2, N = 2)
+    @test_throws ArgumentError DualRailEncoding(n_qubits = 1, levels_per_rail = 2, N = 2)
 end
 
 @testitem "DualRailEncoding: subspace_transform round-trip T'T = I" begin
@@ -59,6 +59,18 @@ end
     @test Matrix(reduce_to_subspace(O, enc)) ≈ O[idxs, idxs]
 end
 
+@testitem "DualRailEncoding: reduce_to_subspace preserves sparsity" begin
+    using SparseArrays
+
+    enc =
+        DualRailEncoding(n_qubits = 2, levels_per_rail = 2, conservation = :exact_N, N = 2)
+    full_dim = prod(enc.subspace_levels)
+    O = sprand(ComplexF64, full_dim, full_dim, 0.2)
+
+    O_sub = reduce_to_subspace(O, enc)
+    @test O_sub isa SparseMatrixCSC
+end
+
 @testitem "DualRailEncoding: target_states(:CX) for n=2" begin
     using LinearAlgebra: norm
 
@@ -75,6 +87,19 @@ end
     @test tg[2] == ψ[2]
     @test tg[3] == ψ[4]
     @test tg[4] == ψ[3]
+end
+
+@testitem "DualRailEncoding: target_states(:H) superposition re-encoding" begin
+    using LinearAlgebra: norm
+
+    enc =
+        DualRailEncoding(n_qubits = 1, levels_per_rail = 2, conservation = :exact_N, N = 1)
+    ψ = logical_basis_states(enc)
+    tg = target_states(:H, enc)
+
+    @test tg[1] ≈ (ψ[1] + ψ[2]) / √2
+    @test tg[2] ≈ (ψ[1] - ψ[2]) / √2
+    @test all(norm(s) ≈ 1 for s in tg)
 end
 
 @testitem "DualRailEncoding: target_states(:CCX) for n=3" begin

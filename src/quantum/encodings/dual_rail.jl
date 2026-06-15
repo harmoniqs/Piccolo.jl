@@ -77,12 +77,20 @@ function DualRailEncoding(;
     conservation::Symbol = :exact_N,
     N::Int = n_qubits,
 )
-    @assert n_qubits ≥ 1 "n_qubits must be ≥ 1"
-    @assert levels_per_rail ≥ 2 "levels_per_rail must be ≥ 2"
-    @assert conservation ∈ (:exact_N, :upto_N) "conservation must be :exact_N or :upto_N"
-    @assert N % n_qubits == 0 "N ($N) must be divisible by n_qubits ($n_qubits)"
+    n_qubits ≥ 1 ||
+        throw(ArgumentError("n_qubits must be ≥ 1, got $n_qubits"))
+    levels_per_rail ≥ 2 ||
+        throw(ArgumentError("levels_per_rail must be ≥ 2, got $levels_per_rail"))
+    conservation ∈ (:exact_N, :upto_N) ||
+        throw(ArgumentError("conservation must be :exact_N or :upto_N, got $conservation"))
+    N % n_qubits == 0 ||
+        throw(ArgumentError("N ($N) must be divisible by n_qubits ($n_qubits)"))
     n_per_qubit = N ÷ n_qubits
-    @assert n_per_qubit ≤ levels_per_rail - 1 "per-qubit excitation ($n_per_qubit) exceeds levels_per_rail - 1 ($(levels_per_rail - 1))"
+    n_per_qubit ≤ levels_per_rail - 1 || throw(
+        ArgumentError(
+            "per-qubit excitation ($n_per_qubit) exceeds levels_per_rail - 1 ($(levels_per_rail - 1))",
+        ),
+    )
     n_rails = 2 * n_qubits
     subspace_levels = fill(levels_per_rail, n_rails)
     return DualRailEncoding(
@@ -251,7 +259,11 @@ function target_states(gate::Symbol, enc::DualRailEncoding)
     end
     U = GATES[gate]
     n = enc.n_qubits
-    @assert size(U, 1) == 2^n "Gate dimension $(size(U, 1)) does not match 2^n_qubits = $(2^n)."
+    size(U, 1) == 2^n || throw(
+        ArgumentError(
+            "Gate dimension $(size(U, 1)) does not match 2^n_qubits = $(2^n).",
+        ),
+    )
     ψ_logical = logical_basis_states(enc)
     full_dim = length(ψ_logical[1])
     targets = Vector{Vector{ComplexF64}}(undef, 2^n)

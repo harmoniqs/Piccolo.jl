@@ -185,9 +185,15 @@ function EmbeddedOperator(
     qubit_indices::AbstractVector{Int} = collect(1:enc.n_qubits),
 )
     k = length(qubit_indices)
-    @assert size(subspace_operator, 1) == size(subspace_operator, 2) "Operator must be square."
-    @assert size(subspace_operator, 1) == 2^k "Operator dimension $(size(subspace_operator, 1)) does not match 2^length(qubit_indices) = $(2^k)."
-    @assert all(1 ≤ q ≤ enc.n_qubits for q ∈ qubit_indices) "qubit_indices must lie in 1:$(enc.n_qubits)."
+    size(subspace_operator, 1) == size(subspace_operator, 2) ||
+        throw(ArgumentError("Operator must be square."))
+    size(subspace_operator, 1) == 2^k || throw(
+        ArgumentError(
+            "Operator dimension $(size(subspace_operator, 1)) does not match 2^length(qubit_indices) = $(2^k).",
+        ),
+    )
+    all(1 ≤ q ≤ enc.n_qubits for q ∈ qubit_indices) ||
+        throw(ArgumentError("qubit_indices must lie in 1:$(enc.n_qubits)."))
 
     # Lift the (sub-register) logical operator to the full 2^n_qubits logical space.
     U_full =
