@@ -117,7 +117,16 @@ end
     @test qtraj_new isa DensityTrajectory
 end
 
-# Abstract type and common interface
+# ---------------------------------------------------------------------------- #
+# Module layout convention
+#
+# `AbstractQuantumTrajectory` behaviors (accessors, name helpers, display)
+# live in `trajectory_interface.jl`. User-facing rollouts, fidelity, and
+# system swaps live in `rollouts_extensions.jl` so they are easy to locate.
+# Concrete trajectory types each have their own file.
+# ---------------------------------------------------------------------------- #
+
+# Abstract type
 include("abstract_trajectory.jl")
 
 # Concrete trajectory types
@@ -128,8 +137,11 @@ include("density_trajectory.jl")
 include("multi_density_trajectory.jl")
 include("sampling_trajectory.jl")
 
-# Interface methods (getters, accessors, fidelity)
-include("interface.jl")
+# AbstractQuantumTrajectory interface (getters, name accessors, display)
+include("trajectory_interface.jl")
+
+# Rollouts / fidelity — user-facing solution-testing entry points
+include("rollouts_extensions.jl")
 
 # Extract pulse from optimized trajectories
 include("extract_pulse.jl")

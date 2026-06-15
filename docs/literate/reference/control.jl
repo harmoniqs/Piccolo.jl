@@ -146,7 +146,7 @@ opts = PiccoloOptions(
     leakage_constraint = true,
     leakage_constraint_value = 1e-2,
     leakage_cost = 1e-2,
-    verbose = true,
+    display = :standard,
 )
 
 # The options configured:

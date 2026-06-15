@@ -243,7 +243,8 @@ quantum/
 │   ├── ensemble_trajectory.jl     # MultiKetTrajectory
 │   ├── density_trajectory.jl      # DensityTrajectory
 │   ├── sampling_trajectory.jl     # SamplingTrajectory
-│   ├── interface.jl               # Common interface methods
+│   ├── trajectory_interface.jl   # Common accessors, Show / summary methods
+│   ├── rollouts_extensions.jl    # rollout!, rollout, fidelity, _update_system!
 │   ├── extract_pulse.jl           # Extract optimized pulse from trajectory
 │   └── named_trajectory_conversion.jl  # NamedTrajectory(qtraj, N)
 ├── quantum_system_templates/

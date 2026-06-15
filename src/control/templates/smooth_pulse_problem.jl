@@ -142,9 +142,8 @@ function SmoothPulseProblem(
         AbstractVector{<:AbstractVector{Int}},
     } = nothing,
 )
-    if piccolo_options.verbose
-        traj_type = split(string(typeof(qtraj).name.name), ".")[end]
-        println("    constructing SmoothPulseProblem for $traj_type...")
+    if _show_header(piccolo_options)
+        println("constructing SmoothPulseProblem [$(_typename(qtraj))]")
     end
 
     # Extract info from quantum trajectory
@@ -178,7 +177,7 @@ function SmoothPulseProblem(
                 global_data,
                 global_bounds;
                 initial_phases = initial_phases,
-                verbose = piccolo_options.verbose,
+                verbose = _show_details(piccolo_options),
             )
         end
     end
@@ -283,19 +282,19 @@ function SmoothPulseProblem(
         all_constraints,
         global_bounds,
         traj_smooth;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     apply_calibration_targets!(
         all_constraints,
         calibration_targets,
         traj_smooth;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob = DirectTrajOptProblem(traj_smooth, J, integrators; constraints = all_constraints)
 
-    return QuantumControlProblem(qtraj, prob)
+    return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #
@@ -378,9 +377,9 @@ function SmoothPulseProblem(
         AbstractVector{<:AbstractVector{Int}},
     } = nothing,
 )
-    if piccolo_options.verbose
+    if _show_header(piccolo_options)
         println(
-            "    constructing SmoothPulseProblem for MultiKetTrajectory ($(length(qtraj.initials)) states)...",
+            "    constructing SmoothPulseProblem for $(nameof(typeof(qtraj))) ($(length(qtraj.initials)) states)...",
         )
     end
 
@@ -410,7 +409,7 @@ function SmoothPulseProblem(
             global_data,
             global_bounds;
             initial_phases = initial_phases,
-            verbose = piccolo_options.verbose,
+            verbose = _show_details(piccolo_options),
         )
     end
 
@@ -501,19 +500,19 @@ function SmoothPulseProblem(
         all_constraints,
         global_bounds,
         traj_smooth;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     apply_calibration_targets!(
         all_constraints,
         calibration_targets,
         traj_smooth;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob = DirectTrajOptProblem(traj_smooth, J, integrators; constraints = all_constraints)
 
-    return QuantumControlProblem(qtraj, prob)
+    return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #
@@ -579,6 +578,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = indices,
+        iso_layout = :interleaved_columns,
     )
 end
 
@@ -596,6 +596,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
+        iso_layout = :block,
     )
 end
 
@@ -613,6 +614,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
+        iso_layout = :compact_density,
     )
 end
 
@@ -694,6 +696,7 @@ function _apply_piccolo_options(
         traj;
         state_names = snames,
         state_leakage_indices = leakage_indices,
+        iso_layout = :block,
     )
 end
 

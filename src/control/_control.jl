@@ -35,6 +35,9 @@ include("constraints.jl")
 include("integrators.jl")
 @reexport using .QuantumIntegrators
 
+include("display/_display.jl")
+@reexport using .ProblemDisplay
+
 include("templates/_problem_templates.jl")
 @reexport using .ProblemTemplates
 

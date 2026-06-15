@@ -103,6 +103,11 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 # - Fidelity objective (weight `Q`)
 # - Control regularization (weight `R`)
 # - Smoothness via derivative bounds
+#
+# By default each timestep ``\Delta t_k`` is an independent variable, so the
+# optimizer is free to choose a non-uniform time grid. Here we want the fixed,
+# evenly-spaced grid we defined above, so we set `timesteps_all_equal = true`
+# via [`PiccoloOptions`](@ref) to constrain every ``\Delta t_k`` to be equal.
 
 qcp = SmoothPulseProblem(
     qtraj,
@@ -110,6 +115,7 @@ qcp = SmoothPulseProblem(
     Q = 100.0,       # Fidelity weight (higher = prioritize fidelity)
     R = 1e-2,        # Regularization weight (higher = smoother controls)
     ddu_bound = 1.0,  # Limit on control acceleration
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true),
 )
 
 # ## Step 5: Solve!
@@ -134,25 +140,18 @@ round.(U_final, digits = 3)
 
 # ## Step 7: Visualize
 #
-# Plot the optimized control pulses:
+# Piccolo's `plot_pulse` renders the optimized controls straight from the
+# problem — no manual axis wrangling required. Passing `bounds = true` shades
+# each drive's amplitude limits so you can see how close the solution sits to
+# the hardware constraints, and `labels` ties each channel back to its
+# Hamiltonian term.
 
-fig = Figure(size = (800, 400))
+plot_pulse(qcp; bounds = true, labels = ["u_x", "u_y"], title = "Optimized Controls")
 
-## Time axis
-plot_times = cumsum([0; get_timesteps(traj)])[1:(end-1)]
+# Want to see the smoothness the regularizer enforced? Stack the control
+# velocity (``\dot{u}``) and acceleration (``\ddot{u}``) under the pulse:
 
-## Control pulses
-ax1 = Axis(
-    fig[1, 1],
-    xlabel = "Time",
-    ylabel = "Control Amplitude",
-    title = "Optimized Controls",
-)
-lines!(ax1, plot_times, traj[:u][1, :], label = "u_x (σ_x drive)", linewidth = 2)
-lines!(ax1, plot_times, traj[:u][2, :], label = "u_y (σ_y drive)", linewidth = 2)
-axislegend(ax1, position = :rt)
-
-fig
+plot_pulse(qcp; components = [:du, :ddu], title = "Controls and Derivatives")
 
 # ## Understanding the Solution
 #

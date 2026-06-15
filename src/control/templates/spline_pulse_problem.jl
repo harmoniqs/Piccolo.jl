@@ -49,11 +49,57 @@ Both pulse types always have `:du` components in the trajectory, simplifying int
 - `du_bound::Float64=Inf`: Uniform bound on derivative (slope) magnitude for all drives
 - `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
 - `Q::Float64=100.0`: Weight on infidelity/objective
-- `R::Float64=1e-2`: Weight on regularization terms
-- `R_u::Union{Float64, Vector{Float64}}=R`: Weight on control regularization
-- `R_du::Union{Float64, Vector{Float64}}=R`: Weight on derivative regularization  
+- `R::Float64=1e-2`: Weight on regularization terms (LinearSplinePulse only — see below)
+- `R_u::Union{Nothing, Float64, Vector{Float64}}=nothing`: Weight on control regularization. Pulse-type-dependent default — see below.
+- `R_du::Union{Nothing, Float64, Vector{Float64}}=nothing`: Weight on derivative regularization. Pulse-type-dependent default — see below.
 - `constraints::Vector{<:AbstractConstraint}=AbstractConstraint[]`: Additional constraints
+- `extra_objectives::Vector{<:AbstractObjective}=AbstractObjective[]`: Additional objective terms to compose into the problem's total objective (e.g., `Piccolissimo.HermiteBendingEnergyRegularizer`). Each entry is summed into the objective before constructing the underlying `DirectTrajOptProblem`. Default empty: no extra terms.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
+
+## Default regularisation by pulse type
+
+The L2 regularisers `R_u` and `R_du` have different roles for the two spline
+families, and the defaults reflect this:
+
+- **`LinearSplinePulse`**: `R_u` and `R_du` both default to `R = 1e-2`. The
+  `du` variable here is the constrained inter-knot slope, so a quadratic
+  penalty on it is the standard smoothness term.
+- **`CubicSplinePulse`**: `R_u` and `R_du` both default to `0.0`. Empirically
+  (see PR linked in the changelog) the same `1e-2` penalty actively biases
+  the optimiser toward small-amplitude flat pulses regardless of whether
+  that is needed — on a 2-qubit iSWAP problem it stalls fidelity at ≈ 0.91
+  versus ≈ 0.98+ at zero regularisation.
+
+Pass `R_u` or `R_du` explicitly to override these defaults.
+
+## Cubic-spline smoothness regularization
+
+For cubic-Hermite-spline smoothness regularization, pass
+`Piccolissimo.HermiteBendingEnergyRegularizer` via the `extra_objectives`
+kwarg. The regularizer is constructed from the *named trajectory* that the
+problem will use, so build the trajectory first via `NamedTrajectory(qtraj, K)`,
+construct the regularizer against it, then hand it to the template:
+
+```julia
+using Piccolissimo: HermiteBendingEnergyRegularizer
+
+qtraj = UnitaryTrajectory(sys, pulse, U_target)
+traj = NamedTrajectory(qtraj, K)
+bending_reg = HermiteBendingEnergyRegularizer(traj; R = 0.01)
+
+qcp = SplinePulseProblem(qtraj, K;
+    Q = 100.0,
+    extra_objectives = [bending_reg],
+    free_phase = true,
+    subsystem_levels = [2, 2],
+)
+solve!(qcp; max_iter = 500, eval_hessian = true)
+```
+
+The bending-energy term is intentionally not built into the template because
+that would create a Piccolo → Piccolissimo dependency cycle (Piccolissimo
+already depends on Piccolo). Any `AbstractObjective` defined against the same
+trajectory variables can be injected this way.
 
 # Returns
 - `QuantumControlProblem{<:AbstractQuantumTrajectory}`: Wrapper containing trajectory and optimization problem
@@ -91,9 +137,10 @@ function SplinePulseProblem(
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
-    R_u::Union{Float64,Vector{Float64}} = R,
-    R_du::Union{Float64,Vector{Float64}} = R,
+    R_u::Union{Nothing,Float64,Vector{Float64}} = nothing,
+    R_du::Union{Nothing,Float64,Vector{Float64}} = nothing,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
+    extra_objectives::Vector{<:AbstractObjective} = AbstractObjective[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
@@ -108,9 +155,16 @@ function SplinePulseProblem(
     control_sym = drive_name(qtraj)
     state_sym = state_name(qtraj)
 
-    if piccolo_options.verbose
-        pulse_type = typeof(qtraj.pulse)
-        println("    constructing SplinePulseProblem with $(pulse_type)...")
+    # Pulse-type-dependent regularisation defaults.
+    # See the "Default regularisation by pulse type" section of this template's docstring.
+    is_cubic = qtraj.pulse isa CubicSplinePulse
+    R_u_resolved = isnothing(R_u) ? (is_cubic ? 0.0 : R) : R_u
+    R_du_resolved = isnothing(R_du) ? (is_cubic ? 0.0 : R) : R_du
+
+    if _show_header(piccolo_options)
+        pulse_type = _typename(qtraj.pulse)
+        traj_type = _typename(qtraj)
+        println("constructing SplinePulseProblem [$traj_type / $pulse_type]")
     end
 
     # Build global_data from system's global_params if present
@@ -135,7 +189,7 @@ function SplinePulseProblem(
                 global_data,
                 global_bounds;
                 initial_phases = initial_phases,
-                verbose = piccolo_options.verbose,
+                verbose = _show_details(piccolo_options),
             )
         else
             # Unitary free-phase: requires EmbeddedOperator goal
@@ -148,7 +202,7 @@ function SplinePulseProblem(
                 global_data,
                 global_bounds;
                 initial_phases = initial_phases,
-                verbose = piccolo_options.verbose,
+                verbose = _show_details(piccolo_options),
             )
         end
     end
@@ -178,8 +232,8 @@ function SplinePulseProblem(
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         if !isnothing(_du_bounds_vec)
             update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
-            if piccolo_options.verbose
-                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
+            if _show_details(piccolo_options)
+                println("    du bounds (CubicSplinePulse): $(_fmt_bounds(_du_bounds_vec))")
             end
         end
         base_traj
@@ -235,8 +289,8 @@ function SplinePulseProblem(
     end
 
     # Add regularization for control and derivative
-    J += QuadraticRegularizer(control_sym, traj, R_u)
-    J += QuadraticRegularizer(du_sym, traj, R_du)
+    J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
+    J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
 
     # Apply piccolo options
     J += _apply_piccolo_options(
@@ -248,6 +302,14 @@ function SplinePulseProblem(
         state_leakage_indices = state_leakage_indices,
     )
 
+    # Compose user-supplied extra objective terms (e.g.,
+    # Piccolissimo.HermiteBendingEnergyRegularizer). Done after the built-in
+    # regularizers so the composite ordering reads: fidelity → built-in regs
+    # → piccolo-options terms → user extras.
+    for extra_obj in extra_objectives
+        J += extra_obj
+    end
+
     # Start with dynamics integrators
     integrators = copy(dynamics_integrators)
 
@@ -255,8 +317,8 @@ function SplinePulseProblem(
     # For CubicSplinePulse, :du values are Hermite tangents (independent DOFs), not constrained
     if is_linear_spline
         push!(integrators, DerivativeIntegrator(control_sym, du_sym, traj))
-        if piccolo_options.verbose
-            println("    added DerivativeIntegrator for LinearSplinePulse")
+        if _show_details(piccolo_options)
+            println("    added DerivativeIntegrator (LinearSplinePulse)")
         end
     end
 
@@ -266,7 +328,7 @@ function SplinePulseProblem(
         all_constraints,
         global_bounds,
         traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     # Pin calibration targets at nominal — must run AFTER bounds, since
@@ -275,12 +337,12 @@ function SplinePulseProblem(
         all_constraints,
         calibration_targets,
         traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob = DirectTrajOptProblem(traj, J, integrators; constraints = all_constraints)
 
-    return QuantumControlProblem(qtraj, prob)
+    return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #
@@ -304,7 +366,11 @@ Uses coherent fidelity objective (phases must align) for gate implementation.
   - `times::AbstractVector`: Specific sample times
 
 # Keyword Arguments
-Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method, plus:
+Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method,
+including pulse-type-dependent `R_u` / `R_du` defaults (see the base method's
+docstring for the full discussion, including how to attach
+`Piccolissimo.HermiteBendingEnergyRegularizer` for cubic-spline smoothness),
+plus:
 - `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
 - `free_phase::Bool=false`: Optimize a per-subsystem frame phase alongside the pulse. Applies number-operator rotation `e^{iθ n̂}` to goal states — level `s` acquires phase `s·θ`. Requires `subsystem_levels`.
 - `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
@@ -327,9 +393,10 @@ function SplinePulseProblem(
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     Q::Float64 = 100.0,
     R::Float64 = 1e-2,
-    R_u::Union{Float64,Vector{Float64}} = R,
-    R_du::Union{Float64,Vector{Float64}} = R,
+    R_u::Union{Nothing,Float64,Vector{Float64}} = nothing,
+    R_du::Union{Nothing,Float64,Vector{Float64}} = nothing,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
+    extra_objectives::Vector{<:AbstractObjective} = AbstractObjective[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
     free_phase::Bool = false,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
@@ -347,12 +414,16 @@ function SplinePulseProblem(
     weights = qtraj.weights
     goals = qtraj.goals
 
-    if piccolo_options.verbose
-        pulse_type = typeof(qtraj.pulse)
-        println(
-            "    constructing SplinePulseProblem for MultiKetTrajectory with $(pulse_type)...",
-        )
-        println("\twith $(length(qtraj.initials)) state transfers")
+    # Pulse-type-dependent regularisation defaults
+    # (see "Default regularisation by pulse type" in the unitary template docstring)
+    is_cubic = qtraj.pulse isa CubicSplinePulse
+    R_u_resolved = isnothing(R_u) ? (is_cubic ? 0.0 : R) : R_u
+    R_du_resolved = isnothing(R_du) ? (is_cubic ? 0.0 : R) : R_du
+
+    if _show_header(piccolo_options)
+        pulse_type = _typename(qtraj.pulse)
+        println("constructing SplinePulseProblem [MultiKetTrajectory / $pulse_type]")
+        println("    state transfers: $(length(qtraj.initials))")
     end
 
     # Build global_data explicitly from system global_params
@@ -374,7 +445,7 @@ function SplinePulseProblem(
             global_data,
             global_bounds;
             initial_phases = initial_phases,
-            verbose = piccolo_options.verbose,
+            verbose = _show_details(piccolo_options),
         )
     end
 
@@ -403,8 +474,8 @@ function SplinePulseProblem(
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         if !isnothing(_du_bounds_vec)
             update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
-            if piccolo_options.verbose
-                println("    set du bounds to ±$(_du_bounds_vec) for CubicSplinePulse")
+            if _show_details(piccolo_options)
+                println("    du bounds (CubicSplinePulse): $(_fmt_bounds(_du_bounds_vec))")
             end
         end
         base_traj
@@ -468,8 +539,8 @@ function SplinePulseProblem(
     end
 
     # Add regularization for control and derivative
-    J += QuadraticRegularizer(control_sym, traj, R_u)
-    J += QuadraticRegularizer(du_sym, traj, R_du)
+    J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
+    J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
 
     # Apply piccolo options for each state
     J += _apply_piccolo_options(
@@ -481,6 +552,13 @@ function SplinePulseProblem(
         state_leakage_indices = state_leakage_indices,
     )
 
+    # Compose user-supplied extra objective terms (e.g.,
+    # Piccolissimo.HermiteBendingEnergyRegularizer). Same ordering convention
+    # as the unitary method: fidelity → built-in regs → piccolo-options → extras.
+    for extra_obj in extra_objectives
+        J += extra_obj
+    end
+
     # Start with dynamics integrators
     integrators = copy(dynamics_integrators)
 
@@ -488,8 +566,8 @@ function SplinePulseProblem(
     # For CubicSplinePulse, :du values are Hermite tangents (independent DOFs), not constrained
     if is_linear_spline
         push!(integrators, DerivativeIntegrator(control_sym, du_sym, traj))
-        if piccolo_options.verbose
-            println("    added DerivativeIntegrator for LinearSplinePulse")
+        if _show_details(piccolo_options)
+            println("    added DerivativeIntegrator (LinearSplinePulse)")
         end
     end
 
@@ -499,19 +577,19 @@ function SplinePulseProblem(
         all_constraints,
         global_bounds,
         traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     apply_calibration_targets!(
         all_constraints,
         calibration_targets,
         traj;
-        verbose = piccolo_options.verbose,
+        verbose = _show_details(piccolo_options),
     )
 
     prob = DirectTrajOptProblem(traj, J, integrators; constraints = all_constraints)
 
-    return QuantumControlProblem(qtraj, prob)
+    return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
 # ============================================================================= #
@@ -528,12 +606,11 @@ function SplinePulseProblem(
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     kwargs...,
 ) where {P<:AbstractPulse}
-    pulse_type = P
     error(
         """
   SplinePulseProblem is only for spline-based pulses (LinearSplinePulse, CubicSplinePulse).
 
-  You provided a trajectory with pulse type: $(pulse_type)
+  You provided a trajectory with pulse type: $(nameof(P))
 
   For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
       qcp = SmoothPulseProblem(qtraj, N; ...)
@@ -781,7 +858,7 @@ end
             leakage_constraint = true,
             leakage_constraint_value = 1e-3,
             leakage_cost = 1.0,
-            verbose = false,
+            display = :silent,
         ),
         state_leakage_indices = [3, 6],
     )
@@ -1090,4 +1167,267 @@ end
     # coherent=false should construct without error
     qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, coherent = false)
     @test qcp isa QuantumControlProblem
+end
+
+# ============================================================================= #
+# Cubic-spline default-regularization tests
+# ============================================================================= #
+
+@testitem "SplinePulseProblem CubicSplinePulse default R_u, R_du are zero" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # CubicSplinePulse should default R_u = R_du = 0.0, NOT inherit R.
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    H_drift = 0.01 * σz
+    H_drives = [σx]
+    T = 10.0
+    N = 11
+    n_drives = 1
+
+    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(n_drives, N)
+    derivs = zeros(n_drives, N)
+    pulse = CubicSplinePulse(amps, derivs, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0)  # no explicit R_u, R_du
+
+    @test qcp isa QuantumControlProblem
+
+    # The QuadraticRegularizer on :u and :du should be present but with zero R.
+    composite = qcp.prob.objective
+    quad_regs = filter(
+        x -> x isa DirectTrajOpt.QuadraticRegularizer,
+        composite isa DirectTrajOpt.CompositeObjective ? composite.objectives : [composite],
+    )
+    R_us = [r.R for r in quad_regs if r.name == :u]
+    R_dus = [r.R for r in quad_regs if r.name == :du]
+    @test !isempty(R_us)
+    @test !isempty(R_dus)
+    @test all(all(R_us[1] .== 0.0))
+    @test all(all(R_dus[1] .== 0.0))
+end
+
+@testitem "SplinePulseProblem LinearSplinePulse default R_u, R_du = R" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # LinearSplinePulse should still inherit R for R_u and R_du (existing behavior).
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    H_drift = 0.01 * σz
+    H_drives = [σx]
+    T = 10.0
+    N = 21
+    n_drives = 1
+
+    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(n_drives, N)
+    pulse = LinearSplinePulse(amps, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    R = 1e-2
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = R)  # no explicit R_u, R_du
+
+    composite = qcp.prob.objective
+    quad_regs = filter(
+        x -> x isa DirectTrajOpt.QuadraticRegularizer,
+        composite isa DirectTrajOpt.CompositeObjective ? composite.objectives : [composite],
+    )
+    R_us = [r.R for r in quad_regs if r.name == :u]
+    R_dus = [r.R for r in quad_regs if r.name == :du]
+    @test !isempty(R_us)
+    @test !isempty(R_dus)
+    @test all(R_us[1] .≈ R)
+    @test all(R_dus[1] .≈ R)
+end
+
+@testitem "SplinePulseProblem CubicSplinePulse: defaults do not over-regularize X gate" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # With the new defaults (R_u = R_du = 0 for CubicSplinePulse), a simple
+    # single-qubit X gate problem should construct, evaluate, and produce a
+    # finite, non-negative objective whose regularisation term is exactly zero
+    # — confirming the empirically-validated headline of PR #214 (the
+    # cubic-spline `R = 1e-2` default was stalling fidelity at ≈ 0.91 vs 0.98+).
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(1, N)
+    derivs = zeros(1, N)
+    pulse = CubicSplinePulse(amps, derivs, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0)
+    @test qcp isa QuantumControlProblem
+
+    # The QuadraticRegularizer contribution must be exactly zero on any
+    # trajectory state — the defaults zero out R_u and R_du.
+    composite = qcp.prob.objective
+    quad_regs = filter(
+        x -> x isa DirectTrajOpt.QuadraticRegularizer,
+        composite isa DirectTrajOpt.CompositeObjective ? composite.objectives : [composite],
+    )
+    reg_J = sum(objective_value(r, qcp.prob.trajectory) for r in quad_regs; init = 0.0)
+    @test reg_J == 0.0
+
+    J = objective_value(qcp.prob.objective, qcp.prob.trajectory)
+    @test isfinite(J)
+    @test J ≥ 0.0
+end
+
+# ============================================================================= #
+# extra_objectives wiring tests
+# ============================================================================= #
+
+@testitem "SplinePulseProblem extra_objectives default is identity (unitary)" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Passing `extra_objectives = AbstractObjective[]` (the default) must
+    # produce the same composite-objective term count as omitting the kwarg.
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(1, N)
+    derivs = zeros(1, N)
+    pulse = CubicSplinePulse(amps, derivs, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0)
+    qcp_empty =
+        SplinePulseProblem(qtraj, N; Q = 100.0, extra_objectives = AbstractObjective[])
+
+    n_default =
+        qcp_default.prob.objective isa DirectTrajOpt.CompositeObjective ?
+        length(qcp_default.prob.objective.objectives) : 1
+    n_empty =
+        qcp_empty.prob.objective isa DirectTrajOpt.CompositeObjective ?
+        length(qcp_empty.prob.objective.objectives) : 1
+    @test n_default == n_empty
+
+    J_default = objective_value(qcp_default.prob.objective, qcp_default.prob.trajectory)
+    J_empty = objective_value(qcp_empty.prob.objective, qcp_empty.prob.trajectory)
+    @test J_default ≈ J_empty
+end
+
+@testitem "SplinePulseProblem extra_objectives appends and evaluates (unitary)" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Passing one extra QuadraticRegularizer (on an already-present trajectory
+    # variable) must (a) increase the composite term count by one and
+    # (b) increase the total objective value by exactly that regularizer's
+    # contribution.
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    amps = 0.5 * randn(1, N)  # nonzero so the regularizer actually contributes
+    derivs = zeros(1, N)
+    pulse = CubicSplinePulse(amps, derivs, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    qcp_baseline = SplinePulseProblem(qtraj, N; Q = 100.0)
+
+    # Build the extra regularizer against the actual trajectory we will use.
+    # The unitary template emits this same trajectory via NamedTrajectory(qtraj, N).
+    extra_R = 1e-1
+    traj_for_extra = qcp_baseline.prob.trajectory
+    extra_reg = QuadraticRegularizer(:u, traj_for_extra, extra_R)
+
+    qcp_extra = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        extra_objectives = AbstractObjective[extra_reg],
+    )
+
+    n_baseline =
+        qcp_baseline.prob.objective isa DirectTrajOpt.CompositeObjective ?
+        length(qcp_baseline.prob.objective.objectives) : 1
+    n_extra =
+        qcp_extra.prob.objective isa DirectTrajOpt.CompositeObjective ?
+        length(qcp_extra.prob.objective.objectives) : 1
+    @test n_extra == n_baseline + 1
+
+    # Sanity-check the value: extra objective is summed in linearly.
+    J_baseline = objective_value(qcp_baseline.prob.objective, qcp_baseline.prob.trajectory)
+    J_extra = objective_value(qcp_extra.prob.objective, qcp_extra.prob.trajectory)
+    extra_contribution = objective_value(extra_reg, qcp_extra.prob.trajectory)
+    @test J_extra ≈ J_baseline + extra_contribution
+    @test extra_contribution > 0.0  # nonzero pulse + nonzero R
+end
+
+@testitem "SplinePulseProblem extra_objectives appends and evaluates (MultiKet)" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Mirror of the unitary test for the MultiKetTrajectory method signature.
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.5 * randn(1, N), times)
+    qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp_baseline = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+
+    extra_R = 1e-1
+    traj_for_extra = qcp_baseline.prob.trajectory
+    extra_reg = QuadraticRegularizer(:u, traj_for_extra, extra_R)
+
+    qcp_extra = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        extra_objectives = AbstractObjective[extra_reg],
+    )
+
+    n_baseline =
+        qcp_baseline.prob.objective isa DirectTrajOpt.CompositeObjective ?
+        length(qcp_baseline.prob.objective.objectives) : 1
+    n_extra =
+        qcp_extra.prob.objective isa DirectTrajOpt.CompositeObjective ?
+        length(qcp_extra.prob.objective.objectives) : 1
+    @test n_extra == n_baseline + 1
+
+    J_baseline = objective_value(qcp_baseline.prob.objective, qcp_baseline.prob.trajectory)
+    J_extra = objective_value(qcp_extra.prob.objective, qcp_extra.prob.trajectory)
+    extra_contribution = objective_value(extra_reg, qcp_extra.prob.trajectory)
+    @test J_extra ≈ J_baseline + extra_contribution
 end
