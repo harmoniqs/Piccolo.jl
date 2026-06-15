@@ -123,7 +123,7 @@ Makie backend are present.
 
 # Arguments
 - `system::AbstractQuantumSystem`: The system whose drift/drives define the Hamiltonian.
-- `pulse::AbstractPulse`: A callable pulse; `pulse(t)` returns the a vector containing the value of each control pulse at time `t`.
+- `pulse::AbstractPulse`: A callable pulse; `pulse(t)` returns a vector containing the value of each control pulse at time `t`.
 - `ψ0::AbstractVector{<:Number}`: Initial ket in the full Hilbert space.
 
 # Keyword Arguments
