@@ -361,8 +361,8 @@ println("All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to 
 # We see that all pulses synthesize the CNOT gate with ``\geq 99.9`` %
 # fidelity, and that the reported fidelity agrees with the rollout fidelity
 # computed with QuantumToolbox. The fidelities reported by Piccolo for `ZeroOrderPulse` 
-# matches the rollout fidelity reported by QuantumToolbox matches more closely than 
-# any of the other pulses. This is because the discretized dynamics
+# match the rollout fidelities reported by QuantumToolbox more closely than for
+# any of the other pulses types. This is because the discretized dynamics
 # used in the optimization are exact for `ZeroOrderPulse`.
 
 # ## Step 5: Visualizing Population Dynamics
