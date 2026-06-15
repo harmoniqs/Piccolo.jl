@@ -18,6 +18,22 @@ using Piccolo
 using QuantumToolbox
 using CairoMakie  # For static plots
 
+# Each section below builds a state, wraps it in a single-timestep
+# `NamedTrajectory`, and renders its Wigner function. Rather than repeat that
+# ceremony, we capture it once — every section then varies only the physics
+# (the state, the phase-space resolution, and the title). `plot_wigner` already
+# drops a "Timestep N" label at row 0, which we overwrite with a domain title.
+
+function wigner_panel(ket; title, res = 0.1, lim = 4.0)
+    traj = NamedTrajectory(
+        (ψ̃ = hcat(ket_to_iso(ComplexF64.(ket))), Δt = [1.0]),
+        timestep = :Δt,
+    )
+    fig = plot_wigner(traj, 1; state_name = :ψ̃, xvec = -lim:res:lim, yvec = -lim:res:lim)
+    fig.attributes[:label][].text[] = title
+    return fig
+end
+
 # ## Mathematical Background
 #
 # The Wigner function W(α) maps a quantum state |ψ⟩ to phase space coordinates 
@@ -47,19 +63,10 @@ N = 30  # Fock space cutoff
 ## Create coherent state
 ψ_coherent = coherent(N, α)
 
-## Create trajectory (single timestep for static plot)
-traj_coherent =
-    NamedTrajectory((ψ̃ = hcat(ket_to_iso(ψ_coherent.data)), Δt = [1.0]), timestep = :Δt)
-
-## Plot Wigner function
-fig_coherent =
-    plot_wigner(traj_coherent, 1; state_name = :ψ̃, xvec = -4:0.1:4, yvec = -4:0.1:4)
-
-## Customize for publication quality. `plot_wigner` already drops a
-## "Timestep N" label at row 0; we replace it with a domain-relevant title.
-fig_coherent.attributes[:label][].text[] = "Coherent State |$(round(real(α), digits=1)) + $(round(imag(α), digits=1))i⟩"
-
-fig_coherent
+fig_coherent = wigner_panel(
+    ψ_coherent.data;
+    title = "Coherent State |$(round(real(α), digits=1)) + $(round(imag(α), digits=1))i⟩",
+)
 
 #md # !!! info "Coherent States"
 #md #     The Wigner function shows a single Gaussian peak centered at α = 2.0 + 1.5i 
@@ -75,15 +82,12 @@ fig_coherent
 n_photons = 3
 ψ_fock = fock(N, n_photons)
 
-traj_fock =
-    NamedTrajectory((ψ̃ = hcat(ket_to_iso(ψ_fock.data)), Δt = [1.0]), timestep = :Δt)
-
-## Plot with higher resolution to capture negative regions
-fig_fock = plot_wigner(traj_fock, 1; state_name = :ψ̃, xvec = -4:0.05:4, yvec = -4:0.05:4)
-
-fig_fock.attributes[:label][].text[] = "Fock State |$n_photons⟩ (Quantum Negativity)"
-
-fig_fock
+## Higher resolution (`res`) to capture the negative-region rings.
+fig_fock = wigner_panel(
+    ψ_fock.data;
+    title = "Fock State |$n_photons⟩ (Quantum Negativity)",
+    res = 0.05,
+)
 
 #md # !!! warning "Quantum Negativity"
 #md #     Notice the negative regions (blue) in the Wigner function! These cannot 
@@ -104,13 +108,11 @@ fig_fock
 cat_state = ψ_plus.data + ψ_minus.data
 cat_state = cat_state / norm(cat_state)  # Normalize
 
-traj_cat = NamedTrajectory((ψ̃ = hcat(ket_to_iso(cat_state)), Δt = [1.0]), timestep = :Δt)
-
-fig_cat = plot_wigner(traj_cat, 1; state_name = :ψ̃, xvec = -4:0.08:4, yvec = -4:0.08:4)
-
-fig_cat.attributes[:label][].text[] = "Even Cat State (|α⟩ + |-α⟩)/√2 with α = $α_cat"
-
-fig_cat
+fig_cat = wigner_panel(
+    cat_state;
+    title = "Even Cat State (|α⟩ + |-α⟩)/√2 with α = $α_cat",
+    res = 0.08,
+)
 
 #md # !!! tip "Interference Fringes"
 #md #     The cat state Wigner function shows two Gaussian peaks at ±α connected by 
@@ -324,15 +326,7 @@ cat_sys = (ψ_plus_sys + ψ_minus_sys) / norm(ψ_plus_sys + ψ_minus_sys)
 ## cavity/buffer indices and scramble the state. Take the cavity marginal:
 cat_subspace = cat_sys[1:buffer_levels:end]  # cavity levels with buffer in |0⟩
 
-traj_cat_sys =
-    NamedTrajectory((ψ̃ = hcat(ket_to_iso(cat_subspace)), Δt = [1.0]), timestep = :Δt)
-
-fig_cat_sys =
-    plot_wigner(traj_cat_sys, 1; state_name = :ψ̃, xvec = -4:0.1:4, yvec = -4:0.1:4)
-
-fig_cat_sys.attributes[:label][].text[] = "Cat State from CatSystem Template"
-
-fig_cat_sys
+fig_cat_sys = wigner_panel(cat_subspace; title = "Cat State from CatSystem Template")
 
 #md # !!! info "CatSystem"
 #md #     The `CatSystem` template provides a realistic model of cat qubit hardware 
