@@ -60,6 +60,12 @@ Modules = [Piccolo.Quantum.Rollouts]
 Modules = [Piccolo.Quantum.EmbeddedOperators]
 ```
 
+## [Dual-Rail Encodings](@id lib-dual-rail-encodings)
+
+```@autodocs
+Modules = [Piccolo.Quantum.DualRailEncodings]
+```
+
 ## [Lifted Operators](@id lib-lifted-operators)
 
 ```@autodocs
