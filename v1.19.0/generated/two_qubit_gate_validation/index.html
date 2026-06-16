@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Two-Qubit Gate Validation · Piccolo.jl</title><meta name="title" content="Two-Qubit Gate Validation · Piccolo.jl"/><meta property="og:title" content="Two-Qubit Gate Validation · Piccolo.jl"/><meta property="twitter:title" content="Two-Qubit Gate Validation · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/two_qubit_gate_validation/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/two_qubit_gate_validation/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/two_qubit_gate_validation/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img class="docs-light-only" src="../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../concepts/">Overview</a></li><li><a class="tocitem" href="../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/">Overview</a></li><li><a class="tocitem" href="../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../robust_control/">Robust Control</a></li><li class="is-active"><a class="tocitem" href>Two-Qubit Gate Validation</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Step-1:-Define-the-Two-Qubit-System"><span>Step 1: Define the Two-Qubit System</span></a></li><li><a class="tocitem" href="#Step-2:-Define-the-Gate"><span>Step 2: Define the Gate</span></a></li><li><a class="tocitem" href="#Step-3:-Synthesize-the-gates"><span>Step 3: Synthesize the gates</span></a></li><li><a class="tocitem" href="#Step-4:-Validate-Pulses"><span>Step 4: Validate Pulses</span></a></li><li><a class="tocitem" href="#Step-5:-Visualizing-Population-Dynamics"><span>Step 5: Visualizing Population Dynamics</span></a></li></ul></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../problem-templates/smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../problem-templates/bang_bang_pulse/">BangBangPulseProblem</a></li><li><a class="tocitem" href="../problem-templates/spline_pulse/">SplinePulseProblem</a></li><li><a class="tocitem" href="../problem-templates/minimum_time/">MinimumTimeProblem</a></li><li><a class="tocitem" href="../problem-templates/sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../problem-templates/composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../systems/">Overview</a></li><li><a class="tocitem" href="../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../guides/">Overview</a></li><li><a class="tocitem" href="../guides/saving_loading/">Saving and Loading Pulses</a></li><li><a class="tocitem" href="../guides/leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../guides/global_variables/">Global Variables</a></li><li><a class="tocitem" href="../guides/visualization/">Visualization</a></li><li><a class="tocitem" href="../guides/wigner_bosonic_qubits/">Wigner Bosonic Qubits</a></li><li><a class="tocitem" href="../guides/custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../reference/">Overview</a></li><li><a class="tocitem" href="../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Two-Qubit Gate Validation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Two-Qubit Gate Validation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/two_qubit_gate_validation.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="two-qubit-gate-validation"><a class="docs-heading-anchor" href="#two-qubit-gate-validation">Two-Qubit Gate Validation</a><a id="two-qubit-gate-validation-1"></a><a class="docs-heading-anchor-permalink" href="#two-qubit-gate-validation" title="Permalink"></a></h1><p>This tutorial walks through synthesizing a CNOT gate (Controlled NOT or Controlled X gate) on two coupled transmon qubits using three Pulse types with varying degrees of smoothness (numbers of continuous derivatives).</p><p>Furthermore, we validate the fidelities reported by Piccolo.jl when using those pulses by rolling out the same pulses in <a href="https://github.com/qutip/QuantumToolbox.jl">QuantumToolbox.jl</a>.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>First we import the packages we will use throughout this tutorial.</p><pre><code class="language-julia hljs">using Piccolo
+using QuantumToolbox
+using CairoMakie
+using LinearAlgebra
+using Printf
+using Random
+Random.seed!(1234)  # For reproducibility</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Random.TaskLocalRNG()</code></pre><div class="admonition is-info" id="Naming-Clash-afd23dd48297d4ae"><header class="admonition-header">Naming Clash<a class="admonition-anchor" href="#Naming-Clash-afd23dd48297d4ae" title="Permalink"></a></header><div class="admonition-body"><p>Both <code>Piccolo</code> and <code>QuantumToolbox</code> export <code>fidelity</code>. With both packages in scope we write <code>Piccolo.fidelity</code> for Piccolo&#39;s trajectory fidelity.</p></div></div><h2 id="Step-1:-Define-the-Two-Qubit-System"><a class="docs-heading-anchor" href="#Step-1:-Define-the-Two-Qubit-System">Step 1: Define the Two-Qubit System</a><a id="Step-1:-Define-the-Two-Qubit-System-1"></a><a class="docs-heading-anchor-permalink" href="#Step-1:-Define-the-Two-Qubit-System" title="Permalink"></a></h2><p>The system Hamiltonian for <span>$N$</span> transmon qubits with pairwise dipole coupling in the rotating frame is</p><p class="math-container">\[H_{\textrm{drift}} = \sum_{i=1}^{N} \left[
+    (\omega_i - \omega_{\text{frame}})\, a_i^\dagger a_i
+    - \frac{\delta_i}{2}\, a_i^{\dagger 2} a_i^2
+\right]
++ \sum_{i &lt; j} g_{ij} \left( a_i\, a_j^\dagger + a_i^\dagger\, a_j \right),\]</p><p>and the control Hamiltonians are</p><p class="math-container">\[H_{\textrm{control}}(t) = \sum_{i=1}^{N} \left[ u_{x,i}(t)(a_i + a_i^\dagger) + u_y(t)i(a_i^\dagger - a_i) \right]\]</p><p>where <span>$g_{ij}$</span> determines the coupling strength between qubits <span>$i$</span> and <span>$j$</span>.</p><p>We could build the drift and control Hamiltonians ourselves and construct the quantum system directly, but we use Piccolo.jl&#39;s <code>MultiTransmonSystem</code> constructor to easily build the system.</p><pre><code class="language-julia hljs">ωs = [4.0, 4.1]            # transmon frequencies (GHz)
+δs = [0.2, 0.2]            # anharmonicities (GHz) — unused at 2 levels_per_transmon
+g = 0.1                    # exchange coupling (GHz) — artificially large (see note)
+gs = [0.0 g; g 0.0]
+
+sys = MultiTransmonSystem(ωs, δs, gs; levels_per_transmon = 2, drive_bounds = 0.1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">CompositeQuantumSystem: levels = 4, n_drives = 4</code></pre><div class="admonition is-info" id="Accuracy-of-model-655d646a8cb39cf3"><header class="admonition-header">Accuracy of model<a class="admonition-anchor" href="#Accuracy-of-model-655d646a8cb39cf3" title="Permalink"></a></header><div class="admonition-body"><p>We ignore two <a href="../systems/transmons/#transmon-best-practices">best practices</a> to reduce the computational cost of the gate synthesis in this tutorial.</p><ol><li>We only model two levels of each qubit. This reduces the size of the Hilbert space, which reduces the number of <a href="../../concepts/#decision-variables">decision variables</a> in the NLP optimization.</li><li>The coupling between the qubits is artificially high, which greatly reduces the pulse duration needed to synthesize the gate with high fidelity.</li></ol><p>When synthesizing a gate for real hardware, at least 3 levels should be modeled for each qubit in order to suppress leakage to excited states outside of the computational subspace. Additionally, <span>$g$</span> will be in the 1-10 MHz range, which will require a much longer gate duration.</p></div></div><h2 id="Step-2:-Define-the-Gate"><a class="docs-heading-anchor" href="#Step-2:-Define-the-Gate">Step 2: Define the Gate</a><a id="Step-2:-Define-the-Gate-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Define-the-Gate" title="Permalink"></a></h2><p>Our target is the CNOT gate. Piccolo already defines this gate in <code>GATES[:CX]</code>. Because we only model two levels per qubit, we could use <code>GATES[:CX]</code> as our gate directly, but we will use an <code>EmbeddedOperator</code> to place the gate in the system&#39;s Hilbert space and record the indices of the computational subspace, so that the tutorial is still applicable when <code>levels_per_transmon</code> <span>$\geq 2$</span>.</p><pre><code class="language-julia hljs">U_goal = EmbeddedOperator(GATES[:CX], sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">EmbeddedOperator{ComplexF64}(ComplexF64[1.0 + 0.0im 0.0 + 0.0im 0.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im 0.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 0.0 + 0.0im 0.0 + 0.0im 1.0 + 0.0im; 0.0 + 0.0im 0.0 + 0.0im 1.0 + 0.0im 0.0 + 0.0im], [1, 2, 3, 4], [2, 2])</code></pre><p>We set a gate duration of <span>$T = 10$</span> ns. The timestep size <span>$\Delta t$</span> is left as a free optimization variable, so the optimizer may adjust the total duration slightly. For each pulse type, we use the same number of control parameters (knots).</p><pre><code class="language-julia hljs">T = 10.0    # gate duration (ns)
+N_params = 200</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">200</code></pre><div class="admonition is-info" id="Number-of-Parameters-4c3a1f1bf108639e"><header class="admonition-header">Number of Parameters<a class="admonition-anchor" href="#Number-of-Parameters-4c3a1f1bf108639e" title="Permalink"></a></header><div class="admonition-body"><p>With <span>$200$</span> parameters, the spacing of the knots is <span>$\approx 0.05$</span> ns. This means the width of each constant section of a <code>ZeroOrderPulse</code> is <span>$\approx 0.05$</span> ns, which may be unrealistic for the arbitrary waveform generators that produce piecewise constant pulses in most quantum hardware.</p></div></div><h2 id="Step-3:-Synthesize-the-gates"><a class="docs-heading-anchor" href="#Step-3:-Synthesize-the-gates">Step 3: Synthesize the gates</a><a id="Step-3:-Synthesize-the-gates-1"></a><a class="docs-heading-anchor-permalink" href="#Step-3:-Synthesize-the-gates" title="Permalink"></a></h2><p>We synthesize the gate using three different types of pulses:</p><table><tr><th style="text-align: left">Pulse type</th><th style="text-align: left">Problem template</th><th style="text-align: right">Continuity</th></tr><tr><td style="text-align: left"><code>ZeroOrderPulse</code></td><td style="text-align: left"><code>SmoothPulseProblem</code></td><td style="text-align: right"><span>$C^{-1}$</span></td></tr><tr><td style="text-align: left"><code>LinearSplinePulse</code></td><td style="text-align: left"><code>SplinePulseProblem</code></td><td style="text-align: right"><span>$C^{0}$</span></td></tr><tr><td style="text-align: left"><code>CubicSplinePulse</code></td><td style="text-align: left"><code>SplinePulseProblem</code></td><td style="text-align: right"><span>$C^{1}$</span></td></tr></table><p>The <code>ZeroOrderPulse</code> type implements piecewise-constant pulses. Although piecewise-constant pulses are unrealistic for hardware platforms which require smooth pulses, they are highly computationally efficient because the dynamics constraints in the gate synthesis optimization are <a href="../../concepts/#discretization"><strong>exact</strong></a> across each constant interval <span>$[t_{k}, t_{k+1}]$</span>, and computed efficiently via Krylov subspace methods.</p><p>For these reasons, we first optimize the <code>ZeroOrderPulse</code>. Then we convert the optimized pulse to the more realistic <code>LinearSplinePulse</code> and use that as a warm start for another pulse optimization. Finally, we convert the result of that optimization to a <code>CubicSplinePulse</code> and use that as a warm start for our final pulse optimization.</p><div class="admonition is-info" id="Smoothness-of-ZeroOrderPulse-64d07ca9e62f4f38"><header class="admonition-header">Smoothness of `ZeroOrderPulse`<a class="admonition-anchor" href="#Smoothness-of-ZeroOrderPulse-64d07ca9e62f4f38" title="Permalink"></a></header><div class="admonition-body"><p><code>ZeroOrderPulse</code> is not smooth in the mathematical sense, but placing a penalty on the magnitude of the amplitude change between constant regions can reduce the size of the discontinuities.</p></div></div><h3 id="Piecewise-Constant-Pulse"><a class="docs-heading-anchor" href="#Piecewise-Constant-Pulse">Piecewise-Constant Pulse</a><a id="Piecewise-Constant-Pulse-1"></a><a class="docs-heading-anchor-permalink" href="#Piecewise-Constant-Pulse" title="Permalink"></a></h3><p>We start from a random piecewise-constant pulse with <code>N_params</code> amplitudes. Because the <code>ZeroOrderPulse</code> dynamics are exact on each constant interval, the number of amplitudes is also the number of optimization timesteps.</p><pre><code class="language-julia hljs">times_zoh = collect(range(0, T, length = N_params))
+
+pulse_zoh = ZeroOrderPulse(0.02 * randn(sys.n_drives, N_params), times_zoh)
+qtraj_zoh = UnitaryTrajectory(sys, pulse_zoh, U_goal)
+qcp_zoh = SmoothPulseProblem(
+    qtraj_zoh,
+    N_params;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true),
+)
+
+solve!(qcp_zoh; max_iter = 150)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SmoothPulseProblem [UnitaryTrajectory]
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/TIf6x/src/problems.jl:66</span>
+<span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=4   drives=4
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=200   T=10.000   Δt∈[0, Inf]
+│    Ũ⃗    (32)  ±[1.0, 1.0, 1.0, … (32 total)]  <span class="sgr32">✓</span>  state
+│    Δt   ( 1)  [0.0, Inf]                      <span class="sgr32">✓</span>  timestep
+│    t    ( 1)                                  <span class="sgr90">·</span>  state
+│    u    ( 4)  ±[0.1, 0.1, 0.1, 0.1]           <span class="sgr32">✓</span>  control
+│    du   ( 4)                                  <span class="sgr90">·</span>  control
+│    ddu  ( 4)  ±[1.0, 1.0, 1.0, 1.0]           <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    EmbeddedOperator on [2, 2], subspace dim 4
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 66.01  @ current x</span>
+│    KnotPointObjective           w=1             61.83
+│    QuadraticRegularizer(:u)     w=1             4.554e-06
+│    QuadraticRegularizer(:du)    w=1             3.549e-03
+│    QuadraticRegularizer(:ddu)   w=1             4.177
+│    NullObjective                w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/14 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01793)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 6.939e-18)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 4.441e-16)
+│    [ineq] AllEqualConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 9200   (8000 bounded)
+     equality:  1584045
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.381726</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:   731674
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   634184
+
+Total number of variables............................:     9159
+                     variables with only lower bounds:      200
+                variables with lower and upper bounds:     7960
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     8358
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  6.1840514e+01 3.43e+00 1.55e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  6.1566160e+01 1.31e+00 3.43e+02  -0.5 2.12e+00    -  1.51e-01 6.17e-01f  1
+   2  6.4906835e+01 5.35e-02 4.70e+02  -0.4 7.09e-01   2.0 1.00e+00 9.59e-01f  1
+   3  6.5092261e+01 5.31e-04 5.57e+01  -0.8 4.45e-02   1.5 1.00e+00 9.90e-01f  1
+   4  6.4690252e+01 1.40e-05 6.48e+01  -1.7 1.62e-02   1.0 9.92e-01 9.96e-01f  1
+⋮
+ 146  3.0500737e-04 1.56e-09 7.07e+01  -6.1 6.60e-04  -1.7 1.00e+00 1.00e+00h  1
+ 147  3.0502977e-04 6.66e-15 3.61e-05  -6.1 5.98e-07   1.5 1.00e+00 1.00e+00h  1
+ 148  3.0504983e-04 2.24e-12 6.74e-05  -4.0 7.14e-06   1.0 1.00e+00 1.00e+00h  1
+ 149  3.0510988e-04 3.88e-12 4.41e-05  -4.1 1.40e-05   0.5 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 150  3.0500403e-04 6.31e-12 1.69e-05  -6.1 1.61e-05   0.0 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 150
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.0500403458638941e-04    3.0500403458638941e-04
+Dual infeasibility......:   1.6868919344923314e-05    1.6868919344923314e-05
+Constraint violation....:   6.3075100698029019e-12    6.3075100698029019e-12
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   7.1761817791730502e-07    7.1761817791730502e-07
+Overall NLP error.......:   9.9288034528867384e-05    9.9288034528867384e-05
+
+
+Number of objective function evaluations             = 271
+Number of objective gradient evaluations             = 151
+Number of equality constraint evaluations            = 271
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 151
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 150
+Total seconds in IPOPT                               = 1436.035
+
+EXIT: Maximum Number of Iterations Exceeded.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_zoh_57a874f.jld2</code></pre><pre><code class="language-julia hljs">F_zoh_piccolo = Piccolo.fidelity(qcp_zoh)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999999568450484</code></pre><h3 id="Linear-Spline"><a class="docs-heading-anchor" href="#Linear-Spline">Linear Spline</a><a id="Linear-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Spline" title="Permalink"></a></h3><p>Next we optimize a piecewise-linear control pulse, whose control parameters are the pulse values at the edges of each linear interval.</p><p>We use the results from the previous optimization to set up a warm start. <code>LinearSplinePulse</code> pulls the control parameters directly from <code>ZeroOrderPulse</code> to build a similar pulse shape (with the same duration, which has been optimized from the intial duration).</p><pre><code class="language-julia hljs">zoh_traj = get_trajectory(qcp_zoh)
+pulse_lin = LinearSplinePulse(zoh_traj)
+qtraj_lin = UnitaryTrajectory(sys, pulse_lin, U_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">UnitaryTrajectory
+  system: 4-level CompositeQuantumSystem
+  drives: LinearSplinePulse with 4 drives
+  duration: 10.718064748667928</code></pre><p>We now perform the optimization.</p><pre><code class="language-julia hljs">N_timesteps_lin = N_params
+qcp_lin = SplinePulseProblem(
+    qtraj_lin,
+    N_timesteps_lin;
+    Q = 100.0,
+    R_du = 0.1,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true),
+)
+
+solve!(qcp_lin; max_iter = 80)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SplinePulseProblem [UnitaryTrajectory / LinearSplinePulse]
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/TIf6x/src/problems.jl:66</span>
+<span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  LinearSplinePulse  ·  BilinearIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=4   drives=4
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=200   T=10.718   Δt∈[0, Inf]
+│    Ũ⃗   (32)  ±[1.0, 1.0, 1.0, … (32 total)]  <span class="sgr32">✓</span>  state
+│    Δt  ( 1)  [0.0, Inf]                      <span class="sgr32">✓</span>  timestep
+│    t   ( 1)                                  <span class="sgr90">·</span>  state
+│    u   ( 4)  ±[0.1, 0.1, 0.1, 0.1]           <span class="sgr32">✓</span>  control
+│    du  ( 4)                                  <span class="sgr90">·</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    EmbeddedOperator on [2, 2], subspace dim 4
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.02287  @ current x</span>
+│    KnotPointObjective          w=1             0.02243
+│    QuadraticRegularizer(:u)    w=1             1.603e-05
+│    QuadraticRegularizer(:du)   w=1             4.227e-04
+│    NullObjective               w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/11 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 5.426e-03)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.735e-18)
+│    [ineq] AllEqualConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 8400   (7200 bounded)
+     equality:  1425641
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999776</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:   601294
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   528864
+
+Total number of variables............................:     8359
+                     variables with only lower bounds:      200
+                variables with lower and upper bounds:     7160
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     7562
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  2.2869335e-02 1.00e-02 9.61e-02   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.4980918e-02 5.02e-04 7.08e+01  -1.4 6.88e-01    -  9.94e-01 9.90e-01h  1
+   2  2.3034818e-02 9.12e-06 7.01e+01  -2.1 3.44e-02   0.0 9.99e-01 9.90e-01h  1
+   3  2.4614962e-02 1.13e-07 1.73e-01  -4.0 1.84e-03   1.3 1.00e+00 1.00e+00h  1
+   4  2.1136548e-02 7.76e-08 1.02e-02  -4.0 1.43e-03   0.9 1.00e+00 1.00e+00h  1
+⋮
+  76  4.2461244e-04 2.52e-10 1.26e-03  -4.0 1.71e-04   0.9 1.00e+00 1.00e+00h  1
+  77  4.0052428e-04 1.55e-09 1.26e-03  -4.0 5.12e-04   0.4 1.00e+00 1.00e+00h  1
+  78  3.6037667e-04 5.77e-09 1.26e-03  -4.0 1.53e-03  -0.1 1.00e+00 1.00e+00h  1
+  79  3.4790701e-04 4.99e-08 7.07e+01  -4.0 4.58e-03  -0.6 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  3.5681520e-04 4.69e-07 7.07e+01  -4.0 1.36e-02  -1.0 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 80
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.5681520295048733e-04    3.5681520295048733e-04
+Dual infeasibility......:   7.0716465421675409e+01    7.0716465421675409e+01
+Constraint violation....:   4.6892933880382515e-07    4.6892933880382515e-07
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0000000000000005e-04    1.0000000000000005e-04
+Overall NLP error.......:   7.0716465421675409e+01    7.0716465421675409e+01
+
+
+Number of objective function evaluations             = 82
+Number of objective gradient evaluations             = 81
+Number of equality constraint evaluations            = 82
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 81
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 80
+Total seconds in IPOPT                               = 574.959
+
+EXIT: Maximum Number of Iterations Exceeded.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_linear_spline_57a874f.jld2</code></pre><div class="admonition is-info" id="Number-of-Timesteps-737989957d331427"><header class="admonition-header">Number of Timesteps<a class="admonition-anchor" href="#Number-of-Timesteps-737989957d331427" title="Permalink"></a></header><div class="admonition-body"><p>The discretized dynamics constraints of the optimizer are not exact when the control pulses are not piecewise-constant. Consequently, the number of timesteps may need to be increased, depending the degree of physical accuracy needed. If the discretized dynamics are not accurate, the optimizer may maximize the fidelity for the <em>discretized</em> dynamics, while the actual fidelity for the real, <em>continuous-time</em> dynamics is not as good.</p></div></div><pre><code class="language-julia hljs">F_lin_piccolo = Piccolo.fidelity(qcp_lin)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998080281476094</code></pre><h3 id="Cubic-Spline"><a class="docs-heading-anchor" href="#Cubic-Spline">Cubic Spline</a><a id="Cubic-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Cubic-Spline" title="Permalink"></a></h3><p>Next we optimize a cubic spline control pulse, whose control parameters are the pulse&#39;s value and the slope of the tangent line at several points in time.</p><p>We use the results from the previous optimization to set up a warm start. From the <code>LinearSplinePulse</code>, we use the knot values as our pulse values, and set the initial slope of the tangent line at those points to be zero.</p><pre><code class="language-julia hljs">lin_traj = get_trajectory(qcp_lin)
+pulse_cub = CubicSplinePulse(lin_traj[:u], zero(lin_traj[:u]), get_times(lin_traj))
+qtraj_cub = UnitaryTrajectory(sys, pulse_cub, U_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">UnitaryTrajectory
+  system: 4-level CompositeQuantumSystem
+  drives: CubicSplinePulse with 4 drives
+  duration: 9.92763701979117</code></pre><p>We now perform the optimization, again noting that the number of timesteps may need to be adjusted for greater physical accuracy.</p><pre><code class="language-julia hljs">N_timesteps_cub = N_params
+qcp_cub = SplinePulseProblem(
+    qtraj_cub,
+    N_timesteps_cub;
+    Q = 100.0,
+    R_du = 0.1,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true),
+)
+
+solve!(qcp_cub; max_iter = 80)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SplinePulseProblem [UnitaryTrajectory / CubicSplinePulse]
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
+<span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Recommended: Add explicit bounds when creating the trajectory:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(...; Δt_bounds=(min, max))
+<span class="sgr33"><span class="sgr1">│ </span></span>Example:
+<span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/TIf6x/src/problems.jl:66</span>
+<span class="sgr1">QuantumControlProblem</span>
+├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  BilinearIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=4   drives=4
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=200   T=9.928   Δt∈[0, Inf]
+│    Ũ⃗   (32)  ±[1.0, 1.0, 1.0, … (32 total)]  <span class="sgr32">✓</span>  state
+│    Δt  ( 1)  [0.0, Inf]                      <span class="sgr32">✓</span>  timestep
+│    t   ( 1)                                  <span class="sgr90">·</span>  state
+│    u   ( 4)  ±[0.1, 0.1, 0.1, 0.1]           <span class="sgr32">✓</span>  control
+│    du  ( 4)                                  <span class="sgr90">·</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    EmbeddedOperator on [2, 2], subspace dim 4
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.01931  @ current x</span>
+│    KnotPointObjective          w=1             0.01931
+│    QuadraticRegularizer(:u)    w=1             0
+│    QuadraticRegularizer(:du)   w=1             0
+│    NullObjective               w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 8.458e-03)
+│    [ineq] AllEqualConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 8400   (7200 bounded)
+     equality:  1267239
+     inequality: 1
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999807</span>
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+
+Number of nonzeros in equality constraint Jacobian...:   534338
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   528368
+
+Total number of variables............................:     8351
+                     variables with only lower bounds:      200
+                variables with lower and upper bounds:     7160
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     6766
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.9319015e-02 1.00e-02 1.86e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.7401042e-02 1.00e-04 1.56e-01  -4.0 1.14e-02    -  9.11e-01 9.90e-01h  1
+   2  6.0430604e-03 3.14e-05 7.07e+01  -3.1 1.55e-02    -  9.90e-01 9.90e-01h  1
+   3  1.0284741e-03 1.79e-07 7.07e+01  -4.0 7.55e-04   0.0 1.00e+00 1.00e+00h  1
+   4  1.0771613e-03 1.77e-10 4.04e-03  -4.0 3.56e-05   2.2 1.00e+00 1.00e+00h  1
+⋮
+  76  1.3950418e-05 7.17e-12 6.45e-04  -4.1 6.77e-06   2.2 1.00e+00 1.00e+00h  1
+  77  1.3819740e-05 5.04e-11 8.89e-04  -6.1 1.70e-05   1.7 1.00e+00 1.00e+00h  1
+  78  1.3627283e-05 1.28e-10 4.41e-04  -6.1 2.52e-05   1.2 1.00e+00 1.00e+00h  1
+  79  1.3366401e-05 1.35e-10 1.19e-04  -6.1 2.05e-05   0.8 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  1.3248726e-05 1.31e-10 9.32e-05  -4.0 4.66e-05   0.3 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 80
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.3248725550169977e-05    1.3248725550169977e-05
+Dual infeasibility......:   9.3182429959350055e-05    9.3182429959350055e-05
+Constraint violation....:   1.3095724504808004e-10    1.3095724504808004e-10
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0044152211215388e-04    1.0044152211215388e-04
+Overall NLP error.......:   9.3182429959350055e-05    9.3182429959350055e-05
+
+
+Number of objective function evaluations             = 236
+Number of objective gradient evaluations             = 81
+Number of equality constraint evaluations            = 236
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 81
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 80
+Total seconds in IPOPT                               = 585.144
+
+EXIT: Maximum Number of Iterations Exceeded.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_cubic_spline_57a874f.jld2</code></pre><pre><code class="language-julia hljs">F_cub_piccolo = Piccolo.fidelity(qcp_cub)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.999783918076159</code></pre><h3 id="Visualizing-the-Optimized-Pulses"><a class="docs-heading-anchor" href="#Visualizing-the-Optimized-Pulses">Visualizing the Optimized Pulses</a><a id="Visualizing-the-Optimized-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-the-Optimized-Pulses" title="Permalink"></a></h3><p>Finally, we visualize the optimized pulses side by side.</p><pre><code class="language-julia hljs">let
+    optimized = [
+        (&quot;ZeroOrderPulse&quot;, get_pulse(qcp_zoh.qtraj)),
+        (&quot;LinearSplinePulse&quot;, get_pulse(qcp_lin.qtraj)),
+        (&quot;CubicSplinePulse&quot;, get_pulse(qcp_cub.qtraj)),
+    ]
+    colors = Makie.wong_colors()[1:sys.n_drives]
+
+    fig = Figure(size = (1200, 360))
+    axes = map(enumerate(optimized)) do (col, (name, pulse))
+        ax = Axis(
+            fig[1, col];
+            title = name,
+            xlabel = &quot;Time (ns)&quot;,
+            ylabel = col == 1 ? &quot;Amplitude (GHz)&quot; : &quot;&quot;,
+        )
+        plot_pulse!(ax, pulse; colors, show_knots = false)
+        ax
+    end
+    linkyaxes!(axes...)
+
+    entries = [LineElement(; color = colors[i], linewidth = 2) for i = 1:sys.n_drives]
+    Legend(fig[1, length(optimized)+1], entries, [&quot;Drive $i&quot; for i = 1:sys.n_drives])
+    Label(fig[0, :], &quot;Optimized Pulses&quot;; font = :bold, fontsize = 18)
+    fig
+end</code></pre><img src="cebdc154.png" alt="Example block output"/><h2 id="Step-4:-Validate-Pulses"><a class="docs-heading-anchor" href="#Step-4:-Validate-Pulses">Step 4: Validate Pulses</a><a id="Step-4:-Validate-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Step-4:-Validate-Pulses" title="Permalink"></a></h2><p>Because the discretized dynamics used by the optimizer are not exact for the <code>LinearSplinePulse</code> and <code>CubicSplinePulse</code>,  it is important to validate that the reported fidelities are accurate. We can do this using <a href="https://github.com/qutip/QuantumToolbox.jl">QuantumToolbox.jl</a>.</p><h3 id="Helper-Functions"><a class="docs-heading-anchor" href="#Helper-Functions">Helper Functions</a><a id="Helper-Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Helper-Functions" title="Permalink"></a></h3><p>Piccolo ships a <code>rollout_with_qutip(system, pulse, ψ0)</code> helper in its <code>PiccoloQuantumToolboxExt</code> extension, which loads once both <code>QuantumToolbox</code> and a Makie backend are in scope. Given a system, a pulse, and an initial condition, it allows us to compute solution to the system of ODEs (Schrodinger&#39;s equation or the Linlad master equation).</p><p>The following function uses <code>rollout_with_qutip</code> to roll out each initial condition from the computational basis states and collect them into the columns of <code>U_impl</code> (and stores the solutions for later plotting).</p><pre><code class="language-julia hljs">function unitary_from_qutip(sys, pulse, U_goal; n_save = 200)
+    subspace = U_goal.subspace
+    d = length(subspace)
+    U_impl = zeros(ComplexF64, d, d)
+    sols = Vector{Any}(undef, d)
+    for (col, idx) in enumerate(subspace)
+        ψ0 = ComplexF64.(1:sys.levels .== idx)
+        sol = rollout_with_qutip(sys, pulse, ψ0; n_save)
+        sols[col] = sol
+        U_impl[:, col] = sol.states[end].data[subspace]
+    end
+    return U_impl, sols
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">unitary_from_qutip (generic function with 1 method)</code></pre><p>We finally make a function for computing the fidelity using the QuantumToolbox rollout.</p><p class="math-container">\[F = \frac{\left|\operatorname{tr}\!\left(U_\text{goal}^\dagger\, U_\text{impl}\right)\right|^2}{d^2}\]</p><pre><code class="language-julia hljs">function gate_fidelity_qutip(sys, pulse, U_goal; kwargs...)
+    U_impl, _ = unitary_from_qutip(sys, pulse, U_goal; kwargs...)
+    sub = U_goal.subspace
+    U_target = U_goal.operator[sub, sub]
+    d = length(sub)
+    return abs2(tr(U_target&#39; * U_impl)) / d^2
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">gate_fidelity_qutip (generic function with 1 method)</code></pre><h3 id="Compute-Fidelities-with-Quantum-Toolbox"><a class="docs-heading-anchor" href="#Compute-Fidelities-with-Quantum-Toolbox">Compute Fidelities with Quantum Toolbox</a><a id="Compute-Fidelities-with-Quantum-Toolbox-1"></a><a class="docs-heading-anchor-permalink" href="#Compute-Fidelities-with-Quantum-Toolbox" title="Permalink"></a></h3><p>With our helper functions in place, we can compute the fidelities using QuantumToolbox.</p><pre><code class="language-julia hljs">F_zoh_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_zoh.qtraj), U_goal)
+F_lin_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_lin.qtraj), U_goal)
+F_cub_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_cub.qtraj), U_goal)
+
+F_zoh_qutip, F_lin_qutip, F_cub_qutip</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.9999999983058024, 0.9997600338359514, 0.9997298942310923)</code></pre><p>We collect the fidelities into a comparison table to confirm that all three parameterizations reach the target and agree with QuantumToolbox.</p><pre><code class="language-julia hljs">results = [
+    (&quot;ZeroOrderPulse&quot;, N_params, F_zoh_piccolo, F_zoh_qutip),
+    (&quot;LinearSplinePulse&quot;, N_params, F_lin_piccolo, F_lin_qutip),
+    (&quot;CubicSplinePulse&quot;, N_params, F_cub_piccolo, F_cub_qutip),
+]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Tuple{String, Int64, Float64, Float64}}:
+ (&quot;ZeroOrderPulse&quot;, 200, 0.9999999568450484, 0.9999999983058024)
+ (&quot;LinearSplinePulse&quot;, 200, 0.9998080281476094, 0.9997600338359514)
+ (&quot;CubicSplinePulse&quot;, 200, 0.999783918076159, 0.9997298942310923)</code></pre><p>We now summarize the results for each pulse type:</p><pre><code class="language-julia hljs">println(
+    @sprintf(
+        &quot;%-18s %5s %11s %11s %10s&quot;,
+        &quot;Pulse type&quot;,
+        &quot;N&quot;,
+        &quot;F Piccolo&quot;,
+        &quot;F QuTiP&quot;,
+        &quot;pic−q&quot;
+    )
+)
+for (name, n, fd, fq) in results
+    println(@sprintf(&quot;%-18s %5d %11.7f %11.7f %10.2e&quot;, name, n, fd, fq, fd - fq))
+end
+
+for (name, _, fd, fq) in results
+    @assert fd ≥ 0.999 &quot;$name: fidelity $fd below 0.999 target&quot;
+    @assert abs(fd - fq) ≤ 1e-4 &quot;$name: |F_Piccolo - F_QuTiP| = $(abs(fd - fq)) exceeds 1e-4&quot;
+end
+println(&quot;All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to ≤ 1e-4.&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Pulse type             N   F Piccolo     F QuTiP      pic−q
+ZeroOrderPulse       200   1.0000000   1.0000000  -4.15e-08
+LinearSplinePulse    200   0.9998080   0.9997600   4.80e-05
+CubicSplinePulse     200   0.9997839   0.9997299   5.40e-05
+All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to ≤ 1e-4.</code></pre><p>We see that all pulses synthesize the CNOT gate with <span>$\geq 99.9$</span> % fidelity, and that the reported fidelity agrees with the rollout fidelity computed with QuantumToolbox. The fidelities reported by Piccolo for <code>ZeroOrderPulse</code> match the rollout fidelities reported by QuantumToolbox more closely than for any of the other pulses types. This is because the discretized dynamics used in the optimization are exact for <code>ZeroOrderPulse</code>.</p><h2 id="Step-5:-Visualizing-Population-Dynamics"><a class="docs-heading-anchor" href="#Step-5:-Visualizing-Population-Dynamics">Step 5: Visualizing Population Dynamics</a><a id="Step-5:-Visualizing-Population-Dynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Step-5:-Visualizing-Population-Dynamics" title="Permalink"></a></h2><p>Finally, we visualize the population dynamics for each pulse type, side by side. The CNOT gate flips the target qubit when the control qubit is excited: <span>$|10\rangle \to |11\rangle$</span>. We plot the evolution of the computational-state populations starting from the initial condition <span>$|10\rangle$</span>, using QuantumToolbox&#39;s rollout of the dynamics.</p><pre><code class="language-julia hljs">basis_labels = [&quot;|00⟩&quot;, &quot;|01⟩&quot;, &quot;|10⟩&quot;, &quot;|11⟩&quot;]
+sub = U_goal.subspace
+
+let
+    rollouts = [
+        (&quot;ZeroOrderPulse&quot;, get_pulse(qcp_zoh.qtraj)),
+        (&quot;LinearSplinePulse&quot;, get_pulse(qcp_lin.qtraj)),
+        (&quot;CubicSplinePulse&quot;, get_pulse(qcp_cub.qtraj)),
+    ]
+    colors = Makie.wong_colors()[1:length(sub)]
+
+    fig = Figure(size = (1200, 360))
+    axes = map(enumerate(rollouts)) do (col, (name, pulse))
+        _, sols = unitary_from_qutip(sys, pulse, U_goal)
+        sol_10 = sols[3]   # |10⟩ input
+        tlist = sol_10.times
+        populations =
+            [abs2.(getindex.(getfield.(sol_10.states, :data), j)) for j in sub]
+        ax = Axis(
+            fig[1, col];
+            title = name,
+            xlabel = &quot;Time (ns)&quot;,
+            ylabel = col == 1 ? &quot;Population&quot; : &quot;&quot;,
+        )
+        for (j, population) in enumerate(populations)
+            lines!(ax, collect(tlist), population; color = colors[j])
+        end
+        ax
+    end
+    linkyaxes!(axes...)
+
+    entries = [LineElement(; color = colors[j], linewidth = 2) for j = 1:length(sub)]
+    Legend(fig[1, length(rollouts)+1], entries, basis_labels)
+    Label(fig[0, :], &quot;Population dynamics: evolution of |10⟩&quot;; font = :bold, fontsize = 18)
+    fig
+end</code></pre><img src="71e5e12a.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 16 June 2026 04:39">Tuesday 16 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+{"mdUrl":"./two_qubit_gate_validation.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/two_qubit_gate_validation.md"}
+</script>
+<script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
+# literate/two_qubit_gate_validation.jl
+# ```
+#
+# # [Two-Qubit Gate Validation](@id two-qubit-gate-validation)
+#
+# This tutorial walks through synthesizing a CNOT gate (Controlled NOT or
+# Controlled X gate) on two coupled transmon qubits using three Pulse types
+# with varying degrees of smoothness (numbers of continuous derivatives).
+#
+# Furthermore, we validate the fidelities reported by Piccolo.jl when using
+# those pulses by rolling out the same pulses in
+# [QuantumToolbox.jl](https://github.com/qutip/QuantumToolbox.jl).
+#
+# ## Setup
+# First we import the packages we will use throughout this tutorial.
+
+using Piccolo
+using QuantumToolbox
+using CairoMakie
+using LinearAlgebra
+using Printf
+using Random
+Random.seed!(1234)  # For reproducibility
+
+# !!! note "Naming Clash"
+#     Both `Piccolo` and `QuantumToolbox` export `fidelity`. With both packages in
+#     scope we write `Piccolo.fidelity` for Piccolo's trajectory fidelity.
+#
+# ## Step 1: Define the Two-Qubit System
+#
+# The system Hamiltonian for ``N`` transmon qubits with pairwise dipole coupling in
+# the rotating frame is
+# ```math
+# H_{\textrm{drift}} = \sum_{i=1}^{N} \left[
+#     (\omega_i - \omega_{\text{frame}})\, a_i^\dagger a_i
+#     - \frac{\delta_i}{2}\, a_i^{\dagger 2} a_i^2
+# \right]
+# + \sum_{i < j} g_{ij} \left( a_i\, a_j^\dagger + a_i^\dagger\, a_j \right),
+# ```
+# and the control Hamiltonians are
+# ```math
+# H_{\textrm{control}}(t) = \sum_{i=1}^{N} \left[ u_{x,i}(t)(a_i + a_i^\dagger) + u_y(t)i(a_i^\dagger - a_i) \right]
+# ```
+# where ``g_{ij}`` determines the coupling strength between qubits ``i`` and ``j``.
+#
+# We could build the drift and control Hamiltonians ourselves and
+# construct the quantum system directly, but we use Piccolo.jl's
+# `MultiTransmonSystem` constructor to easily build the system.
+
+ωs = [4.0, 4.1]            # transmon frequencies (GHz)
+δs = [0.2, 0.2]            # anharmonicities (GHz) — unused at 2 levels_per_transmon
+g = 0.1                    # exchange coupling (GHz) — artificially large (see note)
+gs = [0.0 g; g 0.0]
+
+sys = MultiTransmonSystem(ωs, δs, gs; levels_per_transmon = 2, drive_bounds = 0.1)
+
+# 
+# !!! note "Accuracy of model"
+#     We ignore two [best practices](@ref transmon-best-practices) to reduce the
+#     computational cost of the gate synthesis in this tutorial.
+#
+#     1. We only model two levels of each qubit. This reduces the size of
+#        the Hilbert space, which reduces the number of 
+#        [decision variables](@ref decision-variables) in the NLP optimization.
+#     2. The coupling between the qubits is artificially high, which
+#        greatly reduces the pulse duration needed to synthesize the gate with high
+#        fidelity.
+#
+#     When synthesizing a gate for real hardware, at least 3 levels should be
+#     modeled for each qubit in order to suppress leakage to excited states
+#     outside of the computational subspace. Additionally, ``g`` will be in the
+#     1-10 MHz range, which will require a much longer gate duration.
+#
+# ## Step 2: Define the Gate
+#
+# Our target is the CNOT gate. Piccolo already defines this gate in `GATES[:CX]`.
+# Because we only model two levels per qubit, we could use `GATES[:CX]` as our
+# gate directly, but we will use an `EmbeddedOperator` to place the gate in
+# the system's Hilbert space and record the indices of the computational
+# subspace, so that the tutorial is still applicable when `levels_per_transmon` 
+# ``\geq 2``.
+
+U_goal = EmbeddedOperator(GATES[:CX], sys)
+
+# We set a gate duration of ``T = 10`` ns. The timestep size ``\Delta t`` is
+# left as a free optimization variable, so the optimizer may adjust the total
+# duration slightly. For each pulse type, we use the same number of control
+# parameters (knots).
+
+T = 10.0    # gate duration (ns)
+N_params = 200
+
+#
+# !!! note "Number of Parameters"
+#     With ``200`` parameters, the spacing of the knots is ``\approx 0.05`` ns.
+#     This means the width of each constant section of a `ZeroOrderPulse` is
+#     ``\approx 0.05`` ns, which may be unrealistic for the arbitrary waveform
+#     generators that produce piecewise constant pulses in most quantum
+#     hardware.  
+#
+# ## Step 3: Synthesize the gates
+#
+# We synthesize the gate using three different types of pulses:
+#
+# | Pulse type          | Problem template     | Continuity |
+# |:--------------------|:---------------------|------------|
+# | `ZeroOrderPulse`    | `SmoothPulseProblem` | ``C^{-1}`` |
+# | `LinearSplinePulse` | `SplinePulseProblem` | ``C^{0}``  |
+# | `CubicSplinePulse`  | `SplinePulseProblem` | ``C^{1}``  |
+#
+# The `ZeroOrderPulse` type implements piecewise-constant pulses. Although
+# piecewise-constant pulses are unrealistic for hardware platforms which
+# require smooth pulses, they are highly computationally efficient because the
+# dynamics constraints in the gate synthesis optimization are [**exact**](@ref
+# discretization) across each constant interval ``[t_{k}, t_{k+1}]``, and
+# computed efficiently via Krylov subspace methods.
+#
+# For these reasons, we first optimize the `ZeroOrderPulse`. Then we convert the
+# optimized pulse to the more realistic `LinearSplinePulse` and use that as a
+# warm start for another pulse optimization. Finally, we convert the result of
+# that optimization to a `CubicSplinePulse` and use that as a warm start for
+# our final pulse optimization.
+# 
+# !!! note "Smoothness of `ZeroOrderPulse`"
+#     `ZeroOrderPulse` is not smooth in the mathematical sense, but placing a
+#     penalty on the magnitude of the amplitude change between constant regions
+#     can reduce the size of the discontinuities.
+#
+# ### Piecewise-Constant Pulse
+#
+# We start from a random piecewise-constant pulse with `N_params` amplitudes.
+# Because the `ZeroOrderPulse` dynamics are exact on each constant interval, the
+# number of amplitudes is also the number of optimization timesteps.
+
+times_zoh = collect(range(0, T, length = N_params))
+
+pulse_zoh = ZeroOrderPulse(0.02 * randn(sys.n_drives, N_params), times_zoh)
+qtraj_zoh = UnitaryTrajectory(sys, pulse_zoh, U_goal)
+qcp_zoh = SmoothPulseProblem(
+    qtraj_zoh,
+    N_params;
+    Q = 100.0,
+    R = 1e-2,
+    ddu_bound = 1.0,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true),
+)
+
+solve!(qcp_zoh; max_iter = 150)
+
+#-
+
+F_zoh_piccolo = Piccolo.fidelity(qcp_zoh)
+
+
+# ### Linear Spline
+#
+# Next we optimize a piecewise-linear control pulse, whose control parameters
+# are the pulse values at the edges of each linear interval.
+#
+# We use the results from the previous optimization to set up a warm start.
+# `LinearSplinePulse` pulls the control parameters directly from
+# `ZeroOrderPulse` to build a similar pulse shape (with the same duration,
+# which has been optimized from the intial duration).
+
+zoh_traj = get_trajectory(qcp_zoh)
+pulse_lin = LinearSplinePulse(zoh_traj)
+qtraj_lin = UnitaryTrajectory(sys, pulse_lin, U_goal)
+
+# We now perform the optimization. 
+
+N_timesteps_lin = N_params
+qcp_lin = SplinePulseProblem(
+    qtraj_lin,
+    N_timesteps_lin;
+    Q = 100.0,
+    R_du = 0.1,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true),
+)
+
+solve!(qcp_lin; max_iter = 80)
+
+# !!! note "Number of Timesteps"
+#     The discretized dynamics constraints of the optimizer are not exact when
+#     the control pulses are not piecewise-constant. Consequently, the number of
+#     timesteps may need to be increased, depending the degree of physical
+#     accuracy needed. If the discretized dynamics are not accurate, the
+#     optimizer may maximize the fidelity for the *discretized* dynamics, while
+#     the actual fidelity for the real, *continuous-time* dynamics is not as
+#     good. 
+
+#-
+
+F_lin_piccolo = Piccolo.fidelity(qcp_lin)
+
+# ### Cubic Spline
+#
+# Next we optimize a cubic spline control pulse, whose control parameters
+# are the pulse's value and the slope of the tangent line at several
+# points in time.
+#
+# We use the results from the previous optimization to set up a warm start.
+# From the `LinearSplinePulse`, we use the knot values as our pulse values, and
+# set the initial slope of the tangent line at those points to be zero. 
+
+lin_traj = get_trajectory(qcp_lin)
+pulse_cub = CubicSplinePulse(lin_traj[:u], zero(lin_traj[:u]), get_times(lin_traj))
+qtraj_cub = UnitaryTrajectory(sys, pulse_cub, U_goal)
+
+# We now perform the optimization, again noting that the number of timesteps
+# may need to be adjusted for greater physical accuracy.
+
+N_timesteps_cub = N_params
+qcp_cub = SplinePulseProblem(
+    qtraj_cub,
+    N_timesteps_cub;
+    Q = 100.0,
+    R_du = 0.1,
+    piccolo_options = PiccoloOptions(timesteps_all_equal = true),
+)
+
+solve!(qcp_cub; max_iter = 80)
+
+#- 
+
+F_cub_piccolo = Piccolo.fidelity(qcp_cub)
+
+
+# ### Visualizing the Optimized Pulses
+# 
+# Finally, we visualize the optimized pulses side by side. 
+
+let
+    optimized = [
+        ("ZeroOrderPulse", get_pulse(qcp_zoh.qtraj)),
+        ("LinearSplinePulse", get_pulse(qcp_lin.qtraj)),
+        ("CubicSplinePulse", get_pulse(qcp_cub.qtraj)),
+    ]
+    colors = Makie.wong_colors()[1:sys.n_drives]
+
+    fig = Figure(size = (1200, 360))
+    axes = map(enumerate(optimized)) do (col, (name, pulse))
+        ax = Axis(
+            fig[1, col];
+            title = name,
+            xlabel = "Time (ns)",
+            ylabel = col == 1 ? "Amplitude (GHz)" : "",
+        )
+        plot_pulse!(ax, pulse; colors, show_knots = false)
+        ax
+    end
+    linkyaxes!(axes...)
+
+    entries = [LineElement(; color = colors[i], linewidth = 2) for i = 1:sys.n_drives]
+    Legend(fig[1, length(optimized)+1], entries, ["Drive $i" for i = 1:sys.n_drives])
+    Label(fig[0, :], "Optimized Pulses"; font = :bold, fontsize = 18)
+    fig
+end
+
+# ## Step 4: Validate Pulses
+#
+# Because the discretized dynamics used by the optimizer are not exact for the
+# `LinearSplinePulse` and `CubicSplinePulse`,  it is important to validate that
+# the reported fidelities are accurate. We can do this using
+# [QuantumToolbox.jl](https://github.com/qutip/QuantumToolbox.jl).
+#
+#
+# ### Helper Functions
+#
+# Piccolo ships a `rollout_with_qutip(system, pulse, ψ0)` helper in its
+# `PiccoloQuantumToolboxExt` extension, which loads once both `QuantumToolbox`
+# and a Makie backend are in scope. Given a system, a pulse, and an initial
+# condition, it allows us to compute solution to the system of ODEs
+# (Schrodinger's equation or the Linlad master equation).
+#
+# The following function uses `rollout_with_qutip` to roll out each initial
+# condition from the computational basis states and collect them into the
+# columns of `U_impl` (and stores the solutions for later plotting).
+
+function unitary_from_qutip(sys, pulse, U_goal; n_save = 200)
+    subspace = U_goal.subspace
+    d = length(subspace)
+    U_impl = zeros(ComplexF64, d, d)
+    sols = Vector{Any}(undef, d)
+    for (col, idx) in enumerate(subspace)
+        ψ0 = ComplexF64.(1:sys.levels .== idx)
+        sol = rollout_with_qutip(sys, pulse, ψ0; n_save)
+        sols[col] = sol
+        U_impl[:, col] = sol.states[end].data[subspace]
+    end
+    return U_impl, sols
+end
+
+# We finally make a function for computing the fidelity using the
+# QuantumToolbox rollout.
+#
+# ```math
+# F = \frac{\left|\operatorname{tr}\!\left(U_\text{goal}^\dagger\, U_\text{impl}\right)\right|^2}{d^2}
+# ```
+
+function gate_fidelity_qutip(sys, pulse, U_goal; kwargs...)
+    U_impl, _ = unitary_from_qutip(sys, pulse, U_goal; kwargs...)
+    sub = U_goal.subspace
+    U_target = U_goal.operator[sub, sub]
+    d = length(sub)
+    return abs2(tr(U_target' * U_impl)) / d^2
+end
+
+
+# ### Compute Fidelities with Quantum Toolbox
+#
+# With our helper functions in place, we can compute the fidelities using
+# QuantumToolbox.
+
+F_zoh_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_zoh.qtraj), U_goal)
+F_lin_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_lin.qtraj), U_goal)
+F_cub_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_cub.qtraj), U_goal)
+
+F_zoh_qutip, F_lin_qutip, F_cub_qutip
+
+# We collect the fidelities into a comparison table to confirm that all three
+# parameterizations reach the target and agree with QuantumToolbox.
+
+results = [
+    ("ZeroOrderPulse", N_params, F_zoh_piccolo, F_zoh_qutip),
+    ("LinearSplinePulse", N_params, F_lin_piccolo, F_lin_qutip),
+    ("CubicSplinePulse", N_params, F_cub_piccolo, F_cub_qutip),
+]
+
+# We now summarize the results for each pulse type:
+
+println(
+    @sprintf(
+        "%-18s %5s %11s %11s %10s",
+        "Pulse type",
+        "N",
+        "F Piccolo",
+        "F QuTiP",
+        "pic−q"
+    )
+)
+for (name, n, fd, fq) in results
+    println(@sprintf("%-18s %5d %11.7f %11.7f %10.2e", name, n, fd, fq, fd - fq))
+end
+
+for (name, _, fd, fq) in results
+    @assert fd ≥ 0.999 "$name: fidelity $fd below 0.999 target"
+    @assert abs(fd - fq) ≤ 1e-4 "$name: |F_Piccolo - F_QuTiP| = $(abs(fd - fq)) exceeds 1e-4"
+end
+println("All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to ≤ 1e-4.")
+
+# We see that all pulses synthesize the CNOT gate with ``\geq 99.9`` %
+# fidelity, and that the reported fidelity agrees with the rollout fidelity
+# computed with QuantumToolbox. The fidelities reported by Piccolo for `ZeroOrderPulse` 
+# match the rollout fidelities reported by QuantumToolbox more closely than for
+# any of the other pulses types. This is because the discretized dynamics
+# used in the optimization are exact for `ZeroOrderPulse`.
+
+# ## Step 5: Visualizing Population Dynamics
+#
+# Finally, we visualize the population dynamics for each pulse type, side by
+# side. The CNOT gate flips the target qubit when the control qubit is excited:
+# ``|10\rangle \to |11\rangle``. We plot the evolution of the computational-state
+# populations starting from the initial condition ``|10\rangle``, using
+# QuantumToolbox's rollout of the dynamics.
+
+basis_labels = ["|00⟩", "|01⟩", "|10⟩", "|11⟩"]
+sub = U_goal.subspace
+
+let
+    rollouts = [
+        ("ZeroOrderPulse", get_pulse(qcp_zoh.qtraj)),
+        ("LinearSplinePulse", get_pulse(qcp_lin.qtraj)),
+        ("CubicSplinePulse", get_pulse(qcp_cub.qtraj)),
+    ]
+    colors = Makie.wong_colors()[1:length(sub)]
+
+    fig = Figure(size = (1200, 360))
+    axes = map(enumerate(rollouts)) do (col, (name, pulse))
+        _, sols = unitary_from_qutip(sys, pulse, U_goal)
+        sol_10 = sols[3]   # |10⟩ input
+        tlist = sol_10.times
+        populations =
+            [abs2.(getindex.(getfield.(sol_10.states, :data), j)) for j in sub]
+        ax = Axis(
+            fig[1, col];
+            title = name,
+            xlabel = "Time (ns)",
+            ylabel = col == 1 ? "Population" : "",
+        )
+        for (j, population) in enumerate(populations)
+            lines!(ax, collect(tlist), population; color = colors[j])
+        end
+        ax
+    end
+    linkyaxes!(axes...)
+
+    entries = [LineElement(; color = colors[j], linewidth = 2) for j = 1:length(sub)]
+    Legend(fig[1, length(rollouts)+1], entries, basis_labels)
+    Label(fig[0, :], "Population dynamics: evolution of |10⟩"; font = :bold, fontsize = 18)
+    fig
+end
+</script>
+<link rel="stylesheet" href="../../assets/copybutton.css"/>
+<script src="../../assets/copybutton.js"></script>
+
+</body></html>
