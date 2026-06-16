@@ -21,6 +21,7 @@ If you're familiar with quantum control concepts:
 
 1. **[Multilevel Transmon](@ref multilevel-transmon-tutorial)** - EmbeddedOperator and leakage suppression
 2. **[Robust Control](@ref robust-control-tutorial)** - SamplingProblem for parameter robustness
+3. **[Two-Qubit Gate Validation](@ref two-qubit-gate-validation)** - Synthesize multi-qubit gates and validate optimized pulses
 
 ## Tutorial Overview
 
@@ -30,6 +31,7 @@ If you're familiar with quantum control concepts:
 | [State Transfer](@ref state-transfer-tutorial) | 15 min | KetTrajectory, state preparation, coherent gates |
 | [Multilevel Transmon](@ref multilevel-transmon-tutorial) | 20 min | TransmonSystem, EmbeddedOperator, leakage |
 | [Robust Control](@ref robust-control-tutorial) | 20 min | SamplingProblem, parameter uncertainty |
+| [Two-Qubit Gate Validation](@ref two-qubit-gate-validation) | 25 min | Multi-qubit gates, spline pulses, pulse validation |
 
 ## Prerequisites
 
@@ -75,6 +77,12 @@ using CairoMakie
 - Using `SamplingProblem` for robust optimization
 - Evaluating robustness across parameter ranges
 - Combining robustness with time optimization
+
+### Two-Qubit Gate Validation
+
+- Synthesizing a CNOT gate for coupled-qubit systems with `MultiTransmonSystem`
+- Synthesizing a gate with `ZeroOrderPulse`, `LinearSplinePulse`, and `CubicSplinePulse`
+- Validating optimized pulses using [QuantumToolbox.jl](https://github.com/qutip/QuantumToolbox.jl).
 
 ## Running the Tutorials
 

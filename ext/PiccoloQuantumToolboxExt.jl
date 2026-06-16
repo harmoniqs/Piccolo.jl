@@ -13,6 +13,36 @@ using TestItems
 # `plot_bloch` and `plot_wigner` docstrings remain here, attached to the QuantumToolbox-
 # owned methods we extend.
 
+# ============================================================================ #
+# QuantumToolbox rollout — independent cross-check of Piccolo's integrators
+# ============================================================================ #
+
+# Docstring lives on the stub in `src/quantum/dynamics.jl`.
+function Piccolo.rollout_with_qutip(
+    system::AbstractQuantumSystem,
+    pulse::AbstractPulse,
+    ψ0::AbstractVector{<:Number};
+    n_save::Int = 101,
+    kwargs...,
+)
+    drift = get_drift(system)
+    drives = get_drives(system)
+
+    # A QobjEvo bundles a constant term with (operator, coefficient) pairs. Each
+    # coefficient is a function (params, t); we ignore params and read the pulse.
+    # The comprehension gives each closure its own `i`.
+    H = QobjEvo((
+        Qobj(Matrix{ComplexF64}(drift)),
+        (
+            (Qobj(Matrix{ComplexF64}(drives[i])), (p, t) -> pulse(t)[i]) for
+            i = 1:length(drives)
+        )...,
+    ))
+
+    tlist = range(0, duration(pulse), length = n_save)
+    return sesolve(H, Qobj(ComplexF64.(ψ0)), tlist; progress_bar = Val(false), kwargs...)
+end
+
 function iso_to_bloch(ψ̃::AbstractVector{<:Real}, subspace::AbstractVector{Int})
     ψ = iso_to_ket(ψ̃)[subspace]
     return density_to_bloch(ψ * ψ')
@@ -395,7 +425,7 @@ end
     using CairoMakie
 
     T = 20
-    ts = range(0, π/2; length = T)
+    ts = range(0, π / 2; length = T)
 
     kets = [
         QuantumObject(cos(θ) * [1.0 + 0im, 0.0 + 0im] + sin(θ) * [0.0 + 0im, 1.0 + 0im]) for θ in ts
@@ -443,6 +473,29 @@ end
     fig = QuantumToolbox.plot_wigner(traj, 1, state_name = :ρ̃⃗, state_type = :density)
 
     @test fig isa Figure
+end
+
+@testitem "rollout_with_qutip agrees with Piccolo ket rollout" begin
+    using Piccolo
+    using QuantumToolbox
+    using CairoMakie
+    using LinearAlgebra
+
+    ## H_drift = 0, single X drive: a constant amplitude drives Rabi oscillations.
+    system = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [1.0])
+    pulse = ZeroOrderPulse(fill(0.5, 1, 20), collect(range(0, π, length = 20)))
+    ψ0 = ComplexF64[1.0, 0.0]
+
+    ## Piccolo's own ODE rollout.
+    qtraj = KetTrajectory(system, pulse, ψ0, ComplexF64[0.0, 1.0])
+    ψ_piccolo = qtraj.solution.u[end]
+
+    ## QuantumToolbox's independent rollout.
+    sol = rollout_with_qutip(system, pulse, ψ0)
+    ψ_qutip = sol.states[end].data
+
+    @test length(sol.states) == 101
+    @test abs2(ψ_qutip' * ψ_piccolo) ≈ 1.0 atol = 1e-4
 end
 
 end

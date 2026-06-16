@@ -59,6 +59,7 @@ pages = [
         "Multilevel Transmon" => "generated/multilevel_transmon.md",
         "State Transfer" => "generated/state_transfer.md",
         "Robust Control" => "generated/robust_control.md",
+        "Two-Qubit Gate Validation" => "generated/two_qubit_gate_validation.md",
     ],
     "Problem Templates" => [
         "Overview" => "problem-templates/index.md",
