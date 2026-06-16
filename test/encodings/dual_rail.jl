@@ -102,6 +102,39 @@ end
     @test all(norm(s) ≈ 1 for s in tg)
 end
 
+@testitem "DualRailEncoding: logical basis state indices" begin
+    using LinearAlgebra: I, norm
+
+    # one logical qubit, one excitation per pair: |0⟩_L → |1,0⟩, |1⟩_L → |0,1⟩
+    enc1 = DualRailEncoding(n_qubits = 1)
+    ψ1 = logical_basis_states(enc1)
+    @test logical_state_indices(enc1) == [3, 2]
+    @test ψ1[1][3] == 1.0 && norm(ψ1[1]) == 1.0
+    @test ψ1[2][2] == 1.0 && norm(ψ1[2]) == 1.0
+
+    # two logical qubits: |00⟩, |01⟩, |10⟩, |11⟩ in kron order (rail 1 most significant)
+    enc2 = DualRailEncoding(n_qubits = 2)
+    ψ2 = logical_basis_states(enc2)
+    @test logical_state_indices(enc2) == [11, 10, 7, 6]
+    Ψ = reduce(hcat, ψ2)
+    @test Ψ' * Ψ ≈ I
+
+    # m = 2 excitations per pair on 3-level rails: |0⟩_L → |2,0⟩, |1⟩_L → |0,2⟩
+    enc_m = DualRailEncoding(n_qubits = 1, levels_per_rail = 3, N = 2)
+    ψ_m = logical_basis_states(enc_m)
+    @test logical_state_indices(enc_m) == [7, 3]
+    @test ψ_m[1][7] == 1.0 && norm(ψ_m[1]) == 1.0
+    @test ψ_m[2][3] == 1.0 && norm(ψ_m[2]) == 1.0
+    _, idxs_m = subspace_transform(enc_m)
+    @test idxs_m == [3, 5, 7]
+
+    # logical kets are fixed points of the subspace projector
+    T, _ = subspace_transform(enc2)
+    for ψ in ψ2
+        @test T * T' * ψ ≈ ψ
+    end
+end
+
 @testitem "DualRailEncoding: target_states(:CCX) for n=3" begin
     enc =
         DualRailEncoding(n_qubits = 3, levels_per_rail = 2, conservation = :exact_N, N = 3)
