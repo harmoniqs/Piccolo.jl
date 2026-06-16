@@ -77,8 +77,7 @@ function DualRailEncoding(;
     conservation::Symbol = :exact_N,
     N::Int = n_qubits,
 )
-    n_qubits ≥ 1 ||
-        throw(ArgumentError("n_qubits must be ≥ 1, got $n_qubits"))
+    n_qubits ≥ 1 || throw(ArgumentError("n_qubits must be ≥ 1, got $n_qubits"))
     levels_per_rail ≥ 2 ||
         throw(ArgumentError("levels_per_rail must be ≥ 2, got $levels_per_rail"))
     conservation ∈ (:exact_N, :upto_N) ||
@@ -260,9 +259,7 @@ function target_states(gate::Symbol, enc::DualRailEncoding)
     U = GATES[gate]
     n = enc.n_qubits
     size(U, 1) == 2^n || throw(
-        ArgumentError(
-            "Gate dimension $(size(U, 1)) does not match 2^n_qubits = $(2^n).",
-        ),
+        ArgumentError("Gate dimension $(size(U, 1)) does not match 2^n_qubits = $(2^n)."),
     )
     ψ_logical = logical_basis_states(enc)
     full_dim = length(ψ_logical[1])
