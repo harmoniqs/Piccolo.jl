@@ -340,16 +340,7 @@ println(
     )
 )
 for (name, n, fd, fq) in results
-    println(
-        @sprintf(
-            "%-18s %5d %11.7f %11.7f %10.2e",
-            name,
-            n,
-            fd,
-            fq,
-            fd - fq
-        )
-    )
+    println(@sprintf("%-18s %5d %11.7f %11.7f %10.2e", name, n, fd, fq, fd - fq))
 end
 
 for (name, _, fd, fq) in results
@@ -389,7 +380,8 @@ let
         _, sols = unitary_from_qutip(sys, pulse, U_goal)
         sol_10 = sols[3]   # |10⟩ input
         tlist = sol_10.times
-        populations = [abs2.(getindex.(getfield.(sol_10.states, :data), j)) for j in sub]
+        populations =
+            [abs2.(getindex.(getfield.(sol_10.states, :data), j)) for j in sub]
         ax = Axis(
             fig[1, col];
             title = name,
