@@ -76,8 +76,8 @@ cached_solve!(qcp, "visualization_unitary"; max_iter = 50, print_level = 1)
 # ```
 #
 # The root [`llms.txt`](https://github.com/harmoniqs/Piccolo.jl/blob/main/llms.txt)
-# file repeats these patterns in a compact form for coding agents and editor
-# assistants.
+# file repeats these visualization patterns in a compact, copyable form for
+# reuse in external tools.
 
 # Inspect the resulting fidelity:
 
