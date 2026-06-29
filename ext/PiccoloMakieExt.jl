@@ -580,6 +580,40 @@ end
     @test stat(joinpath(save_dir, pngs[1])).size != stat(joinpath(save_dir, pngs[2])).size
 end
 
+@testitem "LivePulsePlotCallback attaches to an Ipopt solve (per-iter PNGs end-to-end)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using CairoMakie
+    using Random
+
+    # 0.2a install-path smoke test: the SAME callback object Piccolo hands to
+    # MadNLP installs on an Ipopt solve via IpoptOptions(intermediate_callback=cb)
+    # and emits iter_<N>.png through the AbstractIntermediateCallback abstraction.
+    Random.seed!(11)
+    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    T, N = 5.0, 20
+    times = collect(range(0, T, length = N))
+    qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(0.1 * randn(2, N), times), GATES[:X])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        piccolo_options = PiccoloOptions(timesteps_all_equal = true, verbose = false),
+    )
+
+    save_dir = mktempdir()
+    cb = LivePulsePlotCallback(qtraj, qcp.prob.trajectory; save_dir = save_dir)
+    @test cb isa DirectTrajOpt.AbstractIntermediateCallback
+
+    solve!(
+        qcp;
+        options = IpoptOptions(max_iter = 5, intermediate_callback = cb, print_level = 0),
+        verbose = false,
+    )
+
+    pngs = filter(f -> endswith(f, ".png"), readdir(save_dir))
+    @test length(pngs) > 0   # per-iter frames flowed through the callback during the solve
+end
+
 @testitem "LivePulsePlotCallback every > 1 skips renders" begin
     using DirectTrajOpt
     using NamedTrajectories
