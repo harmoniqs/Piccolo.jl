@@ -151,8 +151,54 @@ function CoherentKetInfidelityObjective(
         return abs(1 - coherent_ket_fidelity(ψ̃s, goals))
     end
 
+    # Declarable matrix-free per-knot HVP. The coherent loss is exactly
+    # `ℓ = |1 - F|` with `F = ‖A·z‖²`, so the per-knot Hessian factors as
+    # `Aᵀ · G · A` with `G = -2·sign(1 - F)·I_2` (the `:neg2_sign` rule).
+    A = _coherent_ket_lowrank_factor(goals, state_dims)
+    cap = ConstantLowRankHVP(A, :neg2_sign)
+
     # Pass vector of component names for multi-component terminal objective
-    return TerminalObjective(ℓ, ψ̃_names, traj; Q = Q)
+    return TerminalObjective(ℓ, ψ̃_names, traj; Q = Q, knot_hvp = cap)
+end
+
+# Build the constant rank-2 factor `A :: Matrix{Float64}` of size
+# `(2, sum(state_dims))` such that `[A·z]_1 = Re(S)`, `[A·z]_2 = Im(S)`,
+# where `S = (1/K) · Σᵢ ⟨gᵢ, ψᵢ⟩` is the coherent overlap and the
+# concatenated iso-state `z = [ψ̃₁; ψ̃₂; …; ψ̃_K]` follows the per-ket
+# `[real(ψᵢ); imag(ψᵢ)]` convention from `ket_to_iso`.
+# Then `‖A·z‖² = |S|² = F` exactly.
+function _coherent_ket_lowrank_factor(
+    goals::AbstractVector{<:AbstractVector{<:Complex}},
+    state_dims::AbstractVector{Int},
+)
+    K = length(goals)
+    @assert length(state_dims) == K
+    m = sum(state_dims)
+    A = zeros(Float64, 2, m)
+    inv_K = 1.0 / K
+    offset = 0
+    for i in 1:K
+        d_iso = state_dims[i]
+        @assert iseven(d_iso) "iso-state $i has odd dim $(d_iso); expected even"
+        d_c = d_iso ÷ 2
+        @assert length(goals[i]) == d_c (
+            "goal $i has $(length(goals[i])) entries; expected $(d_c) " *
+            "(half the iso-state dim)"
+        )
+        re_g = real(goals[i])
+        im_g = imag(goals[i])
+        # Block layout per ket: `ψ̃ᵢ = [Re(ψᵢ); Im(ψᵢ)]` (length d_iso).
+        #   ⟨gᵢ, ψᵢ⟩ = (Re(g) − i·Im(g))ᵀ (Re(ψ) + i·Im(ψ))
+        #             = Re(g)ᵀRe(ψ) + Im(g)ᵀIm(ψ)  +  i (Re(g)ᵀIm(ψ) − Im(g)ᵀRe(ψ))
+        # Row 1 (Re(S)) — scaled by 1/K
+        A[1, offset .+ (1:d_c)]         .= inv_K .* re_g
+        A[1, offset .+ ((d_c+1):d_iso)] .= inv_K .* im_g
+        # Row 2 (Im(S)) — scaled by 1/K
+        A[2, offset .+ (1:d_c)]         .= -inv_K .* im_g
+        A[2, offset .+ ((d_c+1):d_iso)] .=  inv_K .* re_g
+        offset += d_iso
+    end
+    return A
 end
 
 # ---------------------------------------------------------
@@ -275,7 +321,7 @@ function unitary_fidelity_loss(Ũ⃗::AbstractVector{<:Real}, op::EmbeddedOpera
 end
 
 function UnitaryInfidelityObjective(
-    U_goal::AbstractPiccoloOperator,
+    U_goal::AbstractPiccoloOperator,  # full-op (AbstractMatrix) gets knot_hvp; EmbeddedOperator stays on fallback
     Ũ⃗_name::Symbol,
     traj::NamedTrajectory;
     Q = 100.0,
