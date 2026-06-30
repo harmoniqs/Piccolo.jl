@@ -719,4 +719,151 @@ end
     gradient!(∇, obj, traj)
 end
 
+@testitem "knot_hvp matrix-free apply matches dense Hessian — CoherentKetInfidelityObjective" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using DirectTrajOpt.Objectives: knot_hvp, ConstantLowRankHVP, get_full_hessian
+    using TrajectoryIndexingUtils
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(42)
+    N = 10
+    ket_dim = 4  # iso dim for 2-level system
+    u = randn(1, N)
+    Δt = fill(0.1, N)
+    Q = 7.0  # non-default so the scaling threads through
+
+    goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
+
+    # Build a trajectory with a scaled copy of the goals at the terminal knot.
+    # `scale < 1` puts F below the kink; `scale > 1` puts F above it.
+    function _make_traj(scale)
+        ψ̃1 = randn(ket_dim, N)
+        ψ̃2 = randn(ket_dim, N)
+        ψ̃1[:, N] .= scale .* ket_to_iso(goals[1])
+        ψ̃2[:, N] .= scale .* ket_to_iso(goals[2])
+        return NamedTrajectory(
+            (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
+            timestep = :Δt,
+            controls = :u,
+        )
+    end
+
+    for scale in (0.4, 1.2)  # F < 1 and F > 1
+        traj = _make_traj(scale)
+        obj = CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj; Q = Q)
+
+        cap = knot_hvp(obj, traj)
+        @test cap isa ConstantLowRankHVP
+        @test cap.core === :neg2_sign
+        @test size(cap.A) == (2, 2 * ket_dim)
+
+        # Index map for the terminal-knot concatenated iso-state.
+        knot_idx = vcat(
+            slice(N, traj.components[:ψ̃1], traj.dim),
+            slice(N, traj.components[:ψ̃2], traj.dim),
+        )
+        z = vec(traj)
+        z_k = z[knot_idx]
+
+        # Matrix-free apply at the terminal knot:
+        #   H · v_k = Q · (-2·sign(1-F)) · Aᵀ · (A · v_k)
+        A = cap.A
+        F = sum(abs2, A * z_k)
+        G = -2.0 * sign(1.0 - F)
+        v = randn(length(z))
+        v_k = v[knot_idx]
+        Hv_mf = Q * G * (A' * (A * v_k))
+
+        # Dense apply at the same knot, via Symmetric(get_full_hessian, :U)·v.
+        H_full = Matrix(get_full_hessian(obj, traj))
+        Hv_dense = (Symmetric(H_full, :U) * v)[knot_idx]
+
+        @test Hv_mf ≈ Hv_dense atol = 1e-10
+    end
+end
+
+@testitem "knot_hvp matrix-free apply matches dense Hessian — UnitaryInfidelityObjective (full-op)" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using DirectTrajOpt.Objectives: knot_hvp, ConstantLowRankHVP, get_full_hessian
+    using TrajectoryIndexingUtils
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(43)
+    n = 2  # 2-level system
+    iso_dim = 2 * n^2
+    N = 10
+    u = randn(1, N)
+    Δt = fill(0.1, N)
+    Q = 5.0
+
+    U_goal = ComplexF64[0 1; 1 0]   # X gate; doesn't need to be unitary for this test
+
+    function _make_traj(scale)
+        Utilde = randn(iso_dim, N)
+        Utilde[:, N] .= scale .* operator_to_iso_vec(U_goal)
+        return NamedTrajectory(
+            (Utilde = Utilde, u = u, Δt = Δt);
+            timestep = :Δt,
+            controls = :u,
+        )
+    end
+
+    for scale in (0.4, 1.2)  # F < 1 and F > 1
+        traj = _make_traj(scale)
+        obj = UnitaryInfidelityObjective(U_goal, :Utilde, traj; Q = Q)
+
+        cap = knot_hvp(obj, traj)
+        @test cap isa ConstantLowRankHVP
+        @test cap.core === :neg2_sign
+        @test size(cap.A) == (2, iso_dim)
+
+        knot_idx = slice(N, traj.components[:Utilde], traj.dim)
+        z = vec(traj)
+        z_k = z[knot_idx]
+
+        A = cap.A
+        F = sum(abs2, A * z_k)
+        G = -2.0 * sign(1.0 - F)
+        v = randn(length(z))
+        v_k = v[knot_idx]
+        Hv_mf = Q * G * (A' * (A * v_k))
+
+        H_full = Matrix(get_full_hessian(obj, traj))
+        Hv_dense = (Symmetric(H_full, :U) * v)[knot_idx]
+
+        @test Hv_mf ≈ Hv_dense atol = 1e-10
+    end
+end
+
+@testitem "knot_hvp returns nothing for EmbeddedOperator UnitaryInfidelityObjective" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using DirectTrajOpt.Objectives: knot_hvp
+    using LinearAlgebra
+
+    n_full = 4   # ambient
+    iso_dim = 2 * n_full^2
+    N = 5
+
+    Utilde = randn(iso_dim, N)
+    u = randn(1, N)
+    Δt = fill(0.1, N)
+    traj = NamedTrajectory(
+        (Utilde = Utilde, u = u, Δt = Δt);
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    # 2x2 X gate embedded in a 4-dim ambient space (subspace = 1:2).
+    op = EmbeddedOperator(ComplexF64[0 1; 1 0], 1:2, n_full)
+    obj = UnitaryInfidelityObjective(op, :Utilde, traj; Q = 1.0)
+
+    # Embedded path stays on the dense fallback — no declared knot_hvp.
+    @test knot_hvp(obj, traj) === nothing
+end
+
 end
