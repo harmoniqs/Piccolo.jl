@@ -326,8 +326,47 @@ function UnitaryInfidelityObjective(
     traj::NamedTrajectory;
     Q = 100.0,
 )
+    # Declarable matrix-free per-knot HVP. The full-operator
+    # `ℓ = |1 − |tr(U†_goal · U)|²/n²|` factors exactly as `|1 − ‖A·Ũ⃗‖²|`
+    # with a constant rank-2 `A` (consumer-side rule `:neg2_sign`).
+    # The embedded-operator branch has a different (mixed-regularizer)
+    # form and stays on the dense fallback.
     ℓ = Ũ⃗ -> abs(1 - unitary_fidelity_loss(Ũ⃗, U_goal))
-    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
+    cap = if U_goal isa AbstractMatrix{<:Number}
+        ConstantLowRankHVP(_unitary_lowrank_factor(U_goal), :neg2_sign)
+    else
+        nothing
+    end
+    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q, knot_hvp = cap)
+end
+
+# Build the constant rank-2 factor `A :: Matrix{Float64}` of size
+# `(2, 2·n²)` such that `[A·Ũ⃗]_1 = Re(S)/n`, `[A·Ũ⃗]_2 = Im(S)/n`,
+# where `S = tr(U_goal† · U)` and the iso-vec `Ũ⃗` follows the
+# `operator_to_iso_vec` convention: per column i (0-indexed),
+# block of length 2n is `[Re(U[:, i+1]); Im(U[:, i+1])]`.
+# Then `‖A·Ũ⃗‖² = |S|²/n² = F` exactly.
+function _unitary_lowrank_factor(U_goal::AbstractMatrix{<:Number})
+    n = size(U_goal, 1)
+    @assert size(U_goal, 2) == n "U_goal must be square; got $(size(U_goal))"
+    A = zeros(Float64, 2, 2 * n^2)
+    inv_n = 1.0 / n
+    for i in 0:(n - 1)
+        col = @view U_goal[:, i + 1]
+        re_g = real(col)
+        im_g = imag(col)
+        # Per-column block of `Ũ⃗`: `i*2n + (1:n)` is Re, `i*2n + (n+1:2n)` is Im.
+        #   ⟨gᵢ, Uᵢ⟩ = (Re(g) − i·Im(g))ᵀ (Re(U) + i·Im(U))
+        #             = Re(g)ᵀRe(U) + Im(g)ᵀIm(U)  +  i (Re(g)ᵀIm(U) − Im(g)ᵀRe(U))
+        # Sum over columns gives S = Σᵢ ⟨gᵢ, Uᵢ⟩ = tr(U_goal† U).
+        # Row 1 (Re(S)/n)
+        A[1, i * 2n .+ (1:n)]         .= inv_n .* re_g
+        A[1, i * 2n .+ ((n + 1):2n)]  .= inv_n .* im_g
+        # Row 2 (Im(S)/n)
+        A[2, i * 2n .+ (1:n)]         .= -inv_n .* im_g
+        A[2, i * 2n .+ ((n + 1):2n)]  .=  inv_n .* re_g
+    end
+    return A
 end
 
 function UnitaryFreePhaseInfidelityObjective(
