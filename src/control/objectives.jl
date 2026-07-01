@@ -734,53 +734,69 @@ end
     Δt = fill(0.1, N)
     Q = 7.0  # non-default so the scaling threads through
 
-    goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
+    # K=1 (single-ket) and K=2 (two-ket) — issue #257 AC requires ≥1 and ≥2 goals.
+    goal_bank = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
 
-    # Build a trajectory with a scaled copy of the goals at the terminal knot.
-    # `scale < 1` puts F below the kink; `scale > 1` puts F above it.
-    function _make_traj(scale)
-        ψ̃1 = randn(ket_dim, N)
-        ψ̃2 = randn(ket_dim, N)
-        ψ̃1[:, N] .= scale .* ket_to_iso(goals[1])
-        ψ̃2[:, N] .= scale .* ket_to_iso(goals[2])
-        return NamedTrajectory(
-            (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
-            timestep = :Δt,
-            controls = :u,
-        )
-    end
+    for K in (1, 2)
+        goals_K = goal_bank[1:K]
+        names_K = K == 1 ? [:ψ̃1] : [:ψ̃1, :ψ̃2]
 
-    for scale in (0.4, 1.2)  # F < 1 and F > 1
-        traj = _make_traj(scale)
-        obj = CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj; Q = Q)
+        # Build a K-ket trajectory with a scaled copy of the goals at the
+        # terminal knot. `scale < 1` puts F below the kink; `scale > 1`
+        # puts F above.
+        function _make_traj(scale)
+            if K == 1
+                ψ̃1 = randn(ket_dim, N)
+                ψ̃1[:, N] .= scale .* ket_to_iso(goals_K[1])
+                return NamedTrajectory(
+                    (ψ̃1 = ψ̃1, u = u, Δt = Δt);
+                    timestep = :Δt,
+                    controls = :u,
+                )
+            else
+                ψ̃1 = randn(ket_dim, N)
+                ψ̃2 = randn(ket_dim, N)
+                ψ̃1[:, N] .= scale .* ket_to_iso(goals_K[1])
+                ψ̃2[:, N] .= scale .* ket_to_iso(goals_K[2])
+                return NamedTrajectory(
+                    (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
+                    timestep = :Δt,
+                    controls = :u,
+                )
+            end
+        end
 
-        cap = knot_hvp(obj, traj)
-        @test cap isa ConstantLowRankHVP
-        @test cap.core === :neg2_sign
-        @test size(cap.A) == (2, 2 * ket_dim)
+        for scale in (0.4, 1.2)  # F < 1 and F > 1
+            traj = _make_traj(scale)
+            obj = CoherentKetInfidelityObjective(goals_K, names_K, traj; Q = Q)
 
-        # Index map for the terminal-knot concatenated iso-state.
-        knot_idx = vcat(
-            slice(N, traj.components[:ψ̃1], traj.dim),
-            slice(N, traj.components[:ψ̃2], traj.dim),
-        )
-        z = vec(traj)
-        z_k = z[knot_idx]
+            cap = knot_hvp(obj, traj)
+            @test cap isa ConstantLowRankHVP
+            @test cap.core === :neg2_sign
+            @test size(cap.A) == (2, K * ket_dim)
 
-        # Matrix-free apply at the terminal knot:
-        #   H · v_k = Q · (-2·sign(1-F)) · Aᵀ · (A · v_k)
-        A = cap.A
-        F = sum(abs2, A * z_k)
-        G = -2.0 * sign(1.0 - F)
-        v = randn(length(z))
-        v_k = v[knot_idx]
-        Hv_mf = Q * G * (A' * (A * v_k))
+            # Index map for the terminal-knot concatenated iso-state.
+            knot_idx = vcat(
+                [slice(N, traj.components[nm], traj.dim) for nm in names_K]...,
+            )
+            z = vec(traj)
+            z_k = z[knot_idx]
 
-        # Dense apply at the same knot, via Symmetric(get_full_hessian, :U)·v.
-        H_full = Matrix(get_full_hessian(obj, traj))
-        Hv_dense = (Symmetric(H_full, :U) * v)[knot_idx]
+            # Matrix-free apply at the terminal knot:
+            #   H · v_k = Q · (-2·sign(1-F)) · Aᵀ · (A · v_k)
+            A = cap.A
+            F = sum(abs2, A * z_k)
+            G = -2.0 * sign(1.0 - F)
+            v = randn(length(z))
+            v_k = v[knot_idx]
+            Hv_mf = Q * G * (A' * (A * v_k))
 
-        @test Hv_mf ≈ Hv_dense atol = 1e-10
+            # Dense apply at the same knot, via Symmetric(get_full_hessian, :U)·v.
+            H_full = Matrix(get_full_hessian(obj, traj))
+            Hv_dense = (Symmetric(H_full, :U) * v)[knot_idx]
+
+            @test Hv_mf ≈ Hv_dense atol = 1e-12
+        end
     end
 end
 
@@ -792,50 +808,53 @@ end
     using LinearAlgebra
     using Random
 
-    Random.seed!(43)
-    n = 2  # 2-level system
-    iso_dim = 2 * n^2
     N = 10
     u = randn(1, N)
     Δt = fill(0.1, N)
     Q = 5.0
 
-    U_goal = ComplexF64[0 1; 1 0]   # X gate; doesn't need to be unitary for this test
+    # Issue #248 AC requires coverage across n = 2, 3, 4.
+    for n in (2, 3, 4)
+        Random.seed!(43 + n)             # per-n seed for reproducibility
+        iso_dim = 2 * n^2
+        # Random complex goal (no unitarity required for the parity test).
+        U_goal = randn(ComplexF64, n, n)
 
-    function _make_traj(scale)
-        Utilde = randn(iso_dim, N)
-        Utilde[:, N] .= scale .* operator_to_iso_vec(U_goal)
-        return NamedTrajectory(
-            (Utilde = Utilde, u = u, Δt = Δt);
-            timestep = :Δt,
-            controls = :u,
-        )
-    end
+        function _make_traj(scale)
+            Utilde = randn(iso_dim, N)
+            Utilde[:, N] .= scale .* operator_to_iso_vec(U_goal)
+            return NamedTrajectory(
+                (Utilde = Utilde, u = u, Δt = Δt);
+                timestep = :Δt,
+                controls = :u,
+            )
+        end
 
-    for scale in (0.4, 1.2)  # F < 1 and F > 1
-        traj = _make_traj(scale)
-        obj = UnitaryInfidelityObjective(U_goal, :Utilde, traj; Q = Q)
+        for scale in (0.4, 1.2)  # F < 1 and F > 1
+            traj = _make_traj(scale)
+            obj = UnitaryInfidelityObjective(U_goal, :Utilde, traj; Q = Q)
 
-        cap = knot_hvp(obj, traj)
-        @test cap isa ConstantLowRankHVP
-        @test cap.core === :neg2_sign
-        @test size(cap.A) == (2, iso_dim)
+            cap = knot_hvp(obj, traj)
+            @test cap isa ConstantLowRankHVP
+            @test cap.core === :neg2_sign
+            @test size(cap.A) == (2, iso_dim)
 
-        knot_idx = slice(N, traj.components[:Utilde], traj.dim)
-        z = vec(traj)
-        z_k = z[knot_idx]
+            knot_idx = slice(N, traj.components[:Utilde], traj.dim)
+            z = vec(traj)
+            z_k = z[knot_idx]
 
-        A = cap.A
-        F = sum(abs2, A * z_k)
-        G = -2.0 * sign(1.0 - F)
-        v = randn(length(z))
-        v_k = v[knot_idx]
-        Hv_mf = Q * G * (A' * (A * v_k))
+            A = cap.A
+            F = sum(abs2, A * z_k)
+            G = -2.0 * sign(1.0 - F)
+            v = randn(length(z))
+            v_k = v[knot_idx]
+            Hv_mf = Q * G * (A' * (A * v_k))
 
-        H_full = Matrix(get_full_hessian(obj, traj))
-        Hv_dense = (Symmetric(H_full, :U) * v)[knot_idx]
+            H_full = Matrix(get_full_hessian(obj, traj))
+            Hv_dense = (Symmetric(H_full, :U) * v)[knot_idx]
 
-        @test Hv_mf ≈ Hv_dense atol = 1e-10
+            @test Hv_mf ≈ Hv_dense atol = 1e-12
+        end
     end
 end
 
@@ -864,6 +883,50 @@ end
 
     # Embedded path stays on the dense fallback — no declared knot_hvp.
     @test knot_hvp(obj, traj) === nothing
+end
+
+@testitem "knot_hvp field does not leak into KnotPointObjective value/gradient" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using DirectTrajOpt.Objectives: ConstantLowRankHVP
+    using LinearAlgebra
+    using Random
+
+    # Issue #257 AC 3 / #248 AC 4: "Value and gradient of the objective are
+    # byte-for-byte unchanged — only the `knot_hvp` field is newly populated."
+    # Construct two `KnotPointObjective`s that differ ONLY in `knot_hvp`
+    # (one `nothing`, one a populated `ConstantLowRankHVP`) and assert
+    # `objective_value` and `gradient!` are literally equal on both.
+
+    Random.seed!(44)
+    N = 10
+    ket_dim = 4
+    ψ̃1 = randn(ket_dim, N)
+    u = randn(1, N)
+    Δt = fill(0.1, N)
+    traj = NamedTrajectory(
+        (ψ̃1 = ψ̃1, u = u, Δt = Δt);
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    ℓ = x -> sum(x .^ 2) + 0.3 * sum(sin.(x))  # any non-trivial C² loss
+    Q = 7.0
+    fake_A = randn(2, ket_dim)                  # arbitrary; must not affect value/grad
+    cap = ConstantLowRankHVP(fake_A, :neg2_sign)
+
+    obj_none = KnotPointObjective(ℓ, :ψ̃1, traj; Qs = [Q], times = [N], knot_hvp = nothing)
+    obj_pop  = KnotPointObjective(ℓ, :ψ̃1, traj; Qs = [Q], times = [N], knot_hvp = cap)
+
+    # Value: literally equal.
+    @test objective_value(obj_none, traj) === objective_value(obj_pop, traj)
+
+    # Gradient: literally equal (elementwise, no tolerance).
+    ∇_none = zeros(traj.dim * traj.N + traj.global_dim)
+    ∇_pop  = zeros(traj.dim * traj.N + traj.global_dim)
+    gradient!(∇_none, obj_none, traj)
+    gradient!(∇_pop, obj_pop, traj)
+    @test ∇_none == ∇_pop
 end
 
 end
