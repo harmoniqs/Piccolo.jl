@@ -1,8 +1,75 @@
 export SplinePulseProblem
+export bspline_slew_constraint
 
 # Helper function to determine spline order from pulse type
 _get_spline_order(::LinearSplinePulse) = 1
 _get_spline_order(::CubicSplinePulse) = 3
+
+"""
+    bspline_slew_constraint(pulse::BSplinePulse, v_max; label=...) -> GlobalLinearConstraint
+
+Closed-form per-drive **slew (velocity) bound** `|ṗ(t)| ≤ v_max` for a B-spline
+pulse, as an explicit constraint to add to the problem (`constraints = [...]`).
+
+The derivative of an order-`k` B-spline is an order-`(k-1)` B-spline whose control
+points are the scaled first differences
+
+    dᵢ = (k-1)·(c_{i+1} - cᵢ) / (τ_{i+k} - τ_{i+1}),   i = 0 … M-2,
+
+so by the convex-hull (variation-diminishing) property `|ṗ(t)| ≤ maxᵢ |dᵢ|`.
+Bounding each `|dᵢ| ≤ v_max` is therefore a **conservative, closed-form** slew
+cap — a set of linear inequalities on *differences* of the `:c_<drive>` global
+block (one row per `(channel, i)`), which `GlobalLinearConstraint` expresses
+exactly (and which a box/amplitude bound cannot). Unlike the endpoint-derivative
+*pin* (variable fixing → bounds), this is a genuine inequality relation, so the
+multipliers go inactive when slack and IPOPT stays well-behaved.
+
+`v_max` is per-drive (`Vector`, length `n_drives`) or scalar (same cap on all
+channels); `Inf` on a channel skips it. Conservatism mirrors the amplitude box
+bound: the curve's true slew can sit below `maxᵢ|dᵢ|`.
+"""
+function bspline_slew_constraint(
+    pulse::BSplinePulse,
+    v_max::AbstractVector;
+    label::String = "B-spline slew bound",
+)
+    M = pulse.basis.M
+    n_d = pulse.n_drives
+    k = get_order(pulse)
+    length(v_max) == n_d || throw(ArgumentError(
+        "v_max length $(length(v_max)) ≠ n_drives $n_d"))
+    M >= 2 || throw(ArgumentError("slew bound needs M ≥ 2 control points; got M=$M"))
+    τ = pulse.basis.knot_vector            # 1-based storage of 0-based knots τ_0 … τ_{M+k-1}
+    cp_name = Symbol(:c_, drive_name(pulse))
+    gdim = M * n_d
+
+    # column-major vec((n_drives, M)): cp index jj (1-based), drive d ↦ slot (jj-1)*n_d + d.
+    # 0-based cp i ↦ slot i*n_d + d.
+    rows = Vector{Float64}[]
+    lb = Float64[]
+    ub = Float64[]
+    for ch in 1:n_d
+        isfinite(v_max[ch]) || continue
+        for i in 0:(M - 2)                 # 0-based derivative control-point index
+            denom = τ[i + k + 1] - τ[i + 2]    # τ_{i+k} - τ_{i+1}
+            denom > 0 || continue          # skip degenerate clamped-knot spans
+            coef = (k - 1) / denom
+            row = zeros(gdim)
+            row[(i + 1) * n_d + ch] = coef     # +coef · c_{i+1}
+            row[i * n_d + ch]       = -coef    # -coef · c_i
+            push!(rows, row)
+            push!(lb, -v_max[ch])
+            push!(ub, v_max[ch])
+        end
+    end
+    isempty(rows) && throw(ArgumentError(
+        "bspline_slew_constraint: every channel is Inf (nothing to bound)"))
+    A = reduce(vcat, (r' for r in rows))
+    return GlobalLinearConstraint(cp_name, A, lb, ub; label = label)
+end
+
+bspline_slew_constraint(pulse::BSplinePulse, v_max::Real; kwargs...) =
+    bspline_slew_constraint(pulse, fill(Float64(v_max), pulse.n_drives); kwargs...)
 
 # _make_free_phase_goal is defined in _problem_templates.jl (shared across all templates)
 
@@ -145,6 +212,7 @@ function SplinePulseProblem(
     free_phase::Bool = false,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     initial_phases::Union{Nothing,Vector{Float64}} = nothing,
+    pin_endpoint_derivatives::Bool = false,
     state_leakage_indices::Union{
         Nothing,
         AbstractVector{Int},
@@ -152,8 +220,14 @@ function SplinePulseProblem(
     } = nothing,
 )
     sys = get_system(qtraj)
-    control_sym = drive_name(qtraj)
     state_sym = state_name(qtraj)
+
+    is_bspline = qtraj.pulse isa BSplinePulse
+    drive_sym = drive_name(qtraj)
+    # For Layout A B-spline, :c_<drive> is the matrix-valued global block
+    # in traj.global_data holding all M control points. control_sym names that
+    # global so the regularizer hits the right component.
+    control_sym = is_bspline ? Symbol(:c_, drive_sym) : drive_sym
 
     # Pulse-type-dependent regularisation defaults.
     # See the "Default regularisation by pulse type" section of this template's docstring.
@@ -172,6 +246,27 @@ function SplinePulseProblem(
         Dict{Symbol,Vector{Float64}}(name => [val] for (name, val) in pairs(sys.global_params))
     else
         nothing
+    end
+
+    # For BSplinePulse: inject the single matrix-valued global :c_<drive> (length
+    # M*n_drives) and its bounds (including tight pins at the boundary slots
+    # c_0, c_{M-1}) into global_data / global_bounds. Layout A — uniform globals.
+    if is_bspline
+        bspline_globals, bspline_global_bounds = _get_bspline_globals(
+            qtraj.pulse, sys; pin_boundary_derivative = pin_endpoint_derivatives)
+        global_data = isnothing(global_data) ? Dict{Symbol,Vector{Float64}}() :
+            Dict{Symbol,Vector{Float64}}(global_data)
+        for (k, v) in pairs(bspline_globals)
+            global_data[k] = Vector{Float64}(v)
+        end
+        global_bounds = if isnothing(global_bounds)
+            Dict{Symbol,Any}()
+        else
+            Dict{Symbol,Any}(global_bounds)
+        end
+        for (k, v) in pairs(bspline_global_bounds)
+            global_bounds[k] = v
+        end
     end
 
     # Free-phase support: add phase variables as globals
@@ -213,11 +308,10 @@ function SplinePulseProblem(
         NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
     N = base_traj.N  # Get actual number of timesteps
 
-    # Always add control derivatives to trajectory
-    # For CubicSplinePulse, :du is already included in the base trajectory (Hermite tangents)
-    # For LinearSplinePulse, we add :du explicitly (will be constrained by DerivativeIntegrator)
-    du_sym = Symbol(:d, control_sym)
-    is_linear_spline = !haskey(base_traj.components, du_sym)
+    # Add control derivatives to trajectory for Linear/CubicSplinePulse.
+    # B-spline (Layout A) has no :du; skip the whole block.
+    du_sym = is_bspline ? nothing : Symbol(:d, control_sym)
+    is_linear_spline = is_bspline ? false : !haskey(base_traj.components, du_sym)
 
     # Resolve per-drive du bounds: du_bounds (vector) takes precedence over du_bound (scalar)
     _du_bounds_vec = if !isnothing(du_bounds)
@@ -228,7 +322,10 @@ function SplinePulseProblem(
         nothing
     end
 
-    traj = if haskey(base_traj.components, du_sym)
+    traj = if is_bspline
+        # B-spline: no :du component, pass through.
+        base_traj
+    elseif haskey(base_traj.components, du_sym)
         # CubicSplinePulse already has derivative DOFs, but bounds default to (-Inf, Inf)
         if !isnothing(_du_bounds_vec)
             update_bound!(base_traj, du_sym, (-_du_bounds_vec, _du_bounds_vec))
@@ -253,6 +350,14 @@ function SplinePulseProblem(
 
     # Initialize dynamics integrators
     if isnothing(integrator)
+        if is_bspline
+            error(
+                "BSplinePulse requires an explicit SplineIntegrator from Piccolissimo:\n" *
+                "  using Piccolissimo\n" *
+                "  integrator = SplineIntegrator(qtraj, $(qtraj.pulse.basis.M - get_order(qtraj.pulse) + 2))\n" *
+                "  qcp = SplinePulseProblem(qtraj; integrator=integrator, ...)",
+            )
+        end
         if !isnothing(global_names) && !isempty(global_names)
             error(
                 "global_names requires a custom integrator that supports global variables. " *
@@ -276,9 +381,6 @@ function SplinePulseProblem(
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
 
-    # Get control names
-    du_sym = Symbol(:d, control_sym)
-
     # Build objective: type-specific infidelity + regularization
     J = if free_phase && !isnothing(ket_goal_fn)
         KetFreePhaseInfidelityObjective(ket_goal_fn, state_sym, θ_names, traj; Q = Q)
@@ -288,9 +390,36 @@ function SplinePulseProblem(
         _state_objective(qtraj, traj, state_sym, Q)
     end
 
-    # Add regularization for control and derivative
-    J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
-    J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
+    # Regularization: for B-spline (Layout A), control points live in
+    # global_data so the regularizer must be a GlobalObjective over the
+    # :c_<drive> global block. For Linear/CubicSplinePulse, use the existing
+    # per-knot QuadraticRegularizer on :u (and :du). Both consume the
+    # pulse-type-resolved R_u/R_du (cubic defaults to 0, others to R).
+    if is_bspline
+        if R_u_resolved isa Real
+            J += GlobalObjective(
+                g -> sum(abs2, g),
+                control_sym,
+                traj;
+                Q = Float64(R_u_resolved),
+            )
+        else
+            # R_u as a per-drive Vector{Float64} (length n_drives); broadcast across the
+            # M control points by repeating to match the (n_drives * M)-length global block.
+            R_u_per_drive = Vector{Float64}(R_u_resolved)
+            M = qtraj.pulse.basis.M
+            R_u_vec = repeat(R_u_per_drive, M)
+            J += GlobalObjective(g -> sum(R_u_vec .* abs2.(g)), control_sym, traj; Q = 1.0)
+        end
+        r_du_active = (R_du_resolved isa Real && R_du_resolved > 0) ||
+                      (R_du_resolved isa AbstractVector && any(>(0), R_du_resolved))
+        if r_du_active
+            @info "BSplinePulse: R_du has no analog; ignored (control-point smoothness regularization is deferred)"
+        end
+    else
+        J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
+        J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
+    end
 
     # Apply piccolo options
     J += _apply_piccolo_options(
@@ -322,8 +451,9 @@ function SplinePulseProblem(
         end
     end
 
-    # Add global bounds constraints if specified
-    all_constraints = copy(constraints)
+    # Add global bounds constraints if specified.
+    # Widen element type so heterogeneous constraint types can be pushed.
+    all_constraints = AbstractConstraint[c for c in constraints]
     add_global_bounds_constraints!(
         all_constraints,
         global_bounds,
@@ -571,8 +701,9 @@ function SplinePulseProblem(
         end
     end
 
-    # Add global bounds constraints if specified
-    all_constraints = copy(constraints)
+    # Add global bounds constraints if specified.
+    # Widen element type so heterogeneous constraint types can be pushed.
+    all_constraints = AbstractConstraint[c for c in constraints]
     add_global_bounds_constraints!(
         all_constraints,
         global_bounds,
