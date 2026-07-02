@@ -221,6 +221,111 @@ function _get_control_data(
     final_constraints
 end
 
+# B-spline (Layout A): all M control points live in global_data via
+# _get_bspline_globals; there are no per-knot controls — return five empty
+# containers so the caller's merge() is a no-op.
+function _get_control_data(
+    pulse::BSplinePulse,
+    times::AbstractVector,
+    sys::AbstractQuantumSystem,
+)
+    # Layout A: B-spline has no per-knot control component — all M
+    # control points live in NamedTrajectory.global_data via _get_bspline_globals.
+    # Return empty NamedTuples / Symbol[] so the NamedTrajectory builder skips
+    # per-knot control plumbing entirely for B-spline. Boundary value enforcement
+    # also lives in _get_bspline_globals (tight global bounds), so no per-knot
+    # initial / final constraints here either.
+    return (
+        NamedTuple(),       # per_knot_data
+        Symbol[],           # control_names
+        NamedTuple(),       # per_knot_bounds
+        NamedTuple(),       # initial_constraints
+        NamedTuple(),       # final_constraints
+    )
+end
+
+"""
+    _get_bspline_globals(pulse::BSplinePulse, sys)
+        -> (global_data_nt, global_bounds_nt)
+
+Layout A: emit the single matrix-valued global `:c_<drive>` of length
+`M * n_drives` holding all M control points (column-major to match
+`vec(pulse.control_points)`), plus per-slot bounds. Boundary value
+enforcement uses tight global bounds (lo == hi) on the c_0 and c_{M-1}
+in-block slots — see `_apply_boundary_pin!`.
+
+Works uniformly for any order `k >= 2`; no Greville-aware split.
+"""
+function _get_bspline_globals(
+    pulse::BSplinePulse,
+    sys::AbstractQuantumSystem;
+    pin_boundary_derivative::Bool = false,
+)
+    M = pulse.basis.M
+    n_d = pulse.n_drives
+    cp_name = Symbol(:c_, drive_name(pulse))
+
+    # _get_drive_bounds returns (lower::Vector{Float64}, upper::Vector{Float64})
+    # each of length n_drives.
+    drive_lo, drive_hi = _get_drive_bounds(sys)
+
+    # Single global block: flatten (n_drives, M) column-major to length n_drives*M
+    global_data = _named_tuple(cp_name => Vector{Float64}(vec(pulse.control_points)))
+
+    # Per-slot bounds: repeat per-drive bounds M times (column-major matches
+    # vec(control_points))
+    lo = repeat(drive_lo, M)            # length n_d * M
+    hi = repeat(drive_hi, M)            # length n_d * M
+    _apply_boundary_pin!(lo, hi, pulse.initial_value, 1:n_d)
+    _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 1) * n_d + 1):(M * n_d))
+
+    # Zero endpoint *derivative* for a clamped basis ⟺ c_1 = c_0 and c_{M-2} = c_{M-1}.
+    # Since c_0/c_{M-1} are value-pinned just above, this is equivalently a tight pin
+    # of the boundary-*adjacent* control points c_1, c_{M-2} to the same boundary
+    # values — which is what we do here.
+    #
+    # Why this lives in the bounds vector (not a separate constraint object): pinning
+    # a control point is *variable fixing*, and IPOPT fixes variables most stably as
+    # bounds (lo == hi) — it eliminates them from the KKT system. Expressing the same
+    # pin as a separate linear *equality* constraint instead keeps c_1/c_{M-2} as free
+    # variables whose multipliers are poorly determined (the regularizer already drives
+    # them to the pinned value), and IPOPT then *oscillates* near the optimum (visits
+    # F≈0.9999 but never settles). Measured directly on displaced Fock-1: bounds →
+    # 0.99999; equality-constraint pin → chatters to ~0.83. A boundary slot's bound is
+    # also *conditionally* tight (amplitude bound when unpinned, tight when pinned),
+    # which the per-slot bounds vector expresses naturally but an additive MOI
+    # constraint cannot (one bound per variable). So this is a deliberate design choice,
+    # not an expedient. (For genuine linear *relations/inequalities* on control points —
+    # e.g. a slew bound |c_{i+1}-c_i| ≤ v — use DirectTrajOpt's `GlobalLinearConstraint`,
+    # where there is no equivalent variable-fixing alternative.)
+    if pin_boundary_derivative
+        M >= 4 || throw(ArgumentError(
+            "pin_boundary_derivative requires M ≥ 4 control points; got M=$M"))
+        _apply_boundary_pin!(lo, hi, pulse.initial_value, (n_d + 1):(2 * n_d))
+        _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 2) * n_d + 1):((M - 1) * n_d))
+    end
+
+    global_bounds = _named_tuple(cp_name => (lo, hi))
+
+    return (global_data, global_bounds)
+end
+
+# Apply tight global bounds (lo == hi == value) over the given range to
+# enforce clamped-basis boundary values via the GlobalBoundsConstraint
+# machinery. If `value` contains NaN (the :free sentinel), leave bounds untouched.
+function _apply_boundary_pin!(
+    lo::AbstractVector,
+    hi::AbstractVector,
+    value::AbstractVector,
+    range::AbstractUnitRange,
+)
+    any(isnan, value) && return
+    @assert length(value) == length(range) "boundary pin range mismatch"
+    lo[range] .= value
+    hi[range] .= value
+    return
+end
+
 """
     _get_control_data(pulse::GaussianPulse, times, sys)
 
@@ -1060,3 +1165,69 @@ end
     @test !hasfield(typeof(traj_no_g), :global_components) ||
           isempty(traj_no_g.global_components)
 end
+
+@testitem "BSplinePulse — _get_bspline_globals tight-bound pinning (default zero ends)" begin
+    using Piccolo
+    using Piccolo.Quantum.QuantumTrajectories: _get_bspline_globals, _get_drive_bounds
+
+    # Minimal 1-qubit X-Hamiltonian system
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(1.0 * σz, [σx], [1.0])
+
+    M, k, n_d = 10, 4, 1
+    # Default initial_value = nothing → constructor stores zeros → boundary pinned to zero
+    pulse = BSplinePulse(0.1 * randn(n_d, M), [0.0, 1.0]; order = k)
+    g_data, g_bounds = _get_bspline_globals(pulse, sys)
+    cp_name = Symbol(:c_, pulse.drive_name)
+
+    @test haskey(g_data, cp_name)
+    @test length(g_data[cp_name]) == M * n_d
+
+    lo, hi = g_bounds[cp_name]
+    @test length(lo) == M * n_d
+    @test length(hi) == M * n_d
+
+    # c_0 in-block slots (1:n_d) pinned to zero
+    @test lo[1:n_d] == zeros(n_d)
+    @test hi[1:n_d] == zeros(n_d)
+    # c_{M-1} in-block slots ((M-1)*n_d+1 : M*n_d) pinned to zero
+    @test lo[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+    @test hi[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+end
+
+@testitem "BSplinePulse — :free boundary keeps drive bounds" begin
+    using Piccolo
+    using Piccolo.Quantum.QuantumTrajectories: _get_bspline_globals, _get_drive_bounds
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(1.0 * σz, [σx], [1.0])
+
+    M, k, n_d = 10, 4, 1
+    cp = 0.1 * randn(n_d, M)
+    cp[:, end] .= 0.0  # explicit final endpoint to pass the constructor's consistency check
+    # :free initial; explicit zero final
+    pulse = BSplinePulse(
+        cp, [0.0, 1.0]; order = k,
+        initial_value = :free,
+        final_value = [0.0],
+    )
+    _, g_bounds = _get_bspline_globals(pulse, sys)
+    cp_name = Symbol(:c_, pulse.drive_name)
+    lo, hi = g_bounds[cp_name]
+
+    drive_lo, drive_hi = _get_drive_bounds(sys)
+    # initial (c_0) NOT pinned — drive bounds intact
+    @test lo[1:n_d] == drive_lo
+    @test hi[1:n_d] == drive_hi
+    # final (c_{M-1}) pinned to zero
+    @test lo[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+    @test hi[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+end
+
+# Note: BSplinePulse end-to-end boundary pinning tests (fixed-time + free-time)
+# live in Piccolissimo.jl/src/integrators/spline/bspline_integrator.jl since
+# they require both Piccolo (BSplinePulse, SplinePulseProblem, extract_pulse)
+# and Piccolissimo (SplineIntegrator). Piccolo's test env does not depend on
+# Piccolissimo. See spec acceptance criteria 10, 10b.
