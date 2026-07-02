@@ -268,6 +268,7 @@ end
         show_tangents=false,
         tangent_scale=0.1,
         colors=nothing,
+        t_max=nothing,
         kwargs...
     )
 
@@ -282,6 +283,13 @@ Dispatches rendering based on pulse type for visually accurate results.
 - `show_tangents`: Show derivative tangent whiskers (CubicSplinePulse only).
 - `tangent_scale`: Length scale for tangent whiskers (fraction of duration).
 - `colors`: Vector of colors, one per drive index. Defaults to the active theme palette.
+- `t_max`: Optional `Observable{<:Real}` playhead time. When `nothing` (default),
+  the full static pulse is drawn. When set, each channel is drawn as an
+  observable-driven curve revealed up to `t_max[]`, using the same per-type
+  primitive (stairs for `ZeroOrderPulse`, knot-to-knot lines for
+  `LinearSplinePulse`, dense curve for cubic/analytic). This is what
+  `animate_pulse` drives; static knot/tangent overlays are suppressed while
+  revealing. Backward-compatible: omit it for unchanged behavior.
 - `kwargs...`: Forwarded to the underlying Makie plot calls.
 """
 function plot_pulse!(
@@ -293,6 +301,7 @@ function plot_pulse!(
     show_tangents::Bool = false,
     tangent_scale::Float64 = 0.1,
     colors::Union{Nothing,AbstractVector} = nothing,
+    t_max::Union{Nothing,Observable} = nothing,
     kwargs...,
 )
     if isnothing(colors)
@@ -308,6 +317,7 @@ function plot_pulse!(
         show_tangents,
         tangent_scale,
         colors,
+        t_max,
         kwargs...,
     )
 end
@@ -315,6 +325,22 @@ end
 # ============================================================================ #
 # Type-specific rendering dispatches
 # ============================================================================ #
+
+# Animation reveal helper. Returns the (xs, ys) for the portion of one drive of
+# `pulse` visible at playhead time `t_max`. A single helper works for every pulse
+# type because `pulse(t)` already dispatches to the correct per-type evaluation
+# (held value for ZOH, linear/cubic interpolation, analytic form for Gaussian/Erf).
+# `render_times` is the type-appropriate base grid (knot times for step/linear,
+# dense grid for cubic/analytic); the synthetic endpoint at `t_max` makes the
+# revealed curve terminate exactly at the playhead instead of at the last grid
+# point behind it. `render_times` must be sorted ascending.
+function _reveal_xy(pulse, render_times, drive_index::Int, t_max::Real)
+    tmax = float(t_max)
+    k = searchsortedlast(render_times, tmax)
+    xs = k == 0 ? [tmax] : vcat(render_times[1:k], tmax)
+    ys = [pulse(t)[drive_index] for t in xs]
+    return xs, ys
+end
 
 # ---------------------------------------------------------------------------- #
 # ZeroOrderPulse — stairs (step function)
@@ -329,23 +355,32 @@ function _plot_pulse_type!(
     show_tangents,  # unused
     tangent_scale,  # unused
     colors,
+    t_max = nothing,
     kwargs...,
 )
     knot_times = collect(get_knot_times(pulse))
     knot_vals = sample(pulse, knot_times)
 
     for (ci, i) in enumerate(drive_indices)
-        stairs!(
-            ax,
-            knot_times,
-            knot_vals[i, :];
-            color = colors[ci],
-            linewidth = 2,
-            step = :post,
-            kwargs...,
-        )
+        if isnothing(t_max)
+            stairs!(
+                ax,
+                knot_times,
+                knot_vals[i, :];
+                color = colors[ci],
+                linewidth = 2,
+                step = :post,
+                kwargs...,
+            )
+        else
+            xs = @lift(_reveal_xy(pulse, knot_times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, knot_times, i, $t_max)[2])
+            stairs!(ax, xs, ys; color = colors[ci], linewidth = 2, step = :post, kwargs...)
+        end
 
-        if show_knots
+        # Knot markers are static structure; suppress during a reveal so future
+        # knots don't appear ahead of the playhead.
+        if show_knots && isnothing(t_max)
             scatter!(
                 ax,
                 knot_times,
@@ -372,22 +407,29 @@ function _plot_pulse_type!(
     show_tangents,  # unused
     tangent_scale,  # unused
     colors,
+    t_max = nothing,
     kwargs...,
 )
     knot_times = collect(get_knot_times(pulse))
     knot_vals = get_knot_values(pulse)
 
     for (ci, i) in enumerate(drive_indices)
-        lines!(
-            ax,
-            knot_times,
-            collect(knot_vals[i, :]);
-            color = colors[ci],
-            linewidth = 2,
-            kwargs...,
-        )
+        if isnothing(t_max)
+            lines!(
+                ax,
+                knot_times,
+                collect(knot_vals[i, :]);
+                color = colors[ci],
+                linewidth = 2,
+                kwargs...,
+            )
+        else
+            xs = @lift(_reveal_xy(pulse, knot_times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, knot_times, i, $t_max)[2])
+            lines!(ax, xs, ys; color = colors[ci], linewidth = 2, kwargs...)
+        end
 
-        if show_knots
+        if show_knots && isnothing(t_max)
             scatter!(
                 ax,
                 knot_times,
@@ -414,13 +456,26 @@ function _plot_pulse_type!(
     show_tangents,
     tangent_scale,
     colors,
+    t_max = nothing,
     kwargs...,
 )
     # Dense sampling for smooth curve
     controls, times = sample(pulse, n_samples)
 
     for (ci, i) in enumerate(drive_indices)
-        lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        if isnothing(t_max)
+            lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        else
+            xs = @lift(_reveal_xy(pulse, times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, times, i, $t_max)[2])
+            lines!(ax, xs, ys; color = colors[ci], linewidth = 2, kwargs...)
+        end
+    end
+
+    # Static knot markers and tangent whiskers are suppressed during a reveal
+    # so future structure doesn't appear ahead of the playhead.
+    if !isnothing(t_max)
+        return
     end
 
     # Knot markers
@@ -552,12 +607,19 @@ function _plot_pulse_type!(
     show_tangents,  # unused
     tangent_scale,  # unused
     colors,
+    t_max = nothing,
     kwargs...,
 )
     controls, times = sample(pulse, n_samples)
 
     for (ci, i) in enumerate(drive_indices)
-        lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        if isnothing(t_max)
+            lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        else
+            xs = @lift(_reveal_xy(pulse, times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, times, i, $t_max)[2])
+            lines!(ax, xs, ys; color = colors[ci], linewidth = 2, kwargs...)
+        end
     end
 end
 

@@ -59,6 +59,7 @@ pages = [
         "Multilevel Transmon" => "generated/multilevel_transmon.md",
         "State Transfer" => "generated/state_transfer.md",
         "Robust Control" => "generated/robust_control.md",
+        "Two-Qubit Gate Validation" => "generated/two_qubit_gate_validation.md",
     ],
     "Problem Templates" => [
         "Overview" => "problem-templates/index.md",
@@ -83,6 +84,7 @@ pages = [
         "Leakage Suppression" => "generated/guides/leakage_suppression.md",
         "Global Variables" => "generated/guides/global_variables.md",
         "Visualization" => "generated/guides/visualization.md",
+        "Wigner Bosonic Qubits" => "generated/guides/wigner_bosonic_qubits.md",
         "Custom Objectives" => "generated/guides/custom_objectives.md",
     ],
     "API Reference" => ["Overview" => "reference/index.md", "Library" => "lib.md"],

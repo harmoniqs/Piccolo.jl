@@ -57,7 +57,7 @@ The terminal cost ``\ell`` is ``1 - F`` for a trajectory-dependent fidelity ``F`
 | `KetTrajectory` | ``\lvert \langle \psi_{\text{goal}} \mid \psi_N \rangle \rvert^2`` |
 | `DensityTrajectory` | ``\operatorname{tr}(\rho_{\text{goal}}\, \rho_N)`` |
 
-### Discretization
+### [Discretization](@id discretization)
 
 The dynamics constraint ``x_{k+1} = \exp(\Delta t_k \cdot G(\boldsymbol{u}_k))\, x_k`` is an **exact matrix exponential** propagator for the piecewise-constant Hamiltonian on each interval ``[t_k, t_{k+1}]``. This preserves unitarity by construction and is computed efficiently via Krylov subspace methods (`ExponentialAction.jl`).
 
@@ -117,7 +117,7 @@ The dynamics constraint ``x_{k+1} = \exp(\Delta t_k \cdot G(\boldsymbol{u}_k))\,
 | Real vector representation ``x \in \mathbb{R}^n`` | [`Isomorphism`](@ref isomorphisms-concept) | [Isomorphisms](@ref isomorphisms-concept) |
 | Subspace embeddings | [`Operators`](@ref operators-concept) | [Operators](@ref operators-concept) |
 
-## Decision Variables
+## [Decision Variables](@id decision-variables)
 
 The full NLP decision vector ``z`` is a [`NamedTrajectory`](https://docs.harmoniqs.co/NamedTrajectories.jl/) containing, at each of ``N`` knot points:
 
