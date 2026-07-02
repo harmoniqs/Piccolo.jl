@@ -1,5 +1,6 @@
 export SplinePulseProblem
 export bspline_slew_constraint
+export bspline_accel_constraint
 
 # Helper function to determine spline order from pulse type
 _get_spline_order(::LinearSplinePulse) = 1
@@ -70,6 +71,85 @@ end
 
 bspline_slew_constraint(pulse::BSplinePulse, v_max::Real; kwargs...) =
     bspline_slew_constraint(pulse, fill(Float64(v_max), pulse.n_drives); kwargs...)
+
+"""
+    bspline_accel_constraint(pulse::BSplinePulse, a_max; label=...) -> GlobalLinearConstraint
+
+Closed-form per-drive **acceleration (curvature) bound** `|p̈(t)| ≤ a_max` for a
+B-spline pulse — the second-derivative analogue of [`bspline_slew_constraint`].
+
+The 2nd derivative of an order-`k` B-spline is an order-`(k-2)` B-spline whose
+control points are the *scaled second differences*
+
+    eᵢ = (k-2)·(d_{i+1} - dᵢ) / (τ_{i+k} - τ_{i+2}),   dᵢ = (k-1)(c_{i+1}-cᵢ)/(τ_{i+k}-τ_{i+1}),
+
+for `i = 0 … M-3`. Composing the two linear difference operators, `eᵢ` is linear
+in `(cᵢ, c_{i+1}, c_{i+2})`:
+
+    eᵢ = A·[ q·cᵢ − (p+q)·c_{i+1} + p·c_{i+2} ],
+    A = (k-1)(k-2)/(τ_{i+k}-τ_{i+2}),  p = 1/(τ_{i+k+1}-τ_{i+2}),  q = 1/(τ_{i+k}-τ_{i+1}),
+
+so by the convex-hull (variation-diminishing) property `|p̈(t)| ≤ maxᵢ|eᵢ|`, and
+bounding each `|eᵢ| ≤ a_max` is a **conservative, closed-form** acceleration cap —
+linear inequalities on second differences of the `:c_<drive>` global block, via
+`GlobalLinearConstraint`. (For uniform knot spacing `h` this reduces to the exact
+discrete curvature `(cᵢ−2c_{i+1}+c_{i+2})/h²`.)
+
+Physically (displaced-frame cavity drive): a bound on `|α̈|` is a **slew bound on
+the recovered lab drive** `ε = i·α̇` (since `dε/dt = i·α̈`) — it band-limits the
+physical drive, complementing the amplitude/slew caps. Pass alongside the slew
+constraint via `constraints = [...]`.
+
+`a_max` is per-drive (`Vector`, length `n_drives`) or scalar; `Inf` skips a channel.
+Requires order `k ≥ 3` and `M ≥ 3` control points.
+"""
+function bspline_accel_constraint(
+    pulse::BSplinePulse,
+    a_max::AbstractVector;
+    label::String = "B-spline acceleration bound",
+)
+    M = pulse.basis.M
+    n_d = pulse.n_drives
+    k = get_order(pulse)
+    length(a_max) == n_d || throw(ArgumentError(
+        "a_max length $(length(a_max)) ≠ n_drives $n_d"))
+    k >= 3 || throw(ArgumentError(
+        "acceleration bound needs spline order k ≥ 3 (2nd derivative); got k=$k"))
+    M >= 3 || throw(ArgumentError("acceleration bound needs M ≥ 3 control points; got M=$M"))
+    τ = pulse.basis.knot_vector            # 1-based storage of 0-based knots τ_0 … τ_{M+k-1}
+    cp_name = Symbol(:c_, drive_name(pulse))
+    gdim = M * n_d
+
+    rows = Vector{Float64}[]
+    lb = Float64[]
+    ub = Float64[]
+    for ch in 1:n_d
+        isfinite(a_max[ch]) || continue
+        for i in 0:(M - 3)                 # 0-based 2nd-derivative control-point index
+            d_outer = τ[i + k + 1] - τ[i + 3]  # τ_{i+k}   - τ_{i+2}
+            d_p     = τ[i + k + 2] - τ[i + 3]  # τ_{i+k+1} - τ_{i+2}
+            d_q     = τ[i + k + 1] - τ[i + 2]  # τ_{i+k}   - τ_{i+1}
+            (d_outer > 0 && d_p > 0 && d_q > 0) || continue   # skip degenerate spans
+            A = (k - 1) * (k - 2) / d_outer
+            p = 1 / d_p
+            q = 1 / d_q
+            row = zeros(gdim)
+            row[i * n_d + ch]       += A * q          #  c_i
+            row[(i + 1) * n_d + ch] += -A * (p + q)   #  c_{i+1}
+            row[(i + 2) * n_d + ch] += A * p          #  c_{i+2}
+            push!(rows, row)
+            push!(lb, -a_max[ch])
+            push!(ub, a_max[ch])
+        end
+    end
+    isempty(rows) && throw(ArgumentError(
+        "bspline_accel_constraint: every channel is Inf (nothing to bound)"))
+    A = reduce(vcat, (r' for r in rows))
+    return GlobalLinearConstraint(cp_name, A, lb, ub; label = label)
+end
+
+bspline_accel_constraint(pulse::BSplinePulse, a_max::Real; kwargs...) =
+    bspline_accel_constraint(pulse, fill(Float64(a_max), pulse.n_drives); kwargs...)
 
 # _make_free_phase_goal is defined in _problem_templates.jl (shared across all templates)
 
