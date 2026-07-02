@@ -29,6 +29,10 @@ include("problems.jl")
 include("objectives.jl")
 @reexport using .QuantumObjectives
 
+# Solution validation (depends on QuantumControlProblems + QuantumObjectives)
+include("validation.jl")
+@reexport using .Validation
+
 include("constraints.jl")
 @reexport using .QuantumConstraints
 
