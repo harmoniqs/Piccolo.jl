@@ -177,7 +177,7 @@ function _coherent_ket_lowrank_factor(
     A = zeros(Float64, 2, m)
     inv_K = 1.0 / K
     offset = 0
-    for i in 1:K
+    for i = 1:K
         d_iso = state_dims[i]
         @assert iseven(d_iso) "iso-state $i has odd dim $(d_iso); expected even"
         d_c = d_iso ÷ 2
@@ -191,11 +191,11 @@ function _coherent_ket_lowrank_factor(
         #   ⟨gᵢ, ψᵢ⟩ = (Re(g) − i·Im(g))ᵀ (Re(ψ) + i·Im(ψ))
         #             = Re(g)ᵀRe(ψ) + Im(g)ᵀIm(ψ)  +  i (Re(g)ᵀIm(ψ) − Im(g)ᵀRe(ψ))
         # Row 1 (Re(S)) — scaled by 1/K
-        A[1, offset .+ (1:d_c)]         .= inv_K .* re_g
+        A[1, offset .+ (1:d_c)] .= inv_K .* re_g
         A[1, offset .+ ((d_c+1):d_iso)] .= inv_K .* im_g
         # Row 2 (Im(S)) — scaled by 1/K
-        A[2, offset .+ (1:d_c)]         .= -inv_K .* im_g
-        A[2, offset .+ ((d_c+1):d_iso)] .=  inv_K .* re_g
+        A[2, offset .+ (1:d_c)] .= -inv_K .* im_g
+        A[2, offset .+ ((d_c+1):d_iso)] .= inv_K .* re_g
         offset += d_iso
     end
     return A
@@ -351,8 +351,8 @@ function _unitary_lowrank_factor(U_goal::AbstractMatrix{<:Number})
     @assert size(U_goal, 2) == n "U_goal must be square; got $(size(U_goal))"
     A = zeros(Float64, 2, 2 * n^2)
     inv_n = 1.0 / n
-    for i in 0:(n - 1)
-        col = @view U_goal[:, i + 1]
+    for i = 0:(n-1)
+        col = @view U_goal[:, i+1]
         re_g = real(col)
         im_g = imag(col)
         # Per-column block of `Ũ⃗`: `i*2n + (1:n)` is Re, `i*2n + (n+1:2n)` is Im.
@@ -360,11 +360,11 @@ function _unitary_lowrank_factor(U_goal::AbstractMatrix{<:Number})
         #             = Re(g)ᵀRe(U) + Im(g)ᵀIm(U)  +  i (Re(g)ᵀIm(U) − Im(g)ᵀRe(U))
         # Sum over columns gives S = Σᵢ ⟨gᵢ, Uᵢ⟩ = tr(U_goal† U).
         # Row 1 (Re(S)/n)
-        A[1, i * 2n .+ (1:n)]         .= inv_n .* re_g
-        A[1, i * 2n .+ ((n + 1):2n)]  .= inv_n .* im_g
+        A[1, i*2n .+ (1:n)] .= inv_n .* re_g
+        A[1, i*2n .+ ((n+1):2n)] .= inv_n .* im_g
         # Row 2 (Im(S)/n)
-        A[2, i * 2n .+ (1:n)]         .= -inv_n .* im_g
-        A[2, i * 2n .+ ((n + 1):2n)]  .=  inv_n .* re_g
+        A[2, i*2n .+ (1:n)] .= -inv_n .* im_g
+        A[2, i*2n .+ ((n+1):2n)] .= inv_n .* re_g
     end
     return A
 end
@@ -509,11 +509,8 @@ using TestItems
     u = randn(1, N)
     Δt = fill(0.1, N)
 
-    traj = NamedTrajectory(
-        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
-        timestep = :Δt,
-        controls = :u,
-    )
+    traj =
+        NamedTrajectory((ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt); timestep = :Δt, controls = :u)
 
     # Goal states for X gate: |0⟩→|1⟩ and |1⟩→|0⟩
     ψ0 = ComplexF64[1.0, 0.0]
@@ -776,9 +773,7 @@ end
             @test size(cap.A) == (2, K * ket_dim)
 
             # Index map for the terminal-knot concatenated iso-state.
-            knot_idx = vcat(
-                [slice(N, traj.components[nm], traj.dim) for nm in names_K]...,
-            )
+            knot_idx = vcat([slice(N, traj.components[nm], traj.dim) for nm in names_K]...)
             z = vec(traj)
             z_k = z[knot_idx]
 
@@ -793,7 +788,7 @@ end
 
             # Dense apply at the same knot, via Symmetric(get_full_hessian, :U)·v.
             H_full = Matrix(get_full_hessian(obj, traj))
-            Hv_dense = (Symmetric(H_full, :U) * v)[knot_idx]
+            Hv_dense = (Symmetric(H_full, :U)*v)[knot_idx]
 
             @test Hv_mf ≈ Hv_dense atol = 1e-12
         end
@@ -851,7 +846,7 @@ end
             Hv_mf = Q * G * (A' * (A * v_k))
 
             H_full = Matrix(get_full_hessian(obj, traj))
-            Hv_dense = (Symmetric(H_full, :U) * v)[knot_idx]
+            Hv_dense = (Symmetric(H_full, :U)*v)[knot_idx]
 
             @test Hv_mf ≈ Hv_dense atol = 1e-12
         end
@@ -871,11 +866,7 @@ end
     Utilde = randn(iso_dim, N)
     u = randn(1, N)
     Δt = fill(0.1, N)
-    traj = NamedTrajectory(
-        (Utilde = Utilde, u = u, Δt = Δt);
-        timestep = :Δt,
-        controls = :u,
-    )
+    traj = NamedTrajectory((Utilde = Utilde, u = u, Δt = Δt); timestep = :Δt, controls = :u)
 
     # 2x2 X gate embedded in a 4-dim ambient space (subspace = 1:2).
     op = EmbeddedOperator(ComplexF64[0 1; 1 0], 1:2, n_full)
@@ -904,11 +895,7 @@ end
     ψ̃1 = randn(ket_dim, N)
     u = randn(1, N)
     Δt = fill(0.1, N)
-    traj = NamedTrajectory(
-        (ψ̃1 = ψ̃1, u = u, Δt = Δt);
-        timestep = :Δt,
-        controls = :u,
-    )
+    traj = NamedTrajectory((ψ̃1 = ψ̃1, u = u, Δt = Δt); timestep = :Δt, controls = :u)
 
     ℓ = x -> sum(x .^ 2) + 0.3 * sum(sin.(x))  # any non-trivial C² loss
     Q = 7.0
@@ -916,14 +903,14 @@ end
     cap = ConstantLowRankHVP(fake_A, :neg2_sign)
 
     obj_none = KnotPointObjective(ℓ, :ψ̃1, traj; Qs = [Q], times = [N], knot_hvp = nothing)
-    obj_pop  = KnotPointObjective(ℓ, :ψ̃1, traj; Qs = [Q], times = [N], knot_hvp = cap)
+    obj_pop = KnotPointObjective(ℓ, :ψ̃1, traj; Qs = [Q], times = [N], knot_hvp = cap)
 
     # Value: literally equal.
     @test objective_value(obj_none, traj) === objective_value(obj_pop, traj)
 
     # Gradient: literally equal (elementwise, no tolerance).
     ∇_none = zeros(traj.dim * traj.N + traj.global_dim)
-    ∇_pop  = zeros(traj.dim * traj.N + traj.global_dim)
+    ∇_pop = zeros(traj.dim * traj.N + traj.global_dim)
     gradient!(∇_none, obj_none, traj)
     gradient!(∇_pop, obj_pop, traj)
     @test ∇_none == ∇_pop

@@ -22,11 +22,8 @@ The variational operators represent directions of uncertainty or perturbation in
 
 See also [`QuantumSystem`](@ref Piccolo.Quantum.QuantumSystems.QuantumSystem), [`OpenQuantumSystem`](@ref).
 """
-struct VariationalQuantumSystem{
-    F1<:Function,
-    F2<:Function,
-    F⃗3<:AbstractVector{<:Function},
-} <: AbstractQuantumSystem
+struct VariationalQuantumSystem{F1<:Function,F2<:Function,F⃗3<:AbstractVector{<:Function}} <:
+       AbstractQuantumSystem
     H::F1
     G::F2
     G_vars::F⃗3
