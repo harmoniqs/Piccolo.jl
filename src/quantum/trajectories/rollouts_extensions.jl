@@ -955,6 +955,38 @@ phase-rotated before computing the overlap. This matches the
 `subsystem_levels` specifies the Hilbert space dimensions of each subsystem
 (e.g., [2, 2, 2, 2] for 4 qubits). Required when `phases` is provided.
 """
+# ── rollout = :none (RolloutStates) guards ─────────────────────────────────────
+# A `RolloutStates` trajectory must never be CPU-rolled: `rollout!` REASSIGNS
+# `qtraj.solution`, and the solution type parameter S is fixed at construction —
+# the assignment would convert-error (worse: only AFTER the ODE ran). Placeholder
+# READS are fine (they are the bootstrap warm-start guess); only re-rollout and
+# placeholder fidelity are guarded.
+const _ROLLOUT_NONE_ERR =
+    "this MultiKetTrajectory was built with `rollout = :none` (placeholder states); " *
+    "CPU `rollout!` is not supported on it — refresh it with a GPU rollout " *
+    "(Piccolissimo `gpu_rollout!`) or reconstruct with `rollout = :cpu`"
+
+Rollouts.rollout!(
+    ::MultiKetTrajectory{<:AbstractPulse,RolloutStates},
+    ::AbstractPulse;
+    kwargs...,
+) = error(_ROLLOUT_NONE_ERR)
+
+Rollouts.rollout!(::MultiKetTrajectory{<:AbstractPulse,RolloutStates}; kwargs...) =
+    error(_ROLLOUT_NONE_ERR)
+
+function Rollouts.fidelity(
+    qtraj::MultiKetTrajectory{<:AbstractPulse,RolloutStates};
+    kwargs...,
+)
+    if !qtraj.solution.real_states
+        @warn "fidelity() on a rollout=:none placeholder trajectory — the states are " *
+              "the tiled initial-ket guess, NOT solved dynamics. Refresh with " *
+              "gpu_rollout! first." maxlog = 1
+    end
+    return invoke(Rollouts.fidelity, Tuple{MultiKetTrajectory}, qtraj; kwargs...)
+end
+
 function Rollouts.fidelity(
     qtraj::MultiKetTrajectory;
     phases::Union{Nothing,AbstractVector{<:Real}} = nothing,
