@@ -79,7 +79,11 @@ mutable struct RolloutStates
     real_states::Bool             # false until a real (GPU) rollout refreshes `states`
     u::Vector{PerKetStates{_KetStatesView}}
 
-    function RolloutStates(states::Array{ComplexF64,3}, times::Vector{Float64}, real_states::Bool)
+    function RolloutStates(
+        states::Array{ComplexF64,3},
+        times::Vector{Float64},
+        real_states::Bool,
+    )
         shims = [PerKetStates(view(states, :, k, :), times) for k in axes(states, 2)]
         return new(states, times, real_states, shims)
     end
@@ -130,7 +134,14 @@ function MultiKetTrajectory(
             states[:, k, j] = ψ
         end
         rs = RolloutStates(states, kt, false)
-        return MultiKetTrajectory{typeof(pulse),RolloutStates}(system, pulse, ψ0s, ψgs, ws, rs)
+        return MultiKetTrajectory{typeof(pulse),RolloutStates}(
+            system,
+            pulse,
+            ψ0s,
+            ψgs,
+            ws,
+            rs,
+        )
     elseif rollout !== :cpu
         throw(ArgumentError("rollout must be :cpu or :none, got $(repr(rollout))"))
     end
