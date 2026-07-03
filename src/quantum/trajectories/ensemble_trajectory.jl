@@ -30,6 +30,62 @@ mutable struct MultiKetTrajectory{P<:AbstractPulse,S} <: AbstractQuantumTrajecto
 end
 
 """
+    PerKetStates
+
+Per-ket protocol shim for a `RolloutStates` solution. Implements the two protocols the
+`MultiKetTrajectory` solution consumers rely on:
+- `(pk::PerKetStates)(t)` — the state at the nearest stored knot time ≤ `t`
+  (used by `qtraj(t)` and `NamedTrajectory` conversion sampling)
+- `pk.u` — vector of per-knot states, so `pk.u[end]` is the terminal state
+  (used by `fidelity`)
+"""
+struct PerKetStates{M<:AbstractMatrix{ComplexF64}}
+    mat::M                    # (ketdim, N_knots) — a view into the shared 3D array
+    times::Vector{Float64}
+end
+
+(pk::PerKetStates)(t::Real) =
+    getfield(pk, :mat)[:, max(searchsortedlast(getfield(pk, :times), t), 1)]
+
+# NOTE: `.u` materializes copies of all N columns per access — fine at current call
+# rates (fidelity reads one terminal state per call); do not use in hot loops.
+Base.getproperty(pk::PerKetStates, s::Symbol) =
+    s === :u ? [getfield(pk, :mat)[:, j] for j in axes(getfield(pk, :mat), 2)] :
+    getfield(pk, s)
+
+"""
+    RolloutStates
+
+No-ODE solution for `MultiKetTrajectory(...; rollout = :none)`. Holds knot states directly
+(initialized by tiling the initial kets — a legitimate warm-start guess that downstream
+`NamedTrajectory` sampling may consume) with a MUTABLE interior: a GPU rollout (e.g.
+Piccolissimo's `gpu_rollout!`) overwrites `states` in place and sets `real_states = true`,
+so the trajectory's solution type parameter never changes and `rollout!`'s
+solution-reassignment path is never exercised.
+
+`fidelity` on a trajectory whose `real_states` is still `false` warns (once) — a tiled
+placeholder must never be silently reported as a physical fidelity. Direct `rollout!` on a
+`RolloutStates` trajectory is an error (see `rollouts_extensions.jl`).
+"""
+# Concrete view type of one ket's (ketdim × N_knots) slice of the shared 3D array.
+# Computed (not hand-written) so the shims are guaranteed to be stored as VIEWS —
+# a Matrix-typed field would silently convert-and-COPY, leaving the shims stale
+# after an in-place `states .= ...` refresh (review-caught failure mode).
+const _KetStatesView = typeof(view(zeros(ComplexF64, 1, 1, 1), :, 1, :))
+
+mutable struct RolloutStates
+    states::Array{ComplexF64,3}   # (ketdim, K, N_knots) — shared storage
+    times::Vector{Float64}
+    real_states::Bool             # false until a real (GPU) rollout refreshes `states`
+    u::Vector{PerKetStates{_KetStatesView}}
+
+    function RolloutStates(states::Array{ComplexF64,3}, times::Vector{Float64}, real_states::Bool)
+        shims = [PerKetStates(view(states, :, k, :), times) for k in axes(states, 2)]
+        return new(states, times, real_states, shims)
+    end
+end
+
+"""
     MultiKetTrajectory(system, pulse, initials, goals; weights=..., algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8, n_save=101)
 
 Create a multi-ket trajectory by solving multiple Schrödinger equations.
@@ -57,9 +113,27 @@ function MultiKetTrajectory(
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
+    rollout::Symbol = :cpu,
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
     @assert length(initials) == length(goals) == length(weights) "initials, goals, and weights must have same length"
+
+    if rollout === :none
+        # No-ODE fast path: knot states tiled from the initial kets (a readable
+        # warm-start guess); refresh later with a GPU rollout. See `RolloutStates`.
+        ψ0s = [Vector{ComplexF64}(ψ) for ψ in initials]
+        ψgs = [Vector{ComplexF64}(ψ) for ψ in goals]
+        ws = Vector{Float64}(weights)
+        kt = collect(Float64, get_knot_times(pulse))
+        states = Array{ComplexF64,3}(undef, system.levels, length(ψ0s), length(kt))
+        for (k, ψ) in enumerate(ψ0s), j in eachindex(kt)
+            states[:, k, j] = ψ
+        end
+        rs = RolloutStates(states, kt, false)
+        return MultiKetTrajectory{typeof(pulse),RolloutStates}(system, pulse, ψ0s, ψgs, ws, rs)
+    elseif rollout !== :cpu
+        throw(ArgumentError("rollout must be :cpu or :none, got $(repr(rollout))"))
+    end
 
     if isnothing(algorithm)
         algorithm = default_algorithm(system)
@@ -119,6 +193,7 @@ function MultiKetTrajectory(
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
+    rollout::Symbol = :cpu,
 )
     times = [0.0, T]
     controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
@@ -132,6 +207,7 @@ function MultiKetTrajectory(
         algorithm,
         abstol,
         reltol,
+        rollout,
     )
 end
 
@@ -268,4 +344,43 @@ end
 
     # length(.solution.u) should be trajectory count, not scalar element count
     @test length(qtraj.solution.u) == 2
+end
+
+@testitem "MultiKetTrajectory: rollout=:none tiles initials, readable, guarded" begin
+    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    ψ0 = [ComplexF64[1, 0], ComplexF64[0, 1]]
+    ψg = [ComplexF64[0, 1], ComplexF64[1, 0]]
+    qt = MultiKetTrajectory(sys, ψ0, ψg, 1.0; rollout = :none)
+    @test qt isa MultiKetTrajectory
+    @test qt.solution isa RolloutStates
+    @test !qt.solution.real_states
+
+    # placeholder reads SUCCEED (bootstrap requirement): tiled initial at every t
+    for (k, ψ) in enumerate(ψ0)
+        @test all(qt[k](t) ≈ ψ for t in (0.0, 0.5, 1.0))
+    end
+    @test qt(0.5) ≈ ψ0                      # trajectory callable samples all kets
+    @test qt[1].u[end] ≈ ψ0[1]              # fidelity's terminal-state protocol
+
+    # shims are VIEWS into the shared array — in-place refresh must be visible
+    # (guards the silent view→Matrix copy failure mode)
+    qt.solution.states[:, 1, :] .= ComplexF64[0, 1]
+    @test qt[1](0.5) ≈ ComplexF64[0, 1]
+    @test qt[1].u[end] ≈ ComplexF64[0, 1]
+
+    # rollout! is a hard error on BOTH methods
+    @test_throws ErrorException rollout!(qt, get_pulse(qt))
+    @test_throws ErrorException rollout!(qt)
+
+    # fidelity on a placeholder warns (once) but still returns a number
+    @test_logs (:warn, r"placeholder") match_mode = :any begin
+        f = fidelity(qt)
+        @test f isa Float64
+    end
+
+    # bad kwarg value rejected; legacy default unchanged
+    @test_throws ArgumentError MultiKetTrajectory(sys, ψ0, ψg, 1.0; rollout = :fast)
+    qt2 = MultiKetTrajectory(sys, ψ0, ψg, 1.0)
+    @test qt2 isa MultiKetTrajectory
+    @test !(qt2.solution isa RolloutStates)
 end
