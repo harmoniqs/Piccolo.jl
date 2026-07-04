@@ -34,7 +34,25 @@ Create a terminal objective for ket state infidelity, using the goal from `traj.
 function KetInfidelityObjective(ψ̃_name::Symbol, traj::NamedTrajectory; Q = 100.0)
     ψ_goal = iso_to_ket(traj.goal[ψ̃_name])
     ℓ = ψ̃ -> abs(1 - ket_fidelity_loss(ψ̃, ψ_goal))
-    return TerminalObjective(ℓ, ψ̃_name, traj; Q = Q)
+    return TerminalObjective(
+        ℓ, ψ̃_name, traj;
+        Q = Q, knot_hvp = _ket_infidelity_knot_hvp(ψ_goal),
+    )
+end
+
+# Declared matrix-free per-knot HVP for ℓ = |1 − |⟨g|ψ⟩|²| (DTO KnotHVP carrier):
+# with iso layout ψ̃ = [Re(ψ); Im(ψ)], the overlap S = ⟨g|ψ⟩ satisfies
+#   Re(S) = [gᵣ; gᵢ]ᵀψ̃,  Im(S) = [−gᵢ; gᵣ]ᵀψ̃  ⇒  F = ‖A·ψ̃‖² = |S|²
+# so the per-knot Hessian is the CONSTANT rank-2 form Aᵀ·G·A with the
+# `:neg2_sign` link rule G = −2·sign(1−F)·I. Declaring it bypasses the
+# nested-ForwardDiff rank probe and the per-iterate FD refactorization
+# (O(m²) per state term at optimizer scale).
+function _ket_infidelity_knot_hvp(ψ_goal::AbstractVector{<:Complex})
+    gr, gi = real(ψ_goal), imag(ψ_goal)
+    A = Matrix{Float64}(undef, 2, 2 * length(ψ_goal))
+    A[1, :] = vcat(gr, gi)
+    A[2, :] = vcat(-gi, gr)
+    return ConstantLowRankHVP(A, :neg2_sign)
 end
 
 """
@@ -60,7 +78,10 @@ function KetInfidelityObjective(
     Q = 100.0,
 )
     ℓ = ψ̃ -> abs(1 - ket_fidelity_loss(ψ̃, ComplexF64.(ψ_goal)))
-    return TerminalObjective(ℓ, ψ̃_name, traj; Q = Q)
+    return TerminalObjective(
+        ℓ, ψ̃_name, traj;
+        Q = Q, knot_hvp = _ket_infidelity_knot_hvp(ComplexF64.(ψ_goal)),
+    )
 end
 
 # ---------------------------------------------------------
