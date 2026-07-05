@@ -147,9 +147,19 @@ function CoherentKetInfidelityObjective(
     ψ̃_names::Vector{Symbol},
     traj::NamedTrajectory;
     Q::Float64 = 100.0,
+    weights::Union{Nothing,Vector{Float64}} = nothing,
 )
     n_states = length(ψ_goals)
     @assert length(ψ̃_names) == n_states "Number of names must match number of goals"
+    # Weighted coherent fidelity: F = |Σᵢ wᵢ⟨gᵢ|ψᵢ⟩ / Σw|². The unweighted
+    # amplitude sum treats every ket equally, so an expensive minority (e.g.
+    # the 2 hard kets of 32 in a C⁴X curriculum) contributes only 2/32 of the
+    # amplitude and gets abandoned at the optimum (measured at i=4). Weights
+    # INSIDE the sum reshape the optimum itself; uniform weights reproduce the
+    # unweighted objective exactly.
+    w = weights === nothing ? ones(n_states) : copy(weights)
+    @assert length(w) == n_states "weights length must match number of states"
+    wsum = sum(w)
 
     # Convert goals to ComplexF64
     goals = [ComplexF64.(g) for g in ψ_goals]
@@ -168,14 +178,16 @@ function CoherentKetInfidelityObjective(
             offset += state_dims[i]
         end
 
-        # Coherent infidelity: 1 - F_coherent
-        return abs(1 - coherent_ket_fidelity(ψ̃s, goals))
+        # Weighted coherent infidelity: 1 − |Σ wᵢ⟨gᵢ|ψᵢ⟩ / Σw|²
+        overlap = sum(w[i] * (goals[i]' * iso_to_ket(ψ̃s[i])) for i = 1:n_states)
+        return abs(1 - abs2(overlap / wsum))
     end
 
     # Declarable matrix-free per-knot HVP. The coherent loss is exactly
     # `ℓ = |1 - F|` with `F = ‖A·z‖²`, so the per-knot Hessian factors as
     # `Aᵀ · G · A` with `G = -2·sign(1 - F)·I_2` (the `:neg2_sign` rule).
-    A = _coherent_ket_lowrank_factor(goals, state_dims)
+    # Per-ket blocks of A scale by wᵢ/Σw (uniform ⇒ the original 1/K).
+    A = _coherent_ket_lowrank_factor(goals, state_dims, w ./ wsum)
     cap = ConstantLowRankHVP(A, :neg2_sign)
 
     # Pass vector of component names for multi-component terminal objective
@@ -191,14 +203,15 @@ end
 function _coherent_ket_lowrank_factor(
     goals::AbstractVector{<:AbstractVector{<:Complex}},
     state_dims::AbstractVector{Int},
+    scales::Union{Nothing,AbstractVector{Float64}} = nothing,
 )
     K = length(goals)
     @assert length(state_dims) == K
     m = sum(state_dims)
     A = zeros(Float64, 2, m)
-    inv_K = 1.0 / K
     offset = 0
     for i = 1:K
+        inv_K = scales === nothing ? 1.0 / K : scales[i]
         d_iso = state_dims[i]
         @assert iseven(d_iso) "iso-state $i has odd dim $(d_iso); expected even"
         d_c = d_iso ÷ 2

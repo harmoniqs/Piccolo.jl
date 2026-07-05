@@ -644,24 +644,15 @@ function _ensemble_ket_objective(
     coherent::Bool = true,
 )
     if coherent
-        # Use coherent fidelity - phases must align for gate implementation
-        obj = CoherentKetInfidelityObjective(goals, snames, traj; Q = Q)
-        # Anchored coherent: the plain coherent overlap treats all kets equally
-        # and will abandon an expensive minority (measured at i=4 Stage-2: hard
-        # kets 0.9997 → 0.0018 while the 30 easy kets aligned — the same
-        # collapse behind the historical i=3 0.765 ceiling). Kets with weight
-        # above the minimum get DEDICATED per-ket anchor terms (phase-free,
-        # cannot be cancelled by the majority's gradient), scaled by the excess
-        # weight. Uniform weights ⇒ unchanged behavior.
-        wmin = minimum(weights)
-        anchors = [i for i in eachindex(weights) if weights[i] > wmin]
-        if !isempty(anchors)
-            obj += sum(
-                KetInfidelityObjective(goals[i], snames[i], traj;
-                    Q = (weights[i] - wmin) * Q) for i in anchors
-            )
-        end
-        return obj
+        # WEIGHTED coherent fidelity: weights go INSIDE the amplitude sum
+        # (F = |Σ wᵢ⟨gᵢ|ψᵢ⟩/Σw|²), reshaping the optimum itself. The unweighted
+        # sum abandons an expensive minority (measured at i=4 Stage-2: hard kets
+        # 0.9997 → 0.002 while 30 easy kets aligned — the same collapse behind
+        # the historical i=3 0.765 ceiling); external per-ket anchor terms wedge
+        # the solver when already satisfied. Uniform weights ⇒ the original
+        # objective exactly.
+        return CoherentKetInfidelityObjective(goals, snames, traj;
+            Q = Q, weights = weights)
     else
         # Use individual fidelity - each state optimized independently
         # Useful for cold-start on gates with negative phases (e.g. CZ)
