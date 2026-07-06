@@ -644,14 +644,8 @@ function _ensemble_ket_objective(
     coherent::Bool = true,
 )
     if coherent
-        # WEIGHTED coherent fidelity: weights go INSIDE the amplitude sum
-        # (F = |Σ wᵢ⟨gᵢ|ψᵢ⟩/Σw|²), reshaping the optimum itself. The unweighted
-        # sum abandons an expensive minority (measured at i=4 Stage-2: hard kets
-        # 0.9997 → 0.002 while 30 easy kets aligned — the same collapse behind
-        # the historical i=3 0.765 ceiling); external per-ket anchor terms wedge
-        # the solver when already satisfied. Uniform weights ⇒ the original
-        # objective exactly.
-        return CoherentKetInfidelityObjective(goals, snames, traj; Q = Q, weights = weights)
+        # Use coherent fidelity - phases must align for gate implementation
+        return CoherentKetInfidelityObjective(goals, snames, traj; Q = Q)
     else
         # Use individual fidelity - each state optimized independently
         # Useful for cold-start on gates with negative phases (e.g. CZ)
