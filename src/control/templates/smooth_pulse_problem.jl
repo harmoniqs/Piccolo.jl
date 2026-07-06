@@ -651,8 +651,7 @@ function _ensemble_ket_objective(
         # the historical i=3 0.765 ceiling); external per-ket anchor terms wedge
         # the solver when already satisfied. Uniform weights ⇒ the original
         # objective exactly.
-        return CoherentKetInfidelityObjective(goals, snames, traj;
-            Q = Q, weights = weights)
+        return CoherentKetInfidelityObjective(goals, snames, traj; Q = Q, weights = weights)
     else
         # Use individual fidelity - each state optimized independently
         # Useful for cold-start on gates with negative phases (e.g. CZ)

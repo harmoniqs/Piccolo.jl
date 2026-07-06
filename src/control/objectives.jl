@@ -35,8 +35,11 @@ function KetInfidelityObjective(ψ̃_name::Symbol, traj::NamedTrajectory; Q = 10
     ψ_goal = iso_to_ket(traj.goal[ψ̃_name])
     ℓ = ψ̃ -> abs(1 - ket_fidelity_loss(ψ̃, ψ_goal))
     return TerminalObjective(
-        ℓ, ψ̃_name, traj;
-        Q = Q, knot_hvp = _ket_infidelity_knot_hvp(ψ_goal),
+        ℓ,
+        ψ̃_name,
+        traj;
+        Q = Q,
+        knot_hvp = _ket_infidelity_knot_hvp(ψ_goal),
     )
 end
 
@@ -79,8 +82,11 @@ function KetInfidelityObjective(
 )
     ℓ = ψ̃ -> abs(1 - ket_fidelity_loss(ψ̃, ComplexF64.(ψ_goal)))
     return TerminalObjective(
-        ℓ, ψ̃_name, traj;
-        Q = Q, knot_hvp = _ket_infidelity_knot_hvp(ComplexF64.(ψ_goal)),
+        ℓ,
+        ψ̃_name,
+        traj;
+        Q = Q,
+        knot_hvp = _ket_infidelity_knot_hvp(ComplexF64.(ψ_goal)),
     )
 end
 
@@ -543,8 +549,11 @@ using TestItems
     u = randn(1, N)
     Δt = fill(0.1, N)
 
-    traj =
-        NamedTrajectory((ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt); timestep = :Δt, controls = :u)
+    traj = NamedTrajectory(
+        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
+        timestep = :Δt,
+        controls = :u,
+    )
 
     # Goal states for X gate: |0⟩→|1⟩ and |1⟩→|0⟩
     ψ0 = ComplexF64[1.0, 0.0]
