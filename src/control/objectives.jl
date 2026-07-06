@@ -426,11 +426,8 @@ using TestItems
     u = randn(1, N)
     Δt = fill(0.1, N)
 
-    traj = NamedTrajectory(
-        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
-        timestep = :Δt,
-        controls = :u,
-    )
+    traj =
+        NamedTrajectory((ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt); timestep = :Δt, controls = :u)
 
     # Goal states for X gate: |0⟩→|1⟩ and |1⟩→|0⟩
     ψ0 = ComplexF64[1.0, 0.0]
