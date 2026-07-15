@@ -29,7 +29,7 @@ function _grouped_drives(spec::FrameSpec, n_drives::Int)
 end
 
 """
-    to_lab_frame(sys_rot::QuantumSystem, frame::RotatingFrame, spec::FrameSpec) -> QuantumSystem
+    to_lab_frame(sys_rot::QuantumSystem, frame::AbstractFrame, spec::FrameSpec) -> QuantumSystem
 
 Transform a rotating-frame system into the physically correct **lab frame**:
 adds the frame generator `Σ_i ω_i n_i` back into the drift (bare oscillator) and
@@ -38,8 +38,11 @@ carrier-modulated real field `Ω_i cos(ω_{d,i} t + φ_i)(a_i + a_i^†)`,
 `Ω = √(u_x²+u_y²)`, `φ = atan2(u_y, u_x)`. Returns a `time_dependent=true`
 function-based `QuantumSystem` (rolled via the `Rollouts` ODE path, not
 `SplineIntegrator`).
+
+A `LabFrame()` (all `ω_i = 0`) is a no-op on the drift and reduces every carrier
+to `cos(0)=1`, so the system is reproduced unchanged (identity transform).
 """
-function to_lab_frame(sys_rot::QuantumSystem, frame::RotatingFrame, spec::FrameSpec)
+function to_lab_frame(sys_rot::QuantumSystem, frame::AbstractFrame, spec::FrameSpec)
     levels = sys_rot.levels
     n_sub = length(spec.number_ops)
     ωs = frame_frequencies(frame, n_sub)
@@ -72,6 +75,45 @@ function to_lab_frame(sys_rot::QuantumSystem, frame::RotatingFrame, spec::FrameS
     return QuantumSystem(H_lab, sys_rot.drive_bounds; time_dependent = true,
                          global_params = sys_rot.global_params,
                          hermitian = sys_rot.hermitian)
+end
+
+"""
+    to_lab_frame(comp::CompositeQuantumSystem, frame::RotatingFrame, spec::FrameSpec) -> QuantumSystem
+
+Composite overload: materializes the composite's rotating drift (`comp.H(0,0)`,
+which already contains the lifted subsystem anharmonicities and the fixed coupling),
+adds the per-subsystem frame generators `Σ_i ω_i n_i`, and reconstructs each
+subsystem's carrier-modulated drive from `spec`. Returns a flat, `time_dependent=true`
+function-based `QuantumSystem` (never a composite). `spec` should be `FrameSpec(comp)`.
+"""
+function to_lab_frame(comp::CompositeQuantumSystem, frame::RotatingFrame, spec::FrameSpec)
+    levels = comp.levels
+    n_sub = length(spec.number_ops)
+    ωs = frame_frequencies(frame, n_sub)
+
+    Hf = sum(ωs[i] * spec.number_ops[i] for i in 1:n_sub; init = zeros(ComplexF64, levels, levels))
+    H_rot_drift = Matrix{ComplexF64}(comp.H(zeros(comp.n_drives), 0.0))
+    H_lab_drift = H_rot_drift + Hf
+
+    ops = spec.drive_ops
+    groups = _grouped_drives(spec, comp.n_drives)
+
+    function H_lab(u, t)
+        H = copy(H_lab_drift)
+        for (sub, kind, ix, iy, sx, sy) in groups
+            ωd = ωs[sub]
+            if kind === :pair
+                ux = sx * u[ix]; uy = sy * u[iy]
+                Ω = sqrt(ux^2 + uy^2); φ = atan(-uy, ux)
+                H += Ω * cos(ωd * t + φ) * (2 * ops[ix])
+            else
+                H += (sx * u[ix]) * cos(ωd * t) * ops[ix]
+            end
+        end
+        return H
+    end
+
+    return QuantumSystem(H_lab, comp.drive_bounds; time_dependent = true, hermitian = true)
 end
 
 export to_rotating_frame
@@ -255,4 +297,35 @@ end
         @test gap < prev[]                        # monotone shrink ⇒ carrier physics correct
         prev[] = gap
     end
+end
+
+@testitem "frames: composes on a multi-transmon (distinct carriers) — round trip + validity" begin
+    using Piccolo
+    using LinearAlgebra
+    comp = MultiTransmonSystem([4.0, 4.1], [0.2, 0.2], [0.0 0.005; 0.005 0.0];
+                               levels_per_transmon = 3, drive_bounds = 0.05)
+    spec = FrameSpec(comp)                    # auto-derived (2 number ops, 4 quadrature drives)
+    frame = RotatingFrame([4.0, 4.1])
+    sys_lab = to_lab_frame(comp, frame, spec)      # composite input → flat QuantumSystem output
+    @test sys_lab isa QuantumSystem
+    @test sys_lab.time_dependent
+    @test sys_lab.levels == comp.levels
+    back = to_rotating_frame(sys_lab, frame, spec; rwa = true)
+    u = 0.01 .* [1.0, -1.0, 0.5, 0.2]
+    for t in (0.0, 2.0, 5.0)
+        @test norm(Matrix(back.H(u, t)) - Matrix(comp.H(u, t))) < 1e-7
+    end
+end
+
+@testitem "frames: to_lab_frame on a system with no number-operator frame is a no-op / clear error" begin
+    using Piccolo
+    using LinearAlgebra
+    # LabFrame ⇒ ω = 0 ⇒ to_lab_frame is the identity: no generator added to the drift,
+    # and a :real drive modulated by cos(0)=1 reproduces the original drive exactly.
+    a = annihilate(3); nop = Matrix(a' * a)
+    fieldop = Matrix(a + a')                      # a genuine physical field (:real)
+    sys = QuantumSystem(0.5 * (-0.2) * Matrix(a' * a' * a * a), [fieldop], [0.05])
+    spec = FrameSpec(number_ops = [nop], drive_map = [(1, :real, +1.0)], drive_ops = [fieldop])
+    lab = to_lab_frame(sys, LabFrame(), spec)
+    @test norm(Matrix(lab.H([0.02], 0.0)) - Matrix(sys.H([0.02], 0.0))) < 1e-10
 end
