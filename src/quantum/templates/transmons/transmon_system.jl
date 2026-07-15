@@ -4,6 +4,10 @@ export MultiTransmonSystem
 export QuantumSystemCoupling
 export TransmonCavitySystem
 
+# Frame layer (sibling submodule under Quantum) — used by the lab-frame :duffing path
+# of TransmonSystem to build a carrier-modulated drive instead of static quadratures.
+using ..Frames: FrameSpec, RotatingFrame, to_lab_frame
+
 @doc raw"""
     TransmonSystem(;
         ω::Float64=4.4153,  # GHz
@@ -56,6 +60,27 @@ function TransmonSystem(;
     end
 
     a = annihilate(levels)
+
+    # Lab-frame :duffing with drives: route through the frame layer so the drive is a
+    # physically correct carrier-modulated field, not a static quadrature pair. Only the
+    # :duffing flavor decomposes cleanly as (frame generator ω·n) + (rotating drift); the
+    # driveless and :quartic/:cosine driven paths keep their static construction below.
+    if lab_frame && drives && lab_frame_type == :duffing
+        # rotating drift = anharmonicity only (the ω·n term is the frame generator,
+        # re-added by to_lab_frame)
+        H_drift_rot = -δ / 2 * a' * a' * a * a
+        H_drives_rot = [a + a', 1.0im * (a - a')]
+        if multiply_by_2π
+            H_drift_rot *= 2π
+            H_drives_rot .*= 2π          # keep drive scaling identical to the old path
+        end
+        sys_rot = QuantumSystem(H_drift_rot, H_drives_rot, drive_bounds)
+        nop = Matrix{ComplexF64}(a' * a)
+        # carrier/frame frequency must be in the SAME (angular) units as the 2π-scaled drift:
+        ω_carrier = multiply_by_2π ? 2π * ω : ω
+        spec = FrameSpec(sys_rot, [(1, :x, +1.0), (1, :y, -1.0)]; number_ops = [nop])
+        return to_lab_frame(sys_rot, RotatingFrame(ω_carrier), spec)
+    end
 
     if lab_frame
         if lab_frame_type == :duffing
@@ -294,6 +319,43 @@ end
 
 @testitem "TransmonSystem: error on invalid lab_frame_type" begin
     @test_throws AssertionError TransmonSystem(lab_frame = true, lab_frame_type = :invalid)
+end
+
+@testitem "TransmonSystem: lab_frame applies a carrier-modulated drive (not static quadratures)" begin
+    using Piccolo
+    using LinearAlgebra
+    sys = TransmonSystem(ω = 4.0, δ = 0.2, levels = 3, lab_frame = true, drive_bounds = fill(0.05, 2))
+    @test sys.time_dependent                       # was false (static) before the fix
+    u = [0.03, 0.0]
+    H0 = Matrix(sys.H(u, 0.0)); Hq = Matrix(sys.H(u, 2π / (2π * 4.0) / 4))
+    @test norm(H0 - Hq) > 1e-6
+    @test ishermitian(H0)
+end
+
+@testitem "TransmonSystem: lab_frame carrier reproduces rotating-frame evolution (RWA limit)" begin
+    using Piccolo
+    using LinearAlgebra
+    using OrdinaryDiffEqLinear: MagnusAdapt4
+    levels = 3; δ = 0.2
+    sys_rot = TransmonSystem(ω = 4.0, δ = δ, levels = levels, lab_frame = false, drive_bounds = fill(1.0, 2))
+    a = annihilate(levels); nop = Matrix(a' * a)
+    T = 40.0; N = 41; times = collect(range(0.0, T, length = N))
+    Ωmax = π / T
+    u = zeros(2, N); u[1, :] .= Ωmax; u[2, :] .= 0.4 * Ωmax    # BOTH quadratures (pins the y-sign)
+    pulse = ZeroOrderPulse(u, times)
+    Xgoal = EmbeddedOperator(GATES[:X], sys_rot)
+    U_rot = UnitaryTrajectory(sys_rot, pulse, Xgoal; algorithm = MagnusAdapt4()).solution.u[end]
+    prev = Ref(Inf)
+    for ωc in (40.0, 120.0)          # sweep the CARRIER frequency; larger ⇒ RWA better
+        sys_lab = TransmonSystem(ω = ωc, δ = δ, levels = levels, lab_frame = true, drive_bounds = fill(1.0, 2))
+        U_lab = UnitaryTrajectory(sys_lab, pulse, Xgoal; algorithm = MagnusAdapt4(),
+                                  abstol = 1e-10, reltol = 1e-10).solution.u[end]
+        U_derot = exp(im * (2π * ωc) * T * nop) * U_lab   # de-rotate by the 2π-scaled carrier
+        gap = norm(U_derot - U_rot)
+        @test gap < (ωc ≥ 120.0 ? 3e-2 : 1e-1)            # correct sign converges; wrong sign stays O(1)
+        @test gap < prev[]                                 # monotone shrink ⇒ carrier physics correct
+        prev[] = gap
+    end
 end
 
 @testitem "TransmonDipoleCoupling: both constructors and frames" begin
