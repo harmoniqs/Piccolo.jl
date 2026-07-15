@@ -72,6 +72,65 @@ function to_lab_frame(sys_rot::QuantumSystem, frame::RotatingFrame, spec::FrameS
                          hermitian = sys_rot.hermitian)
 end
 
+export to_rotating_frame
+
+"""
+    to_rotating_frame(sys_lab::QuantumSystem, frame::RotatingFrame, spec::FrameSpec;
+                      rwa::Bool=true) -> QuantumSystem
+
+Inverse of `to_lab_frame`. Subtracts the frame generator `Σ ω_i n_i` from the
+drift and, under `rwa=true`, reduces each carrier field back to its slow
+quadrature pair `(u_x, u_y)` (dropping the counter-rotating e^{±2iωt} terms) — a
+time-independent rotating-frame `QuantumSystem`. `rwa=false` retains explicit
+time-dependence.
+"""
+function to_rotating_frame(sys_lab::QuantumSystem, frame::RotatingFrame, spec::FrameSpec;
+                           rwa::Bool = true)
+    levels = sys_lab.levels
+    n_sub = length(spec.number_ops)
+    ωs = frame_frequencies(frame, n_sub)
+    Hf = sum(ωs[i] * spec.number_ops[i] for i in 1:n_sub; init = zeros(ComplexF64, levels, levels))
+    H_lab_drift = Matrix{ComplexF64}(sys_lab.H(zeros(sys_lab.n_drives), 0.0))
+    H_rot_drift = H_lab_drift - Hf
+
+    ops = spec.drive_ops
+    groups = _grouped_drives(spec, sys_lab.n_drives)
+
+    if !rwa
+        function H_full(u, t)
+            H = copy(H_rot_drift)
+            for (sub, kind, ix, iy, sx, sy) in groups
+                ωd = ωs[sub]
+                if kind === :pair
+                    ux = sx * u[ix]; uy = sy * u[iy]
+                    Ω = sqrt(ux^2 + uy^2); φ = atan(uy, ux)
+                    H += Ω * cos(ωd * t + φ) * (2 * ops[ix])
+                else
+                    H += (sx * u[ix]) * cos(ωd * t) * ops[ix]
+                end
+            end
+            return H
+        end
+        return QuantumSystem(H_full, sys_lab.drive_bounds; time_dependent = true,
+                             global_params = sys_lab.global_params, hermitian = sys_lab.hermitian)
+    end
+
+    function H_slow(u, t)
+        H = copy(H_rot_drift)
+        for (sub, kind, ix, iy, sx, sy) in groups
+            if kind === :pair
+                H += (sx * u[ix]) * ops[ix]
+                H += (sy * u[iy]) * ops[iy]
+            else
+                H += (sx * u[ix]) * ops[ix]
+            end
+        end
+        return H
+    end
+    return QuantumSystem(H_slow, sys_lab.drive_bounds; time_dependent = false,
+                         global_params = sys_lab.global_params, hermitian = sys_lab.hermitian)
+end
+
 @testitem "to_lab_frame: single transmon builds a carrier-modulated time-dependent system" begin
     using Piccolo
     using LinearAlgebra
@@ -123,4 +182,25 @@ end
     lab1 = to_lab_frame(sys1, RotatingFrame(4.0),
         FrameSpec(number_ops = [nop], drive_map = [(1, :real, +1.0)], drive_ops = [Hx]))
     @test lab1.time_dependent && lab1.n_drives == 1
+end
+
+@testitem "frames: round-trip to_rotating_frame(to_lab_frame(s)) ≈ s (RWA)" begin
+    using Piccolo
+    using LinearAlgebra
+    levels = 3
+    a = annihilate(levels)
+    nop = Matrix(a' * a)
+    Hx = 0.5 * Matrix(a + a'); Hy = 0.5 * Matrix(im * (a' - a))
+    α = -0.2; Δ = 0.01
+    Hdrift = Δ * nop + 0.5 * α * Matrix(a' * a' * a * a)
+    sys_rot = QuantumSystem(Hdrift, [Hx, Hy], [0.05, 0.05])
+    spec = FrameSpec(number_ops = [nop], drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
+                     drive_ops = [Hx, Hy])
+    frame = RotatingFrame(4.0)
+
+    back = to_rotating_frame(to_lab_frame(sys_rot, frame, spec), frame, spec; rwa = true)
+
+    for u in ([0.0, 0.0], [0.03, 0.0], [0.0, 0.02], [0.02, -0.03]), t in (0.0, 1.3, 7.1)
+        @test norm(Matrix(back.H(u, t)) - Matrix(sys_rot.H(u, t))) < 1e-8
+    end
 end
