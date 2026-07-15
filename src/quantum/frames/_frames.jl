@@ -13,6 +13,7 @@ include("frame_transforms.jl")
 
 # exports added incrementally in A1–A3:
 export AbstractFrame, RotatingFrame, LabFrame, FrameSpec
-# export to_lab_frame, to_rotating_frame
+export to_lab_frame
+# export to_rotating_frame
 
 end
