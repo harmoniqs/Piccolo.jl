@@ -58,7 +58,9 @@ function to_lab_frame(sys_rot::QuantumSystem, frame::RotatingFrame, spec::FrameS
             ωd = ω_of_sub[sub]
             if kind === :pair
                 ux = sx * u[ix]; uy = sy * u[iy]
-                Ω = sqrt(ux^2 + uy^2); φ = atan(uy, ux)
+                # RWA of Ω cos(ωt+φ)(a+a†) = Ω cosφ·Hx − Ω sinφ·Hy, so matching
+                # u_x·Hx + u_y·Hy ⇒ u_x = Ω cosφ, u_y = −Ω sinφ ⇒ φ = atan2(−u_y, u_x).
+                Ω = sqrt(ux^2 + uy^2); φ = atan(-uy, ux)
                 H += Ω * cos(ωd * t + φ) * (2 * ops[ix])
             else  # :real — the op IS already the physical field; modulate directly (no 2×)
                 H += (sx * u[ix]) * cos(ωd * t) * ops[ix]
@@ -202,5 +204,55 @@ end
 
     for u in ([0.0, 0.0], [0.03, 0.0], [0.0, 0.02], [0.02, -0.03]), t in (0.0, 1.3, 7.1)
         @test norm(Matrix(back.H(u, t)) - Matrix(sys_rot.H(u, t))) < 1e-8
+    end
+end
+
+@testitem "frames: lab-frame reproduces rotating-frame evolution as Ω_max/ω_d → 0" begin
+    using Piccolo
+    using LinearAlgebra
+    using OrdinaryDiffEqLinear: MagnusAdapt4     # not re-exported by Piccolo
+    levels = 3
+    a = annihilate(levels)
+    nop = Matrix(a' * a)
+    Hx = 0.5 * Matrix(a + a'); Hy = 0.5 * Matrix(im * (a' - a))
+    α = -0.2
+    sys_rot = QuantumSystem(0.5 * α * Matrix(a' * a' * a * a), [Hx, Hy], [1.0, 1.0])
+    spec = FrameSpec(number_ops = [nop], drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
+                     drive_ops = [Hx, Hy])
+
+    T = 40.0; N = 41
+    times = collect(range(0.0, T, length = N))
+    Ωmax = π / T
+    u = zeros(2, N); u[1, :] .= Ωmax; u[2, :] .= 0.4 * Ωmax   # both quadratures (pins φ sign)
+    pulse = ZeroOrderPulse(u, times)
+    Xgoal = EmbeddedOperator(GATES[:X], sys_rot)   # an X pulse in the rotating frame
+
+    # Reference: the rotating-frame propagator — the physics the lab must reproduce.
+    U_rwa = UnitaryTrajectory(sys_rot, pulse, Xgoal;
+                              algorithm = MagnusAdapt4()).solution.u[end]
+
+    # METRIC NOTE — the original plan compared `fidelity(...)`-to-X for lab vs rot, but
+    # that cannot test the carrier physics here:
+    #   (1) the lab drift ω_d·n makes U_lab(T) = e^{-iω_d T n} U_rot(T); with ω_d·T
+    #       incommensurate with 2π this frame precession scrambles fixed-phase fidelity
+    #       (it never converges, for ANY factor/sign);
+    #   (2) an X goal is conjugation-symmetric, so fidelity-to-X is BLIND to the carrier
+    #       phase sign (φ → −φ is a complex conjugation that preserves |tr(X'U)|).
+    # Instead we test the intent directly: de-rotate the lab propagator by the exactly
+    # known frame rotation e^{+iω_d T n} to recover the rotating-frame evolution, and
+    # require it to converge to U_rwa. This operator distance pins BOTH the ½-quadrature
+    # (2×) field factor and the atan phase sign — every wrong factor/sign leaves a
+    # residual ‖ΔU‖ ≈ O(1) that does not shrink with ω_d (verified: only the 2×,
+    # φ=atan(−u_y,u_x) combination converges; the other three plateau at 1.1–1.6).
+    prev = Ref(Inf)   # Ref so the loop-body assignment survives testitem soft scope
+    for ωd in (40.0, 400.0)                    # increasing carrier ⇒ Ωmax/ωd → 0
+        sys_lab = to_lab_frame(sys_rot, RotatingFrame(ωd), spec)
+        U_lab = UnitaryTrajectory(sys_lab, pulse, Xgoal;
+                    algorithm = MagnusAdapt4(), abstol = 1e-10, reltol = 1e-10).solution.u[end]
+        U_derot = exp(im * ωd * T * nop) * U_lab   # back to the rotating frame at t=T
+        gap = norm(U_derot - U_rwa)
+        @test gap < (ωd ≥ 400.0 ? 1e-3 : 5e-2)   # converges as ωd grows
+        @test gap < prev[]                        # monotone shrink ⇒ carrier physics correct
+        prev[] = gap
     end
 end
