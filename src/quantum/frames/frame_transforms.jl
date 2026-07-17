@@ -35,7 +35,7 @@ Transform a rotating-frame system into the physically correct **lab frame**:
 adds the frame generator `Σ_i ω_i n_i` back into the drift (bare oscillator) and
 replaces each rotating-frame quadrature pair `(u_x, u_y)` on subsystem `i` with a
 carrier-modulated real field `Ω_i cos(ω_{d,i} t + φ_i)(a_i + a_i^†)`,
-`Ω = √(u_x²+u_y²)`, `φ = atan2(u_y, u_x)`. Returns a `time_dependent=true`
+`Ω = √(u_x²+u_y²)`, `φ = atan2(-u_y, u_x)`. Returns a `time_dependent=true`
 function-based `QuantumSystem` (rolled via the `Rollouts` ODE path, not
 `SplineIntegrator`).
 
@@ -141,13 +141,16 @@ function to_rotating_frame(sys_lab::QuantumSystem, frame::RotatingFrame, spec::F
     groups = _grouped_drives(spec, sys_lab.n_drives)
 
     if !rwa
+        # NOTE: the rwa=false path is provided for completeness only — nothing calls it
+        # and it is NOT covered by the round-trip guard (which exercises rwa=true).
         function H_full(u, t)
             H = copy(H_rot_drift)
             for (sub, kind, ix, iy, sx, sy) in groups
                 ωd = ωs[sub]
                 if kind === :pair
                     ux = sx * u[ix]; uy = sy * u[iy]
-                    Ω = sqrt(ux^2 + uy^2); φ = atan(uy, ux)
+                    # φ sign matches the forward to_lab_frame convention: atan(−uy, ux).
+                    Ω = sqrt(ux^2 + uy^2); φ = atan(-uy, ux)
                     H += Ω * cos(ωd * t + φ) * (2 * ops[ix])
                 else
                     H += (sx * u[ix]) * cos(ωd * t) * ops[ix]
