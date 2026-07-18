@@ -10,6 +10,7 @@ export DensityMatrixPureStateInfidelityObjective
 export UnitarySensitivityObjective
 export UnitaryFreePhaseInfidelityObjective
 export LeakageObjective
+export OperatorConjugationObjective
 
 using LinearAlgebra
 using NamedTrajectories
@@ -312,6 +313,62 @@ function UnitaryFreePhaseInfidelityObjective(
 end
 
 # ---------------------------------------------------------
+#              Operator Conjugation (Readout / QND)
+# ---------------------------------------------------------
+
+# pure loss (unit-testable): ‖U† A U − B‖_F² with U reconstructed from the iso vector
+function _operator_conjugation_loss(Ũ⃗, A, B)
+    U = iso_vec_to_operator(Ũ⃗)
+    E = U' * A * U - B
+    return real(sum(abs2, E))               # Frobenius² ; ForwardDiff-friendly
+end
+
+@doc raw"""
+    OperatorConjugationObjective(A, B, Ũ⃗_name, traj; Q=100.0)
+
+Terminal objective penalizing the Heisenberg-picture / readout relation
+``\|U^\dagger A U - B\|_F^2`` for the propagated unitary ``U`` (reconstructed from the
+isomorphism state variable `Ũ⃗_name`). This is the natural loss for **QND / operator
+conjugation** targets — e.g. a readout pulse `U` that maps a hidden observable `B` onto a
+measurable observable `A` via `U† A U = B` — as distinct from every other objective in
+this module, which compares a state or the full propagator to a *fixed* target.
+
+`A` and `B` are converted to `ComplexF64`; ForwardDiff supplies the gradient and exact
+Hessian through `TerminalObjective` (no hand-rolled derivatives).
+
+Gauge-invariant under `U → U · diag(exp(iθ_k))` whenever `A` and `B` are diagonal (each
+θ_k is a free per-eigenspace phase, since `(UD)†A(UD) = D†(U†AU)D = D†BD = B` when `D` is
+diagonal and commutes with `B`) — so this objective targets the *entire* feasible torus,
+not a single fixed unitary.
+
+# Arguments
+- `A::AbstractMatrix`: the "before" operator (e.g. the observable being conjugated)
+- `B::AbstractMatrix`: the "after" / target operator
+- `Ũ⃗_name::Symbol`: name of the isomorphism-vector state variable in `traj`
+- `traj`: the `NamedTrajectory` (or trajectory-like) the objective is built against
+
+# Keyword Arguments
+- `Q::Float64=100.0`: weight on the objective
+
+# Examples
+- Rep B (dark-mode readout): `A = n_0` (hub number operator), `B = n_D` (dark-mode number
+  operator) — `OperatorConjugationObjective(n_0, n_D, :Ũ⃗, traj)`.
+- Rep C-c1 (spin picture): `A = B = J_z` (commutator form, `J_z U = -U J_z` up to sign).
+"""
+function OperatorConjugationObjective(
+    A::AbstractMatrix,
+    B::AbstractMatrix,
+    Ũ⃗_name::Symbol,
+    traj;
+    Q::Float64 = 100.0,
+)
+    A = ComplexF64.(A)
+    B = ComplexF64.(B)
+    ℓ = Ũ⃗ -> _operator_conjugation_loss(Ũ⃗, A, B)
+    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
+end
+
+# ---------------------------------------------------------
 #                       Density Matrices
 # ---------------------------------------------------------
 
@@ -592,6 +649,18 @@ end
     J_rand = objective_value(obj_rand, traj_rand)
     @test isfinite(J_rand)
     @test 0.0 <= J_rand <= 100.0
+end
+
+@testitem "OperatorConjugationObjective: zero at exact swap, positive otherwise" begin
+    using Piccolo, LinearAlgebra
+    using Piccolo.QuantumObjectives: OperatorConjugationObjective
+    # 2-level toy: A = n̂ = diag(0,1), B = swap-conjugated = diag(1,0); swap X sends A→B
+    A = ComplexF64[0 0; 0 1]
+    B = ComplexF64[1 0; 0 0]
+    Uswap = ComplexF64[0 1; 1 0]
+    ℓ = Piccolo.QuantumObjectives._operator_conjugation_loss   # exposed for unit test
+    @test ℓ(Piccolo.operator_to_iso_vec(Uswap), A, B) < 1e-12  # U†AU − B = 0
+    @test ℓ(Piccolo.operator_to_iso_vec(ComplexF64[1 0; 0 1]), A, B) > 0.1  # identity: A ≠ B
 end
 
 @testitem "KetFreePhaseInfidelityObjective" begin
