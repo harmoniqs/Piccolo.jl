@@ -6,6 +6,7 @@ using ..Control
 using TOML
 using JSON3
 using SHA
+using Printf
 using TestItems
 
 include("spec_structs.jl")
@@ -18,9 +19,9 @@ include("errors.jl")
 @reexport using .SpecErrors
 
 include("parse.jl")
+include("hashes.jl")
 
 # includes added in later tasks:
-# include("hashes.jl")
 # include("materialize.jl")
 # include("rollout_kind.jl")
 # include("run.jl")
