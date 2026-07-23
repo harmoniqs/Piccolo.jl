@@ -14,8 +14,10 @@ include("spec_structs.jl")
 include("registries.jl")
 @reexport using .SpecRegistries
 
+include("errors.jl")
+@reexport using .SpecErrors
+
 # includes added in later tasks:
-# include("errors.jl");       @reexport using .SpecErrors
 # include("hashes.jl")
 # include("parse.jl")
 # include("materialize.jl")
