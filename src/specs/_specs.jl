@@ -21,9 +21,9 @@ include("errors.jl")
 include("parse.jl")
 include("hashes.jl")
 include("materialize.jl")
+include("rollout_kind.jl")
 
 # includes added in later tasks:
-# include("rollout_kind.jl")
 # include("run.jl")
 # include("schema.jl")
 
