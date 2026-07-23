@@ -158,6 +158,133 @@ function run_spec(spec::RolloutSpec; kwargs...)
     return RolloutResult(f, verdict, Dict{Symbol,Any}())
 end
 
+# ===========================================================================
+# Referee independence + verdict (Task 11)
+#
+# A referee rollout re-checks a solve's reported fidelity from *independent*
+# discretization choices: strictly finer sampling AND a different integrator
+# family. The typed `Agree`/`Disagree` verdict (both carrying the re-rolled and
+# reported fidelities) is the Phase-1 subset of the merged spec's `Verdict`
+# hierarchy (transport's richer set is out of scope). Forging a referee block
+# whose axes are NOT independent throws rather than minting a verdict.
+# ===========================================================================
+
+export Verdict, Agree, Disagree, referee_rollout
+
+"""
+    Verdict
+
+Abstract supertype for a referee outcome. Phase-1 concretes are [`Agree`](@ref)
+and [`Disagree`](@ref); both carry `f_rerolled` (the referee's independent
+re-rollout fidelity) and `f_reported` (the solve's reported fidelity).
+"""
+abstract type Verdict end
+
+"""
+    Agree(f_rerolled, f_reported) <: Verdict
+
+The referee's independent re-rollout agrees with the solve's reported fidelity
+(within tolerance).
+"""
+struct Agree <: Verdict
+    f_rerolled::Float64
+    f_reported::Float64
+end
+
+"""
+    Disagree(f_rerolled, f_reported) <: Verdict
+
+The referee's independent re-rollout disagrees with the solve's reported
+fidelity — a flag that the solve's discretization was not converged.
+"""
+struct Disagree <: Verdict
+    f_rerolled::Float64
+    f_reported::Float64
+end
+
+# Integrator-family coarse classes. Referee independence requires the referee's
+# rollout algorithm to live in a *different* class than the solve integrator.
+# Collocation covers the solve-side integrators (bilinear/spline/exponential);
+# tsit5 is the RK family; magnus_* the Magnus family.
+function _integrator_family(s::Symbol)
+    s === :tsit5 && return :rk
+    (s === :magnus_gl4 || s === :magnus_adapt4) && return :magnus
+    return :collocation
+end
+
+# Pick a referee rollout algorithm in a different family than the solve
+# integrator: a Magnus solve/collocation → Tsit5 (RK); an RK solve → Magnus.
+_referee_alg(solve_integrator::Symbol) =
+    _integrator_family(solve_integrator) === :rk ? :magnus_adapt4 : :tsit5
+
+_verdict(f_rerolled::Real, f_reported::Real; tol::Float64=1e-3) =
+    abs(f_rerolled - f_reported) <= tol ?
+    Agree(Float64(f_rerolled), Float64(f_reported)) :
+    Disagree(Float64(f_rerolled), Float64(f_reported))
+
+# Re-verify a referee block at run time: the rollout's own axes must be strictly
+# finer than, and in a different integrator family than, the recorded solve.
+# A forged/inconsistent block throws `SpecValidationError` (never mints a verdict).
+function _verify_referee!(spec::RolloutSpec)
+    ref = spec.referee
+    n = spec.n_samples === nothing ? 101 : spec.n_samples
+    errs = SpecError[]
+    n > ref.solve_knots || push!(errs, SpecError("referee",
+        "referee resolution (n_samples=$n) must be strictly finer than the solve " *
+        "($(ref.solve_knots) knots)", n))
+    _integrator_family(spec.alg) != _integrator_family(ref.solve_integrator) ||
+        push!(errs, SpecError("referee",
+            "referee integrator family (:$(spec.alg)) must differ from the solve " *
+            "family (:$(ref.solve_integrator))", string(spec.alg)))
+    isempty(errs) || throw(SpecValidationError(errs))
+    return nothing
+end
+
+# Locate the single saved pulse in a completed run directory.
+function _run_dir_pulse(run_dir::AbstractString)
+    jld2s = filter(f -> endswith(f, ".jld2"), readdir(run_dir))
+    isempty(jld2s) && throw(SpecValidationError([SpecError("referee.run",
+        "no .jld2 pulse found in run directory", String(run_dir))]))
+    return joinpath(run_dir, first(jld2s))
+end
+
+"""
+    referee_rollout(control_spec::ProblemSpec, run_dir::AbstractString) -> RolloutSpec
+
+Construct an *independent* referee rollout for a completed control run. Reads the
+run's saved pulse and `result.toml` (for the reported fidelity), then chooses
+referee axes that are strictly finer (`n_samples > solve_knots`) and a different
+integrator family (e.g. Tsit5 for a bilinear solve). The returned spec carries a
+`[referee]` block recording the solve's `{solve_knots, solve_integrator,
+fidelity_reported}`; `run_spec` re-verifies these at run time before minting a
+verdict.
+"""
+function referee_rollout(control_spec::ProblemSpec, run_dir::AbstractString)
+    control_spec.problem === nothing && throw(SpecValidationError([SpecError("problem",
+        "referee_rollout requires a control spec with a [problem] block")]))
+    control_spec.goal === nothing && throw(SpecValidationError([SpecError("goal",
+        "referee_rollout requires a control spec with a [goal] block")]))
+
+    result = TOML.parsefile(joinpath(run_dir, "result.toml"))
+    fidelity_reported = Float64(result["fidelity"])
+    pulse_path = _run_dir_pulse(run_dir)
+
+    solve_knots = control_spec.problem.N
+    solve_integrator =
+        control_spec.integrator === nothing ? :bilinear : control_spec.integrator.kind
+    n_samples = max(4 * solve_knots, solve_knots + 1)   # strictly finer
+    alg = _referee_alg(solve_integrator)
+
+    referee = RefereeSpec(; run=String(run_dir), solve_knots=solve_knots,
+        solve_integrator=solve_integrator, fidelity_reported=fidelity_reported)
+    report = RolloutReportSpec(; fidelity=true, goal=control_spec.goal)
+
+    return RolloutSpec(; schema_version=control_spec.schema_version,
+        input_pulse=pulse_path, system=control_spec.system,
+        rollout_kind=control_spec.goal.kind, alg=alg, n_samples=n_samples,
+        report=report, referee=referee)
+end
+
 @testitem "rollout: unitary fidelity matches a direct rollout" begin
     using Piccolo, Piccolo.Specs
     import JLD2
@@ -215,4 +342,100 @@ end
 
     @test res.verdict === nothing            # no [referee] ⇒ no verdict
     @test isapprox(res.fidelity, direct; atol=1e-8)
+end
+
+@testitem "referee: independence enforced, verdict on referee-verified only" begin
+    using Piccolo, Piccolo.Specs
+    import JLD2, TOML
+
+    CTRL_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+    ctrl = Specs.parse_spec(CTRL_TOML; format=:toml)
+
+    # Build a completed run dir by hand (mimics solve_spec's artifacts): the saved
+    # pulse + a result.toml carrying the reported fidelity.
+    run_dir = mktempdir()
+    qcp = Specs.materialize(ctrl)
+    solve!(qcp; max_iter=15, print_level=0, verbose=false)
+    fid = Float64(fidelity(qcp))
+    pulse = extract_pulse(qcp.qtraj, get_trajectory(qcp))
+    JLD2.save(joinpath(run_dir, "pulse-abc123.jld2"), pulse)
+    open(joinpath(run_dir, "result.toml"), "w") do io
+        TOML.print(io, Dict("schema_version" => "1", "fidelity" => fid,
+            "iterations" => 15, "wall_seconds" => 0.0))
+    end
+
+    # valid referee: strictly finer resolution + a different integrator family
+    # (Tsit5 for a bilinear solve).
+    rr = Specs.referee_rollout(ctrl, run_dir)
+    @test rr.referee !== nothing
+    @test rr.n_samples > rr.referee.solve_knots
+    @test rr.referee.solve_integrator === :bilinear
+    res = Specs.run_spec(rr)
+    @test res.verdict isa Specs.Verdict
+    @test res.verdict isa Specs.Agree        # same pulse rerolls to reported fidelity
+
+    # forged referee (resolution == solve, not strictly finer) fails run-time
+    # re-verification → SpecValidationError (never mints a verdict).
+    pulse_path = joinpath(run_dir, "pulse-abc123.jld2")
+    FORGED_TOML = """
+    schema_version = 1
+    kind = "rollout"
+    input_pulse = "$(pulse_path)"
+    rollout_kind = "unitary"
+    alg = "tsit5"
+    n_samples = 11
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [report]
+    fidelity = true
+    [report.goal]
+    kind = "unitary"
+    gate = "X"
+    [referee]
+    run = "$(run_dir)"
+    solve_knots = 11
+    solve_integrator = "bilinear"
+    fidelity_reported = $(fid)
+    """
+    forged = Specs.parse_spec(FORGED_TOML; format=:toml)
+    @test_throws Specs.SpecValidationError Specs.run_spec(forged)
+
+    # rollout without a [referee] block → no verdict.
+    PLAIN_TOML = """
+    schema_version = 1
+    kind = "rollout"
+    input_pulse = "$(pulse_path)"
+    rollout_kind = "unitary"
+    alg = "tsit5"
+    n_samples = 51
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [report]
+    fidelity = true
+    [report.goal]
+    kind = "unitary"
+    gate = "X"
+    """
+    plain = Specs.parse_spec(PLAIN_TOML; format=:toml)
+    @test Specs.run_spec(plain).verdict === nothing
 end
