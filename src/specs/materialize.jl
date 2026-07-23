@@ -295,9 +295,176 @@ function _apply_composition(spec::ProblemSpec, qcp)
     return QuantumControlProblem(qtraj, new_prob)
 end
 
-# Wrappers (Task 9) + validation (Task 9) — stubs until those sections land.
-_apply_wrappers(spec::ProblemSpec, qcp) = qcp
-_validate!(spec::ProblemSpec, errs::Vector{SpecError}) = errs
+# ---------------------------------------------------------------------------
+# Trait validations (Task 9) — every check is a registry `.compat`/param query
+# that pushes a structured `SpecError`; `materialize` throws them as one
+# `SpecValidationError` before building anything (never a materialization crash).
+# ---------------------------------------------------------------------------
+
+function _validate!(spec::ProblemSpec, errs::Vector{SpecError})
+    p = spec.problem
+    if p === nothing
+        push!(errs, SpecError("problem", "missing [problem] block for a control spec"))
+        return errs
+    end
+
+    te = lookup_template(p.template)
+    if te === nothing
+        push!(errs, SpecError("problem.template", "unknown problem template",
+            string(p.template), sort!(String[string(k) for k in keys(TEMPLATES)])))
+        return errs   # compat checks below need the entry
+    end
+
+    # system availability / composite deferral
+    if spec.system.kind === :template
+        if lookup_system(spec.system.template) === nothing
+            push!(errs, SpecError("system.template", "unknown system template",
+                string(spec.system.template),
+                sort!(String[string(k) for k in keys(SYSTEMS)])))
+        end
+    elseif spec.system.kind === :composite
+        push!(errs, SpecError("system.kind",
+            "composite systems are deferred in Phase 1 (template + raw only)",
+            string(spec.system.kind)))
+    end
+
+    # integrator block
+    ik = spec.integrator === nothing ? :bilinear : spec.integrator.kind
+    if ik !== :bilinear && lookup_integrator(ik) === nothing
+        push!(errs, SpecError("integrator.kind",
+            "integrator :$(ik) is not registered (Piccolissimo not loaded)",
+            string(ik), ["bilinear"]))
+    end
+
+    # free_phase / globals require a non-bilinear integrator
+    if (p.free_phase || !isempty(p.global_names)) && ik === :bilinear
+        push!(errs, SpecError("integrator",
+            "free_phase/globals require an exponential or spline integrator, not bilinear"))
+    end
+
+    # per-template kwarg validity: R_ddu / ddu_bound only for SmoothPulseProblem
+    if p.template !== :SmoothPulseProblem
+        p.R_ddu === nothing || push!(errs, SpecError("problem.R_ddu",
+            "R_ddu is only valid for SmoothPulseProblem", p.R_ddu))
+        p.ddu_bound === nothing || push!(errs, SpecError("problem.ddu_bound",
+            "ddu_bound is only valid for SmoothPulseProblem", p.ddu_bound))
+    end
+
+    # pulse/template + trajectory/template compatibility (from registry .compat)
+    pulse_kinds = get(te.compat, :pulse_kinds, Symbol[])
+    if spec.pulse !== nothing && !isempty(pulse_kinds) && !(spec.pulse.kind in pulse_kinds)
+        push!(errs, SpecError("pulse.kind", "pulse kind incompatible with $(p.template)",
+            string(spec.pulse.kind), String[string(k) for k in pulse_kinds]))
+    end
+    traj_kinds = get(te.compat, :trajectory_kinds, Symbol[])
+    if spec.goal !== nothing && !isempty(traj_kinds) && !(spec.goal.kind in traj_kinds)
+        push!(errs, SpecError("goal.kind", "goal kind incompatible with $(p.template)",
+            string(spec.goal.kind), String[string(k) for k in traj_kinds]))
+    end
+
+    # ket + free_phase only where compat[:ket_free_phase] == true
+    if spec.goal !== nothing && spec.goal.kind === :ket && p.free_phase &&
+       !get(te.compat, :ket_free_phase, false)
+        push!(errs, SpecError("problem.free_phase",
+            "$(p.template) does not support free_phase for ket goals"))
+    end
+
+    # objective terms: registered + template-specific requirements
+    has_time = false
+    for o in p.objectives
+        has_time |= (o.kind === :time)
+        if lookup_objective_term(o.kind) === nothing
+            push!(errs, SpecError("problem.objectives",
+                "unknown/unavailable objective term :$(o.kind) (Piccolissimo may be required)",
+                string(o.kind)))
+        end
+        if o.kind === :reg_ddu && p.template !== :SmoothPulseProblem
+            push!(errs, SpecError("problem.objectives",
+                "reg_ddu requires a ddu-carrying template (SmoothPulseProblem)",
+                string(o.kind)))
+        end
+    end
+
+    # a `time` objective requires free Δt (fixed-dt time term is inert). The
+    # reverse (free Δt without a time term) is valid Piccolo free-time behavior,
+    # so only this direction is enforced (documented divergence from the plan's
+    # strict "⟺").
+    if has_time && !(p.free_dt isa Free)
+        push!(errs, SpecError("problem.free_dt",
+            "a `time` objective requires free_dt = [lo, hi] (Δt must be free)"))
+    end
+
+    # calibration_targets ⊆ declared globals
+    for ct in p.calibration_targets
+        ct in p.global_names || push!(errs, SpecError("problem.calibration_targets",
+            "calibration target :$(ct) is not in global_names", string(ct)))
+    end
+
+    # wrappers: sampling OK; robust is schema-only (deferred structured error)
+    for (i, w) in enumerate(spec.wrappers)
+        if w.kind === :robust
+            push!(errs, SpecError("wrappers[$i]",
+                "the robust wrapper is deferred in Phase 1 (schema-only)"))
+        elseif w.kind !== :sampling
+            push!(errs, SpecError("wrappers[$i]", "unknown wrapper kind",
+                string(w.kind), ["sampling"]))
+        end
+    end
+
+    return errs
+end
+
+# ---------------------------------------------------------------------------
+# Wrappers (Task 9). Phase-1 reachable wrapper is `sampling`; `robust` is blocked
+# in validation. The sampling G-arm re-derives per variant by building a fresh
+# system for each variant's `[system].params` overrides.
+# ---------------------------------------------------------------------------
+
+function _apply_wrappers(spec::ProblemSpec, qcp)
+    for w in spec.wrappers
+        w.kind === :sampling && (qcp = _apply_sampling(spec, qcp, w))
+    end
+    return qcp
+end
+
+function _apply_sampling(spec::ProblemSpec, qcp, w::WrapperSpec)
+    entry = lookup_system(spec.system.template)
+    systems = [entry.factory(; _concretize_params(merge(spec.system.params, v))...)
+               for v in w.variants]
+    weights = w.weights === nothing ? fill(1.0, length(systems)) : w.weights
+    kwargs = Dict{Symbol,Any}(:weights => weights, :Q => spec.problem.Q)
+    isempty(spec.problem.calibration_targets) ||
+        (kwargs[:calibration_targets] = spec.problem.calibration_targets)
+    # SamplingProblem takes an integrator *factory* (not an instance); bilinear →
+    # nothing (default). Non-bilinear factories come from Piccolissimo (not here).
+    fac = _sampling_integrator_factory(spec)
+    fac === nothing || (kwargs[:integrator] = fac)
+    return SamplingProblem(qcp, systems; kwargs...)
+end
+
+function _sampling_integrator_factory(spec::ProblemSpec)
+    spec.integrator === nothing && return nothing
+    ik = spec.integrator.kind
+    ik === :bilinear && return nothing
+    entry = lookup_integrator(ik)
+    alg = spec.integrator.alg
+    return (sqtraj, N) -> entry.factory(sqtraj, N; alg=alg)
+end
+
+# ---------------------------------------------------------------------------
+# Accessors
+# ---------------------------------------------------------------------------
+
+export get_variants
+
+"""
+    get_variants(qcp::QuantumControlProblem) -> Vector
+
+The system variants a materialized problem optimizes over: the sampled `systems`
+for a `SamplingProblem`-backed problem, else the single nominal system.
+"""
+get_variants(qcp::QuantumControlProblem) =
+    qcp.qtraj isa Quantum.SamplingTrajectory ? qcp.qtraj.systems : [get_system(qcp)]
 
 @testitem "materialize: cubic-spline X gate matches hand-built problem" begin
     using Piccolo, Piccolo.Specs
@@ -458,4 +625,80 @@ end
     # infidelity objective (the terminal-knot state KnotPointObjective) is dropped.
     @test !any(o -> o isa DirectTrajOpt.KnotPointObjective && o.times == [11],
         _obj_terms(c.prob.objective))
+end
+
+@testitem "materialize validations + sampling wrapper" begin
+    using Piccolo, Piccolo.Specs
+
+    _SYS_GOAL_PULSE = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    """
+
+    # free_phase without a non-bilinear integrator → structured validation error.
+    # (exponential/spline integrators live in Piccolissimo, not loaded here.)
+    FREE_PHASE_BILINEAR_TOML = _SYS_GOAL_PULSE * """
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    free_phase = true
+    """
+    @test_throws Specs.SpecValidationError Specs.materialize(
+        Specs.parse_spec(FREE_PHASE_BILINEAR_TOML; format=:toml))
+
+    # R_ddu on SplinePulseProblem (which has no ddu) → structured error.
+    SPLINE_WITH_RDDU_TOML = _SYS_GOAL_PULSE * """
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    R_ddu = 0.01
+    """
+    @test_throws Specs.SpecValidationError Specs.materialize(
+        Specs.parse_spec(SPLINE_WITH_RDDU_TOML; format=:toml))
+
+    # sampling wrapper builds a SamplingProblem-backed qcp over 2 system variants.
+    SAMPLING_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02], "δ" = 0.2 }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    [[wrappers]]
+    kind = "sampling"
+    variants = [ { "δ" = 0.19 }, { "δ" = 0.21 } ]
+    """
+    s = Specs.materialize(Specs.parse_spec(SAMPLING_TOML; format=:toml))
+    @test s isa QuantumControlProblem
+    @test length(Specs.get_variants(s)) == 2   # 2 system variants
+
+    # robust wrapper is schema-only in Phase 1 → structured "deferred" error.
+    ROBUST_TOML = _SYS_GOAL_PULSE * """
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    [[wrappers]]
+    kind = "robust"
+    """
+    @test_throws Specs.SpecValidationError Specs.materialize(
+        Specs.parse_spec(ROBUST_TOML; format=:toml))
 end
