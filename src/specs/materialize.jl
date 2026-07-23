@@ -4,7 +4,7 @@ using Random: MersenneTwister
 using DirectTrajOpt:
     DirectTrajOptProblem,
     CompositeObjective,
-    TerminalObjective,
+    KnotPointObjective,
     NullObjective,
     QuadraticRegularizer,
     MinimumTimeObjective,
@@ -226,12 +226,76 @@ function _call_template(spec::ProblemSpec, qtraj)
 end
 
 # ---------------------------------------------------------------------------
-# Composition (Task 8) — filled in below in the composition section.
-# Wrappers (Task 9) — filled in below in the wrappers section.
-# These stubs keep the Task-7 happy path a pass-through.
+# Composition algebra (Task 8): goal_treatment, extra [[objectives]], and the
+# min_time recipe. `free_dt → Δt_bounds` is already threaded into the template
+# call (`_call_template`); here we shape the objective + fidelity constraint.
 # ---------------------------------------------------------------------------
 
-_apply_composition(spec::ProblemSpec, qcp) = qcp
+# A single-term objective is a bare objective (no `.objectives`); normalize to a
+# vector so callers never assume `.objectives` exists (review nit 10).
+_obj_terms(J) = J isa CompositeObjective ? collect(J.objectives) : AbstractObjective[J]
+
+# The infidelity objective is the terminal-knot state objective the template adds
+# first (`TerminalObjective` → a `KnotPointObjective` at `times == [N]` on the
+# state var). Leakage (times `1:N`) and regularizers do not match, so this drops
+# only the infidelity term under `goal_treatment=:constraint`.
+_is_infidelity(o, state_sym::Symbol, N::Int) =
+    o isa KnotPointObjective && state_sym in o.var_names && o.times == [N]
+
+function _build_objective_term(o::ObjectiveTermSpec, qtraj, traj)
+    k, w = o.kind, o.weight
+    dsym = drive_name(qtraj)
+    if k === :time
+        return MinimumTimeObjective(traj; D=w)
+    elseif k === :reg_u
+        return QuadraticRegularizer(dsym, traj, w)
+    elseif k === :reg_du
+        return QuadraticRegularizer(Symbol(:d, dsym), traj, w)
+    elseif k === :reg_ddu
+        return QuadraticRegularizer(Symbol(:d, :d, dsym), traj, w)
+    elseif k === :leakage
+        idxs = get_iso_vec_leakage_indices(qtraj.goal)
+        return LeakageObjective(idxs, state_name(qtraj), traj; Qs=fill(w, traj.N))
+    elseif k === :sensitivity
+        return UnitarySensitivityObjective(state_name(qtraj), traj, [traj.N]; Qs=[w])
+    else
+        throw(SpecValidationError([SpecError("problem.objectives",
+            "unsupported objective term kind", string(k))]))
+    end
+end
+
+function _apply_composition(spec::ProblemSpec, qcp)
+    p = spec.problem
+    treatment = p.goal_treatment
+    extra = p.objectives
+    (treatment === :objective && isempty(extra)) && return qcp
+
+    prob = qcp.prob
+    traj = prob.trajectory
+    qtraj = qcp.qtraj
+    state_sym = state_name(qtraj)
+
+    terms = _obj_terms(prob.objective)
+    if treatment === :constraint
+        terms = filter(t -> !_is_infidelity(t, state_sym, traj.N), terms)
+    end
+    for o in extra
+        push!(terms, _build_objective_term(o, qtraj, traj))
+    end
+    J = isempty(terms) ? NullObjective(traj) : reduce(+, terms)
+
+    constraints = copy(prob.constraints)
+    if treatment in (:constraint, :both)
+        ff = p.final_fidelity === nothing ? 0.99 : p.final_fidelity
+        fc = Control.ProblemTemplates._final_fidelity_constraint(qtraj, ff, traj)
+        fc isa AbstractVector ? append!(constraints, fc) : push!(constraints, fc)
+    end
+
+    new_prob = DirectTrajOptProblem(traj, J, prob.integrators; constraints=constraints)
+    return QuantumControlProblem(qtraj, new_prob)
+end
+
+# Wrappers (Task 9) + validation (Task 9) — stubs until those sections land.
 _apply_wrappers(spec::ProblemSpec, qcp) = qcp
 _validate!(spec::ProblemSpec, errs::Vector{SpecError}) = errs
 
@@ -271,4 +335,127 @@ _validate!(spec::ProblemSpec, errs::Vector{SpecError}) = errs
     nterms(J) = J isa DirectTrajOpt.CompositeObjective ? length(J.objectives) : 1
     @test nterms(qcp.prob.objective) == nterms(ref.prob.objective)
     @test get_trajectory(qcp).dims == get_trajectory(ref).dims
+end
+
+@testitem "composition: EnergyPolish, min_time recipe, constraint-only" begin
+    using Piccolo, Piccolo.Specs
+
+    _obj_terms(J) = J isa DirectTrajOpt.CompositeObjective ? collect(J.objectives) : [J]
+
+    # EnergyPolish: goal_treatment=constraint + reg_du, fixed T → NO
+    # MinimumTimeObjective in the built problem (spec success criterion #4).
+    ENERGY_POLISH_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    goal_treatment = "constraint"
+    final_fidelity = 0.999
+    [[problem.objectives]]
+    kind = "reg_du"
+    weight = 0.01
+    """
+    ep = Specs.materialize(Specs.parse_spec(ENERGY_POLISH_TOML; format=:toml))
+    @test !any(o -> o isa Piccolo.MinimumTimeObjective, _obj_terms(ep.prob.objective))
+
+    # min_time recipe desugars to the same canonical spec as the hand-factored
+    # both+time+free_dt form (spec success criterion #5). Phase-1 has no dedicated
+    # `min_time` sugar field, so the "recipe" IS the explicit
+    # goal_treatment=both + [[objectives]] time + free_dt form; the two fixtures
+    # differ only by default-omission and key order, and must canonicalize equal.
+    MINTIME_RECIPE_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    goal_treatment = "both"
+    final_fidelity = 0.999
+    free_dt = [0.05, 0.5]
+    [[problem.objectives]]
+    kind = "time"
+    weight = 100.0
+    """
+    MINTIME_FACTORED_TOML = """
+    schema_version = 1
+    kind = "control"
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    Q = 100.0
+    R = 0.01
+    goal_treatment = "both"
+    final_fidelity = 0.999
+    free_dt = [0.05, 0.5]
+    [[problem.objectives]]
+    kind = "time"
+    weight = 100.0
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    """
+    a = Specs.parse_spec(MINTIME_RECIPE_TOML; format=:toml)
+    b = Specs.parse_spec(MINTIME_FACTORED_TOML; format=:toml)
+    @test Specs.canonical_json(Specs.full_dict(a)) == Specs.canonical_json(Specs.full_dict(b))
+    @test Specs.structure_hash(a) == Specs.structure_hash(b)
+
+    # The min_time recipe materializes to the legacy MinimumTimeProblem NLP:
+    # infidelity objective retained + MinimumTimeObjective + final-fidelity constraint.
+    mt = Specs.materialize(a)
+    @test any(o -> o isa Piccolo.MinimumTimeObjective, _obj_terms(mt.prob.objective))
+    @test any(c -> occursin("Fidelity", string(typeof(c))), mt.prob.constraints)
+
+    # constraint-only builds a Final*FidelityConstraint, no infidelity objective.
+    CONSTRAINT_ONLY_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    goal_treatment = "constraint"
+    final_fidelity = 0.99
+    """
+    c = Specs.materialize(Specs.parse_spec(CONSTRAINT_ONLY_TOML; format=:toml))
+    @test any(cn -> occursin("Fidelity", string(typeof(cn))), c.prob.constraints)
+    # infidelity objective (the terminal-knot state KnotPointObjective) is dropped.
+    @test !any(o -> o isa DirectTrajOpt.KnotPointObjective && o.times == [11],
+        _obj_terms(c.prob.objective))
 end
