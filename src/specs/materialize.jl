@@ -33,7 +33,7 @@ structured "deferred" [`SpecError`](@ref). All trait/compatibility violations ar
 collected and thrown as a [`SpecValidationError`](@ref) *before* any Piccolo
 object is constructed.
 """
-function materialize(spec::ProblemSpec)
+function materialize(spec::ProblemSpec; piccolo_options=nothing)
     errs = SpecError[]
     _validate!(spec, errs)
     isempty(errs) || throw(SpecValidationError(errs))
@@ -41,9 +41,9 @@ function materialize(spec::ProblemSpec)
     sys = _build_system(spec.system)
     goal = _build_goal(spec.goal, sys)
     qtraj = _build_pulse_trajectory(spec, sys, goal)
-    base_qcp = _call_template(spec, qtraj)
+    base_qcp = _call_template(spec, qtraj; piccolo_options=piccolo_options)
     qcp = _apply_composition(spec, base_qcp)
-    qcp = _apply_wrappers(spec, qcp)
+    qcp = _apply_wrappers(spec, qcp; piccolo_options=piccolo_options)
     return qcp
 end
 
@@ -206,7 +206,7 @@ function _coerce_global_bounds(gb::AbstractDict)
     return out
 end
 
-function _call_template(spec::ProblemSpec, qtraj)
+function _call_template(spec::ProblemSpec, qtraj; piccolo_options=nothing)
     p = spec.problem
     fac = lookup_template(p.template).factory
     kwargs = Dict{Symbol,Any}(:Q => p.Q, :R => p.R, :free_phase => p.free_phase)
@@ -222,6 +222,7 @@ function _call_template(spec::ProblemSpec, qtraj)
     p.free_dt isa Free && (kwargs[:Δt_bounds] = (p.free_dt.lo, p.free_dt.hi))
     intg = _build_integrator(spec, qtraj)
     intg === nothing || (kwargs[:integrator] = intg)
+    piccolo_options === nothing || (kwargs[:piccolo_options] = piccolo_options)
     return fac(qtraj, p.N; kwargs...)
 end
 
@@ -420,19 +421,20 @@ end
 # system for each variant's `[system].params` overrides.
 # ---------------------------------------------------------------------------
 
-function _apply_wrappers(spec::ProblemSpec, qcp)
+function _apply_wrappers(spec::ProblemSpec, qcp; piccolo_options=nothing)
     for w in spec.wrappers
-        w.kind === :sampling && (qcp = _apply_sampling(spec, qcp, w))
+        w.kind === :sampling && (qcp = _apply_sampling(spec, qcp, w; piccolo_options=piccolo_options))
     end
     return qcp
 end
 
-function _apply_sampling(spec::ProblemSpec, qcp, w::WrapperSpec)
+function _apply_sampling(spec::ProblemSpec, qcp, w::WrapperSpec; piccolo_options=nothing)
     entry = lookup_system(spec.system.template)
     systems = [entry.factory(; _concretize_params(merge(spec.system.params, v))...)
                for v in w.variants]
     weights = w.weights === nothing ? fill(1.0, length(systems)) : w.weights
     kwargs = Dict{Symbol,Any}(:weights => weights, :Q => spec.problem.Q)
+    piccolo_options === nothing || (kwargs[:piccolo_options] = piccolo_options)
     isempty(spec.problem.calibration_targets) ||
         (kwargs[:calibration_targets] = spec.problem.calibration_targets)
     # SamplingProblem takes an integrator *factory* (not an instance); bilinear →

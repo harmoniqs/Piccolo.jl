@@ -22,9 +22,9 @@ include("parse.jl")
 include("hashes.jl")
 include("materialize.jl")
 include("rollout_kind.jl")
+include("run.jl")
 
 # includes added in later tasks:
-# include("run.jl")
 # include("schema.jl")
 
 # Piccolo self-registers its systems/templates/etc. at load time (idempotent).
