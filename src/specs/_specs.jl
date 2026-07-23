@@ -17,9 +17,10 @@ include("registries.jl")
 include("errors.jl")
 @reexport using .SpecErrors
 
+include("parse.jl")
+
 # includes added in later tasks:
 # include("hashes.jl")
-# include("parse.jl")
 # include("materialize.jl")
 # include("rollout_kind.jl")
 # include("run.jl")
