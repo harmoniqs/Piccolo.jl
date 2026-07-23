@@ -6,9 +6,12 @@ using ..Control
 using TOML
 using JSON3
 using SHA
+using TestItems
+
+include("spec_structs.jl")
+@reexport using .SpecStructs
 
 # includes added in later tasks:
-# include("spec_structs.jl"); @reexport using .SpecStructs
 # include("errors.jl");       @reexport using .SpecErrors
 # include("registries.jl");   @reexport using .SpecRegistries
 # include("hashes.jl")
