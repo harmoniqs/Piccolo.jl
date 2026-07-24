@@ -1,5 +1,10 @@
 export MinimumTimeProblem
 
+# `certify_rollout(qcp)` convenience method defined below extends the Quantum-
+# layer verification helper (exported from Piccolo via the Quantum module).
+import ...Quantum: certify_rollout
+import ...Quantum.QuantumTrajectories: _collocation_fidelity
+
 @doc raw"""
     MinimumTimeProblem(qcp::QuantumControlProblem; kwargs...)
 
@@ -39,8 +44,24 @@ where q represents the quantum state (unitary, ket, or density matrix).
 
 # Keyword Arguments
 - `final_fidelity::Float64=0.99`: Minimum fidelity constraint at final time
-- `D::Float64=100.0`: Weight on minimum-time objective ∑Δt
+- `D::Float64=100.0`: Weight on minimum-time objective ∑Δt. For the B-spline
+  path (below) `D` is dimensionless: the applied weight is `D / T_init`.
+- `R::Float64=1e-2`: Control-point regularizer weight — B-spline path only,
+  ignored for other pulse types (whose regularizers ride along inside
+  `J_original`)
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
+
+# B-spline pulses
+
+When the problem's pulse is a `BSplinePulse`, construction forwards to a
+dedicated formulation (`_bspline_minimum_time_problem`): uniform timesteps
+(single duration DOF), the objective rebuilt as normalized duration penalty +
+control-point regularizer only (no competing infidelity term — fidelity is
+enforced solely by the hard floor constraint), and hard `ArgumentError` guards
+for a non-binding free-phase floor and infeasible warm starts. Solve it with
+`solve!(qcp; eval_hessian = true)` (the default) and verify the result with
+[`certify_rollout`](@ref). The generic path below is unchanged for all other
+pulse types.
 
 # Returns
 - `QuantumControlProblem`: New problem with minimum-time objective and fidelity constraint
@@ -86,10 +107,27 @@ function MinimumTimeProblem(
     goal::Union{Nothing,AbstractPiccoloOperator,AbstractVector} = nothing,
     final_fidelity::Float64 = 0.99,
     D::Float64 = 100.0,
+    R::Float64 = 1e-2,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 ) where {QT<:AbstractQuantumTrajectory}
+
+    # Method-level dispatch for B-spline pulses (runtime branch rather than a
+    # parametric method so dispatch against this generic signature is never
+    # lost). The generic body below stays byte-for-byte for other pulse types.
+    if get_pulse(qcp.qtraj) isa BSplinePulse
+        return _bspline_minimum_time_problem(
+            qcp;
+            goal = goal,
+            final_fidelity = final_fidelity,
+            D = D,
+            R = R,
+            Δt_bounds = Δt_bounds,
+            subsystem_levels = subsystem_levels,
+            piccolo_options = piccolo_options,
+        )
+    end
 
     if _show_header(piccolo_options)
         println("constructing MinimumTimeProblem [from $(_typename(QT))]")
@@ -141,6 +179,206 @@ function MinimumTimeProblem(
         piccolo_options,
     )
 end
+
+# ============================================================================= #
+# B-spline minimum-time path
+# ============================================================================= #
+
+@doc raw"""
+    _bspline_minimum_time_problem(qcp::QuantumControlProblem; kwargs...)
+
+B-spline-aware minimum-time formulation. Internal — reached via the
+`get_pulse(qcp.qtraj) isa BSplinePulse` forwarding branch in
+[`MinimumTimeProblem`](@ref).
+
+A global-control-point `BSplinePulse` has exactly **one** shape-preserving time
+degree of freedom: the total duration ``T`` (uniform dilation of its
+clamped-uniform knots). The generic min-time formulation is ill-posed for it —
+the retained infidelity objective pins ``T`` at full duration, the unnormalized
+duration weight wrecks conditioning, the free-phase fidelity floor silently
+degrades to a fixed-phase constraint when `subsystem_levels` is missing, and
+``N-1`` redundant per-knot ``\Delta t`` DOFs sit over a basis that assumes
+uniform spacing. This path implements the five approved elements instead:
+
+1. **Single duration DOF** — a `TimeStepsAllEqualConstraint` forces all
+   ``\Delta t_t`` equal, so the time variable is effectively the scalar ``T``
+   and `MinimumTimeObjective`'s ``D\sum_t \Delta t_t = D\,T``. Skipped
+   (vacuous) when there is ``\le 1`` interior interval — min-time is trivial
+   at that size.
+2. **Floor-only fidelity** — the objective is rebuilt **from scratch** as the
+   duration penalty plus the control-point regularizer only (a
+   `GlobalObjective` over the `:c_<drive>` global block, mirroring
+   `SplinePulseProblem`; there is no per-knot `:u` for a B-spline). The
+   competing infidelity objective is dropped; fidelity is enforced *solely* by
+   the hard floor constraint, removing the objective-versus-constraint
+   tug-of-war that blocks compression at sane ``D``.
+3. **Normalized duration penalty** — the applied weight is
+   ``D_{\text{eff}} = D / T_{\text{init}}`` so the penalty is ``O(D)`` and the
+   user-facing ``D`` is a dimensionless weight portable across pulse durations.
+4. **Provably-binding free-phase floor** — when free-phase globals (`φ_…`) are
+   present, `subsystem_levels` is threaded through to select
+   `FinalKetFreePhaseConstraint`; if it is missing this throws `ArgumentError`
+   instead of silently falling back to the fixed-phase constraint (the
+   historical non-binding-floor failure).
+5. **Exact-Hessian calling convention** — solve with
+   `solve!(qcp; eval_hessian = true)`. Note this is a `solve!`-time kwarg (and
+   the DirectTrajOpt default), **not** a constructor option; L-BFGS produced
+   dual-infeasibility blow-ups on this formulation, exact Hessians (exact
+   objective + ForwardDiff constraint Hessians over the integrator's
+   Gauss–Newton zero dynamics block) were stable throughout.
+
+Supporting guards:
+- **Feasibility** — the warm start's collocation fidelity (stored terminal
+  decision variable, at the stored phases) must already satisfy the floor;
+  otherwise the NLP starts infeasible and this throws `ArgumentError` with an
+  actionable message rather than returning a degenerate result.
+- **Compression-only `Δt_bounds` default** — `(0.1 Δt_nom, Δt_nom)`: the lower
+  bound sits below nominal, the upper at nominal, so the only time freedom is
+  compression.
+
+Post-solve, results must be verified with [`certify_rollout`](@ref): min-time
+acceptance gates on `|F_certified − F_collocation| ≤ 1e-3`, never on the
+solver's primal infeasibility (a coarse collocation can be gamed — certified
+``F \ge 0.999`` with true rollout ``F \approx 0.5``).
+"""
+function _bspline_minimum_time_problem(
+    qcp::QuantumControlProblem{QT};
+    goal::Union{Nothing,AbstractPiccoloOperator,AbstractVector} = nothing,
+    final_fidelity::Float64 = 0.99,
+    D::Float64 = 100.0,
+    R::Float64 = 1e-2,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+    piccolo_options::PiccoloOptions = PiccoloOptions(),
+) where {QT<:AbstractQuantumTrajectory}
+    pulse = get_pulse(qcp.qtraj)
+    M = pulse.basis.M
+    k_ord = get_order(pulse)
+
+    # Copy trajectory and constraints from original problem (same convention
+    # as the generic path; integrators are reused).
+    traj = deepcopy(qcp.prob.trajectory)
+    constraints = deepcopy(qcp.prob.constraints)
+
+    # Layout-A invariant: the trajectory defect knots coincide with the
+    # B-spline distinct breakpoints (the defect segment index IS the knot-span
+    # index; intra-segment resolution comes from the integrator, not from
+    # extra defect knots).
+    @assert traj.N == M - k_ord + 2 (
+        "B-spline min-time requires the Layout-A knot mapping traj.N == M - order + 2; " *
+        "got traj.N = $(traj.N), M = $M, order = $k_ord"
+    )
+
+    if _show_header(piccolo_options)
+        println("constructing MinimumTimeProblem [B-spline path, from $(_typename(QT))]")
+        println("    final fidelity ≥ $(final_fidelity)")
+        println("    min-time weight D = $(D) (normalized: D/T_init)")
+    end
+
+    # ---- Element 4: the free-phase floor must provably bind. ----
+    # When free-phase globals are present, the Ket/MultiKet constraint builders
+    # need subsystem_levels; without it they silently select the *fixed-phase*
+    # constraint, which reports a different, lower fidelity for a
+    # free-phase-warm-started pulse and looks exactly like a non-binding floor.
+    θ_names = Symbol[
+        name for name in keys(traj.global_components) if startswith(string(name), "φ_")
+    ]
+    sort!(θ_names)
+
+    if !isempty(θ_names) &&
+       (qcp.qtraj isa KetTrajectory || qcp.qtraj isa MultiKetTrajectory) &&
+       isnothing(subsystem_levels)
+        throw(
+            ArgumentError(
+                "B-spline MinimumTimeProblem: free-phase globals " *
+                "($(join(θ_names, ", "))) are present but subsystem_levels is " *
+                "missing. Without it the fidelity floor silently degrades to the " *
+                "fixed-phase constraint and will not bind. Pass subsystem_levels " *
+                "(e.g. subsystem_levels = [3, 20] for a transmon ⊗ cavity).",
+            ),
+        )
+    end
+
+    # Use updated goal if provided, otherwise use original
+    qtraj_for_constraint = isnothing(goal) ? qcp.qtraj : _update_goal(qcp.qtraj, goal)
+
+    # ---- Feasibility guard: the warm start must already satisfy the floor. ----
+    F_ws = _collocation_fidelity(
+        qtraj_for_constraint,
+        traj;
+        subsystem_levels = subsystem_levels,
+    )
+    if F_ws < final_fidelity - 1e-6
+        throw(
+            ArgumentError(
+                "B-spline MinimumTimeProblem: infeasible warm start — the input " *
+                "trajectory's fidelity is $(round(F_ws, sigdigits = 6)) < " *
+                "final_fidelity = $(final_fidelity). Minimum-time compresses a " *
+                "*feasible* pulse against the floor; starting below it returns a " *
+                "degenerate result. Lower final_fidelity, or run a fidelity " *
+                "pre-solve (e.g. SplinePulseProblem + solve!) to convergence first.",
+            ),
+        )
+    end
+
+    # ---- Element 1: single duration DOF (uniform timesteps). ----
+    # Compression-only Δt bounds by default: lower below nominal, upper at
+    # nominal, so the only time freedom is shrinking T.
+    Δts = get_timesteps(traj)[1:(end-1)]   # last entry is the storage pad
+    T_init = sum(Δts)
+    Δt_nom = T_init / (traj.N - 1)
+    Δt_lo, Δt_hi = isnothing(Δt_bounds) ? (0.1 * Δt_nom, Δt_nom) : Δt_bounds
+    traj.bounds = merge(traj.bounds, (Δt = ([Δt_lo], [Δt_hi]),))
+
+    if traj.N - 1 > 1
+        push!(constraints, TimeStepsAllEqualConstraint())
+    elseif _show_details(piccolo_options)
+        # Small-N guard: with ≤ 1 interior interval the equal-Δt constraint is
+        # vacuous (a single Δt already is the duration) and min-time is trivial.
+        println("    ≤ 1 interval: skipping vacuous TimeStepsAllEqualConstraint")
+    end
+
+    # ---- Elements 2 + 3: objective rebuilt from scratch. ----
+    # Normalized duration penalty + control-point regularizer ONLY. No
+    # infidelity term — the hard floor below is the only fidelity mechanism.
+    J = MinimumTimeObjective(traj; D = D / T_init)
+    control_sym = Symbol(:c_, drive_name(qcp.qtraj))
+    J += GlobalObjective(g -> sum(abs2, g), control_sym, traj; Q = R)
+
+    # ---- Fidelity floor (subsystem_levels threaded — guard above makes the
+    # free-phase selection explicit rather than a silent fallback). ----
+    fidelity_constraint = _final_fidelity_constraint(
+        qtraj_for_constraint,
+        final_fidelity,
+        traj;
+        subsystem_levels = subsystem_levels,
+    )
+    if fidelity_constraint isa AbstractVector
+        append!(constraints, fidelity_constraint)
+    else
+        push!(constraints, fidelity_constraint)
+    end
+
+    # Create new optimization problem with same integrators
+    new_prob = DirectTrajOptProblem(traj, J, qcp.prob.integrators, constraints)
+
+    return _maybe_display(
+        QuantumControlProblem(qtraj_for_constraint, new_prob),
+        piccolo_options,
+    )
+end
+
+"""
+    certify_rollout(qcp::QuantumControlProblem; kwargs...) -> NamedTuple
+
+Convenience method: certify the solved problem's trajectory against an
+independent fine rollout of the extracted pulse. Equivalent to
+`certify_rollout(qcp.qtraj, get_trajectory(qcp); kwargs...)` — see the core
+method's docstring for the fidelity conventions, keyword arguments, and the
+`|F_certified − F_collocation| ≤ tol` certification criterion.
+"""
+certify_rollout(qcp::QuantumControlProblem; kwargs...) =
+    certify_rollout(qcp.qtraj, get_trajectory(qcp); kwargs...)
 
 # ============================================================================= #
 # Type-specific helper functions

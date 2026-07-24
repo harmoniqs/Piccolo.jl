@@ -17,6 +17,9 @@ export FinalDensityFidelityConstraint
 export LeakageConstraint
 export BoundStateL2Constraint
 
+# Free-time (minimum-time-valid) B-spline derivative bounds
+include("bspline_dilation_constraint.jl")
+
 # ---------------------------------------------------------
 #                        Kets
 # ---------------------------------------------------------

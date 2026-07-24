@@ -72,10 +72,22 @@ function extract_pulse(
     g_range = traj.global_components[cp_name]
     cp_matrix = reshape(copy(traj.global_data[g_range]), n_d, M)
 
+    # Rebuild over the ACTUAL optimized duration ∑Δt, not the stored knot span.
+    # The B-spline basis/shape lives on the knot parameter; physical time is
+    # owned by the trajectory's timesteps, and with uniform Δt (the only
+    # supported free-time mode for B-spline — one pulse, one time DOF) the
+    # physical pulse is exactly the stored spline with its clamped-uniform
+    # knots dilated by T_final / T_init. Rebuilding over the stale original
+    # span instead would freeze the pulse at its construction-time duration,
+    # so after a free-time / minimum-time solve the returned pulse and the
+    # collocation would describe *different physical pulses* — the
+    # discretization-gaming channel (see certify_rollout).
     τ = pulse.basis.knot_vector
+    t₀ = τ[1]
+    T_final = get_times(traj)[end]   # ∑ₖ Δtₖ over the N-1 real intervals
     return BSplinePulse(
         cp_matrix,
-        [τ[1], τ[end]];
+        [t₀, t₀ + T_final];
         order = get_order(pulse),
         drive_name = drive,
         initial_value = :free,   # avoid constructor consistency-check on
@@ -256,6 +268,49 @@ end
     @test pulse_new.drive_name == :a
     sampled = sample(pulse_new, times)
     @test sampled ≈ traj.a
+end
+
+@testitem "extract_pulse BSplinePulse rebuilds over actual Δt duration" begin
+    using LinearAlgebra
+    using NamedTrajectories
+
+    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+
+    T = 6.0
+    M, order = 8, 4
+    cp = 0.3 * randn(1, M)
+    pulse = BSplinePulse(
+        cp,
+        [0.0, T];
+        order = order,
+        initial_value = :free,
+        final_value = :free,
+    )
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    qtraj = KetTrajectory(system, pulse, ψ0, ψg)
+
+    # Layout A: control points enter the NamedTrajectory as the :c_u global.
+    traj = NamedTrajectory(qtraj, nothing; global_data = Dict(:c_u => vec(cp)))
+    @test traj.N == M - order + 2
+
+    # Fixed-time round trip: same duration, same shape.
+    p_same = extract_pulse(qtraj, traj)
+    @test p_same isa BSplinePulse
+    @test duration(p_same) ≈ T
+    ts = collect(range(0.0, T, length = 33))
+    @test sample(p_same, ts) ≈ sample(pulse, ts)
+
+    # Uniform compression: the rebuilt pulse must live on the ACTUAL ∑Δt span
+    # (dilated clamped-uniform knots), not the stale construction-time span.
+    scale = 0.8
+    traj.Δt .= scale .* traj.Δt
+    p_short = extract_pulse(qtraj, traj)
+    @test duration(p_short) ≈ scale * T
+    @test p_short.control_points ≈ pulse.control_points
+    # Shape is the uniform dilation of the original: u_short(s·t) == u(t)
+    @test sample(p_short, scale .* ts) ≈ sample(pulse, ts)
 end
 
 @testitem "extract_pulse with multi-drive system" begin

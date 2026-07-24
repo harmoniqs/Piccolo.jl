@@ -7,7 +7,7 @@ _get_spline_order(::LinearSplinePulse) = 1
 _get_spline_order(::CubicSplinePulse) = 3
 
 """
-    bspline_slew_constraint(pulse::BSplinePulse, v_max; label=...) -> GlobalLinearConstraint
+    bspline_slew_constraint(pulse::BSplinePulse, v_max; free_time=false, T_ref=duration(pulse), label=...)
 
 Closed-form per-drive **slew (velocity) bound** `|ṗ(t)| ≤ v_max` for a B-spline
 pulse, as an explicit constraint to add to the problem (`constraints = [...]`).
@@ -28,12 +28,43 @@ multipliers go inactive when slack and IPOPT stays well-behaved.
 `v_max` is per-drive (`Vector`, length `n_drives`) or scalar (same cap on all
 channels); `Inf` on a channel skips it. Conservatism mirrors the amplitude box
 bound: the curve's true slew can sit below `maxᵢ|dᵢ|`.
+
+## Free-time (minimum-time) variant
+
+With `free_time = true` the bound stays valid while the timesteps are free
+(e.g. under [`MinimumTimeProblem`](@ref)): under uniform dilation
+`s = (∑ₖ Δtₖ)/T_ref` the physical slew scales as `1/s`, so the rows are
+bounded by the dilation-scaled cap
+
+    |dᵢ| ≤ v_max · (∑ₖ Δtₖ) / T_ref,
+
+jointly *linear* in `(c, Δt)`. `T_ref` is the construction-time duration the
+pulse's knot vector spans (default `duration(pulse)`). Returns a
+[`BSplineDilationBoundConstraint`](@ref) coupling the `:c_<drive>` global
+block with all knot `Δt` variables, with exact analytic Jacobian. The default
+`free_time = false` returns the fixed-time `GlobalLinearConstraint` above.
 """
 function bspline_slew_constraint(
     pulse::BSplinePulse,
     v_max::AbstractVector;
+    free_time::Bool = false,
+    T_ref::Real = duration(pulse),
     label::String = "B-spline slew bound",
 )
+    A, b = _bspline_slew_rows(pulse, v_max)
+    cp_name = Symbol(:c_, drive_name(pulse))
+    if free_time
+        return BSplineDilationBoundConstraint(cp_name, A, b, 1, T_ref;
+            label = label * " (free-time)")
+    end
+    return GlobalLinearConstraint(cp_name, A, -b, b; label = label)
+end
+
+# Row construction shared by the fixed-time (GlobalLinearConstraint) and
+# free-time (BSplineDilationBoundConstraint) slew bounds: one scaled
+# first-difference row per retained (channel, i) pair over the :c_<drive>
+# global block, plus the per-row bound vector b (= v_max of the row's channel).
+function _bspline_slew_rows(pulse::BSplinePulse, v_max::AbstractVector)
     M = pulse.basis.M
     n_d = pulse.n_drives
     k = get_order(pulse)
@@ -41,14 +72,12 @@ function bspline_slew_constraint(
         "v_max length $(length(v_max)) ≠ n_drives $n_d"))
     M >= 2 || throw(ArgumentError("slew bound needs M ≥ 2 control points; got M=$M"))
     τ = pulse.basis.knot_vector            # 1-based storage of 0-based knots τ_0 … τ_{M+k-1}
-    cp_name = Symbol(:c_, drive_name(pulse))
     gdim = M * n_d
 
     # column-major vec((n_drives, M)): cp index jj (1-based), drive d ↦ slot (jj-1)*n_d + d.
     # 0-based cp i ↦ slot i*n_d + d.
     rows = Vector{Float64}[]
-    lb = Float64[]
-    ub = Float64[]
+    b = Float64[]
     for ch in 1:n_d
         isfinite(v_max[ch]) || continue
         for i in 0:(M - 2)                 # 0-based derivative control-point index
@@ -59,21 +88,20 @@ function bspline_slew_constraint(
             row[(i + 1) * n_d + ch] = coef     # +coef · c_{i+1}
             row[i * n_d + ch]       = -coef    # -coef · c_i
             push!(rows, row)
-            push!(lb, -v_max[ch])
-            push!(ub, v_max[ch])
+            push!(b, v_max[ch])
         end
     end
     isempty(rows) && throw(ArgumentError(
         "bspline_slew_constraint: every channel is Inf (nothing to bound)"))
     A = reduce(vcat, (r' for r in rows))
-    return GlobalLinearConstraint(cp_name, A, lb, ub; label = label)
+    return A, b
 end
 
 bspline_slew_constraint(pulse::BSplinePulse, v_max::Real; kwargs...) =
     bspline_slew_constraint(pulse, fill(Float64(v_max), pulse.n_drives); kwargs...)
 
 """
-    bspline_accel_constraint(pulse::BSplinePulse, a_max; label=...) -> GlobalLinearConstraint
+    bspline_accel_constraint(pulse::BSplinePulse, a_max; free_time=false, T_ref=duration(pulse), label=...)
 
 Closed-form per-drive **acceleration (curvature) bound** `|p̈(t)| ≤ a_max` for a
 B-spline pulse — the second-derivative analogue of [`bspline_slew_constraint`].
@@ -102,12 +130,46 @@ constraint via `constraints = [...]`.
 
 `a_max` is per-drive (`Vector`, length `n_drives`) or scalar; `Inf` skips a channel.
 Requires order `k ≥ 3` and `M ≥ 3` control points.
+
+## Free-time (minimum-time) variant
+
+With `free_time = true` the bound stays valid while the timesteps are free
+(e.g. under [`MinimumTimeProblem`](@ref)): under uniform dilation
+`s = (∑ₖ Δtₖ)/T_ref` the physical curvature scales as `1/s²`, so the rows are
+bounded by the dilation-scaled cap
+
+    |eᵢ| ≤ a_max · ((∑ₖ Δtₖ) / T_ref)²,
+
+quadratic in `Δt` with the simple analytic Jacobian
+`−2·(a_max/T_ref²)·(∑ₖ Δtₖ)` on each `Δt` column and a constant Hessian block
+on the `Δt × Δt` pairs. `T_ref` is the construction-time duration the pulse's
+knot vector spans (default `duration(pulse)`). Returns a
+[`BSplineDilationBoundConstraint`](@ref) coupling the `:c_<drive>` global
+block with all knot `Δt` variables, with exact analytic Jacobian and Hessian.
+The default `free_time = false` returns the fixed-time
+`GlobalLinearConstraint` above.
 """
 function bspline_accel_constraint(
     pulse::BSplinePulse,
     a_max::AbstractVector;
+    free_time::Bool = false,
+    T_ref::Real = duration(pulse),
     label::String = "B-spline acceleration bound",
 )
+    A, b = _bspline_accel_rows(pulse, a_max)
+    cp_name = Symbol(:c_, drive_name(pulse))
+    if free_time
+        return BSplineDilationBoundConstraint(cp_name, A, b, 2, T_ref;
+            label = label * " (free-time)")
+    end
+    return GlobalLinearConstraint(cp_name, A, -b, b; label = label)
+end
+
+# Row construction shared by the fixed-time (GlobalLinearConstraint) and
+# free-time (BSplineDilationBoundConstraint) acceleration bounds: one scaled
+# second-difference row per retained (channel, i) pair over the :c_<drive>
+# global block, plus the per-row bound vector b (= a_max of the row's channel).
+function _bspline_accel_rows(pulse::BSplinePulse, a_max::AbstractVector)
     M = pulse.basis.M
     n_d = pulse.n_drives
     k = get_order(pulse)
@@ -117,12 +179,10 @@ function bspline_accel_constraint(
         "acceleration bound needs spline order k ≥ 3 (2nd derivative); got k=$k"))
     M >= 3 || throw(ArgumentError("acceleration bound needs M ≥ 3 control points; got M=$M"))
     τ = pulse.basis.knot_vector            # 1-based storage of 0-based knots τ_0 … τ_{M+k-1}
-    cp_name = Symbol(:c_, drive_name(pulse))
     gdim = M * n_d
 
     rows = Vector{Float64}[]
-    lb = Float64[]
-    ub = Float64[]
+    b = Float64[]
     for ch in 1:n_d
         isfinite(a_max[ch]) || continue
         for i in 0:(M - 3)                 # 0-based 2nd-derivative control-point index
@@ -138,14 +198,13 @@ function bspline_accel_constraint(
             row[(i + 1) * n_d + ch] += -A * (p + q)   #  c_{i+1}
             row[(i + 2) * n_d + ch] += A * p          #  c_{i+2}
             push!(rows, row)
-            push!(lb, -a_max[ch])
-            push!(ub, a_max[ch])
+            push!(b, a_max[ch])
         end
     end
     isempty(rows) && throw(ArgumentError(
         "bspline_accel_constraint: every channel is Inf (nothing to bound)"))
     A = reduce(vcat, (r' for r in rows))
-    return GlobalLinearConstraint(cp_name, A, lb, ub; label = label)
+    return A, b
 end
 
 bspline_accel_constraint(pulse::BSplinePulse, a_max::Real; kwargs...) =
@@ -1641,4 +1700,107 @@ end
     J_extra = objective_value(qcp_extra.prob.objective, qcp_extra.prob.trajectory)
     extra_contribution = objective_value(extra_reg, qcp_extra.prob.trajectory)
     @test J_extra ≈ J_baseline + extra_contribution
+end
+
+# ============================================================================= #
+# Free-time B-spline slew/accel constraint tests
+# ============================================================================= #
+
+@testitem "bspline free-time kwarg switches constraint type, fixed-time unchanged" begin
+    using Piccolo
+    using DirectTrajOpt
+    using SparseArrays
+    using Random
+
+    Random.seed!(1)
+
+    M, order, n_d = 8, 4, 2
+    T = 2.0
+    N = M - order + 2
+    times = collect(range(0.0, T, length = N))
+    pulse = BSplinePulse(randn(n_d, M), times; order = order)
+
+    for (make, p) in ((bspline_slew_constraint, 1), (bspline_accel_constraint, 2))
+        fixed = make(pulse, [0.8, 1.2])
+        free = make(pulse, [0.8, 1.2]; free_time = true)
+
+        # Default (free_time = false) is byte-compatible with the previous
+        # fixed-time behavior: same type, rows, and symmetric bounds.
+        @test fixed isa GlobalLinearConstraint
+        @test fixed.name == :c_u
+        @test fixed.lb == -fixed.ub
+
+        # Free-time variant: same rows/bounds, dilation order p, and
+        # T_ref defaulting to the pulse's construction-time duration.
+        @test free isa BSplineDilationBoundConstraint
+        @test free.global_name == :c_u
+        @test free.A == fixed.A
+        @test free.b == fixed.ub
+        @test free.power == p
+        @test free.T_ref == duration(pulse)
+        @test free.equality == false
+        @test free.dim == 2 * size(fixed.A, 1)
+    end
+end
+
+@testitem "SplinePulseProblem bspline free-time accel E2E smoke" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(7)
+
+    # Small B-spline problem with the free-time acceleration bound attached,
+    # Δt free within bounds, and the equal-timestep constraint on. Dynamics
+    # are intentionally empty: Piccolo's test env has no Piccolissimo
+    # SplineIntegrator (dependency direction), and the constraint under test
+    # couples only the :c_<drive> global block with the Δt variables — the
+    # smoke contract is "the NLP solves and the scaled bound holds at the
+    # solution", which is exercised fully without rollout dynamics.
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    M, order = 8, 4
+    T = 4.0
+    N = M - order + 2
+    times = collect(range(0.0, T, length = N))
+    cps = 0.5 * randn(1, M)
+    cps[:, 1] .= 0.0
+    cps[:, end] .= 0.0
+    pulse = BSplinePulse(cps, times; order = order)
+    qtraj = UnitaryTrajectory(sys, pulse, σx)
+
+    # Pick a_max so the warm start VIOLATES the bound at the nominal duration:
+    # the solve must actively restore feasibility (shrink |D₂·c| and/or dilate
+    # ∑Δt), so the final feasibility check is not vacuous.
+    unit_rows = bspline_accel_constraint(pulse, 1.0)   # rows with b = 1
+    a_max = 0.5 * maximum(abs.(unit_rows.A * vec(pulse.control_points)))
+
+    accel = bspline_accel_constraint(pulse, a_max; free_time = true)
+
+    qcp = SplinePulseProblem(
+        qtraj;
+        integrator = AbstractIntegrator[],
+        constraints = AbstractConstraint[accel],
+        Δt_bounds = (0.05, 3.0),
+        R_u = 1e-4,
+        piccolo_options = PiccoloOptions(timesteps_all_equal = true, display = :silent),
+    )
+
+    solve!(qcp; max_iter = 150, print_level = 1, verbose = false)
+
+    traj = get_trajectory(qcp)
+    c = traj.global_data[traj.global_components[:c_u]]
+    Δts = get_timesteps(traj)
+    s = sum(Δts[1:(end - 1)]) / duration(pulse)
+
+    # The dilation-scaled curvature bound holds at the solution.
+    @test all(abs.(unit_rows.A * c) .<= a_max * s^2 + 1e-6)
+
+    # Δt stayed free within its bounds and the equal-timestep constraint held.
+    @test all(Δts .>= 0.05 - 1e-9) && all(Δts .<= 3.0 + 1e-9)
+    @test maximum(abs.(Δts .- Δts[1])) < 1e-8
 end

@@ -148,6 +148,9 @@ include("rollouts_extensions.jl")
 # Extract pulse from optimized trajectories
 include("extract_pulse.jl")
 
+# post-solve rollout certification (gaming detector for min-time results)
+include("certify_rollout.jl")
+
 # NamedTrajectory conversion
 include("named_trajectory_conversion.jl")
 
