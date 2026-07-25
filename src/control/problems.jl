@@ -12,7 +12,7 @@ import DirectTrajOpt.Solvers: solve!
 export QuantumControlProblem
 export get_trajectory, get_system, get_goal, state_name, drive_name
 export solve!, sync_trajectory!, fidelity
-export rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
+export rollout_divergence, ROLLOUT_DIVERGENCE_RTOL, stored_phases
 # Note: solve! is NOT exported to avoid ambiguity with SciMLBase.solve!
 # Users should use: using DirectTrajOpt (to get solve!)
 
@@ -94,19 +94,71 @@ Get the control variable name from the quantum trajectory.
 drive_name(qcp::QuantumControlProblem) = drive_name(qcp.qtraj)
 
 """
+    stored_phases(traj::NamedTrajectory) -> Union{Nothing,Vector{Float64}}
+
+Free-phase globals `φ_*` held by a trajectory, concatenated in sorted name order, or
+`nothing` when the trajectory carries none.
+
+Returns an **empty vector** — distinct from `nothing` — when `φ_*` components are declared but
+hold no data. That state is corrupt input rather than "no phases", and callers are expected to
+refuse it rather than silently fall back to the fixed-phase answer.
+"""
+function stored_phases(traj)
+    names = sort!([n for n in keys(traj.global_components) if startswith(string(n), "φ_")])
+    isempty(names) && return nothing
+    return reduce(
+        vcat,
+        (Vector{Float64}(traj.global_data[traj.global_components[n]]) for n in names);
+        init = Float64[],
+    )
+end
+
+"""
     fidelity(qcp::QuantumControlProblem; kwargs...)
 
-Compute the fidelity of the quantum trajectory.
+Compute the fidelity of the quantum trajectory, **applying the problem's optimized free
+phases** when it has any.
 
-This is a convenience wrapper that forwards to `fidelity(qcp.qtraj; kwargs...)`.
+A `free_phase = true` problem optimizes a per-subsystem frame phase alongside the pulse, and
+its objective is minimized against the *phase-rotated* goal. This function therefore reads the
+`φ_*` globals out of `qcp.prob.trajectory` and forwards them, so the number it reports is the
+one the optimizer was actually driving.
+
+An explicit `phases = ...` always wins over the stored values; pass `phases = zeros(n)` to
+recover the fixed-phase number deliberately.
+
+!!! warning "This changed in the pulse-hazard cleanup (2026-07-25)"
+    Previously this forwarded to `fidelity(qcp.qtraj)` with no phase handling at all, so every
+    free-phase problem silently reported its **fixed-phase** fidelity — a number its objective
+    never optimized, and typically far worse than the achieved one. Any free-phase figure
+    obtained through this path before that date needs re-deriving.
 
 # Example
 ```julia
 solve!(qcp)
-fid = fidelity(qcp)  # Equivalent to fidelity(qcp.qtraj)
+fid = fidelity(qcp)                     # φ-aware when the problem has φ globals
+raw = fidelity(qcp; phases = zeros(2))  # fixed-phase, explicitly
 ```
 """
-fidelity(qcp::QuantumControlProblem; kwargs...) = fidelity(qcp.qtraj; kwargs...)
+function fidelity(qcp::QuantumControlProblem; phases = nothing, kwargs...)
+    if !isnothing(phases)
+        return fidelity(qcp.qtraj; phases = phases, kwargs...)
+    end
+
+    φ = stored_phases(qcp.prob.trajectory)
+    isnothing(φ) && return fidelity(qcp.qtraj; kwargs...)
+
+    if isempty(φ)
+        error(
+            "this problem declares free-phase globals (φ_*) but stores no phase values, so a " *
+            "free-phase fidelity cannot be computed. Reporting the fixed-phase number instead " *
+            "would be the very bug this check exists to prevent. Re-solve the problem, or pass " *
+            "`phases = ...` explicitly if you know them.",
+        )
+    end
+
+    return fidelity(qcp.qtraj; phases = φ, kwargs...)
+end
 
 # ============================================================================= #
 # Forward DirectTrajOptProblem methods
@@ -361,6 +413,72 @@ end
 #
 # The two testitems below are integrator-agnostic on purpose: they force a divergence by
 # mutating the collocation state directly, so the integrator is only scaffolding.
+
+@testitem "fidelity(qcp) applies the problem's stored free phases" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # Regression guard for the 2026-07-25 decision that `fidelity(qcp)` becomes φ-aware.
+    # Before it, this path silently reported the FIXED-phase number for a free-phase problem —
+    # a value the objective never optimized. Notably, no test in the suite combined
+    # `free_phase = true` with `fidelity(qcp)`, which is why the bug survived.
+    σx = ComplexF64[0 1; 1 0]
+    H_drift = ComplexF64[0 0 0; 0 1 0; 0 0 2]
+    H_drive = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
+    sys = QuantumSystem(H_drift, [H_drive], [1.0])
+
+    N, T = 21, 10.0
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    U_goal = EmbeddedOperator(σx, [1, 2], [3])
+
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, free_phase = true)
+    traj = get_trajectory(qcp)
+    @test haskey(traj.global_components, :φ_1)
+
+    # Put a deliberately non-trivial phase in, then sync so the rollout is current.
+    traj.global_data[traj.global_components[:φ_1]] .= [0.7]
+    sync_trajectory!(qcp; check_divergence = false)
+
+    φ = stored_phases(traj)
+    @test φ == [0.7]
+
+    F_default = fidelity(qcp)
+    F_fixed = fidelity(qcp; phases = [0.0])
+
+    # The default now equals the explicitly-φ-aware value, not the fixed-phase one.
+    @test F_default ≈ fidelity(qcp.qtraj; phases = φ)
+    @test !isapprox(F_default, F_fixed; atol = 1e-10)
+
+    # An explicit `phases` still wins over the stored value.
+    @test fidelity(qcp; phases = [0.0]) ≈ fidelity(qcp.qtraj; phases = [0.0])
+end
+
+@testitem "fidelity(qcp) refuses a free-phase problem that stores no phases" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+
+    # The 9 catalog entries with `free_phase = true` and no recorded φ are exactly this state.
+    # Silently returning the fixed-phase number is the bug; erroring is the fix.
+    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    N, T = 11, 5.0
+    times = collect(range(0, T, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1, 0], ComplexF64[0, 1])
+    traj = NamedTrajectory(qtraj, N; Δt_bounds = (1e-3, 1.0))
+    prob = DirectTrajOptProblem(
+        traj,
+        QuadraticRegularizer(:u, traj, 1.0),
+        BilinearIntegrator(qtraj, N),
+    )
+    qcp = QuantumControlProblem(qtraj, prob)
+
+    # No φ globals at all => `nothing`, and the ordinary path is unaffected.
+    @test isnothing(stored_phases(qcp.prob.trajectory))
+    @test fidelity(qcp) isa Real
+end
 
 @testitem "rollout_divergence: nothing means not-applicable, not agreement" begin
     using DirectTrajOpt

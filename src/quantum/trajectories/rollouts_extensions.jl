@@ -931,14 +931,79 @@ function Rollouts.fidelity(
     end
 end
 
+export number_operator_phase_diag
+
+@doc raw"""
+    number_operator_phase_diag(θ, subsystem_levels) -> Vector
+
+Diagonal of the free-phase rotation ``\bigotimes_j e^{i θ_j \hat n_j}`` in the tensor-product
+basis: for basis index `idx` (0-based), level ``s_j`` of subsystem `j` contributes ``s_j θ_j``.
+
+This is the **number-operator** convention, the one `free_phase = true` applies to *ket* goals.
+It is deliberately not the same expression as the qubit/binary decomposition used for
+`EmbeddedOperator` goals in [`fidelity(::UnitaryTrajectory)`](@ref) — the two agree when every
+subsystem is a qubit (``s_j ∈ \{0,1\}``) and differ above two levels. Kept type-generic so
+ForwardDiff `Dual`s pass through.
 """
-    fidelity(qtraj::KetTrajectory)
+function number_operator_phase_diag(θ, subsystem_levels::AbstractVector{Int})
+    dim = prod(subsystem_levels)
+    n_sub = length(subsystem_levels)
+    return map(0:(dim-1)) do idx
+        phase = zero(eltype(θ))
+        remaining = idx
+        for j = 1:n_sub
+            stride = prod(subsystem_levels[k] for k = (j+1):n_sub; init = 1)
+            sj = remaining ÷ stride
+            remaining = remaining % stride
+            phase += sj * θ[j]
+        end
+        return exp(im * phase)
+    end
+end
+
+"""
+    fidelity(qtraj::KetTrajectory; phases=nothing, subsystem_levels=nothing)
 
 Compute the fidelity between the final state and the goal.
+
+`phases` applies the free-phase rotation of [`number_operator_phase_diag`](@ref) to the goal
+before comparing — the same convention `free_phase = true` optimizes against, so a free-phase
+problem's reported fidelity matches what its objective was minimizing.
+
+`subsystem_levels` gives the tensor-product factorization. It may be omitted only when
+`phases` has a single entry, in which case the whole space is treated as one subsystem; with
+more than one phase the factorization cannot be inferred from the state dimension alone and
+must be supplied.
 """
-function Rollouts.fidelity(qtraj::KetTrajectory)
+function Rollouts.fidelity(
+    qtraj::KetTrajectory;
+    phases::Union{Nothing,AbstractVector{<:Real}} = nothing,
+    subsystem_levels::Union{Nothing,AbstractVector{Int}} = nothing,
+)
     ψ_final = qtraj.solution.u[end]
-    return abs2(ψ_final' * qtraj.goal)
+    isnothing(phases) && return abs2(ψ_final' * qtraj.goal)
+
+    levels = if !isnothing(subsystem_levels)
+        subsystem_levels
+    elseif length(phases) == 1
+        [length(qtraj.goal)]
+    else
+        error(
+            "fidelity(::KetTrajectory; phases) with $(length(phases)) phases needs " *
+            "`subsystem_levels`: the tensor-product factorization cannot be inferred from " *
+            "the state dimension $(length(qtraj.goal)) alone.",
+        )
+    end
+
+    if prod(levels) != length(qtraj.goal)
+        error(
+            "subsystem_levels = $levels implies dimension $(prod(levels)), but the goal has " *
+            "$(length(qtraj.goal)) components.",
+        )
+    end
+
+    goal_phased = number_operator_phase_diag(phases, collect(Int, levels)) .* qtraj.goal
+    return abs2(ψ_final' * goal_phased)
 end
 
 """

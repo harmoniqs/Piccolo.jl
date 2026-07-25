@@ -29,6 +29,11 @@ include("problems.jl")
 include("objectives.jl")
 @reexport using .QuantumObjectives
 
+# After objectives.jl: `verify` needs the `*_fidelity_loss` functions defined there to score
+# the optimizer's own collocation state.
+include("verification.jl")
+@reexport using .Verification
+
 include("constraints.jl")
 @reexport using .QuantumConstraints
 
