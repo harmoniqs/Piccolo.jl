@@ -1,6 +1,7 @@
 module QuantumControlProblems
 
 using DirectTrajOpt
+using LinearAlgebra
 using NamedTrajectories
 using ...Quantum
 using TestItems
@@ -11,6 +12,7 @@ import DirectTrajOpt.Solvers: solve!
 export QuantumControlProblem
 export get_trajectory, get_system, get_goal, state_name, drive_name
 export solve!, sync_trajectory!, fidelity
+export rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
 # Note: solve! is NOT exported to avoid ambiguity with SciMLBase.solve!
 # Users should use: using DirectTrajOpt (to get solve!)
 
@@ -134,7 +136,11 @@ fid = fidelity(qcp.qtraj)  # Evaluate fidelity with continuous-time solution
 pulse = get_pulse(qcp.qtraj)  # Get the optimized pulse
 ```
 """
-function sync_trajectory!(qcp::QuantumControlProblem)
+function sync_trajectory!(
+    qcp::QuantumControlProblem;
+    check_divergence::Bool = true,
+    divergence_rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
+)
     # Update global parameters in the system BEFORE rollout so the ODE uses optimized values
     sys = get_system(qcp.qtraj)
     if hasproperty(sys, :global_params) &&
@@ -147,6 +153,111 @@ function sync_trajectory!(qcp::QuantumControlProblem)
     pulse = extract_pulse(qcp.qtraj, qcp.prob.trajectory)
     rollout!(qcp.qtraj, pulse)
 
+    # Both terminal states are now in hand — the collocation one the optimizer actually
+    # minimized against, and the ODE one just produced. Nothing compared them before.
+    check_divergence && _warn_on_rollout_divergence(qcp; rtol = divergence_rtol)
+
+    return nothing
+end
+
+# ============================================================================= #
+# Rollout divergence diagnostic
+# ============================================================================= #
+
+"""
+    ROLLOUT_DIVERGENCE_RTOL
+
+Relative tolerance above which [`sync_trajectory!`](@ref) warns that the optimizer's
+collocation solution and an actual ODE re-rollout of the same pulse disagree at the
+final time. Read as `ROLLOUT_DIVERGENCE_RTOL[]`; set as `ROLLOUT_DIVERGENCE_RTOL[] = 0.05`.
+
+Raise it to quiet the check globally, or pass `check_divergence = false` to silence a
+single call.
+"""
+const ROLLOUT_DIVERGENCE_RTOL = Ref(1.0e-3)
+
+# Terminal state of a rolled-out quantum trajectory, in the SAME iso-vector
+# representation the collocation `NamedTrajectory` stores under `state_name(qtraj)`,
+# so the two are directly comparable without a fidelity in between. Comparing states
+# rather than fidelities is deliberate: it needs no goal, no `EmbeddedOperator`, and no
+# phase convention, and it is strictly stronger — two different states can share a
+# fidelity. The conversions mirror `NamedTrajectory(::AbstractQuantumTrajectory, …)`
+# exactly; note density uses the *compact* iso (n² real params), NOT `density_to_iso_vec`.
+#
+# Returns `nothing` for every other trajectory type, which skips the check. That is
+# deliberate rather than lazy: for `MultiKetTrajectory` / `MultiDensityTrajectory`,
+# `qtraj.solution.u` is indexed by *sub-trajectory* rather than by time, so
+# `solution.u[end]` is a whole solution object and there is no single terminal state.
+_terminal_iso_state(qtraj::UnitaryTrajectory) = operator_to_iso_vec(qtraj.solution.u[end])
+_terminal_iso_state(qtraj::KetTrajectory) = ket_to_iso(qtraj.solution.u[end])
+_terminal_iso_state(qtraj::DensityTrajectory) =
+    density_to_compact_iso(qtraj.solution.u[end])
+_terminal_iso_state(::AbstractQuantumTrajectory) = nothing
+
+@doc raw"""
+    rollout_divergence(qcp::QuantumControlProblem) -> Union{Nothing,Float64}
+
+Relative disagreement at the final time between the optimizer's **collocation** solution
+and an **ODE re-rollout** of the same extracted pulse:
+
+```math
+\varepsilon = \frac{\lVert x^{\text{rollout}}_N - x^{\text{collocation}}_N\rVert_2}
+                   {\max\!\left(\lVert x^{\text{collocation}}_N\rVert_2,\, 1\right)}
+```
+
+Returns `nothing` — meaning *not applicable*, never *no divergence* — when the check
+cannot be made: multi-state trajectory types, or a state component absent from the
+optimizer's trajectory.
+
+Call this only after [`sync_trajectory!`](@ref) (or `solve!` with `sync = true`);
+before that, `qcp.qtraj` holds a stale rollout and the number is meaningless.
+
+# Why it can be nonzero
+The optimizer minimizes its objective against the collocation state; `fidelity(qcp.qtraj)`
+reports the ODE state. When these disagree the two numbers describe **different
+waveforms**, and only the rollout one is physical. The two usual causes are a
+pulse/integrator mismatch and a collocation grid too coarse for the dynamics.
+"""
+function rollout_divergence(qcp::QuantumControlProblem)
+    x_rollout = _terminal_iso_state(qcp.qtraj)
+    isnothing(x_rollout) && return nothing
+
+    sname = state_name(qcp.qtraj)
+    traj = qcp.prob.trajectory
+    haskey(traj.components, sname) || return nothing
+
+    x_collocation = traj[sname][:, end]
+    length(x_collocation) == length(x_rollout) || return nothing
+
+    return norm(x_rollout - x_collocation) / max(norm(x_collocation), 1.0)
+end
+
+function _warn_on_rollout_divergence(
+    qcp::QuantumControlProblem;
+    rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
+)
+    ε = rollout_divergence(qcp)
+    (isnothing(ε) || !isfinite(ε) || ε ≤ rtol) && return nothing
+
+    @warn """
+          Optimizer and rollout disagree at the final time.
+
+          relative divergence = $(round(ε; sigdigits = 3))  (tolerance $rtol)
+
+          `fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+          optimizer's own objective was evaluated on the collocation solution, which is a
+          different waveform, so any fidelity taken from it is not what this pulse does.
+
+          Two usual causes:
+            • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+              integrator is the common case: the interpolation the optimizer constrained is
+              not the one being integrated. Pair a spline pulse with
+              `Piccolissimo.SplineIntegrator`.
+            • Collocation grid too coarse for the dynamics — increase the number of knots.
+
+          Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+          `ROLLOUT_DIVERGENCE_RTOL[]`.
+          """
     return nothing
 end
 
@@ -161,6 +272,10 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 - `verbose::Bool=false`: Controls the solver setup trace (evaluator construction, jacobian/hessian
   structure, NLP block assembly). Defaults to `false` so the log stays clean. Ipopt's iteration
   log is controlled separately by `print_level` (passed through to Ipopt).
+- `check_divergence::Bool=true`: Warn if the optimizer's collocation solution and the ODE
+  re-rollout disagree at the final time — see [`rollout_divergence`](@ref). Only has an
+  effect when `sync = true`.
+- `divergence_rtol::Real=ROLLOUT_DIVERGENCE_RTOL[]`: Relative tolerance for that check.
 
 All other keyword arguments are passed to the DirectTrajOpt solver.
 """
@@ -168,11 +283,17 @@ function solve!(
     qcp::QuantumControlProblem;
     sync::Bool = true,
     verbose::Bool = false,
+    check_divergence::Bool = true,
+    divergence_rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
     kwargs...,
 )
     solve!(qcp.prob; verbose = verbose, kwargs...)
     if sync
-        sync_trajectory!(qcp)
+        sync_trajectory!(
+            qcp;
+            check_divergence = check_divergence,
+            divergence_rtol = divergence_rtol,
+        )
     end
     return nothing
 end
@@ -204,6 +325,134 @@ end
 # ============================================================================= #
 # Tests
 # ============================================================================= #
+
+@testitem "rollout_divergence separates a correct pulse/integrator pairing from a mismatch" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    # Hold the integrator, objective, system, goal, grid and seed FIXED and vary ONLY the
+    # pulse representation. `BilinearIntegrator` models the drive as piecewise constant on
+    # each interval, so `ZeroOrderPulse` is correctly paired with it and a spline is not.
+    #
+    # Measured 2026-07-25 on this system (N=11 and N=51, 60 Ipopt iterations):
+    #
+    #   pulse               divergence   1-F(rollout)  1-F(collocation)
+    #   ZeroOrderPulse       4.7e-5        5.4e-9        6.5e-10     <- agree
+    #   LinearSplinePulse    9.9e-2        4.3e-3        1.4e-8      <- differ by ~5 OOM
+    #   CubicSplinePulse     5.9e-2        1.6e-3        ~0          <- differ by ~5 OOM
+    #
+    # The mismatched rows are the hazard in one line: the optimizer reports ~1e-8 infidelity
+    # while the pulse actually achieves ~1e-3. The three decades between 1e-4 (ambient
+    # collocation-vs-ODE error when correctly paired) and 1e-1 (mismatch) are what makes
+    # `ROLLOUT_DIVERGENCE_RTOL`'s 1e-3 default a measured value rather than a guess.
+    levels = 3
+    a = zeros(ComplexF64, levels, levels)
+    for i = 1:levels-1
+        a[i, i+1] = sqrt(i)
+    end
+    H_drift = -0.5 * 2π * 0.2 * (a' * a' * a * a)
+    sys = QuantumSystem(H_drift, [a + a', 1im * (a - a')], [(-1.0, 1.0), (-1.0, 1.0)])
+    goal = EmbeddedOperator(ComplexF64[0 1; 1 0], 1:2, [levels])
+
+    N, T = 11, 10.0
+    times = collect(range(0, T, length = N))
+
+    function _divergence_for(ctor)
+        Random.seed!(20260725)
+        pulse = ctor(0.1 .* randn(2, N), times)
+        qtraj = UnitaryTrajectory(sys, pulse, goal)
+        traj = NamedTrajectory(qtraj, N; Δt_bounds = (1e-3, 1.0))
+        obj =
+            UnitaryInfidelityObjective(goal, :Ũ⃗, traj; Q = 100.0) +
+            QuadraticRegularizer(:u, traj, 1e-2)
+        prob = DirectTrajOptProblem(traj, obj, BilinearIntegrator(qtraj, N))
+        qcp = QuantumControlProblem(qtraj, prob)
+        solve!(
+            qcp;
+            max_iter = 30,
+            verbose = false,
+            print_level = 0,
+            check_divergence = false,
+        )
+        return rollout_divergence(qcp)
+    end
+
+    ε_paired = _divergence_for(ZeroOrderPulse)
+    ε_mismatched = _divergence_for(CubicSplinePulse)
+
+    # Correct pairing stays under the warning threshold; a mismatch is far above it.
+    @test ε_paired < ROLLOUT_DIVERGENCE_RTOL[]
+    @test ε_mismatched > 10 * ROLLOUT_DIVERGENCE_RTOL[]
+
+    # And the separation is orders of magnitude, not a marginal difference.
+    @test ε_mismatched > 100 * ε_paired
+end
+
+@testitem "rollout_divergence: nothing means not-applicable, not agreement" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    N, T = 11, 5.0
+    times = collect(range(0, T, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1, 0], ComplexF64[0, 1])
+    traj = NamedTrajectory(qtraj, N)
+    prob = DirectTrajOptProblem(
+        traj,
+        QuadraticRegularizer(:u, traj, 1.0),
+        BilinearIntegrator(qtraj, N),
+    )
+    qcp = QuantumControlProblem(qtraj, prob)
+
+    # A ket trajectory IS supported, so after a sync the divergence is a real number.
+    sync_trajectory!(qcp; check_divergence = false)
+    ε = rollout_divergence(qcp)
+    @test ε isa Float64
+    @test ε ≥ 0.0
+
+    # Zero controls: collocation and ODE both sit at |0⟩, so they must agree.
+    @test ε < 1.0e-8
+end
+
+@testitem "sync_trajectory!: divergence check is opt-out and threshold-driven" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Logging
+
+    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    N, T = 11, 5.0
+    times = collect(range(0, T, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1, 0], ComplexF64[0, 1])
+    traj = NamedTrajectory(qtraj, N)
+    prob = DirectTrajOptProblem(
+        traj,
+        QuadraticRegularizer(:u, traj, 1.0),
+        BilinearIntegrator(qtraj, N),
+    )
+    qcp = QuantumControlProblem(qtraj, prob)
+
+    # Force a divergence: move the collocation terminal state away from the ODE result
+    # without touching the controls, so the re-rollout cannot follow it.
+    qcp.prob.trajectory.ψ̃[:, end] .= Float64[0, 1, 0, 0]
+
+    @test_logs (:warn, r"disagree at the final time") sync_trajectory!(qcp)
+
+    # ...and the same call is silent when the check is disabled.
+    qcp.prob.trajectory.ψ̃[:, end] .= Float64[0, 1, 0, 0]
+    @test_logs min_level = Logging.Warn sync_trajectory!(qcp; check_divergence = false)
+
+    # ...and silent when the tolerance is loose enough to accept it.
+    qcp.prob.trajectory.ψ̃[:, end] .= Float64[0, 1, 0, 0]
+    @test_logs min_level = Logging.Warn sync_trajectory!(qcp; divergence_rtol = 10.0)
+end
 
 @testitem "sync_trajectory! updates quantum trajectory" begin
     using DirectTrajOpt
