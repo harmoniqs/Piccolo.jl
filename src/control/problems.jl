@@ -242,23 +242,45 @@ model error, at the cost of firing on coarse-but-correct problems.
 """
 const ROLLOUT_DIVERGENCE_RTOL = Ref(5.0e-3)
 
-# Terminal state of a rolled-out quantum trajectory, in the SAME iso-vector
-# representation the collocation `NamedTrajectory` stores under `state_name(qtraj)`,
-# so the two are directly comparable without a fidelity in between. Comparing states
-# rather than fidelities is deliberate: it needs no goal, no `EmbeddedOperator`, and no
-# phase convention, and it is strictly stronger — two different states can share a
-# fidelity. The conversions mirror `NamedTrajectory(::AbstractQuantumTrajectory, …)`
-# exactly; note density uses the *compact* iso (n² real params), NOT `density_to_iso_vec`.
+# Terminal state(s) of a rolled-out quantum trajectory as `name => iso-vector` pairs, in the
+# SAME iso-vector representation the collocation `NamedTrajectory` stores them under, so the
+# two are directly comparable without a fidelity in between. Comparing states rather than
+# fidelities is deliberate: it needs no goal, no `EmbeddedOperator`, and no phase convention,
+# and it is strictly stronger — two different states can share a fidelity. The conversions
+# mirror `NamedTrajectory(::AbstractQuantumTrajectory, …)` exactly; note density uses the
+# *compact* iso (n² real params), NOT `density_to_iso_vec`.
 #
-# Returns `nothing` for every other trajectory type, which skips the check. That is
-# deliberate rather than lazy: for `MultiKetTrajectory` / `MultiDensityTrajectory`,
-# `qtraj.solution.u` is indexed by *sub-trajectory* rather than by time, so
-# `solution.u[end]` is a whole solution object and there is no single terminal state.
-_terminal_iso_state(qtraj::UnitaryTrajectory) = operator_to_iso_vec(qtraj.solution.u[end])
-_terminal_iso_state(qtraj::KetTrajectory) = ket_to_iso(qtraj.solution.u[end])
-_terminal_iso_state(qtraj::DensityTrajectory) =
-    density_to_compact_iso(qtraj.solution.u[end])
-_terminal_iso_state(::AbstractQuantumTrajectory) = nothing
+# Multi-state types return one pair per sub-trajectory. Their `qtraj.solution.u` is indexed by
+# sub-trajectory rather than by time, so the terminal state of sub-trajectory `i` is
+# `solution.u[i].u[end]` — the same access `fidelity(::MultiKetTrajectory)` uses.
+#
+# `nothing` means the check is NOT APPLICABLE, never that there is no divergence.
+_terminal_iso_states(qtraj::UnitaryTrajectory) =
+    [state_name(qtraj) => operator_to_iso_vec(qtraj.solution.u[end])]
+_terminal_iso_states(qtraj::KetTrajectory) =
+    [state_name(qtraj) => ket_to_iso(qtraj.solution.u[end])]
+_terminal_iso_states(qtraj::DensityTrajectory) =
+    [state_name(qtraj) => density_to_compact_iso(qtraj.solution.u[end])]
+
+_terminal_iso_states(qtraj::MultiKetTrajectory) = [
+    name => ket_to_iso(qtraj.solution.u[i].u[end]) for
+    (i, name) in enumerate(state_names(qtraj))
+]
+_terminal_iso_states(qtraj::MultiDensityTrajectory) = [
+    name => density_to_compact_iso(qtraj.solution.u[i].u[end]) for
+    (i, name) in enumerate(state_names(qtraj))
+]
+
+# `rollout = :none` placeholder states are the tiled initial-ket guess, not solved dynamics, so
+# a divergence computed against them would be meaningless rather than merely inaccurate.
+_terminal_iso_states(qtraj::MultiKetTrajectory{<:AbstractPulse,RolloutStates}) =
+    qtraj.solution.real_states ?
+    [
+        name => ket_to_iso(qtraj.solution.u[i].u[end]) for
+        (i, name) in enumerate(state_names(qtraj))
+    ] : nothing
+
+_terminal_iso_states(::AbstractQuantumTrajectory) = nothing
 
 @doc raw"""
     rollout_divergence(qcp::QuantumControlProblem) -> Union{Nothing,Float64}
@@ -271,9 +293,15 @@ and an **ODE re-rollout** of the same extracted pulse:
                    {\max\!\left(\lVert x^{\text{collocation}}_N\rVert_2,\, 1\right)}
 ```
 
-Returns `nothing` — meaning *not applicable*, never *no divergence* — when the check
-cannot be made: multi-state trajectory types, or a state component absent from the
-optimizer's trajectory.
+Multi-state trajectories (`MultiKetTrajectory`, `MultiDensityTrajectory`) are covered: the
+result is the 2-norm of the stacked difference over the 2-norm of the stacked collocation
+state, which reduces exactly to the single-state formula when there is one sub-state, so the
+numbers are on a common scale.
+
+Returns `nothing` — meaning *not applicable*, never *no divergence* — when the check cannot be
+made: a state component absent from the optimizer's trajectory, a shape mismatch, a trajectory
+type without a defined terminal state, or a `rollout = :none` `MultiKetTrajectory` still
+holding placeholder states rather than solved dynamics.
 
 Call this only after [`sync_trajectory!`](@ref) (or `solve!` with `sync = true`);
 before that, `qcp.qtraj` holds a stale rollout and the number is meaningless.
@@ -285,17 +313,25 @@ waveforms**, and only the rollout one is physical. The two usual causes are a
 pulse/integrator mismatch and a collocation grid too coarse for the dynamics.
 """
 function rollout_divergence(qcp::QuantumControlProblem)
-    x_rollout = _terminal_iso_state(qcp.qtraj)
-    isnothing(x_rollout) && return nothing
+    pairs = _terminal_iso_states(qcp.qtraj)
+    isnothing(pairs) && return nothing
 
-    sname = state_name(qcp.qtraj)
     traj = qcp.prob.trajectory
-    haskey(traj.components, sname) || return nothing
+    sq_diff = 0.0
+    sq_collocation = 0.0
 
-    x_collocation = traj[sname][:, end]
-    length(x_collocation) == length(x_rollout) || return nothing
+    for (name, x_rollout) in pairs
+        haskey(traj.components, name) || return nothing
+        x_collocation = traj[name][:, end]
+        length(x_collocation) == length(x_rollout) || return nothing
+        sq_diff += sum(abs2, x_rollout - x_collocation)
+        sq_collocation += sum(abs2, x_collocation)
+    end
 
-    return norm(x_rollout - x_collocation) / max(norm(x_collocation), 1.0)
+    # Aggregated over sub-states, this is the 2-norm of the stacked difference over the 2-norm
+    # of the stacked collocation state — identical to the single-state formula when there is
+    # only one pair, so multi-state numbers are on the same scale as single-state ones.
+    return sqrt(sq_diff) / max(sqrt(sq_collocation), 1.0)
 end
 
 function _warn_on_rollout_divergence(
@@ -507,6 +543,38 @@ end
 
     # Zero controls: collocation and ODE both sit at |0⟩, so they must agree.
     @test ε < 1.0e-8
+end
+
+@testitem "rollout_divergence covers multi-state trajectories" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # MultiKet/MultiDensity index `solution.u` by sub-trajectory rather than by time, so they
+    # were initially skipped entirely. They are the population most exposed to the pairing
+    # hazard, so being skipped meant the riskiest problems got no check at all.
+    σx = ComplexF64[0 1; 1 0]
+    sys = QuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
+    N, T = 21, 10.0
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+
+    qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    sync_trajectory!(qcp; check_divergence = false)
+
+    ε = rollout_divergence(qcp)
+    @test ε isa Float64                     # NOT `nothing` any more
+    @test ε ≥ 0.0
+    @test isfinite(ε)
+
+    # Perturbing ONE sub-state's collocation terminal value must move the aggregate.
+    traj = get_trajectory(qcp)
+    @test haskey(traj.components, :ψ̃1) && haskey(traj.components, :ψ̃2)
+    traj.ψ̃1[:, end] .+= 0.5
+    ε_perturbed = rollout_divergence(qcp)
+    @test ε_perturbed > ε
 end
 
 @testitem "sync_trajectory!: divergence check is opt-out and threshold-driven" begin
