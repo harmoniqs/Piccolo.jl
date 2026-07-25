@@ -42,8 +42,16 @@ function _rollout_alg(a::Symbol)
     a === :tsit5 && return Tsit5()
     a === :magnus_gl4 && return MagnusGL4()
     a === :magnus_adapt4 && return MagnusAdapt4()
-    throw(SpecValidationError([SpecError("alg", "unknown rollout algorithm",
-        string(a), ["tsit5", "magnus_gl4", "magnus_adapt4"])]))
+    throw(
+        SpecValidationError([
+            SpecError(
+                "alg",
+                "unknown rollout algorithm",
+                string(a),
+                ["tsit5", "magnus_gl4", "magnus_adapt4"],
+            ),
+        ]),
+    )
 end
 
 # ---------------------------------------------------------------------------
@@ -53,9 +61,15 @@ end
 
 function _load_input_pulse(s::AbstractString)
     (endswith(s, ".jld2") && isfile(s)) && return load_pulse(s)
-    throw(SpecValidationError([SpecError("input_pulse",
-        "Phase-1 supports only an existing .jld2 pulse path (catalog:/run_dir resolution deferred)",
-        s)]))
+    throw(
+        SpecValidationError([
+            SpecError(
+                "input_pulse",
+                "Phase-1 supports only an existing .jld2 pulse path (catalog:/run_dir resolution deferred)",
+                s,
+            ),
+        ]),
+    )
 end
 
 # ---------------------------------------------------------------------------
@@ -63,8 +77,11 @@ end
 # ---------------------------------------------------------------------------
 
 function _rollout_goal(spec::RolloutSpec, sys)
-    spec.report.goal === nothing && throw(SpecValidationError([SpecError("report.goal",
-        "rollout fidelity requires a [report.goal] block")]))
+    spec.report.goal === nothing && throw(
+        SpecValidationError([
+            SpecError("report.goal", "rollout fidelity requires a [report.goal] block"),
+        ]),
+    )
     return _build_goal(spec.report.goal, sys)
 end
 
@@ -74,16 +91,35 @@ end
 
 function _validate_rollout!(spec::RolloutSpec, errs::Vector{SpecError})
     if !(spec.rollout_kind in (:unitary, :ket, :density))
-        push!(errs, SpecError("rollout_kind", "unknown rollout kind",
-            string(spec.rollout_kind), ["unitary", "ket", "density"]))
+        push!(
+            errs,
+            SpecError(
+                "rollout_kind",
+                "unknown rollout kind",
+                string(spec.rollout_kind),
+                ["unitary", "ket", "density"],
+            ),
+        )
     end
     if spec.system.kind === :template && lookup_system(spec.system.template) === nothing
-        push!(errs, SpecError("system.template", "unknown system template",
-            string(spec.system.template), sort!(String[string(k) for k in keys(SYSTEMS)])))
+        push!(
+            errs,
+            SpecError(
+                "system.template",
+                "unknown system template",
+                string(spec.system.template),
+                sort!(String[string(k) for k in keys(SYSTEMS)]),
+            ),
+        )
     elseif spec.system.kind === :composite
-        push!(errs, SpecError("system.kind",
-            "composite systems are deferred in Phase 1 (template + raw only)",
-            string(spec.system.kind)))
+        push!(
+            errs,
+            SpecError(
+                "system.kind",
+                "composite systems are deferred in Phase 1 (template + raw only)",
+                string(spec.system.kind),
+            ),
+        )
     end
     return errs
 end
@@ -119,21 +155,37 @@ function materialize(spec::RolloutSpec)
     if rk === :unitary
         goal = _rollout_goal(spec, sys)
         qtraj = UnitaryTrajectory(sys, pulse, goal)
-        return rollout(qtraj; algorithm=alg, n_save=n_save)
+        return rollout(qtraj; algorithm = alg, n_save = n_save)
     elseif rk === :ket
         ψg = _rollout_goal(spec, sys)
-        ψ0 = spec.initial === nothing ?
-             throw(SpecValidationError([SpecError("initial",
-                 "ket rollout requires an `initial` ket")])) :
-             _parse_ket(spec.initial)
+        ψ0 =
+            spec.initial === nothing ?
+            throw(
+                SpecValidationError([
+                    SpecError("initial", "ket rollout requires an `initial` ket"),
+                ]),
+            ) : _parse_ket(spec.initial)
         qtraj = KetTrajectory(sys, pulse, ψ0, ψg)
-        return rollout(qtraj; algorithm=alg, n_save=n_save)
+        return rollout(qtraj; algorithm = alg, n_save = n_save)
     else # :density — trait check: requires an OpenQuantumSystem
-        sys isa OpenQuantumSystem || throw(SpecValidationError([SpecError("rollout_kind",
-            "density rollout requires an OpenQuantumSystem; Phase-1 template systems are closed",
-            "density")]))
-        throw(SpecValidationError([SpecError("rollout_kind",
-            "density rollout is not yet wired in Phase 1", "density")]))
+        sys isa OpenQuantumSystem || throw(
+            SpecValidationError([
+                SpecError(
+                    "rollout_kind",
+                    "density rollout requires an OpenQuantumSystem; Phase-1 template systems are closed",
+                    "density",
+                ),
+            ]),
+        )
+        throw(
+            SpecValidationError([
+                SpecError(
+                    "rollout_kind",
+                    "density rollout is not yet wired in Phase 1",
+                    "density",
+                ),
+            ]),
+        )
     end
 end
 
@@ -153,8 +205,8 @@ function run_spec(spec::RolloutSpec; kwargs...)
     spec.referee === nothing || _verify_referee!(spec)
     qtraj = materialize(spec)
     f = spec.report.fidelity ? Float64(fidelity(qtraj)) : NaN
-    verdict = spec.referee === nothing ? nothing :
-              _verdict(f, spec.referee.fidelity_reported)
+    verdict =
+        spec.referee === nothing ? nothing : _verdict(f, spec.referee.fidelity_reported)
     return RolloutResult(f, verdict, Dict{Symbol,Any}())
 end
 
@@ -217,9 +269,8 @@ end
 _referee_alg(solve_integrator::Symbol) =
     _integrator_family(solve_integrator) === :rk ? :magnus_adapt4 : :tsit5
 
-_verdict(f_rerolled::Real, f_reported::Real; tol::Float64=1e-3) =
-    abs(f_rerolled - f_reported) <= tol ?
-    Agree(Float64(f_rerolled), Float64(f_reported)) :
+_verdict(f_rerolled::Real, f_reported::Real; tol::Float64 = 1e-3) =
+    abs(f_rerolled - f_reported) <= tol ? Agree(Float64(f_rerolled), Float64(f_reported)) :
     Disagree(Float64(f_rerolled), Float64(f_reported))
 
 # Re-verify a referee block at run time: the rollout's own axes must be strictly
@@ -229,13 +280,24 @@ function _verify_referee!(spec::RolloutSpec)
     ref = spec.referee
     n = spec.n_samples === nothing ? 101 : spec.n_samples
     errs = SpecError[]
-    n > ref.solve_knots || push!(errs, SpecError("referee",
-        "referee resolution (n_samples=$n) must be strictly finer than the solve " *
-        "($(ref.solve_knots) knots)", n))
-    _integrator_family(spec.alg) != _integrator_family(ref.solve_integrator) ||
-        push!(errs, SpecError("referee",
+    n > ref.solve_knots || push!(
+        errs,
+        SpecError(
+            "referee",
+            "referee resolution (n_samples=$n) must be strictly finer than the solve " *
+            "($(ref.solve_knots) knots)",
+            n,
+        ),
+    )
+    _integrator_family(spec.alg) != _integrator_family(ref.solve_integrator) || push!(
+        errs,
+        SpecError(
+            "referee",
             "referee integrator family (:$(spec.alg)) must differ from the solve " *
-            "family (:$(ref.solve_integrator))", string(spec.alg)))
+            "family (:$(ref.solve_integrator))",
+            string(spec.alg),
+        ),
+    )
     isempty(errs) || throw(SpecValidationError(errs))
     return nothing
 end
@@ -243,8 +305,15 @@ end
 # Locate the single saved pulse in a completed run directory.
 function _run_dir_pulse(run_dir::AbstractString)
     jld2s = filter(f -> endswith(f, ".jld2"), readdir(run_dir))
-    isempty(jld2s) && throw(SpecValidationError([SpecError("referee.run",
-        "no .jld2 pulse found in run directory", String(run_dir))]))
+    isempty(jld2s) && throw(
+        SpecValidationError([
+            SpecError(
+                "referee.run",
+                "no .jld2 pulse found in run directory",
+                String(run_dir),
+            ),
+        ]),
+    )
     return joinpath(run_dir, first(jld2s))
 end
 
@@ -260,10 +329,22 @@ fidelity_reported}`; `run_spec` re-verifies these at run time before minting a
 verdict.
 """
 function referee_rollout(control_spec::ProblemSpec, run_dir::AbstractString)
-    control_spec.problem === nothing && throw(SpecValidationError([SpecError("problem",
-        "referee_rollout requires a control spec with a [problem] block")]))
-    control_spec.goal === nothing && throw(SpecValidationError([SpecError("goal",
-        "referee_rollout requires a control spec with a [goal] block")]))
+    control_spec.problem === nothing && throw(
+        SpecValidationError([
+            SpecError(
+                "problem",
+                "referee_rollout requires a control spec with a [problem] block",
+            ),
+        ]),
+    )
+    control_spec.goal === nothing && throw(
+        SpecValidationError([
+            SpecError(
+                "goal",
+                "referee_rollout requires a control spec with a [goal] block",
+            ),
+        ]),
+    )
 
     result = TOML.parsefile(joinpath(run_dir, "result.toml"))
     fidelity_reported = Float64(result["fidelity"])
@@ -275,14 +356,24 @@ function referee_rollout(control_spec::ProblemSpec, run_dir::AbstractString)
     n_samples = max(4 * solve_knots, solve_knots + 1)   # strictly finer
     alg = _referee_alg(solve_integrator)
 
-    referee = RefereeSpec(; run=String(run_dir), solve_knots=solve_knots,
-        solve_integrator=solve_integrator, fidelity_reported=fidelity_reported)
-    report = RolloutReportSpec(; fidelity=true, goal=control_spec.goal)
+    referee = RefereeSpec(;
+        run = String(run_dir),
+        solve_knots = solve_knots,
+        solve_integrator = solve_integrator,
+        fidelity_reported = fidelity_reported,
+    )
+    report = RolloutReportSpec(; fidelity = true, goal = control_spec.goal)
 
-    return RolloutSpec(; schema_version=control_spec.schema_version,
-        input_pulse=pulse_path, system=control_spec.system,
-        rollout_kind=control_spec.goal.kind, alg=alg, n_samples=n_samples,
-        report=report, referee=referee)
+    return RolloutSpec(;
+        schema_version = control_spec.schema_version,
+        input_pulse = pulse_path,
+        system = control_spec.system,
+        rollout_kind = control_spec.goal.kind,
+        alg = alg,
+        n_samples = n_samples,
+        report = report,
+        referee = referee,
+    )
 end
 
 @testitem "rollout: unitary fidelity matches a direct rollout" begin
@@ -308,8 +399,8 @@ end
     template = "SplinePulseProblem"
     N = 11
     """
-    qcp = Specs.materialize(Specs.parse_spec(TINY_CZ_TOML; format=:toml))
-    solve!(qcp; max_iter=15, print_level=0, verbose=false)
+    qcp = Specs.materialize(Specs.parse_spec(TINY_CZ_TOML; format = :toml))
+    solve!(qcp; max_iter = 15, print_level = 0, verbose = false)
     pulse = extract_pulse(qcp.qtraj, get_trajectory(qcp))
     path = tempname() * ".jld2"
     JLD2.save(path, pulse)
@@ -331,17 +422,17 @@ end
     kind = "unitary"
     gate = "X"
     """
-    rspec = Specs.parse_spec(ROLLOUT_TOML; format=:toml)
+    rspec = Specs.parse_spec(ROLLOUT_TOML; format = :toml)
     res = Specs.run_spec(rspec)
 
     # Direct rollout with the SAME system/pulse/alg/resolution.
-    sys = TransmonSystem(; levels=3, drive_bounds=[0.02, 0.02])
+    sys = TransmonSystem(; levels = 3, drive_bounds = [0.02, 0.02])
     goal = EmbeddedOperator(GATES[:X], sys)
     qtraj = UnitaryTrajectory(sys, pulse, goal)
-    direct = fidelity(rollout(qtraj; algorithm=Tsit5(), n_save=51))
+    direct = fidelity(rollout(qtraj; algorithm = Tsit5(), n_save = 51))
 
     @test res.verdict === nothing            # no [referee] ⇒ no verdict
-    @test isapprox(res.fidelity, direct; atol=1e-8)
+    @test isapprox(res.fidelity, direct; atol = 1e-8)
 end
 
 @testitem "referee: independence enforced, verdict on referee-verified only" begin
@@ -365,19 +456,26 @@ end
     template = "SplinePulseProblem"
     N = 11
     """
-    ctrl = Specs.parse_spec(CTRL_TOML; format=:toml)
+    ctrl = Specs.parse_spec(CTRL_TOML; format = :toml)
 
     # Build a completed run dir by hand (mimics solve_spec's artifacts): the saved
     # pulse + a result.toml carrying the reported fidelity.
     run_dir = mktempdir()
     qcp = Specs.materialize(ctrl)
-    solve!(qcp; max_iter=15, print_level=0, verbose=false)
+    solve!(qcp; max_iter = 15, print_level = 0, verbose = false)
     fid = Float64(fidelity(qcp))
     pulse = extract_pulse(qcp.qtraj, get_trajectory(qcp))
     JLD2.save(joinpath(run_dir, "pulse-abc123.jld2"), pulse)
     open(joinpath(run_dir, "result.toml"), "w") do io
-        TOML.print(io, Dict("schema_version" => "1", "fidelity" => fid,
-            "iterations" => 15, "wall_seconds" => 0.0))
+        TOML.print(
+            io,
+            Dict(
+                "schema_version" => "1",
+                "fidelity" => fid,
+                "iterations" => 15,
+                "wall_seconds" => 0.0,
+            ),
+        )
     end
 
     # valid referee: strictly finer resolution + a different integrator family
@@ -415,7 +513,7 @@ end
     solve_integrator = "bilinear"
     fidelity_reported = $(fid)
     """
-    forged = Specs.parse_spec(FORGED_TOML; format=:toml)
+    forged = Specs.parse_spec(FORGED_TOML; format = :toml)
     @test_throws Specs.SpecValidationError Specs.run_spec(forged)
 
     # rollout without a [referee] block → no verdict.
@@ -436,6 +534,6 @@ end
     kind = "unitary"
     gate = "X"
     """
-    plain = Specs.parse_spec(PLAIN_TOML; format=:toml)
+    plain = Specs.parse_spec(PLAIN_TOML; format = :toml)
     @test Specs.run_spec(plain).verdict === nothing
 end

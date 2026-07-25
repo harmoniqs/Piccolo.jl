@@ -28,15 +28,25 @@ function main()
     files = sort(filter(f -> endswith(f, ".toml"), readdir(FIXDIR)))
     isempty(files) && error("no *.toml fixtures found in $FIXDIR")
     for f in files
-        name = f[1:end-5]  # strip ".toml"
+        name = f[1:(end-5)]  # strip ".toml"
         toml = read(joinpath(FIXDIR, f), String)
-        spec = Specs.parse_spec(toml; format=:toml)
+        spec = Specs.parse_spec(toml; format = :toml)
         sh = Specs.structure_hash(spec)
         ph = Specs.problem_hash(spec)
         sidecar = joinpath(FIXDIR, "$(name).hashes.json")
         open(sidecar, "w") do io
-            print(io, "{\n  ", _jstr("structure_hash"), ": ", _jstr(sh), ",\n  ",
-                  _jstr("problem_hash"), ": ", _jstr(ph), "\n}\n")
+            print(
+                io,
+                "{\n  ",
+                _jstr("structure_hash"),
+                ": ",
+                _jstr(sh),
+                ",\n  ",
+                _jstr("problem_hash"),
+                ": ",
+                _jstr(ph),
+                "\n}\n",
+            )
         end
         # Diagnostics: the canonical JSON strings behind each digest, so a
         # cross-language mismatch can be compared side-by-side.

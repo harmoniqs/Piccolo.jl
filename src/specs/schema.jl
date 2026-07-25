@@ -54,8 +54,8 @@ const _FREE_PHASE_INTEGRATOR_KINDS = ["exponential", "spline"]
 
 _registry_names(reg::AbstractDict) = sort!(String[string(k) for k in keys(reg)])
 
-_str_enum(syms) = Dict{String,Any}("type" => "string",
-    "enum" => sort!(String[string(s) for s in syms]))
+_str_enum(syms) =
+    Dict{String,Any}("type" => "string", "enum" => sort!(String[string(s) for s in syms]))
 
 # a `{ "type": "string", "enum": [...] }` whose enum is reflected from a registry
 _registry_enum(reg::AbstractDict) =
@@ -66,8 +66,11 @@ _array_of(items) = Dict{String,Any}("type" => "array", "items" => items)
 _any() = Dict{String,Any}()   # unconstrained (reserved / free-form) fields
 
 function _obj(props::AbstractDict; required = String[], additional::Bool = false)
-    d = Dict{String,Any}("type" => "object", "properties" => props,
-        "additionalProperties" => additional)
+    d = Dict{String,Any}(
+        "type" => "object",
+        "properties" => props,
+        "additionalProperties" => additional,
+    )
     isempty(required) || (d["required"] = required)
     return d
 end
@@ -132,11 +135,17 @@ end
 
 function _problem_schema()
     # free_dt poka-yoke: `false` or a `[lo, hi]` window — never a bare `true`.
-    free_dt = Dict{String,Any}("oneOf" => Any[
-        Dict{String,Any}("const" => false),
-        Dict{String,Any}("type" => "array", "items" => _typed("number"),
-            "minItems" => 2, "maxItems" => 2),
-    ])
+    free_dt = Dict{String,Any}(
+        "oneOf" => Any[
+            Dict{String,Any}("const" => false),
+            Dict{String,Any}(
+                "type" => "array",
+                "items" => _typed("number"),
+                "minItems" => 2,
+                "maxItems" => 2,
+            ),
+        ],
+    )
     props = Dict{String,Any}(
         "template" => _registry_enum(TEMPLATES),
         "N" => _typed("integer"),
@@ -222,7 +231,10 @@ function _referee_schema()
         "fidelity_reported" => _typed("number"),
     )
     _assert_keys(props, _REFEREE_KEYS, "referee")
-    return _obj(props; required = ["run", "solve_knots", "solve_integrator", "fidelity_reported"])
+    return _obj(
+        props;
+        required = ["run", "solve_knots", "solve_integrator", "fidelity_reported"],
+    )
 end
 
 # Internal consistency guard: the schema's declared property set for a block must
@@ -231,8 +243,10 @@ end
 function _assert_keys(props::AbstractDict, allowed::AbstractSet, block::AbstractString)
     have = Set(String.(keys(props)))
     want = Set(String.(allowed))
-    have == want || error("schema property set for `$block` = $(sort!(collect(have))) " *
-                          "≠ parser allowed keys $(sort!(collect(want)))")
+    have == want || error(
+        "schema property set for `$block` = $(sort!(collect(have))) " *
+        "≠ parser allowed keys $(sort!(collect(want)))",
+    )
     return nothing
 end
 
@@ -245,10 +259,8 @@ end
 #   then pulse.kind ∈ <pulse_kinds>
 # Only narrows the enum of the already-declared `pulse.kind` (no new property).
 # A one-property nested constraint `{ required: [name], properties: { name: sub } }`.
-_prop_constraint(name::AbstractString, sub) = Dict{String,Any}(
-    "required" => [name],
-    "properties" => Dict{String,Any}(name => sub),
-)
+_prop_constraint(name::AbstractString, sub) =
+    Dict{String,Any}("required" => [name], "properties" => Dict{String,Any}(name => sub))
 # The same, but without the `required` (constrain-if-present).
 _prop_only(name::AbstractString, sub) =
     Dict{String,Any}("properties" => Dict{String,Any}(name => sub))
@@ -260,11 +272,17 @@ function _template_pulse_conditionals()
         entry === nothing && continue
         pk = get(entry.compat, :pulse_kinds, nothing)
         pk === nothing && continue
-        if_part = _prop_constraint("problem",
-            _prop_constraint("template", Dict{String,Any}("const" => name)))
-        then_part = _prop_only("pulse",
-            _prop_only("kind", Dict{String,Any}(
-                "enum" => sort!(String[string(x) for x in pk]))))
+        if_part = _prop_constraint(
+            "problem",
+            _prop_constraint("template", Dict{String,Any}("const" => name)),
+        )
+        then_part = _prop_only(
+            "pulse",
+            _prop_only(
+                "kind",
+                Dict{String,Any}("enum" => sort!(String[string(x) for x in pk])),
+            ),
+        )
         push!(conds, Dict{String,Any}("if" => if_part, "then" => then_part))
     end
     return conds
@@ -272,14 +290,25 @@ end
 
 # free_phase ∨ non-empty global_names ⟹ integrator.kind ∈ {exponential, spline}.
 function _free_phase_conditional()
-    if_part = _prop_constraint("problem", Dict{String,Any}("anyOf" => Any[
-        _prop_constraint("free_phase", Dict{String,Any}("const" => true)),
-        _prop_constraint("global_names",
-            Dict{String,Any}("type" => "array", "minItems" => 1)),
-    ]))
-    then_part = _prop_constraint("integrator",
-        _prop_constraint("kind",
-            Dict{String,Any}("enum" => copy(_FREE_PHASE_INTEGRATOR_KINDS))))
+    if_part = _prop_constraint(
+        "problem",
+        Dict{String,Any}(
+            "anyOf" => Any[
+                _prop_constraint("free_phase", Dict{String,Any}("const" => true)),
+                _prop_constraint(
+                    "global_names",
+                    Dict{String,Any}("type" => "array", "minItems" => 1),
+                ),
+            ],
+        ),
+    )
+    then_part = _prop_constraint(
+        "integrator",
+        _prop_constraint(
+            "kind",
+            Dict{String,Any}("enum" => copy(_FREE_PHASE_INTEGRATOR_KINDS)),
+        ),
+    )
     return Dict{String,Any}("if" => if_part, "then" => then_part)
 end
 
@@ -348,9 +377,10 @@ function emit_schema()
         "\$schema" => _DRAFT07,
         "\$id" => "https://harmoniqs.co/schemas/problemspec.schema.json",
         "title" => "Piccolo ProblemSpec (Phase 1, wire-format-first)",
-        "description" => "Declarative, versioned Piccolo problem specification. " *
-                         "Reflected from the Piccolo.Specs registries; " *
-                         "`oneOf` discriminates on `kind`.",
+        "description" =>
+            "Declarative, versioned Piccolo problem specification. " *
+            "Reflected from the Piccolo.Specs registries; " *
+            "`oneOf` discriminates on `kind`.",
         "oneOf" => Any[_control_schema(), _rollout_schema()],
     )
     return JSON3.write(schema)
@@ -441,7 +471,11 @@ True iff the schema carries a conditional branch selecting
 `problem.template == template` and constraining `pulse.kind` to an enum containing
 `pulse_kind` (the `template → pulse.kind` compatibility branch).
 """
-function schema_has_conditional(schema, template::AbstractString, pulse_kind::AbstractString)
+function schema_has_conditional(
+    schema,
+    template::AbstractString,
+    pulse_kind::AbstractString,
+)
     for cond in _conditionals(schema)
         _if_selects(cond, :template, template) || continue
         _then_enum_contains(cond, :pulse, :kind, pulse_kind) && return true
@@ -457,10 +491,14 @@ True iff the schema carries the `free_phase ∨ globals → integrator.kind ∈
 """
 function schema_free_phase_requires_nonbilinear(schema)
     for cond in _conditionals(schema)
-        (isempty(_collect_under_key(cond[:if], :free_phase)) &&
-         isempty(_collect_under_key(cond[:if], :global_names))) && continue
-        (_then_enum_contains(cond, :integrator, :kind, "exponential") ||
-         _then_enum_contains(cond, :integrator, :kind, "spline")) && return true
+        (
+            isempty(_collect_under_key(cond[:if], :free_phase)) &&
+            isempty(_collect_under_key(cond[:if], :global_names))
+        ) && continue
+        (
+            _then_enum_contains(cond, :integrator, :kind, "exponential") ||
+            _then_enum_contains(cond, :integrator, :kind, "spline")
+        ) && return true
     end
     return false
 end
@@ -534,7 +572,8 @@ function precompile_workload(; tier1_only::Bool = true)
             qcp = materialize(spec; piccolo_options = PiccoloOptions(; display = :silent))
             solve!(qcp; max_iter = 1, print_level = 0, verbose = false)
         catch err
-            @debug "precompile_workload: a tier-1 combination failed" exception = (err, catch_backtrace())
+            @debug "precompile_workload: a tier-1 combination failed" exception =
+                (err, catch_backtrace())
         end
     end
     return nothing
@@ -579,11 +618,23 @@ end
     using Piccolo.Specs, JSON3
     Specs.register_all!()
     sch = JSON3.read(Specs.emit_schema())
-    ctrl = sch[:oneOf][1][:properties][:kind][:const] == "control" ? sch[:oneOf][1] : sch[:oneOf][2]
+    ctrl =
+        sch[:oneOf][1][:properties][:kind][:const] == "control" ? sch[:oneOf][1] :
+        sch[:oneOf][2]
     # control-branch property set is exactly the parser's control field whitelist
-    @test Set(String.(keys(ctrl[:properties]))) ==
-          Set(["schema_version", "kind", "system", "goal", "pulse", "trajectory",
-               "problem", "integrator", "wrappers", "solver", "warm_start"])
+    @test Set(String.(keys(ctrl[:properties]))) == Set([
+        "schema_version",
+        "kind",
+        "system",
+        "goal",
+        "pulse",
+        "trajectory",
+        "problem",
+        "integrator",
+        "wrappers",
+        "solver",
+        "warm_start",
+    ])
     # nested problem block mirrors the parser's problem field whitelist + closed
     prob = ctrl[:properties][:problem]
     @test prob[:additionalProperties] == false
@@ -596,5 +647,5 @@ end
 @testitem "precompile_workload is callable and returns nothing" begin
     using Piccolo.Specs
     @test Specs.precompile_workload isa Function
-    @test Specs.precompile_workload(; tier1_only=true) === nothing
+    @test Specs.precompile_workload(; tier1_only = true) === nothing
 end

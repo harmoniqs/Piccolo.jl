@@ -14,7 +14,8 @@
     using Piccolo.Specs, JSON3
     Specs.register_all!()
     emitted = JSON3.write(JSON3.read(Specs.emit_schema()))
-    file = joinpath(pkgdir(Piccolo), "src", "specs", "schema", "problemspec.oss.schema.json")
+    file =
+        joinpath(pkgdir(Piccolo), "src", "specs", "schema", "problemspec.oss.schema.json")
     @test isfile(file)
     checked = JSON3.write(JSON3.read(read(file, String)))
     @test emitted == checked

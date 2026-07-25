@@ -33,7 +33,7 @@ structured "deferred" [`SpecError`](@ref). All trait/compatibility violations ar
 collected and thrown as a [`SpecValidationError`](@ref) *before* any Piccolo
 object is constructed.
 """
-function materialize(spec::ProblemSpec; piccolo_options=nothing)
+function materialize(spec::ProblemSpec; piccolo_options = nothing)
     errs = SpecError[]
     _validate!(spec, errs)
     isempty(errs) || throw(SpecValidationError(errs))
@@ -41,9 +41,9 @@ function materialize(spec::ProblemSpec; piccolo_options=nothing)
     sys = _build_system(spec.system)
     goal = _build_goal(spec.goal, sys)
     qtraj = _build_pulse_trajectory(spec, sys, goal)
-    base_qcp = _call_template(spec, qtraj; piccolo_options=piccolo_options)
+    base_qcp = _call_template(spec, qtraj; piccolo_options = piccolo_options)
     qcp = _apply_composition(spec, base_qcp)
-    qcp = _apply_wrappers(spec, qcp; piccolo_options=piccolo_options)
+    qcp = _apply_wrappers(spec, qcp; piccolo_options = piccolo_options)
     return qcp
 end
 
@@ -76,13 +76,20 @@ function _build_system(s::SystemSpec)
         # Minimal Phase-1 raw path: build a QuantumSystem from explicit matrices.
         H_drift = _to_matrix(s.H_drift)
         H_drives = [_to_matrix(h) for h in s.H_drives]
-        drive_bounds = _concretize(get(s.params, :drive_bounds, fill(1.0, length(H_drives))))
+        drive_bounds =
+            _concretize(get(s.params, :drive_bounds, fill(1.0, length(H_drives))))
         return Quantum.QuantumSystem(H_drift, H_drives, drive_bounds)
     else
         # :composite deferred in Phase 1 (validation should have flagged it).
-        throw(SpecValidationError([SpecError("system.kind",
-            "composite systems are deferred in Phase 1 (template + raw only)",
-            string(s.kind))]))
+        throw(
+            SpecValidationError([
+                SpecError(
+                    "system.kind",
+                    "composite systems are deferred in Phase 1 (template + raw only)",
+                    string(s.kind),
+                ),
+            ]),
+        )
     end
 end
 
@@ -94,7 +101,8 @@ function _to_matrix(x)
     n = length(rows)
     M = Matrix{ComplexF64}(undef, n, length(rows[1]))
     for (i, row) in enumerate(rows), (j, entry) in enumerate(row)
-        M[i, j] = entry isa AbstractVector ? ComplexF64(entry[1], entry[2]) : ComplexF64(entry)
+        M[i, j] =
+            entry isa AbstractVector ? ComplexF64(entry[1], entry[2]) : ComplexF64(entry)
     end
     return M
 end
@@ -109,7 +117,12 @@ function _build_goal(goal::GoalSpec, sys)
         if sys isa Quantum.CompositeQuantumSystem
             return EmbeddedOperator(op, sys)
         elseif goal.subspace !== nothing && length(goal.subspace) == 1
-            return EmbeddedOperator(op, sys; subspace=goal.subspace[1], levels=sys.levels)
+            return EmbeddedOperator(
+                op,
+                sys;
+                subspace = goal.subspace[1],
+                levels = sys.levels,
+            )
         else
             return EmbeddedOperator(op, sys)
         end
@@ -117,13 +130,21 @@ function _build_goal(goal::GoalSpec, sys)
         # Phase-1 ket goals: `target`/`initial` are Julia-parseable complex vectors.
         return _parse_ket(goal.target)
     else
-        throw(SpecValidationError([SpecError("goal.kind", "unknown goal kind",
-            string(goal.kind), ["unitary", "ket"])]))
+        throw(
+            SpecValidationError([
+                SpecError(
+                    "goal.kind",
+                    "unknown goal kind",
+                    string(goal.kind),
+                    ["unitary", "ket"],
+                ),
+            ]),
+        )
     end
 end
 
-_parse_ket(::Nothing) = throw(SpecValidationError([SpecError("goal.target",
-    "ket goal requires a `target`")]))
+_parse_ket(::Nothing) =
+    throw(SpecValidationError([SpecError("goal.target", "ket goal requires a `target`")]))
 _parse_ket(s::AbstractString) = ComplexF64.(eval(Meta.parse(s)))
 
 # ---------------------------------------------------------------------------
@@ -146,8 +167,9 @@ function _build_pulse_trajectory(spec::ProblemSpec, sys, goal)
     N = spec.problem.N
     n_drives = sys.n_drives
     times = collect(range(0.0, p.T, N))
-    controls = p.init === :random ? 0.1 .* randn(MersenneTwister(p.seed), n_drives, N) :
-               zeros(n_drives, N)
+    controls =
+        p.init === :random ? 0.1 .* randn(MersenneTwister(p.seed), n_drives, N) :
+        zeros(n_drives, N)
     pulse = if p.kind === :zero_order
         ZeroOrderPulse(controls, times)
     elseif p.kind === :linear_spline
@@ -155,21 +177,33 @@ function _build_pulse_trajectory(spec::ProblemSpec, sys, goal)
     elseif p.kind === :cubic_spline
         CubicSplinePulse(controls, zeros(n_drives, N), times)
     else
-        throw(SpecValidationError([SpecError("pulse.kind", "unknown pulse kind",
-            string(p.kind), ["zero_order", "linear_spline", "cubic_spline"])]))
+        throw(
+            SpecValidationError([
+                SpecError(
+                    "pulse.kind",
+                    "unknown pulse kind",
+                    string(p.kind),
+                    ["zero_order", "linear_spline", "cubic_spline"],
+                ),
+            ]),
+        )
     end
 
     gk = spec.goal.kind
     if gk === :unitary
         return UnitaryTrajectory(sys, pulse, goal)
     elseif gk === :ket
-        ψ0 = spec.goal.initial === nothing ?
-             ComplexF64[i == 1 ? 1.0 : 0.0 for i in 1:sys.levels] :
-             _parse_ket(spec.goal.initial)
+        ψ0 =
+            spec.goal.initial === nothing ?
+            ComplexF64[i == 1 ? 1.0 : 0.0 for i = 1:sys.levels] :
+            _parse_ket(spec.goal.initial)
         return KetTrajectory(sys, pulse, ψ0, goal)
     else
-        throw(SpecValidationError([SpecError("goal.kind", "unknown goal kind",
-            string(gk), ["unitary", "ket"])]))
+        throw(
+            SpecValidationError([
+                SpecError("goal.kind", "unknown goal kind", string(gk), ["unitary", "ket"]),
+            ]),
+        )
     end
 end
 
@@ -184,7 +218,7 @@ function _build_integrator(spec::ProblemSpec, qtraj)
     ik = spec.integrator.kind
     ik === :bilinear && return nothing
     entry = lookup_integrator(ik)
-    return entry.factory(qtraj, spec.problem.N; alg=spec.integrator.alg)
+    return entry.factory(qtraj, spec.problem.N; alg = spec.integrator.alg)
 end
 
 # ---------------------------------------------------------------------------
@@ -206,7 +240,7 @@ function _coerce_global_bounds(gb::AbstractDict)
     return out
 end
 
-function _call_template(spec::ProblemSpec, qtraj; piccolo_options=nothing)
+function _call_template(spec::ProblemSpec, qtraj; piccolo_options = nothing)
     p = spec.problem
     fac = lookup_template(p.template).factory
     kwargs = Dict{Symbol,Any}(:Q => p.Q, :R => p.R, :free_phase => p.free_phase)
@@ -218,7 +252,8 @@ function _call_template(spec::ProblemSpec, qtraj; piccolo_options=nothing)
     p.initial_phases === nothing || (kwargs[:initial_phases] = p.initial_phases)
     isempty(p.calibration_targets) || (kwargs[:calibration_targets] = p.calibration_targets)
     isempty(p.global_names) || (kwargs[:global_names] = p.global_names)
-    isempty(p.global_bounds) || (kwargs[:global_bounds] = _coerce_global_bounds(p.global_bounds))
+    isempty(p.global_bounds) ||
+        (kwargs[:global_bounds] = _coerce_global_bounds(p.global_bounds))
     p.free_dt isa Free && (kwargs[:Δt_bounds] = (p.free_dt.lo, p.free_dt.hi))
     intg = _build_integrator(spec, qtraj)
     intg === nothing || (kwargs[:integrator] = intg)
@@ -247,7 +282,7 @@ function _build_objective_term(o::ObjectiveTermSpec, qtraj, traj)
     k, w = o.kind, o.weight
     dsym = drive_name(qtraj)
     if k === :time
-        return MinimumTimeObjective(traj; D=w)
+        return MinimumTimeObjective(traj; D = w)
     elseif k === :reg_u
         return QuadraticRegularizer(dsym, traj, w)
     elseif k === :reg_du
@@ -256,12 +291,19 @@ function _build_objective_term(o::ObjectiveTermSpec, qtraj, traj)
         return QuadraticRegularizer(Symbol(:d, :d, dsym), traj, w)
     elseif k === :leakage
         idxs = get_iso_vec_leakage_indices(qtraj.goal)
-        return LeakageObjective(idxs, state_name(qtraj), traj; Qs=fill(w, traj.N))
+        return LeakageObjective(idxs, state_name(qtraj), traj; Qs = fill(w, traj.N))
     elseif k === :sensitivity
-        return UnitarySensitivityObjective(state_name(qtraj), traj, [traj.N]; Qs=[w])
+        return UnitarySensitivityObjective(state_name(qtraj), traj, [traj.N]; Qs = [w])
     else
-        throw(SpecValidationError([SpecError("problem.objectives",
-            "unsupported objective term kind", string(k))]))
+        throw(
+            SpecValidationError([
+                SpecError(
+                    "problem.objectives",
+                    "unsupported objective term kind",
+                    string(k),
+                ),
+            ]),
+        )
     end
 end
 
@@ -292,7 +334,7 @@ function _apply_composition(spec::ProblemSpec, qcp)
         fc isa AbstractVector ? append!(constraints, fc) : push!(constraints, fc)
     end
 
-    new_prob = DirectTrajOptProblem(traj, J, prob.integrators; constraints=constraints)
+    new_prob = DirectTrajOptProblem(traj, J, prob.integrators; constraints = constraints)
     return QuantumControlProblem(qtraj, new_prob)
 end
 
@@ -311,63 +353,125 @@ function _validate!(spec::ProblemSpec, errs::Vector{SpecError})
 
     te = lookup_template(p.template)
     if te === nothing
-        push!(errs, SpecError("problem.template", "unknown problem template",
-            string(p.template), sort!(String[string(k) for k in keys(TEMPLATES)])))
+        push!(
+            errs,
+            SpecError(
+                "problem.template",
+                "unknown problem template",
+                string(p.template),
+                sort!(String[string(k) for k in keys(TEMPLATES)]),
+            ),
+        )
         return errs   # compat checks below need the entry
     end
 
     # system availability / composite deferral
     if spec.system.kind === :template
         if lookup_system(spec.system.template) === nothing
-            push!(errs, SpecError("system.template", "unknown system template",
-                string(spec.system.template),
-                sort!(String[string(k) for k in keys(SYSTEMS)])))
+            push!(
+                errs,
+                SpecError(
+                    "system.template",
+                    "unknown system template",
+                    string(spec.system.template),
+                    sort!(String[string(k) for k in keys(SYSTEMS)]),
+                ),
+            )
         end
     elseif spec.system.kind === :composite
-        push!(errs, SpecError("system.kind",
-            "composite systems are deferred in Phase 1 (template + raw only)",
-            string(spec.system.kind)))
+        push!(
+            errs,
+            SpecError(
+                "system.kind",
+                "composite systems are deferred in Phase 1 (template + raw only)",
+                string(spec.system.kind),
+            ),
+        )
     end
 
     # integrator block
     ik = spec.integrator === nothing ? :bilinear : spec.integrator.kind
     if ik !== :bilinear && lookup_integrator(ik) === nothing
-        push!(errs, SpecError("integrator.kind",
-            "integrator :$(ik) is not registered (Piccolissimo not loaded)",
-            string(ik), ["bilinear"]))
+        push!(
+            errs,
+            SpecError(
+                "integrator.kind",
+                "integrator :$(ik) is not registered (Piccolissimo not loaded)",
+                string(ik),
+                ["bilinear"],
+            ),
+        )
     end
 
     # free_phase / globals require a non-bilinear integrator
     if (p.free_phase || !isempty(p.global_names)) && ik === :bilinear
-        push!(errs, SpecError("integrator",
-            "free_phase/globals require an exponential or spline integrator, not bilinear"))
+        push!(
+            errs,
+            SpecError(
+                "integrator",
+                "free_phase/globals require an exponential or spline integrator, not bilinear",
+            ),
+        )
     end
 
     # per-template kwarg validity: R_ddu / ddu_bound only for SmoothPulseProblem
     if p.template !== :SmoothPulseProblem
-        p.R_ddu === nothing || push!(errs, SpecError("problem.R_ddu",
-            "R_ddu is only valid for SmoothPulseProblem", p.R_ddu))
-        p.ddu_bound === nothing || push!(errs, SpecError("problem.ddu_bound",
-            "ddu_bound is only valid for SmoothPulseProblem", p.ddu_bound))
+        p.R_ddu === nothing || push!(
+            errs,
+            SpecError(
+                "problem.R_ddu",
+                "R_ddu is only valid for SmoothPulseProblem",
+                p.R_ddu,
+            ),
+        )
+        p.ddu_bound === nothing || push!(
+            errs,
+            SpecError(
+                "problem.ddu_bound",
+                "ddu_bound is only valid for SmoothPulseProblem",
+                p.ddu_bound,
+            ),
+        )
     end
 
     # pulse/template + trajectory/template compatibility (from registry .compat)
     pulse_kinds = get(te.compat, :pulse_kinds, Symbol[])
     if spec.pulse !== nothing && !isempty(pulse_kinds) && !(spec.pulse.kind in pulse_kinds)
-        push!(errs, SpecError("pulse.kind", "pulse kind incompatible with $(p.template)",
-            string(spec.pulse.kind), String[string(k) for k in pulse_kinds]))
+        push!(
+            errs,
+            SpecError(
+                "pulse.kind",
+                "pulse kind incompatible with $(p.template)",
+                string(spec.pulse.kind),
+                String[string(k) for k in pulse_kinds],
+            ),
+        )
     end
     traj_kinds = get(te.compat, :trajectory_kinds, Symbol[])
     if spec.goal !== nothing && !isempty(traj_kinds) && !(spec.goal.kind in traj_kinds)
-        push!(errs, SpecError("goal.kind", "goal kind incompatible with $(p.template)",
-            string(spec.goal.kind), String[string(k) for k in traj_kinds]))
+        push!(
+            errs,
+            SpecError(
+                "goal.kind",
+                "goal kind incompatible with $(p.template)",
+                string(spec.goal.kind),
+                String[string(k) for k in traj_kinds],
+            ),
+        )
     end
 
     # ket + free_phase only where compat[:ket_free_phase] == true
-    if spec.goal !== nothing && spec.goal.kind === :ket && p.free_phase &&
+    if spec.goal !== nothing &&
+       spec.goal.kind === :ket &&
+       p.free_phase &&
        !get(te.compat, :ket_free_phase, false)
-        push!(errs, SpecError("problem.free_phase",
-            "$(p.template) does not support free_phase for ket goals"))
+        push!(
+            errs,
+            SpecError(
+                "problem.free_phase",
+                "$(p.template) does not support free_phase for ket goals",
+            ),
+        )
     end
 
     # objective terms: registered + template-specific requirements
@@ -375,14 +479,24 @@ function _validate!(spec::ProblemSpec, errs::Vector{SpecError})
     for o in p.objectives
         has_time |= (o.kind === :time)
         if lookup_objective_term(o.kind) === nothing
-            push!(errs, SpecError("problem.objectives",
-                "unknown/unavailable objective term :$(o.kind) (Piccolissimo may be required)",
-                string(o.kind)))
+            push!(
+                errs,
+                SpecError(
+                    "problem.objectives",
+                    "unknown/unavailable objective term :$(o.kind) (Piccolissimo may be required)",
+                    string(o.kind),
+                ),
+            )
         end
         if o.kind === :reg_ddu && p.template !== :SmoothPulseProblem
-            push!(errs, SpecError("problem.objectives",
-                "reg_ddu requires a ddu-carrying template (SmoothPulseProblem)",
-                string(o.kind)))
+            push!(
+                errs,
+                SpecError(
+                    "problem.objectives",
+                    "reg_ddu requires a ddu-carrying template (SmoothPulseProblem)",
+                    string(o.kind),
+                ),
+            )
         end
     end
 
@@ -391,24 +505,47 @@ function _validate!(spec::ProblemSpec, errs::Vector{SpecError})
     # so only this direction is enforced (documented divergence from the plan's
     # strict "⟺").
     if has_time && !(p.free_dt isa Free)
-        push!(errs, SpecError("problem.free_dt",
-            "a `time` objective requires free_dt = [lo, hi] (Δt must be free)"))
+        push!(
+            errs,
+            SpecError(
+                "problem.free_dt",
+                "a `time` objective requires free_dt = [lo, hi] (Δt must be free)",
+            ),
+        )
     end
 
     # calibration_targets ⊆ declared globals
     for ct in p.calibration_targets
-        ct in p.global_names || push!(errs, SpecError("problem.calibration_targets",
-            "calibration target :$(ct) is not in global_names", string(ct)))
+        ct in p.global_names || push!(
+            errs,
+            SpecError(
+                "problem.calibration_targets",
+                "calibration target :$(ct) is not in global_names",
+                string(ct),
+            ),
+        )
     end
 
     # wrappers: sampling OK; robust is schema-only (deferred structured error)
     for (i, w) in enumerate(spec.wrappers)
         if w.kind === :robust
-            push!(errs, SpecError("wrappers[$i]",
-                "the robust wrapper is deferred in Phase 1 (schema-only)"))
+            push!(
+                errs,
+                SpecError(
+                    "wrappers[$i]",
+                    "the robust wrapper is deferred in Phase 1 (schema-only)",
+                ),
+            )
         elseif w.kind !== :sampling
-            push!(errs, SpecError("wrappers[$i]", "unknown wrapper kind",
-                string(w.kind), ["sampling"]))
+            push!(
+                errs,
+                SpecError(
+                    "wrappers[$i]",
+                    "unknown wrapper kind",
+                    string(w.kind),
+                    ["sampling"],
+                ),
+            )
         end
     end
 
@@ -421,17 +558,20 @@ end
 # system for each variant's `[system].params` overrides.
 # ---------------------------------------------------------------------------
 
-function _apply_wrappers(spec::ProblemSpec, qcp; piccolo_options=nothing)
+function _apply_wrappers(spec::ProblemSpec, qcp; piccolo_options = nothing)
     for w in spec.wrappers
-        w.kind === :sampling && (qcp = _apply_sampling(spec, qcp, w; piccolo_options=piccolo_options))
+        w.kind === :sampling &&
+            (qcp = _apply_sampling(spec, qcp, w; piccolo_options = piccolo_options))
     end
     return qcp
 end
 
-function _apply_sampling(spec::ProblemSpec, qcp, w::WrapperSpec; piccolo_options=nothing)
+function _apply_sampling(spec::ProblemSpec, qcp, w::WrapperSpec; piccolo_options = nothing)
     entry = lookup_system(spec.system.template)
-    systems = [entry.factory(; _concretize_params(merge(spec.system.params, v))...)
-               for v in w.variants]
+    systems = [
+        entry.factory(; _concretize_params(merge(spec.system.params, v))...) for
+        v in w.variants
+    ]
     weights = w.weights === nothing ? fill(1.0, length(systems)) : w.weights
     kwargs = Dict{Symbol,Any}(:weights => weights, :Q => spec.problem.Q)
     piccolo_options === nothing || (kwargs[:piccolo_options] = piccolo_options)
@@ -450,7 +590,7 @@ function _sampling_integrator_factory(spec::ProblemSpec)
     ik === :bilinear && return nothing
     entry = lookup_integrator(ik)
     alg = spec.integrator.alg
-    return (sqtraj, N) -> entry.factory(sqtraj, N; alg=alg)
+    return (sqtraj, N) -> entry.factory(sqtraj, N; alg = alg)
 end
 
 # ---------------------------------------------------------------------------
@@ -487,13 +627,13 @@ get_variants(qcp::QuantumControlProblem) =
     template = "SplinePulseProblem"
     N = 11
     """
-    spec = Specs.parse_spec(MAT_CONTROL_TOML; format=:toml)
+    spec = Specs.parse_spec(MAT_CONTROL_TOML; format = :toml)
     qcp = Specs.materialize(spec)
     @test qcp isa QuantumControlProblem
 
     # hand-built equivalent — the pulse TYPE is fixed at trajectory construction,
     # NOT by the template (see plan review correction 2).
-    sys = TransmonSystem(; levels=3, drive_bounds=[0.02, 0.02])
+    sys = TransmonSystem(; levels = 3, drive_bounds = [0.02, 0.02])
     goal = EmbeddedOperator(GATES[:X], sys)
     times = collect(range(0.0, 10.0, 11))
     pulse = CubicSplinePulse(zeros(2, 11), zeros(2, 11), times)
@@ -535,7 +675,7 @@ end
     kind = "reg_du"
     weight = 0.01
     """
-    ep = Specs.materialize(Specs.parse_spec(ENERGY_POLISH_TOML; format=:toml))
+    ep = Specs.materialize(Specs.parse_spec(ENERGY_POLISH_TOML; format = :toml))
     @test !any(o -> o isa Piccolo.MinimumTimeObjective, _obj_terms(ep.prob.objective))
 
     # min_time recipe desugars to the same canonical spec as the hand-factored
@@ -591,9 +731,10 @@ end
     kind = "cubic_spline"
     T = 10.0
     """
-    a = Specs.parse_spec(MINTIME_RECIPE_TOML; format=:toml)
-    b = Specs.parse_spec(MINTIME_FACTORED_TOML; format=:toml)
-    @test Specs.canonical_json(Specs.full_dict(a)) == Specs.canonical_json(Specs.full_dict(b))
+    a = Specs.parse_spec(MINTIME_RECIPE_TOML; format = :toml)
+    b = Specs.parse_spec(MINTIME_FACTORED_TOML; format = :toml)
+    @test Specs.canonical_json(Specs.full_dict(a)) ==
+          Specs.canonical_json(Specs.full_dict(b))
     @test Specs.structure_hash(a) == Specs.structure_hash(b)
 
     # The min_time recipe materializes to the legacy MinimumTimeProblem NLP:
@@ -622,11 +763,13 @@ end
     goal_treatment = "constraint"
     final_fidelity = 0.99
     """
-    c = Specs.materialize(Specs.parse_spec(CONSTRAINT_ONLY_TOML; format=:toml))
+    c = Specs.materialize(Specs.parse_spec(CONSTRAINT_ONLY_TOML; format = :toml))
     @test any(cn -> occursin("Fidelity", string(typeof(cn))), c.prob.constraints)
     # infidelity objective (the terminal-knot state KnotPointObjective) is dropped.
-    @test !any(o -> o isa DirectTrajOpt.KnotPointObjective && o.times == [11],
-        _obj_terms(c.prob.objective))
+    @test !any(
+        o -> o isa DirectTrajOpt.KnotPointObjective && o.times == [11],
+        _obj_terms(c.prob.objective),
+    )
 end
 
 @testitem "materialize validations + sampling wrapper" begin
@@ -656,7 +799,8 @@ end
     free_phase = true
     """
     @test_throws Specs.SpecValidationError Specs.materialize(
-        Specs.parse_spec(FREE_PHASE_BILINEAR_TOML; format=:toml))
+        Specs.parse_spec(FREE_PHASE_BILINEAR_TOML; format = :toml),
+    )
 
     # R_ddu on SplinePulseProblem (which has no ddu) → structured error.
     SPLINE_WITH_RDDU_TOML = _SYS_GOAL_PULSE * """
@@ -666,7 +810,8 @@ end
     R_ddu = 0.01
     """
     @test_throws Specs.SpecValidationError Specs.materialize(
-        Specs.parse_spec(SPLINE_WITH_RDDU_TOML; format=:toml))
+        Specs.parse_spec(SPLINE_WITH_RDDU_TOML; format = :toml),
+    )
 
     # sampling wrapper builds a SamplingProblem-backed qcp over 2 system variants.
     SAMPLING_TOML = """
@@ -689,7 +834,7 @@ end
     kind = "sampling"
     variants = [ { "δ" = 0.19 }, { "δ" = 0.21 } ]
     """
-    s = Specs.materialize(Specs.parse_spec(SAMPLING_TOML; format=:toml))
+    s = Specs.materialize(Specs.parse_spec(SAMPLING_TOML; format = :toml))
     @test s isa QuantumControlProblem
     @test length(Specs.get_variants(s)) == 2   # 2 system variants
 
@@ -702,5 +847,6 @@ end
     kind = "robust"
     """
     @test_throws Specs.SpecValidationError Specs.materialize(
-        Specs.parse_spec(ROBUST_TOML; format=:toml))
+        Specs.parse_spec(ROBUST_TOML; format = :toml),
+    )
 end

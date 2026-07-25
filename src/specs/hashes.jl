@@ -94,7 +94,7 @@ function _canon_string(io::IO, s::AbstractString)
         elseif c == '\r'
             print(io, "\\r")
         elseif c < '\x20'
-            print(io, "\\u", lpad(string(UInt16(c); base=16), 4, '0'))
+            print(io, "\\u", lpad(string(UInt16(c); base = 16), 4, '0'))
         else
             print(io, c)
         end
@@ -105,7 +105,8 @@ end
 # ECMAScript Number::toString for a finite Float64. Returns integer-valued numbers
 # without a decimal point (so 100.0 -> "100"), matching the int/float-agnostic rule.
 function _es_number(x::Float64)::String
-    isfinite(x) || throw(ArgumentError("canonical_json cannot serialize non-finite number $x"))
+    isfinite(x) ||
+        throw(ArgumentError("canonical_json cannot serialize non-finite number $x"))
     x == 0.0 && return "0"                    # also handles -0.0
     x < 0 && return "-" * _es_number(-x)
     digits, n = _shortest_digits(x)
@@ -113,7 +114,7 @@ function _es_number(x::Float64)::String
     if k <= n <= 21
         return digits * "0"^(n - k)
     elseif 0 < n <= 21
-        return digits[1:n] * "." * digits[n+1:end]
+        return digits[1:n] * "." * digits[(n+1):end]
     elseif -6 < n <= 0
         return "0." * "0"^(-n) * digits
     else
@@ -129,7 +130,7 @@ end
 # formatting) so the *formatting* is fully controlled by `_es_number` above.
 function _shortest_digits(x::Float64)
     local s::String
-    for p in 0:17
+    for p = 0:17
         s = @sprintf("%.*e", p, x)
         parse(Float64, s) == x && break
     end
@@ -148,7 +149,7 @@ end
 function partition_mantissa(m::AbstractString)
     if occursin('.', m)
         i = findfirst('.', m)
-        return m[1:i-1], ".", m[i+1:end]
+        return m[1:(i-1)], ".", m[(i+1):end]
     else
         return String(m), "", ""
     end
@@ -193,7 +194,8 @@ function full_dict(spec::ProblemSpec)
     d["system"] = _system_dict(spec.system)
     spec.goal === nothing || (d["goal"] = _goal_dict(spec.goal))
     spec.pulse === nothing || (d["pulse"] = _pulse_dict(spec.pulse))
-    spec.trajectory.kind === nothing || (d["trajectory"] = Dict{String,Any}("kind" => string(spec.trajectory.kind)))
+    spec.trajectory.kind === nothing ||
+        (d["trajectory"] = Dict{String,Any}("kind" => string(spec.trajectory.kind)))
     spec.problem === nothing || (d["problem"] = _problem_dict(spec.problem))
     spec.integrator === nothing || (d["integrator"] = _integrator_dict(spec.integrator))
     isempty(spec.wrappers) || (d["wrappers"] = Any[_wrapper_dict(w) for w in spec.wrappers])
@@ -219,13 +221,19 @@ function _goal_dict(g::GoalSpec)
     g.matrix === nothing || (d["matrix"] = _wireval(g.matrix))
     g.target === nothing || (d["target"] = g.target)
     g.initial === nothing || (d["initial"] = g.initial)
-    g.subsystem_levels === nothing || (d["subsystem_levels"] = Any[Int(x) for x in g.subsystem_levels])
-    g.subspace === nothing || (d["subspace"] = Any[Any[Int(y) for y in row] for row in g.subspace])
+    g.subsystem_levels === nothing ||
+        (d["subsystem_levels"] = Any[Int(x) for x in g.subsystem_levels])
+    g.subspace === nothing ||
+        (d["subspace"] = Any[Any[Int(y) for y in row] for row in g.subspace])
     return d
 end
 
 _pulse_dict(p::PulseSpec) = Dict{String,Any}(
-    "kind" => string(p.kind), "T" => p.T, "init" => string(p.init), "seed" => p.seed)
+    "kind" => string(p.kind),
+    "T" => p.T,
+    "init" => string(p.init),
+    "seed" => p.seed,
+)
 
 function _problem_dict(p::TemplateBlock)
     d = Dict{String,Any}(
@@ -243,12 +251,18 @@ function _problem_dict(p::TemplateBlock)
     p.R_ddu === nothing || (d["R_ddu"] = p.R_ddu)
     isfinite(p.du_bound) && (d["du_bound"] = p.du_bound)   # omit Inf default (JSON has no Inf)
     p.ddu_bound === nothing || (d["ddu_bound"] = p.ddu_bound)
-    p.initial_phases === nothing || (d["initial_phases"] = Any[Float64(x) for x in p.initial_phases])
-    isempty(p.calibration_targets) || (d["calibration_targets"] = Any[string(s) for s in p.calibration_targets])
+    p.initial_phases === nothing ||
+        (d["initial_phases"] = Any[Float64(x) for x in p.initial_phases])
+    isempty(p.calibration_targets) ||
+        (d["calibration_targets"] = Any[string(s) for s in p.calibration_targets])
     isempty(p.global_names) || (d["global_names"] = Any[string(s) for s in p.global_names])
     isempty(p.global_bounds) || (d["global_bounds"] = _wireval(p.global_bounds))
-    isempty(p.objectives) || (d["objectives"] =
-        Any[Dict{String,Any}("kind" => string(o.kind), "weight" => o.weight) for o in p.objectives])
+    isempty(p.objectives) || (
+        d["objectives"] = Any[
+            Dict{String,Any}("kind" => string(o.kind), "weight" => o.weight) for
+            o in p.objectives
+        ]
+    )
     isempty(p.options) || (d["options"] = _wireval(p.options))
     return d
 end
@@ -301,7 +315,8 @@ function structure_fields(spec::ProblemSpec)
     d = Dict{String,Any}("kind" => "control")
     sys = Dict{String,Any}("kind" => string(spec.system.kind))
     spec.system.template === nothing || (sys["template"] = string(spec.system.template))
-    haskey(spec.system.params, :levels) && (sys["levels"] = _wireval(spec.system.params[:levels]))
+    haskey(spec.system.params, :levels) &&
+        (sys["levels"] = _wireval(spec.system.params[:levels]))
     d["system"] = sys
     if spec.trajectory.kind !== nothing
         d["trajectory_kind"] = string(spec.trajectory.kind)
@@ -318,11 +333,16 @@ function structure_fields(spec::ProblemSpec)
             "free_phase" => p.free_phase,
             "objective_kinds" => sort!(String[string(o.kind) for o in p.objectives]),
         )
-        haskey(p.options, :leakage_constraint) && (prob["leakage_constraint"] = _wireval(p.options[:leakage_constraint]))
+        haskey(p.options, :leakage_constraint) &&
+            (prob["leakage_constraint"] = _wireval(p.options[:leakage_constraint]))
         d["problem"] = prob
     end
-    spec.integrator === nothing ||
-        (d["integrator"] = Dict{String,Any}("kind" => string(spec.integrator.kind), "alg" => string(spec.integrator.alg)))
+    spec.integrator === nothing || (
+        d["integrator"] = Dict{String,Any}(
+            "kind" => string(spec.integrator.kind),
+            "alg" => string(spec.integrator.alg),
+        )
+    )
     d["wrapper_kinds"] = sort!(String[string(w.kind) for w in spec.wrappers])
     d["solver"] = Dict{String,Any}(
         "backend" => string(spec.solver.backend),
@@ -339,7 +359,8 @@ end
 `sha256` hex digest of `canonical_json(structure_fields(spec))` — the identity key
 for a problem's *shape* (stable across N/T/Q/weight changes).
 """
-structure_hash(spec::ProblemSpec) = bytes2hex(sha256(canonical_json(structure_fields(spec))))
+structure_hash(spec::ProblemSpec) =
+    bytes2hex(sha256(canonical_json(structure_fields(spec))))
 
 """
     problem_hash(spec::ProblemSpec) -> String
@@ -374,12 +395,15 @@ problem_hash(spec::ProblemSpec) = bytes2hex(sha256(canonical_json(full_dict(spec
     device = "cpu"
     max_iter = 500
     """
-    base = Specs.parse_spec(CONTROL_TOML; format=:toml)
+    base = Specs.parse_spec(CONTROL_TOML; format = :toml)
     # changing solver.device changes structure_hash
-    dev = Specs.parse_spec(replace(CONTROL_TOML, "device = \"cpu\"" => "device = \"gpu\""); format=:toml)
+    dev = Specs.parse_spec(
+        replace(CONTROL_TOML, "device = \"cpu\"" => "device = \"gpu\"");
+        format = :toml,
+    )
     @test Specs.structure_hash(base) != Specs.structure_hash(dev)
     # changing only N/T/Q changes problem_hash but NOT structure_hash
-    nq = Specs.parse_spec(replace(CONTROL_TOML, "N = 100" => "N = 120"); format=:toml)
+    nq = Specs.parse_spec(replace(CONTROL_TOML, "N = 100" => "N = 120"); format = :toml)
     @test Specs.structure_hash(base) == Specs.structure_hash(nq)
     @test Specs.problem_hash(base) != Specs.problem_hash(nq)
     # determinism

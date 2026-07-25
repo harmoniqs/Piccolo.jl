@@ -1,8 +1,22 @@
 module SpecStructs
 
-export ProblemSpec, SystemSpec, GoalSpec, PulseSpec, TrajectorySpec, TemplateBlock,
-    IntegratorSpec, WrapperSpec, ObjectiveTermSpec, SolverSpec, WarmStartSpec,
-    RolloutSpec, RolloutReportSpec, RefereeSpec, FreeDt, Fixed, Free
+export ProblemSpec,
+    SystemSpec,
+    GoalSpec,
+    PulseSpec,
+    TrajectorySpec,
+    TemplateBlock,
+    IntegratorSpec,
+    WrapperSpec,
+    ObjectiveTermSpec,
+    SolverSpec,
+    WarmStartSpec,
+    RolloutSpec,
+    RolloutReportSpec,
+    RefereeSpec,
+    FreeDt,
+    Fixed,
+    Free
 
 """
     FreeDt
@@ -31,7 +45,8 @@ struct Free <: FreeDt
     lo::Float64
     hi::Float64
     function Free(lo, hi)
-        (0 < lo < hi) || throw(ArgumentError("Free(lo,hi) requires 0 < lo < hi; got ($lo,$hi)"))
+        (0 < lo < hi) ||
+            throw(ArgumentError("Free(lo,hi) requires 0 < lo < hi; got ($lo,$hi)"))
         new(Float64(lo), Float64(hi))
     end
 end
@@ -266,10 +281,13 @@ end
     fd = Specs.Free(0.5, 2.0)
     @test fd isa Specs.FreeDt
     @test Specs.Fixed() isa Specs.FreeDt
-    g = Specs.GoalSpec(kind=:unitary, gate=:CZ, subsystem_levels=[3, 3])
+    g = Specs.GoalSpec(kind = :unitary, gate = :CZ, subsystem_levels = [3, 3])
     @test g.kind == :unitary
-    s = Specs.ProblemSpec(schema_version=1, kind=:control,
-        system=Specs.SystemSpec(kind=:template, template=:TransmonSystem),
-        goal=g)
+    s = Specs.ProblemSpec(
+        schema_version = 1,
+        kind = :control,
+        system = Specs.SystemSpec(kind = :template, template = :TransmonSystem),
+        goal = g,
+    )
     @test s.kind == :control
 end

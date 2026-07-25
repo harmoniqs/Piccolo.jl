@@ -16,7 +16,8 @@ import Pkg
 
 # Stack packages whose versions the learning-loops ledger (Plan 3) reads from
 # `params.versions`. Restricted to the optimal-control stack.
-const _VERSION_PKGS = ("Piccolo", "Piccolissimo", "DirectTrajOpt", "NamedTrajectories", "Altissimo")
+const _VERSION_PKGS =
+    ("Piccolo", "Piccolissimo", "DirectTrajOpt", "NamedTrajectories", "Altissimo")
 
 # Active `Pkg` versions of the stack packages, for `result.toml`'s
 # `params.versions`. The active project itself (e.g. Piccolo when running its own
@@ -43,11 +44,13 @@ end
 function _piccolo_options(spec::ProblemSpec)
     o = spec.problem === nothing ? Dict{Symbol,Any}() : spec.problem.options
     kw = Dict{Symbol,Any}(:display => :silent)
-    haskey(o, :leakage_constraint) && (kw[:leakage_constraint] = Bool(o[:leakage_constraint]))
+    haskey(o, :leakage_constraint) &&
+        (kw[:leakage_constraint] = Bool(o[:leakage_constraint]))
     haskey(o, :leakage_constraint_value) &&
         (kw[:leakage_constraint_value] = Float64(o[:leakage_constraint_value]))
     haskey(o, :leakage_cost) && (kw[:leakage_cost] = Float64(o[:leakage_cost]))
-    haskey(o, :timesteps_all_equal) && (kw[:timesteps_all_equal] = Bool(o[:timesteps_all_equal]))
+    haskey(o, :timesteps_all_equal) &&
+        (kw[:timesteps_all_equal] = Bool(o[:timesteps_all_equal]))
     haskey(o, :bound_state) && (kw[:bound_state] = Bool(o[:bound_state]))
     haskey(o, :bound_state_l2) && (kw[:bound_state_l2] = Bool(o[:bound_state_l2]))
     return PiccoloOptions(; kw...)
@@ -70,8 +73,13 @@ function _amicode_iter_callback()
             inf_pr = Float64(optimizer_state[4])
             inf_du = Float64(optimizer_state[5])
             iter_ref[] = max(iter_ref[], it)
-            @printf("AMICODE_ITER iter=%d obj=%.8e inf_pr=%.6e inf_du=%.6e\n",
-                it, obj, inf_pr, inf_du)
+            @printf(
+                "AMICODE_ITER iter=%d obj=%.8e inf_pr=%.6e inf_du=%.6e\n",
+                it,
+                obj,
+                inf_pr,
+                inf_du
+            )
             flush(stdout)
             return true
         end
@@ -103,8 +111,14 @@ function solve_spec(
     # never a path; guard `isfile` so a spec body is not `stat`-ed as a filename.
     spec_src = (!occursin('\n', src) && isfile(src)) ? read(src, String) : src
     spec = parse_spec(spec_src; format = format)
-    spec isa ProblemSpec || throw(SpecValidationError([SpecError("kind",
-        "solve_spec runs `control` specs; use `run_spec` for a rollout spec")]))
+    spec isa ProblemSpec || throw(
+        SpecValidationError([
+            SpecError(
+                "kind",
+                "solve_spec runs `control` specs; use `run_spec` for a rollout spec",
+            ),
+        ]),
+    )
     return _run_control(spec, run_dir; max_iter = max_iter, kwargs...)
 end
 
@@ -132,12 +146,28 @@ function _run_control(
 )
     # Backend gate: Phase 1 executes ipopt only (altissimo is schema-only).
     if spec.solver.backend === :altissimo
-        throw(SpecValidationError([SpecError("solver.backend",
-            "the altissimo backend is deferred in Phase 1 (registered for schema only); " *
-            "solve_spec executes the ipopt backend", "altissimo", ["ipopt"])]))
+        throw(
+            SpecValidationError([
+                SpecError(
+                    "solver.backend",
+                    "the altissimo backend is deferred in Phase 1 (registered for schema only); " *
+                    "solve_spec executes the ipopt backend",
+                    "altissimo",
+                    ["ipopt"],
+                ),
+            ]),
+        )
     elseif spec.solver.backend !== :ipopt
-        throw(SpecValidationError([SpecError("solver.backend", "unknown solver backend",
-            string(spec.solver.backend), ["ipopt", "altissimo"])]))
+        throw(
+            SpecValidationError([
+                SpecError(
+                    "solver.backend",
+                    "unknown solver backend",
+                    string(spec.solver.backend),
+                    ["ipopt", "altissimo"],
+                ),
+            ]),
+        )
     end
 
     isdir(run_dir) || mkpath(run_dir)
@@ -155,8 +185,14 @@ function _run_control(
     # Solve, streaming AMICODE_ITER per iteration.
     mi = max_iter === nothing ? spec.solver.max_iter : max_iter
     cb_factory, iter_ref = _amicode_iter_callback()
-    wall = @elapsed solve!(qcp; max_iter = mi, print_level = 0, verbose = false,
-        callback = cb_factory, kwargs...)
+    wall = @elapsed solve!(
+        qcp;
+        max_iter = mi,
+        print_level = 0,
+        verbose = false,
+        callback = cb_factory,
+        kwargs...,
+    )
 
     fid = Float64(fidelity(qcp))
     iters = iter_ref[]
@@ -174,8 +210,12 @@ function _run_control(
     # AMICODE_PULSE_META line is a forward-looking pulse-preview log line for the
     # extension's run-dir reader (classifyLine treats it as a plain log line).
     n_drives = get_system(qcp).n_drives
-    @printf("AMICODE_PULSE_META n_drives=%d knots=%d pulse=%s\n",
-        n_drives, spec.problem.N, basename(pulse_path))
+    @printf(
+        "AMICODE_PULSE_META n_drives=%d knots=%d pulse=%s\n",
+        n_drives,
+        spec.problem.N,
+        basename(pulse_path)
+    )
     @printf("DONE fidelity=%.10f iterations=%d wall_seconds=%.3f\n", fid, iters, wall)
     flush(stdout)
 
@@ -224,7 +264,7 @@ end
     N = 11
     """
     dir = mktempdir()
-    Specs.solve_spec(TINY_CZ_TOML; run_dir=dir, format=:toml, max_iter=15)
+    Specs.solve_spec(TINY_CZ_TOML; run_dir = dir, format = :toml, max_iter = 15)
 
     @test isfile(joinpath(dir, "result.toml"))
     r = TOML.parsefile(joinpath(dir, "result.toml"))
@@ -236,9 +276,9 @@ end
     @test length(filter(f -> endswith(f, ".jld2"), readdir(dir))) == 1  # pulse, not trajectory
 
     # spec→canonical→parse→canonical identity (Phase-1 extract_spec substitute).
-    spec = Specs.parse_spec(TINY_CZ_TOML; format=:toml)
+    spec = Specs.parse_spec(TINY_CZ_TOML; format = :toml)
     cj = Specs.canonical_json(Specs.full_dict(spec))
-    @test Specs.canonical_json(Specs.full_dict(Specs.parse_spec(cj; format=:json))) == cj
+    @test Specs.canonical_json(Specs.full_dict(Specs.parse_spec(cj; format = :json))) == cj
     # the persisted spec matches the canonical form.
     @test r["params"]["spec"] == cj
 end
@@ -268,7 +308,7 @@ end
     # not accept a bare IOBuffer (only a Pipe / IOStream / file).
     out = mktemp() do path, io
         redirect_stdout(io) do
-            Specs.solve_spec(TINY; run_dir=dir, format=:toml, max_iter=12)
+            Specs.solve_spec(TINY; run_dir = dir, format = :toml, max_iter = 12)
         end
         flush(io)
         read(path, String)
@@ -304,5 +344,9 @@ end
     backend = "altissimo"
     """
     dir = mktempdir()
-    @test_throws Specs.SpecValidationError Specs.solve_spec(ALT_TOML; run_dir=dir, format=:toml)
+    @test_throws Specs.SpecValidationError Specs.solve_spec(
+        ALT_TOML;
+        run_dir = dir,
+        format = :toml,
+    )
 end
