@@ -940,10 +940,10 @@ Diagonal of the free-phase rotation ``\bigotimes_j e^{i θ_j \hat n_j}`` in the 
 basis: for basis index `idx` (0-based), level ``s_j`` of subsystem `j` contributes ``s_j θ_j``.
 
 This is the **number-operator** convention, the one `free_phase = true` applies to *ket* goals.
-It is deliberately not the same expression as the qubit/binary decomposition used for
-`EmbeddedOperator` goals in [`fidelity(::UnitaryTrajectory)`](@ref) — the two agree when every
-subsystem is a qubit (``s_j ∈ \{0,1\}``) and differ above two levels. Kept type-generic so
-ForwardDiff `Dual`s pass through.
+It is deliberately not the same expression as the qubit/binary decomposition that `fidelity`
+applies to an `EmbeddedOperator` goal — the two agree when every subsystem is a qubit
+(``s_j ∈ \{0,1\}``) and differ above two levels. Kept type-generic so ForwardDiff `Dual`s pass
+through.
 """
 function number_operator_phase_diag(θ, subsystem_levels::AbstractVector{Int})
     dim = prod(subsystem_levels)

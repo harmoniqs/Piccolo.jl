@@ -492,12 +492,10 @@ end
     @test fidelity(qcp; phases = [0.0]) ≈ fidelity(qcp.qtraj; phases = [0.0])
 end
 
-@testitem "fidelity(qcp) refuses a free-phase problem that stores no phases" begin
+@testitem "stored_phases distinguishes no-φ from φ-declared-but-empty" begin
     using DirectTrajOpt
     using NamedTrajectories
 
-    # The 9 catalog entries with `free_phase = true` and no recorded φ are exactly this state.
-    # Silently returning the fixed-phase number is the bug; erroring is the fix.
     sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
     N, T = 11, 5.0
     times = collect(range(0, T, length = N))
@@ -510,10 +508,25 @@ end
         BilinearIntegrator(qtraj, N),
     )
     qcp = QuantumControlProblem(qtraj, prob)
+    sync_trajectory!(qcp; check_divergence = false)
 
-    # No φ globals at all => `nothing`, and the ordinary path is unaffected.
+    # No φ globals at all => `nothing`, and the ordinary (non-free-phase) path is unaffected.
+    # This is the 23-of-32 case and must stay byte-identical to the pre-φ behaviour.
     @test isnothing(stored_phases(qcp.prob.trajectory))
-    @test fidelity(qcp) isa Real
+    @test fidelity(qcp) ≈ fidelity(qcp.qtraj)
+
+    # An EMPTY phase vector is the corrupt-input case — the state the free-phase catalog entries
+    # that never persisted φ are in. It must be refused, not silently treated as fixed-phase,
+    # because returning a plausible number there is the whole bug. `verify` shares the guard and
+    # takes `phases` explicitly, so it is the drivable entry point for it.
+    err = try
+        verify(qcp; phases = Float64[])
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("no phase values", err.msg)
 end
 
 @testitem "rollout_divergence: nothing means not-applicable, not agreement" begin
