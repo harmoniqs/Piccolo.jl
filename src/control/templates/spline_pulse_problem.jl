@@ -544,18 +544,16 @@ function SplinePulseProblem(
                 """,
             )
         elseif integrator_type === :ensemble
-            error(
-                """
-                `integrator_type = :ensemble` was never implemented.
+            error("""
+                  `integrator_type = :ensemble` was never implemented.
 
-                It referenced an `EnsembleSplineIntegrator` that is defined nowhere in
-                Piccolo or DirectTrajOpt, so this value could only ever throw an
-                `UndefVarError` — which is why `test/jet.jl` ran with `broken = true`.
+                  It referenced an `EnsembleSplineIntegrator` that is defined nowhere in
+                  Piccolo or DirectTrajOpt, so this value could only ever throw an
+                  `UndefVarError` — which is why `test/jet.jl` ran with `broken = true`.
 
-                For parallel multi-ket dynamics, pass an integrator explicitly from
-                Piccolissimo. For the shipped backend, use `integrator_type = :pwc`.
-                """,
-            )
+                  For parallel multi-ket dynamics, pass an integrator explicitly from
+                  Piccolissimo. For the shipped backend, use `integrator_type = :pwc`.
+                  """)
         else
             error(
                 "unknown `integrator_type = :$integrator_type`. " *
