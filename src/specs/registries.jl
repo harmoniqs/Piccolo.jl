@@ -210,4 +210,11 @@ end
     @test haskey(Specs.TEMPLATES, :SmoothPulseProblem)
     @test haskey(Specs.SYSTEMS, :TransmonSystem)
     @test Specs.lookup_kind(:control) !== nothing
+    # The registries are process-global and TestItemRunner reuses workers, so the
+    # ad-hoc :MyTmpl registration above must not survive this test item: a stray
+    # template name leaks into `emit_schema()`'s template enum and its per-template
+    # parameter branches, which would break the schema drift gate depending on which
+    # test item ran first on the worker.
+    delete!(Specs.TEMPLATES, :MyTmpl)
+    @test !haskey(Specs.TEMPLATES, :MyTmpl)
 end

@@ -741,7 +741,13 @@ end
     # infidelity objective retained + MinimumTimeObjective + final-fidelity constraint.
     mt = Specs.materialize(a)
     @test any(o -> o isa Piccolo.MinimumTimeObjective, _obj_terms(mt.prob.objective))
-    @test any(c -> occursin("Fidelity", string(typeof(c))), mt.prob.constraints)
+    # Assert the constraint's TYPE, not its type *name*. `FinalUnitaryFidelityConstraint` is a
+    # function returning a `NonlinearKnotPointConstraint` over a closure, and whether that closure's
+    # type name carries the enclosing function's name is a Julia-version detail: 1.12 produces
+    # `var"#FinalUnitaryFidelityConstraint##0#..."`, while 1.10/1.11 produce `var"#41#42"`. An
+    # `occursin("Fidelity", string(typeof(c)))` check therefore passed locally on 1.12 and failed on
+    # CI's 1.10/1.11 — it was testing the closure-naming convention, not the materialization.
+    @test any(c -> c isa DirectTrajOpt.NonlinearKnotPointConstraint, mt.prob.constraints)
 
     # constraint-only builds a Final*FidelityConstraint, no infidelity objective.
     CONSTRAINT_ONLY_TOML = """
@@ -764,7 +770,8 @@ end
     final_fidelity = 0.99
     """
     c = Specs.materialize(Specs.parse_spec(CONSTRAINT_ONLY_TOML; format = :toml))
-    @test any(cn -> occursin("Fidelity", string(typeof(cn))), c.prob.constraints)
+    # type, not type name — see the note above
+    @test any(cn -> cn isa DirectTrajOpt.NonlinearKnotPointConstraint, c.prob.constraints)
     # infidelity objective (the terminal-knot state KnotPointObjective) is dropped.
     @test !any(
         o -> o isa DirectTrajOpt.KnotPointObjective && o.times == [11],
