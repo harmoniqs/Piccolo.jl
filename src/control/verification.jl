@@ -5,6 +5,10 @@ using TestItems
 using ...Quantum
 
 using ..QuantumControlProblems: QuantumControlProblem, fidelity, stored_phases
+# `rollout_divergence` is imported for its docstring cross-reference, not called here: Documenter
+# resolves `@ref` against the enclosing module's scope, so a `[`rollout_divergence`](@ref)` in
+# `verify`'s docstring fails the docs build ([:cross_references]) unless the name is in scope.
+using ..QuantumControlProblems: rollout_divergence
 using ..QuantumObjectives: unitary_fidelity_loss, ket_fidelity_loss
 
 export verify
