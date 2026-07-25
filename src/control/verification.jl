@@ -14,9 +14,14 @@ export verify
 # `problems.jl`, because the `*_fidelity_loss` functions are defined in `objectives.jl`,
 # which is included after it.
 #
-# Returns `nothing` for trajectory types with no single-state fidelity loss (density,
-# multi-state, sampling): `nothing` means NOT COMPARABLE, never "they agree".
+# Returns `nothing` where no comparable definition is available (density, MultiDensity, sampling,
+# and free-phase cases needing a factorization we are not given): `nothing` means NOT COMPARABLE,
+# never "they agree". MultiKet IS covered, via its coherent-fidelity definition below.
 function _optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
+    # MultiKet is not a single-state case: its objective is a coherent sum across sub-states.
+    qcp.qtraj isa MultiKetTrajectory &&
+        return _multiket_optimizer_side_fidelity(qcp, phases)
+
     traj = qcp.prob.trajectory
     sname = state_name(qcp.qtraj)
     haskey(traj.components, sname) || return nothing
@@ -56,6 +61,34 @@ end
 
 _optimizer_side_fidelity(::AbstractQuantumTrajectory, _, _) = nothing
 
+# MultiKet needs its own path: the objective is the COHERENT fidelity across all transfers,
+# F = |1/n Σᵢ ⟨ψᵢ_goal|ψᵢ⟩|², not a per-state loss, and the states live under one component per
+# sub-trajectory (`:ψ̃1`, `:ψ̃2`, …) rather than a single one. Mirrors
+# `fidelity(::MultiKetTrajectory)` so both sides of `verify` use the same definition.
+#
+# This case is why `verify` can replace the hand-rolled optimizer-vs-rollout comparison in
+# `fluxonium-2q/scripts/probe/rollout_fidelity_check.jl`, which is a MultiKet problem.
+function _multiket_optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
+    qtraj = qcp.qtraj
+    traj = qcp.prob.trajectory
+    names = state_names(qtraj)
+    n = length(qtraj.goals)
+    length(names) == n || return nothing
+    all(nm -> haskey(traj.components, nm), names) || return nothing
+
+    goals = if isnothing(phases)
+        qtraj.goals
+    else
+        # Free-phase MultiKet goals rotate under the same qubit/binary convention that
+        # `fidelity(::MultiKetTrajectory)` applies, which needs subsystem_levels we do not have
+        # here. Decline rather than guess at the factorization.
+        return nothing
+    end
+
+    overlap = sum(goals[i]' * iso_to_ket(traj[names[i]][:, end]) for i = 1:n)
+    return Float64(abs2(overlap / n))
+end
+
 """
     verify(qcp::QuantumControlProblem; kwargs...) -> (; F_optimizer, F_rollout, Δ, phases)
 
@@ -63,9 +96,11 @@ Recompute fidelity two ways and return both plus their gap:
 
 - `F_rollout` — an independent ODE re-rollout of the extracted pulse. **This is the physical
   number. Put it in artifacts, papers and catalogs.**
-- `F_optimizer` — the optimizer's own collocation terminal state. `nothing` when the trajectory
-  type has no single-state fidelity loss (density / multi-state / sampling); `nothing` means
-  *not comparable*, never *they agree*.
+- `F_optimizer` — the optimizer's own collocation terminal state. Covers unitary, ket and
+  **MultiKet** (the last via the coherent-fidelity definition its objective uses). `nothing` means
+  *not comparable*, never *they agree*: density, MultiDensity and sampling trajectories, a
+  free-phase MultiKet (whose goal rotation needs a `subsystem_levels` factorization `verify` is not
+  given), or a unitary free-phase problem without an `EmbeddedOperator` goal.
 - `Δ` — `abs(F_optimizer - F_rollout)`, or `nothing` when `F_optimizer` is.
 - `phases` — the free phases actually applied, so the caller can record which convention
   produced the numbers.
@@ -167,6 +202,40 @@ end
     @test v.F_optimizer > 0.99      # the optimizer believes it succeeded
     @test v.F_rollout < 0.01        # the pulse does nothing of the sort
     @test v.Δ > 0.9
+end
+
+@testitem "verify covers MultiKet on both sides" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # MultiKet's objective is the COHERENT fidelity across transfers, so `verify` needs its own
+    # optimizer-side definition. Without it F_optimizer was `nothing` for exactly the case the
+    # hand-rolled check in fluxonium-2q/scripts/probe/rollout_fidelity_check.jl exists to cover,
+    # so `verify` could not replace it.
+    σx = ComplexF64[0 1; 1 0]
+    sys = QuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
+    N, T = 21, 10.0
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+
+    qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    sync_trajectory!(qcp; check_divergence = false)
+
+    v = verify(qcp)
+    @test v.F_optimizer isa Float64        # NOT `nothing` any more
+    @test v.F_rollout isa Float64
+    @test 0 ≤ v.F_optimizer ≤ 1
+    @test v.Δ ≈ abs(v.F_optimizer - v.F_rollout)
+
+    # Corrupting one sub-state's collocation value must move the optimizer-side number, proving it
+    # actually reads the collocation states rather than the rollout.
+    traj = get_trajectory(qcp)
+    before = verify(qcp).F_optimizer
+    traj.ψ̃1[:, end] .*= -1
+    @test verify(qcp).F_optimizer != before
 end
 
 end # module Verification
