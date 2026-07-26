@@ -1,5 +1,6 @@
 module Verification
 
+using LinearAlgebra          # Diagonal, in the unitary free-phase goal rotation
 using NamedTrajectories
 using TestItems
 using ...Quantum
@@ -233,6 +234,49 @@ end
     before = verify(qcp).F_optimizer
     traj.ψ̃1[:, end] .*= -1
     @test verify(qcp).F_optimizer != before
+end
+
+@testitem "verify handles a UNITARY free-phase problem (the catalog's actual case)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # The unitary free-phase branch builds a phase-rotated EmbeddedOperator using the
+    # QUBIT/BINARY convention — a different expression from the ket path's number-operator form.
+    # It was untested, and it is the production case: all 9 free_phase catalog entries are
+    # unitary. An untested convention is how incompatible free-phase definitions accumulate.
+    σx = ComplexF64[0 1; 1 0]
+    H_drift = ComplexF64[0 0 0; 0 1 0; 0 0 2]
+    H_drive = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
+    sys = QuantumSystem(H_drift, [H_drive], [1.0])
+
+    N, T = 21, 10.0
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    U_goal = EmbeddedOperator(σx, [1, 2], [3])
+
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, free_phase = true)
+    traj = get_trajectory(qcp)
+    @test haskey(traj.global_components, :φ_1)
+
+    traj.global_data[traj.global_components[:φ_1]] .= [0.6]
+    sync_trajectory!(qcp; check_divergence = false)
+
+    v = verify(qcp)
+    @test v.F_optimizer isa Float64        # the EmbeddedOperator rotation path is reached
+    @test v.F_rollout isa Float64
+    @test v.phases == [0.6]
+    @test v.Δ ≈ abs(v.F_optimizer - v.F_rollout)
+
+    # The rollout side must agree with asking for that φ directly — i.e. verify is not applying
+    # some other convention on one side.
+    @test v.F_rollout ≈ fidelity(qcp.qtraj; phases = [0.6])
+
+    # And φ must actually matter on BOTH sides, or the rotation is inert.
+    v0 = verify(qcp; phases = [0.0])
+    @test !isapprox(v0.F_optimizer, v.F_optimizer; atol = 1e-10)
+    @test !isapprox(v0.F_rollout, v.F_rollout; atol = 1e-10)
 end
 
 end # module Verification
