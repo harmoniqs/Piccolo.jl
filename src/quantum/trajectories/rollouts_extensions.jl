@@ -1199,6 +1199,90 @@ end
 # Tests
 # ============================================================================ #
 
+@testitem "number_operator_phase_diag pins the ket free-phase convention" begin
+    using LinearAlgebra
+
+    # This is the NUMBER-OPERATOR convention: for basis index idx, level s_j of subsystem j
+    # contributes s_j * θ_j. It is deliberately NOT the qubit/binary decomposition that
+    # `fidelity(::UnitaryTrajectory; phases)` applies to an EmbeddedOperator goal. Conflating the
+    # two is one of the incompatible free-phase conventions this cleanup exists to separate, so
+    # both the agreement and the divergence are pinned here.
+    θ = 0.3
+
+    # One 3-level subsystem: levels 0,1,2 acquire 0, θ, 2θ.
+    d3 = number_operator_phase_diag([θ], [3])
+    @test length(d3) == 3
+    @test d3 ≈ [1, exp(im * θ), exp(2im * θ)]
+
+    # The qubit/binary form would give 0, θ, θ — it cannot express the 2θ. This is exactly why
+    # the ket path needs its own function.
+    @test !isapprox(d3[3], exp(im * θ); atol = 1e-8)
+
+    # Two qubits: (s1,s2) = (0,0),(0,1),(1,0),(1,1) over idx 0..3.
+    θ1, θ2 = 0.2, -0.5
+    d22 = number_operator_phase_diag([θ1, θ2], [2, 2])
+    @test d22 ≈ [1, exp(im * θ2), exp(im * θ1), exp(im * (θ1 + θ2))]
+
+    # On qubits ONLY, the number-operator and binary conventions coincide (s ∈ {0,1}).
+    binary = map(0:3) do bits
+        φ = 0.0
+        ((bits >> 1) & 1 == 1) && (φ += θ1)
+        ((bits >> 0) & 1 == 1) && (φ += θ2)
+        exp(im * φ)
+    end
+    @test d22 ≈ binary
+
+    # Zero phases are the identity, and the result is always unit-modulus.
+    @test number_operator_phase_diag([0.0, 0.0], [2, 2]) ≈ ones(4)
+    @test all(x -> abs(x) ≈ 1, d3)
+end
+
+@testitem "fidelity(::KetTrajectory; phases) applies the rotation and guards its inputs" begin
+    using LinearAlgebra
+
+    # A superposition goal is required for the rotation to be observable: a single basis-state
+    # goal only picks up a global phase, which abs2 discards.
+    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    N, T = 11, 1.0
+    times = collect(range(0, T, length = N))
+    pulse = LinearSplinePulse(fill(0.4, 1, N), times)
+    goal = ComplexF64[1, 1] / √2
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1, 0], goal)
+
+    F_plain = fidelity(qtraj)
+
+    # phases = 0 must be EXACTLY the unrotated value — the rotation is the identity there.
+    @test fidelity(qtraj; phases = [0.0]) ≈ F_plain
+
+    # A nonzero phase must actually change the number, or the kwarg is inert.
+    @test !isapprox(fidelity(qtraj; phases = [1.1]), F_plain; atol = 1e-8)
+
+    # subsystem_levels may be omitted for a single phase (whole space = one subsystem) and must
+    # agree with passing it explicitly.
+    @test fidelity(qtraj; phases = [1.1]) ≈
+          fidelity(qtraj; phases = [1.1], subsystem_levels = [2])
+
+    # With MORE than one phase the factorization is not inferable from the state dimension.
+    err = try
+        fidelity(qtraj; phases = [0.1, 0.2])
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("subsystem_levels", err.msg)
+
+    # A factorization inconsistent with the goal dimension must be refused, not silently reshaped.
+    err2 = try
+        fidelity(qtraj; phases = [0.1, 0.2], subsystem_levels = [3, 3])
+        nothing
+    catch e
+        e
+    end
+    @test err2 isa ErrorException
+    @test occursin("implies dimension", err2.msg)
+end
+
 @testitem "rollout - UnitaryTrajectory" begin
     using LinearAlgebra
     using OrdinaryDiffEqLinear: MagnusGL4
