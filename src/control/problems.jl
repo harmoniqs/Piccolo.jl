@@ -119,19 +119,14 @@ end
 Compute the fidelity of the quantum trajectory, **applying the problem's optimized free
 phases** when it has any.
 
-A `free_phase = true` problem optimizes a per-subsystem frame phase alongside the pulse, and
-its objective is minimized against the *phase-rotated* goal. This function therefore reads the
-`φ_*` globals out of `qcp.prob.trajectory` and forwards them, so the number it reports is the
-one the optimizer was actually driving.
+A `free_phase = true` problem is optimized against the *phase-rotated* goal, so this reads the
+`φ_*` globals off `qcp.prob.trajectory` and forwards them. An explicit `phases = ...` always
+wins; pass `phases = zeros(n)` for the fixed-phase number deliberately.
 
-An explicit `phases = ...` always wins over the stored values; pass `phases = zeros(n)` to
-recover the fixed-phase number deliberately.
-
-!!! warning "This changed in the pulse-hazard cleanup (2026-07-25)"
-    Previously this forwarded to `fidelity(qcp.qtraj)` with no phase handling at all, so every
-    free-phase problem silently reported its **fixed-phase** fidelity — a number its objective
-    never optimized, and typically far worse than the achieved one. Any free-phase figure
-    obtained through this path before that date needs re-deriving.
+!!! warning "Behaviour changed 2026-07-25"
+    This previously forwarded with no phase handling, so every free-phase problem silently
+    reported its **fixed-phase** fidelity — a number its objective never optimized. Any
+    free-phase figure obtained through this path before that date needs re-deriving.
 
 # Example
 ```julia
@@ -226,19 +221,11 @@ final time. Read as `ROLLOUT_DIVERGENCE_RTOL[]`; set as `ROLLOUT_DIVERGENCE_RTOL
 Raise it to quiet the check globally, or pass `check_divergence = false` to silence a
 single call.
 
-# Where the default comes from
-
-Measured on a 3-level system, X gate on the qubit subspace, holding objective / system /
-goal / grid / seed fixed and varying only the pulse–integrator pairing:
-
-| pairing | divergence |
-|---|---|
-| spline pulse + a *spline* integrator (correct) | 3.5e-7 … 6.4e-4 |
-| spline pulse + a *piecewise-constant* integrator (mismatch) | 5.9e-2 … 1.9e-1 |
-
-The default sits near the geometric centre of that ~90× gap: ~8× above the worst correct
-pairing and ~12× below the mildest mismatch. Tighten it if you want to catch subtler
-model error, at the cost of firing on coarse-but-correct problems.
+The default is measured, not guessed: on a 3-level X gate with everything but the
+pulse–integrator pairing held fixed, a correct spline pairing gives 3.5e-7 … 6.4e-4 while a
+spline under a piecewise-constant integrator gives 5.9e-2 … 1.9e-1. `5e-3` sits near the
+geometric centre of that ~90× gap. Tighten it to catch subtler model error, at the cost of
+firing on coarse-but-correct problems.
 """
 const ROLLOUT_DIVERGENCE_RTOL = Ref(5.0e-3)
 
@@ -306,11 +293,9 @@ holding placeholder states rather than solved dynamics.
 Call this only after [`sync_trajectory!`](@ref) (or `solve!` with `sync = true`);
 before that, `qcp.qtraj` holds a stale rollout and the number is meaningless.
 
-# Why it can be nonzero
-The optimizer minimizes its objective against the collocation state; `fidelity(qcp.qtraj)`
-reports the ODE state. When these disagree the two numbers describe **different
-waveforms**, and only the rollout one is physical. The two usual causes are a
-pulse/integrator mismatch and a collocation grid too coarse for the dynamics.
+When this is large, the optimizer's objective and `fidelity(qcp.qtraj)` describe **different
+waveforms** and only the rollout one is physical. Usual causes: a pulse/integrator mismatch, or
+a collocation grid too coarse for the dynamics.
 """
 function rollout_divergence(qcp::QuantumControlProblem)
     pairs = _terminal_iso_states(qcp.qtraj)

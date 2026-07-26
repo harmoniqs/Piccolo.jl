@@ -966,14 +966,10 @@ end
 
 Compute the fidelity between the final state and the goal.
 
-`phases` applies the free-phase rotation of [`number_operator_phase_diag`](@ref) to the goal
-before comparing — the same convention `free_phase = true` optimizes against, so a free-phase
-problem's reported fidelity matches what its objective was minimizing.
-
-`subsystem_levels` gives the tensor-product factorization. It may be omitted only when
-`phases` has a single entry, in which case the whole space is treated as one subsystem; with
-more than one phase the factorization cannot be inferred from the state dimension alone and
-must be supplied.
+`phases` applies the [`number_operator_phase_diag`](@ref) rotation to the goal before comparing —
+the convention `free_phase = true` optimizes against. `subsystem_levels` gives the tensor-product
+factorization; it may be omitted only for a single phase, since with more than one the
+factorization cannot be inferred from the state dimension alone.
 """
 function Rollouts.fidelity(
     qtraj::KetTrajectory;

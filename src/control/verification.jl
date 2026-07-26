@@ -99,24 +99,17 @@ end
 Recompute fidelity two ways and return both plus their gap:
 
 - `F_rollout` — an independent ODE re-rollout of the extracted pulse. **This is the physical
-  number. Put it in artifacts, papers and catalogs.**
-- `F_optimizer` — the optimizer's own collocation terminal state. Covers unitary, ket and
-  **MultiKet** (the last via the coherent-fidelity definition its objective uses). `nothing` means
-  *not comparable*, never *they agree*: density, MultiDensity and sampling trajectories, a
-  free-phase MultiKet (whose goal rotation needs a `subsystem_levels` factorization `verify` is not
-  given), or a unitary free-phase problem without an `EmbeddedOperator` goal.
+  number; put it in artifacts, papers and catalogs.**
+- `F_optimizer` — the optimizer's own collocation terminal state. Covers unitary, ket and MultiKet.
+  `nothing` means *not comparable*, never *they agree*: density, MultiDensity, sampling, free-phase
+  MultiKet, or a unitary free-phase problem without an `EmbeddedOperator` goal.
 - `Δ` — `abs(F_optimizer - F_rollout)`, or `nothing` when `F_optimizer` is.
-- `phases` — the free phases actually applied, so the caller can record which convention
-  produced the numbers.
+- `phases` — the phases actually applied, so callers can record the convention used.
 
-Both sides use the **same** phase treatment, so the comparison is never confounded by one side
-being φ-aware and the other not.
-
-A large `Δ` means the optimizer converged against a model the pulse does not realize — usually
-a pulse/integrator mismatch. Compare [`rollout_divergence`](@ref), which compares terminal
-*states* instead and so catches cases where two different states happen to share a fidelity.
-
-This replaces hand-rolled copies of the same check that had accumulated in demo scripts.
+Both sides get the **same** phase treatment, so the gap is never an artifact of one side being
+φ-aware. A large `Δ` means the optimizer converged against a model the pulse does not realize.
+Compare [`rollout_divergence`](@ref), which compares terminal *states* and so also catches cases
+where two different states share a fidelity.
 
 # Example
 ```julia
