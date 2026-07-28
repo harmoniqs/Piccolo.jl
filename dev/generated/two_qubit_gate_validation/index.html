@@ -215,6 +215,24 @@ solve!(qcp_lin; max_iter = 80)</code></pre><pre class="documenter-example-output
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.0156  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
+<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
+<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. Pair a spline pulse with
+<span class="sgr33"><span class="sgr1">│ </span></span>    `Piccolissimo.SplineIntegrator`.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:329</span>
 
 ******************************************************************************
 This program contains Ipopt, a library for large-scale nonlinear optimization.
@@ -344,6 +362,24 @@ solve!(qcp_cub; max_iter = 80)</code></pre><pre class="documenter-example-output
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.0165  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
+<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
+<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. Pair a spline pulse with
+<span class="sgr33"><span class="sgr1">│ </span></span>    `Piccolissimo.SplineIntegrator`.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:329</span>
 
 ******************************************************************************
 This program contains Ipopt, a library for large-scale nonlinear optimization.
@@ -513,7 +549,7 @@ let
     Legend(fig[1, length(rollouts)+1], entries, basis_labels)
     Label(fig[0, :], &quot;Population dynamics: evolution of |10⟩&quot;; font = :bold, fontsize = 18)
     fig
-end</code></pre><img src="71e5e12a.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 9 July 2026 05:49">Thursday 9 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+end</code></pre><img src="71e5e12a.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 28 July 2026 22:42">Tuesday 28 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./two_qubit_gate_validation.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/two_qubit_gate_validation.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
