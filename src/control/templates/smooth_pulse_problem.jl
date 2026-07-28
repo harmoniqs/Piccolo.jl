@@ -1005,7 +1005,8 @@ end
     @test J_front != J_back
 
     # Uniform weights leave the unweighted result exactly where it was
-    @test fidelity_objective_value(fill(1 / 3, 3)) === fidelity_objective_value(fill(1.0, 3))
+    @test fidelity_objective_value(fill(1 / 3, 3)) ===
+          fidelity_objective_value(fill(1.0, 3))
 end
 
 # ============================================================================= #

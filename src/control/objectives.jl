@@ -149,9 +149,9 @@ end
 Create a terminal objective for coherent ket state infidelity across multiple states.
 
 Coherent fidelity is defined as:
-    F_coherent = |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|²
+    F_coherent = |∑ᵢ wᵢ ⟨ψᵢ_goal|ψᵢ⟩ / ∑ᵢ wᵢ|²
 
-Unlike incoherent fidelity (average of individual |⟨ψᵢ_goal|ψᵢ⟩|²), coherent fidelity 
+Unlike incoherent fidelity (average of individual |⟨ψᵢ_goal|ψᵢ⟩|²), coherent fidelity
 requires all state overlaps to have aligned phases. This is essential when implementing
 a gate via multiple state transfers - the gate should have a single global phase,
 not independent phases per state.
@@ -163,6 +163,9 @@ not independent phases per state.
 
 # Keyword Arguments
 - `Q::Float64=100.0`: Weight on the infidelity objective
+- `weights::Union{Nothing, AbstractVector{<:Real}}=nothing`: Per-state weights on the
+  coherent mean of overlaps. Normalized at construction; only their ratios matter.
+  `nothing` or uniform weights give the unweighted fidelity |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|².
 
 # Example
 ```julia
@@ -170,6 +173,9 @@ not independent phases per state.
 goals = [ComplexF64[0, 1], ComplexF64[1, 0]]
 names = [:ψ̃1, :ψ̃2]
 obj = CoherentKetInfidelityObjective(goals, names, traj; Q=100.0)
+
+# Emphasize the first state transfer
+obj = CoherentKetInfidelityObjective(goals, names, traj; Q=100.0, weights=[0.9, 0.1])
 ```
 """
 function CoherentKetInfidelityObjective(
@@ -582,8 +588,7 @@ using TestItems
     @test objective_value(obj_w1, traj_asym) != objective_value(obj_w2, traj_asym)
 
     # Uniform weights leave the unweighted value exactly where it is
-    obj_unweighted =
-        CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj_asym; Q = 100.0)
+    obj_unweighted = CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj_asym; Q = 100.0)
     obj_uniform = CoherentKetInfidelityObjective(
         goals,
         [:ψ̃1, :ψ̃2],
