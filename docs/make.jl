@@ -109,7 +109,13 @@ generate_docs(
     literate_kwargs = (execute = false,),
     format_kwargs = (
         canonical = "https://docs.harmoniqs.co/Piccolo.jl",
-        size_threshold = 500 * 2^10,  # 400 KiB for lib.md
+        # Headroom for lib.md, which is the whole auto-generated API reference and is therefore
+        # inherently the largest page. It measured 511.4 KiB against the previous 500 KiB limit,
+        # i.e. the page was sitting exactly AT its threshold, so any docstring added anywhere in
+        # the package broke the docs build with `HTMLSizeThresholdError`. (Documenter's own default
+        # is 200 KiB; 500 was already a deliberate raise, and the trailing "400 KiB" comment was
+        # stale.) The durable fix is to split lib.md per-module — until then, keep headroom here.
+        size_threshold = 700 * 2^10,
     ),
     mask_cached_solve = true,
     makedocs_kwargs = (draft = draft, plugins = [CopyButton()]),

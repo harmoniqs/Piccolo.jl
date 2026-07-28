@@ -376,15 +376,22 @@ plus:
 - `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
 - `initial_phases::Union{Nothing, Vector{Float64}}=nothing`: Initial values for the per-subsystem phase variables when `free_phase=true`. Length must equal the number of subsystems.
 - `coherent::Bool=true`: If `true`, uses a coherent fidelity objective (phases must align across state pairs). If `false`, uses per-state fidelity.
-- `integrator_type::Symbol=:spline`: Integrator backend (`:spline` or `:ensemble`).
-- `parallel_backend::Symbol=:manual`: Parallelism strategy (`:manual`, `:threads`, or `:gpu`).
+- `integrator_type::Symbol=:pwc`: Integrator backend. `:pwc` is the only value Piccolo ships —
+  `BilinearIntegrator`, which integrates the drive as **piecewise constant**. Note that this is
+  a PWC approximation *of your spline*; for spline-faithful dynamics pass `integrator =
+  Piccolissimo.SplineIntegrator(...)` explicitly. The former `:spline` and `:ensemble` values
+  now raise an informative error: `:spline` silently returned the PWC integrator, and
+  `:ensemble` referenced a type that was never defined.
+- `parallel_backend::Symbol=:manual`: **Inert.** Its only consumer was the removed `:ensemble`
+  branch; setting it to anything other than `:manual` warns and has no effect. Pass a
+  parallel integrator via `integrator` instead.
 """
 function SplinePulseProblem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
-    integrator_type::Symbol = :spline,  # :spline or :ensemble
-    parallel_backend::Symbol = :manual,  # :manual (default), :threads, :gpu
+    integrator_type::Symbol = :pwc,  # :pwc is the only backend Piccolo ships
+    parallel_backend::Symbol = :manual,  # inert — see the docstring
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -505,16 +512,54 @@ function SplinePulseProblem(
                 "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        # Choose integrator type based on integrator_type parameter
-        if integrator_type == :ensemble
-            dynamics_integrators = EnsembleSplineIntegrator(
-                qtraj,
-                N;
-                spline_order = _get_spline_order(qtraj.pulse),
-                parallel_backend = parallel_backend,
-            )
-        else
+        if parallel_backend !== :manual
+            @warn "`parallel_backend = :$parallel_backend` has no effect: its only consumer \
+                   was the `:ensemble` integrator branch, which was never implemented. Pass a \
+                   parallel integrator via `integrator = ...` instead." maxlog = 1
+        end
+
+        # `integrator_type` names what you actually get. `:pwc` is the only backend Piccolo
+        # ships: `BilinearIntegrator`, which models the drive as piecewise constant on each
+        # interval. There is deliberately no `:spline` value — see the errors below.
+        if integrator_type === :pwc
             dynamics_integrators = BilinearIntegrator(qtraj, N)
+        elseif integrator_type === :spline
+            error(
+                """
+                `integrator_type = :spline` is not available in Piccolo.
+
+                It previously accepted this value and silently returned a
+                **piecewise-constant** `BilinearIntegrator` instead — so a spline pulse was
+                optimized against PWC dynamics while the name claimed otherwise. Measured
+                cost of that mismatch: the optimizer reports ~1e-8 infidelity for a pulse
+                that actually achieves ~1e-3 (see `rollout_divergence`).
+
+                Piccolo ships no spline integrator. Either:
+                  • pass one explicitly (requires Piccolissimo):
+                      using Piccolissimo
+                      integrator = SplineIntegrator(qtraj, N; spline_order = $(_get_spline_order(qtraj.pulse)))
+                      SplinePulseProblem(qtraj, N; integrator = integrator, ...)
+                  • or request the PWC backend by its real name, `integrator_type = :pwc`,
+                    accepting that the pulse is integrated as piecewise constant.
+                """,
+            )
+        elseif integrator_type === :ensemble
+            error("""
+                  `integrator_type = :ensemble` was never implemented.
+
+                  It referenced an `EnsembleSplineIntegrator` that is defined nowhere in
+                  Piccolo or DirectTrajOpt, so this value could only ever throw an
+                  `UndefVarError` — which is why `test/jet.jl` ran with `broken = true`.
+
+                  For parallel multi-ket dynamics, pass an integrator explicitly from
+                  Piccolissimo. For the shipped backend, use `integrator_type = :pwc`.
+                  """)
+        else
+            error(
+                "unknown `integrator_type = :$integrator_type`. " *
+                "Piccolo ships one backend: `:pwc` (`BilinearIntegrator`). " *
+                "Pass `integrator = ...` for anything else.",
+            )
         end
 
         if !(dynamics_integrators isa AbstractVector)
@@ -916,6 +961,62 @@ end
     # Should have 2 dynamics integrators (one per state)
     dynamics_integrators = filter(i -> i isa BilinearIntegrator, qcp.prob.integrators)
     @test length(dynamics_integrators) == 2
+end
+
+@testitem "integrator_type names the backend it actually returns" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    σx = ComplexF64[0 1; 1 0]
+    sys = QuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
+    N, T = 21, 10.0
+    times = collect(range(0.0, T, length = N))
+    pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+    mk() = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    # The default is `:pwc`, and it means what it says: BilinearIntegrator.
+    qcp = SplinePulseProblem(mk(), N)
+    @test length(filter(i -> i isa BilinearIntegrator, qcp.prob.integrators)) == 2
+    @test SplinePulseProblem(mk(), N; integrator_type = :pwc) isa QuantumControlProblem
+
+    # `:spline` used to return the PWC integrator silently. It must now say so instead:
+    # optimizing a spline against PWC dynamics is the documented 5-orders-of-magnitude
+    # misreporting hazard, so a wrong answer is worse than a refusal.
+    err = try
+        SplinePulseProblem(mk(), N; integrator_type = :spline)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("not available in Piccolo", err.msg)
+    @test occursin("SplineIntegrator", err.msg)   # names the way to actually get one
+
+    # `:ensemble` referenced `EnsembleSplineIntegrator`, which is defined nowhere — the
+    # reason `test/jet.jl` carried `broken = true`. It must fail with an explanation, not
+    # an UndefVarError.
+    err2 = try
+        SplinePulseProblem(mk(), N; integrator_type = :ensemble)
+        nothing
+    catch e
+        e
+    end
+    @test err2 isa ErrorException
+    @test occursin("never implemented", err2.msg)
+
+    # An unknown value lists what is valid.
+    @test_throws ErrorException SplinePulseProblem(mk(), N; integrator_type = :nonsense)
+
+    # `parallel_backend` is inert now that the ensemble branch is gone; say so.
+    # `match_mode = :any` because DirectTrajOpt also warns about missing Δt bounds here,
+    # and the default exact-match mode would fail on that unrelated record.
+    @test_logs (:warn, r"has no effect") match_mode = :any SplinePulseProblem(
+        mk(),
+        N;
+        parallel_backend = :threads,
+    )
 end
 
 @testitem "SplinePulseProblem with SamplingTrajectory" begin

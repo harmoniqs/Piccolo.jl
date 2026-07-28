@@ -60,7 +60,7 @@ fidelity(qcp_base)
 
 #-
 
-sum(get_timesteps(get_trajectory(qcp_base)))
+get_duration(get_trajectory(qcp_base))
 
 # ### Step 3: Add Robustness
 
@@ -82,7 +82,7 @@ fidelity(qcp_mintime)
 
 #-
 
-sum(get_timesteps(get_trajectory(qcp_mintime)))
+get_duration(get_trajectory(qcp_mintime))
 
 # ## Common Composition Patterns
 #

@@ -61,8 +61,8 @@ qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity=0.99, D=100.0)
 solve!(qcp_mintime; max_iter=100)
 
 # Compare durations
-duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
-duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+duration_before = get_duration(get_trajectory(qcp_smooth))
+duration_after = get_duration(get_trajectory(qcp_mintime))
 @assert duration_after <= duration_before
 
 # Nested transformations also work
@@ -328,7 +328,7 @@ end
     qcp_smooth = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
 
     solve!(qcp_smooth; max_iter = 50, verbose = false, print_level = 1)
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time problem
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.95, D = 100.0)
@@ -344,7 +344,7 @@ end
 
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 50, verbose = false, print_level = 1)
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
 
     # Duration should decrease (or stay same if already optimal)
     @test duration_after <= duration_before
@@ -452,7 +452,7 @@ end
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
     solve!(sampling_prob; max_iter = 50, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(sampling_prob)))
+    duration_before = get_duration(get_trajectory(sampling_prob))
 
     # Convert to minimum-time
     mintime_prob = MinimumTimeProblem(sampling_prob; final_fidelity = 0.90, D = 50.0)
@@ -466,7 +466,7 @@ end
     # Solve minimum-time
     solve!(mintime_prob; max_iter = 20, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(mintime_prob)))
+    duration_after = get_duration(get_trajectory(mintime_prob))
     @test duration_after <= duration_before * 1.2  # Allow small tolerance
 end
 
@@ -531,7 +531,7 @@ end
         SmoothPulseProblem(ensemble_qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
     solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time problem
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.90, D = 50.0)
@@ -545,7 +545,7 @@ end
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
 
     # Min-time objective should reduce or hold the duration. Allow 20% margin
     # for the trade-off between min-time penalty and fidelity-constraint slack
@@ -596,7 +596,7 @@ end
 
     solve!(qcp_smooth; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.85, D = 50.0)
@@ -606,7 +606,7 @@ end
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
 end
 
@@ -642,7 +642,7 @@ end
 
     solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.85, D = 50.0)
@@ -652,7 +652,7 @@ end
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
 end
 
@@ -692,7 +692,7 @@ end
 
     solve!(qcp_smooth; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.80, D = 50.0)
@@ -702,7 +702,7 @@ end
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
 end
 
@@ -742,7 +742,7 @@ end
     # reflects the true converged duration, not an arbitrary mid-solve point.
     solve!(sampling_prob; max_iter = 200, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(sampling_prob)))
+    duration_before = get_duration(get_trajectory(sampling_prob))
 
     # Convert to minimum-time
     sampling_mintime = MinimumTimeProblem(sampling_prob; final_fidelity = 0.60, D = 50.0)
@@ -752,7 +752,7 @@ end
     # Solve minimum-time problem
     solve!(sampling_mintime; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(sampling_mintime)))
+    duration_after = get_duration(get_trajectory(sampling_mintime))
     # Loosened from 1.5x to 2.0x: the minimum-time/fidelity-constraint trade-off
     # for a time-dependent Hamiltonian samping over multiple sys instances has
     # genuine slack — the contract is "min-time stays comparable", not strict.
@@ -796,7 +796,7 @@ end
     # Solve sampling problem first
     solve!(sampling_prob; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(sampling_prob)))
+    duration_before = get_duration(get_trajectory(sampling_prob))
 
     # Convert to minimum-time
     sampling_mintime = MinimumTimeProblem(sampling_prob; final_fidelity = 0.60, D = 50.0)
@@ -806,7 +806,7 @@ end
     # Solve minimum-time problem
     solve!(sampling_mintime; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(sampling_mintime)))
+    duration_after = get_duration(get_trajectory(sampling_mintime))
     @test duration_after <= duration_before * 1.2
 end
 

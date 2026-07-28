@@ -151,7 +151,8 @@ function CoherentKetInfidelityObjective(
         return abs(1 - coherent_ket_fidelity(ψ̃s, goals))
     end
 
-    # Pass vector of component names for multi-component terminal objective
+    # Pass vector of component names for multi-component terminal objective.
+    # (Matrix-free per-knot HVP carrier construction lives in Piccolissimo.)
     return TerminalObjective(ℓ, ψ̃_names, traj; Q = Q)
 end
 
@@ -280,8 +281,9 @@ function UnitaryInfidelityObjective(
     traj::NamedTrajectory;
     Q = 100.0,
 )
+    # Matrix-free per-knot HVP carrier construction lives in Piccolissimo.
     ℓ = Ũ⃗ -> abs(1 - unitary_fidelity_loss(Ũ⃗, U_goal))
-    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
+    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
 end
 
 function UnitaryFreePhaseInfidelityObjective(
@@ -424,11 +426,8 @@ using TestItems
     u = randn(1, N)
     Δt = fill(0.1, N)
 
-    traj = NamedTrajectory(
-        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
-        timestep = :Δt,
-        controls = :u,
-    )
+    traj =
+        NamedTrajectory((ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt); timestep = :Δt, controls = :u)
 
     # Goal states for X gate: |0⟩→|1⟩ and |1⟩→|0⟩
     ψ0 = ComplexF64[1.0, 0.0]
