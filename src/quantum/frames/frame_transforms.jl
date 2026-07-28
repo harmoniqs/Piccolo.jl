@@ -6,8 +6,9 @@ export to_lab_frame
 # Group physical drive indices by subsystem into quadrature pairs / lone reals.
 # Returns Vector of (subsystem, kind, ix, iy, sx, sy) where kind ∈ (:pair, :real).
 function _grouped_drives(spec::FrameSpec, n_drives::Int)
-    length(spec.drive_map) == n_drives ||
-        error("FrameSpec drive_map has $(length(spec.drive_map)) entries; system has $n_drives drives")
+    length(spec.drive_map) == n_drives || error(
+        "FrameSpec drive_map has $(length(spec.drive_map)) entries; system has $n_drives drives",
+    )
     groups = Any[]
     pending = Dict{Int,Tuple{Int,Float64}}()   # subsystem => (x-index, x-sign) awaiting its :y
     for (k, (sub, q, sg)) in enumerate(spec.drive_map)
@@ -17,14 +18,19 @@ function _grouped_drives(spec::FrameSpec, n_drives::Int)
             haskey(pending, sub) && error("two :x drives on subsystem $sub without a :y")
             pending[sub] = (k, sg)
         elseif q === :y
-            haskey(pending, sub) || error("drive $k is :y on subsystem $sub but no preceding :x — a single quadrature cannot form (Ω, φ); mark it :real to carrier-modulate directly")
-            (ix, sx) = pending[sub]; delete!(pending, sub)
+            haskey(pending, sub) || error(
+                "drive $k is :y on subsystem $sub but no preceding :x — a single quadrature cannot form (Ω, φ); mark it :real to carrier-modulate directly",
+            )
+            (ix, sx) = pending[sub]
+            delete!(pending, sub)
             push!(groups, (sub, :pair, ix, k, sx, sg))
         else
             error("unknown quadrature $q (expected :x, :y, :real)")
         end
     end
-    isempty(pending) || error("unpaired :x drive(s) on subsystem(s) $(collect(keys(pending))) — a single quadrature cannot form (Ω, φ); mark :real to carrier-modulate directly")
+    isempty(pending) || error(
+        "unpaired :x drive(s) on subsystem(s) $(collect(keys(pending))) — a single quadrature cannot form (Ω, φ); mark :real to carrier-modulate directly",
+    )
     return groups
 end
 
@@ -47,23 +53,28 @@ function to_lab_frame(sys_rot::QuantumSystem, frame::AbstractFrame, spec::FrameS
     n_sub = length(spec.number_ops)
     ωs = frame_frequencies(frame, n_sub)
 
-    Hf = sum(ωs[i] * spec.number_ops[i] for i in 1:n_sub; init = zeros(ComplexF64, levels, levels))
+    Hf = sum(
+        ωs[i] * spec.number_ops[i] for i = 1:n_sub;
+        init = zeros(ComplexF64, levels, levels),
+    )
     H_rot_drift = Matrix{ComplexF64}(sys_rot.H(zeros(sys_rot.n_drives), 0.0))
     H_lab_drift = H_rot_drift + Hf
 
     ops = spec.drive_ops
     groups = _grouped_drives(spec, sys_rot.n_drives)
-    ω_of_sub = Dict(i => ωs[i] for i in 1:n_sub)
+    ω_of_sub = Dict(i => ωs[i] for i = 1:n_sub)
 
     function H_lab(u, t)
         H = copy(H_lab_drift)
         for (sub, kind, ix, iy, sx, sy) in groups
             ωd = ω_of_sub[sub]
             if kind === :pair
-                ux = sx * u[ix]; uy = sy * u[iy]
+                ux = sx * u[ix]
+                uy = sy * u[iy]
                 # RWA of Ω cos(ωt+φ)(a+a†) = Ω cosφ·Hx − Ω sinφ·Hy, so matching
                 # u_x·Hx + u_y·Hy ⇒ u_x = Ω cosφ, u_y = −Ω sinφ ⇒ φ = atan2(−u_y, u_x).
-                Ω = sqrt(ux^2 + uy^2); φ = atan(-uy, ux)
+                Ω = sqrt(ux^2 + uy^2)
+                φ = atan(-uy, ux)
                 H += Ω * cos(ωd * t + φ) * (2 * ops[ix])
             else  # :real — the op IS already the physical field; modulate directly (no 2×)
                 H += (sx * u[ix]) * cos(ωd * t) * ops[ix]
@@ -72,9 +83,13 @@ function to_lab_frame(sys_rot::QuantumSystem, frame::AbstractFrame, spec::FrameS
         return H
     end
 
-    return QuantumSystem(H_lab, sys_rot.drive_bounds; time_dependent = true,
-                         global_params = sys_rot.global_params,
-                         hermitian = sys_rot.hermitian)
+    return QuantumSystem(
+        H_lab,
+        sys_rot.drive_bounds;
+        time_dependent = true,
+        global_params = sys_rot.global_params,
+        hermitian = sys_rot.hermitian,
+    )
 end
 
 """
@@ -91,7 +106,10 @@ function to_lab_frame(comp::CompositeQuantumSystem, frame::RotatingFrame, spec::
     n_sub = length(spec.number_ops)
     ωs = frame_frequencies(frame, n_sub)
 
-    Hf = sum(ωs[i] * spec.number_ops[i] for i in 1:n_sub; init = zeros(ComplexF64, levels, levels))
+    Hf = sum(
+        ωs[i] * spec.number_ops[i] for i = 1:n_sub;
+        init = zeros(ComplexF64, levels, levels),
+    )
     H_rot_drift = Matrix{ComplexF64}(comp.H(zeros(comp.n_drives), 0.0))
     H_lab_drift = H_rot_drift + Hf
 
@@ -103,8 +121,10 @@ function to_lab_frame(comp::CompositeQuantumSystem, frame::RotatingFrame, spec::
         for (sub, kind, ix, iy, sx, sy) in groups
             ωd = ωs[sub]
             if kind === :pair
-                ux = sx * u[ix]; uy = sy * u[iy]
-                Ω = sqrt(ux^2 + uy^2); φ = atan(-uy, ux)
+                ux = sx * u[ix]
+                uy = sy * u[iy]
+                Ω = sqrt(ux^2 + uy^2)
+                φ = atan(-uy, ux)
                 H += Ω * cos(ωd * t + φ) * (2 * ops[ix])
             else
                 H += (sx * u[ix]) * cos(ωd * t) * ops[ix]
@@ -128,12 +148,19 @@ quadrature pair `(u_x, u_y)` (dropping the counter-rotating e^{±2iωt} terms) �
 time-independent rotating-frame `QuantumSystem`. `rwa=false` retains explicit
 time-dependence.
 """
-function to_rotating_frame(sys_lab::QuantumSystem, frame::RotatingFrame, spec::FrameSpec;
-                           rwa::Bool = true)
+function to_rotating_frame(
+    sys_lab::QuantumSystem,
+    frame::RotatingFrame,
+    spec::FrameSpec;
+    rwa::Bool = true,
+)
     levels = sys_lab.levels
     n_sub = length(spec.number_ops)
     ωs = frame_frequencies(frame, n_sub)
-    Hf = sum(ωs[i] * spec.number_ops[i] for i in 1:n_sub; init = zeros(ComplexF64, levels, levels))
+    Hf = sum(
+        ωs[i] * spec.number_ops[i] for i = 1:n_sub;
+        init = zeros(ComplexF64, levels, levels),
+    )
     H_lab_drift = Matrix{ComplexF64}(sys_lab.H(zeros(sys_lab.n_drives), 0.0))
     H_rot_drift = H_lab_drift - Hf
 
@@ -148,9 +175,11 @@ function to_rotating_frame(sys_lab::QuantumSystem, frame::RotatingFrame, spec::F
             for (sub, kind, ix, iy, sx, sy) in groups
                 ωd = ωs[sub]
                 if kind === :pair
-                    ux = sx * u[ix]; uy = sy * u[iy]
+                    ux = sx * u[ix]
+                    uy = sy * u[iy]
                     # φ sign matches the forward to_lab_frame convention: atan(−uy, ux).
-                    Ω = sqrt(ux^2 + uy^2); φ = atan(-uy, ux)
+                    Ω = sqrt(ux^2 + uy^2)
+                    φ = atan(-uy, ux)
                     H += Ω * cos(ωd * t + φ) * (2 * ops[ix])
                 else
                     H += (sx * u[ix]) * cos(ωd * t) * ops[ix]
@@ -158,8 +187,13 @@ function to_rotating_frame(sys_lab::QuantumSystem, frame::RotatingFrame, spec::F
             end
             return H
         end
-        return QuantumSystem(H_full, sys_lab.drive_bounds; time_dependent = true,
-                             global_params = sys_lab.global_params, hermitian = sys_lab.hermitian)
+        return QuantumSystem(
+            H_full,
+            sys_lab.drive_bounds;
+            time_dependent = true,
+            global_params = sys_lab.global_params,
+            hermitian = sys_lab.hermitian,
+        )
     end
 
     function H_slow(u, t)
@@ -174,8 +208,13 @@ function to_rotating_frame(sys_lab::QuantumSystem, frame::RotatingFrame, spec::F
         end
         return H
     end
-    return QuantumSystem(H_slow, sys_lab.drive_bounds; time_dependent = false,
-                         global_params = sys_lab.global_params, hermitian = sys_lab.hermitian)
+    return QuantumSystem(
+        H_slow,
+        sys_lab.drive_bounds;
+        time_dependent = false,
+        global_params = sys_lab.global_params,
+        hermitian = sys_lab.hermitian,
+    )
 end
 
 @testitem "to_lab_frame: single transmon builds a carrier-modulated time-dependent system" begin
@@ -186,13 +225,17 @@ end
     nop = Matrix(a' * a)
     Hx = 0.5 * Matrix(a + a')            # rotating-frame quadratures
     Hy = 0.5 * Matrix(im * (a' - a))     #   (see substrate_transmon convention)
-    α = -0.2; Δ = 0.0
+    α = -0.2
+    Δ = 0.0
     Hdrift_rot = Δ * nop + 0.5 * α * Matrix(a' * a' * a * a)
     sys_rot = QuantumSystem(Hdrift_rot, [Hx, Hy], [0.05, 0.05])
 
     ωd = 4.0
-    spec = FrameSpec(number_ops = [nop], drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
-                     drive_ops = [Hx, Hy])
+    spec = FrameSpec(
+        number_ops = [nop],
+        drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
+        drive_ops = [Hx, Hy],
+    )
     sys_lab = to_lab_frame(sys_rot, RotatingFrame(ωd), spec)
 
     @test sys_lab isa QuantumSystem
@@ -216,18 +259,29 @@ end
     nop = Matrix(a' * a)
     # (i) no drives ⇒ pure drift relabel (bare oscillator, no carrier)
     sys0 = QuantumSystem(0.0 * nop + 0.5 * (-0.2) * Matrix(a' * a' * a * a))
-    lab0 = to_lab_frame(sys0, RotatingFrame(4.0),
-        FrameSpec(number_ops = [nop], drive_map = [], drive_ops = []))
+    lab0 = to_lab_frame(
+        sys0,
+        RotatingFrame(4.0),
+        FrameSpec(number_ops = [nop], drive_map = [], drive_ops = []),
+    )
     @test lab0.n_drives == 0
-    @test norm(Matrix(lab0.H(Float64[], 0.0)) - Matrix(sys0.H(Float64[], 0.0) + 4.0 * nop)) < 1e-10
+    @test norm(
+        Matrix(lab0.H(Float64[], 0.0)) - Matrix(sys0.H(Float64[], 0.0) + 4.0 * nop),
+    ) < 1e-10
     # (ii) unpaired quadrature (single :x with no matching :y) ⇒ clear error
     Hx = 0.5 * Matrix(a + a')
     sys1 = QuantumSystem(0.0 * nop, [Hx], [0.05])
-    @test_throws ErrorException to_lab_frame(sys1, RotatingFrame(4.0),
-        FrameSpec(number_ops = [nop], drive_map = [(1, :x, +1.0)], drive_ops = [Hx]))
+    @test_throws ErrorException to_lab_frame(
+        sys1,
+        RotatingFrame(4.0),
+        FrameSpec(number_ops = [nop], drive_map = [(1, :x, +1.0)], drive_ops = [Hx]),
+    )
     # (iii) lone :real drive ⇒ allowed, carrier-modulated directly
-    lab1 = to_lab_frame(sys1, RotatingFrame(4.0),
-        FrameSpec(number_ops = [nop], drive_map = [(1, :real, +1.0)], drive_ops = [Hx]))
+    lab1 = to_lab_frame(
+        sys1,
+        RotatingFrame(4.0),
+        FrameSpec(number_ops = [nop], drive_map = [(1, :real, +1.0)], drive_ops = [Hx]),
+    )
     @test lab1.time_dependent && lab1.n_drives == 1
 end
 
@@ -237,12 +291,17 @@ end
     levels = 3
     a = annihilate(levels)
     nop = Matrix(a' * a)
-    Hx = 0.5 * Matrix(a + a'); Hy = 0.5 * Matrix(im * (a' - a))
-    α = -0.2; Δ = 0.01
+    Hx = 0.5 * Matrix(a + a')
+    Hy = 0.5 * Matrix(im * (a' - a))
+    α = -0.2
+    Δ = 0.01
     Hdrift = Δ * nop + 0.5 * α * Matrix(a' * a' * a * a)
     sys_rot = QuantumSystem(Hdrift, [Hx, Hy], [0.05, 0.05])
-    spec = FrameSpec(number_ops = [nop], drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
-                     drive_ops = [Hx, Hy])
+    spec = FrameSpec(
+        number_ops = [nop],
+        drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
+        drive_ops = [Hx, Hy],
+    )
     frame = RotatingFrame(4.0)
 
     back = to_rotating_frame(to_lab_frame(sys_rot, frame, spec), frame, spec; rwa = true)
@@ -259,22 +318,29 @@ end
     levels = 3
     a = annihilate(levels)
     nop = Matrix(a' * a)
-    Hx = 0.5 * Matrix(a + a'); Hy = 0.5 * Matrix(im * (a' - a))
+    Hx = 0.5 * Matrix(a + a')
+    Hy = 0.5 * Matrix(im * (a' - a))
     α = -0.2
     sys_rot = QuantumSystem(0.5 * α * Matrix(a' * a' * a * a), [Hx, Hy], [1.0, 1.0])
-    spec = FrameSpec(number_ops = [nop], drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
-                     drive_ops = [Hx, Hy])
+    spec = FrameSpec(
+        number_ops = [nop],
+        drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
+        drive_ops = [Hx, Hy],
+    )
 
-    T = 40.0; N = 41
+    T = 40.0
+    N = 41
     times = collect(range(0.0, T, length = N))
     Ωmax = π / T
-    u = zeros(2, N); u[1, :] .= Ωmax; u[2, :] .= 0.4 * Ωmax   # both quadratures (pins φ sign)
+    u = zeros(2, N)
+    u[1, :] .= Ωmax
+    u[2, :] .= 0.4 * Ωmax   # both quadratures (pins φ sign)
     pulse = ZeroOrderPulse(u, times)
     Xgoal = EmbeddedOperator(GATES[:X], sys_rot)   # an X pulse in the rotating frame
 
     # Reference: the rotating-frame propagator — the physics the lab must reproduce.
-    U_rwa = UnitaryTrajectory(sys_rot, pulse, Xgoal;
-                              algorithm = MagnusAdapt4()).solution.u[end]
+    U_rwa =
+        UnitaryTrajectory(sys_rot, pulse, Xgoal; algorithm = MagnusAdapt4()).solution.u[end]
 
     # METRIC NOTE — the original plan compared `fidelity(...)`-to-X for lab vs rot, but
     # that cannot test the carrier physics here:
@@ -292,8 +358,14 @@ end
     prev = Ref(Inf)   # Ref so the loop-body assignment survives testitem soft scope
     for ωd in (40.0, 400.0)                    # increasing carrier ⇒ Ωmax/ωd → 0
         sys_lab = to_lab_frame(sys_rot, RotatingFrame(ωd), spec)
-        U_lab = UnitaryTrajectory(sys_lab, pulse, Xgoal;
-                    algorithm = MagnusAdapt4(), abstol = 1e-10, reltol = 1e-10).solution.u[end]
+        U_lab = UnitaryTrajectory(
+            sys_lab,
+            pulse,
+            Xgoal;
+            algorithm = MagnusAdapt4(),
+            abstol = 1e-10,
+            reltol = 1e-10,
+        ).solution.u[end]
         U_derot = exp(im * ωd * T * nop) * U_lab   # back to the rotating frame at t=T
         gap = norm(U_derot - U_rwa)
         @test gap < (ωd ≥ 400.0 ? 1e-3 : 5e-2)   # converges as ωd grows
@@ -305,8 +377,13 @@ end
 @testitem "frames: composes on a multi-transmon (distinct carriers) — round trip + validity" begin
     using Piccolo
     using LinearAlgebra
-    comp = MultiTransmonSystem([4.0, 4.1], [0.2, 0.2], [0.0 0.005; 0.005 0.0];
-                               levels_per_transmon = 3, drive_bounds = 0.05)
+    comp = MultiTransmonSystem(
+        [4.0, 4.1],
+        [0.2, 0.2],
+        [0.0 0.005; 0.005 0.0];
+        levels_per_transmon = 3,
+        drive_bounds = 0.05,
+    )
     spec = FrameSpec(comp)                    # auto-derived (2 number ops, 4 quadrature drives)
     frame = RotatingFrame([4.0, 4.1])
     sys_lab = to_lab_frame(comp, frame, spec)      # composite input → flat QuantumSystem output
@@ -325,10 +402,12 @@ end
     using LinearAlgebra
     # LabFrame ⇒ ω = 0 ⇒ to_lab_frame is the identity: no generator added to the drift,
     # and a :real drive modulated by cos(0)=1 reproduces the original drive exactly.
-    a = annihilate(3); nop = Matrix(a' * a)
+    a = annihilate(3)
+    nop = Matrix(a' * a)
     fieldop = Matrix(a + a')                      # a genuine physical field (:real)
     sys = QuantumSystem(0.5 * (-0.2) * Matrix(a' * a' * a * a), [fieldop], [0.05])
-    spec = FrameSpec(number_ops = [nop], drive_map = [(1, :real, +1.0)], drive_ops = [fieldop])
+    spec =
+        FrameSpec(number_ops = [nop], drive_map = [(1, :real, +1.0)], drive_ops = [fieldop])
     lab = to_lab_frame(sys, LabFrame(), spec)
     @test norm(Matrix(lab.H([0.02], 0.0)) - Matrix(sys.H([0.02], 0.0))) < 1e-10
 end

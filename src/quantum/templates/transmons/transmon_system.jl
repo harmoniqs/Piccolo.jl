@@ -324,10 +324,17 @@ end
 @testitem "TransmonSystem: lab_frame applies a carrier-modulated drive (not static quadratures)" begin
     using Piccolo
     using LinearAlgebra
-    sys = TransmonSystem(ω = 4.0, δ = 0.2, levels = 3, lab_frame = true, drive_bounds = fill(0.05, 2))
+    sys = TransmonSystem(
+        ω = 4.0,
+        δ = 0.2,
+        levels = 3,
+        lab_frame = true,
+        drive_bounds = fill(0.05, 2),
+    )
     @test sys.time_dependent                       # was false (static) before the fix
     u = [0.03, 0.0]
-    H0 = Matrix(sys.H(u, 0.0)); Hq = Matrix(sys.H(u, 2π / (2π * 4.0) / 4))
+    H0 = Matrix(sys.H(u, 0.0))
+    Hq = Matrix(sys.H(u, 2π / (2π * 4.0) / 4))
     @test norm(H0 - Hq) > 1e-6
     @test ishermitian(H0)
 end
@@ -336,20 +343,45 @@ end
     using Piccolo
     using LinearAlgebra
     using OrdinaryDiffEqLinear: MagnusAdapt4
-    levels = 3; δ = 0.2
-    sys_rot = TransmonSystem(ω = 4.0, δ = δ, levels = levels, lab_frame = false, drive_bounds = fill(1.0, 2))
-    a = annihilate(levels); nop = Matrix(a' * a)
-    T = 40.0; N = 41; times = collect(range(0.0, T, length = N))
+    levels = 3
+    δ = 0.2
+    sys_rot = TransmonSystem(
+        ω = 4.0,
+        δ = δ,
+        levels = levels,
+        lab_frame = false,
+        drive_bounds = fill(1.0, 2),
+    )
+    a = annihilate(levels)
+    nop = Matrix(a' * a)
+    T = 40.0
+    N = 41
+    times = collect(range(0.0, T, length = N))
     Ωmax = π / T
-    u = zeros(2, N); u[1, :] .= Ωmax; u[2, :] .= 0.4 * Ωmax    # BOTH quadratures (pins the y-sign)
+    u = zeros(2, N)
+    u[1, :] .= Ωmax
+    u[2, :] .= 0.4 * Ωmax    # BOTH quadratures (pins the y-sign)
     pulse = ZeroOrderPulse(u, times)
     Xgoal = EmbeddedOperator(GATES[:X], sys_rot)
-    U_rot = UnitaryTrajectory(sys_rot, pulse, Xgoal; algorithm = MagnusAdapt4()).solution.u[end]
+    U_rot =
+        UnitaryTrajectory(sys_rot, pulse, Xgoal; algorithm = MagnusAdapt4()).solution.u[end]
     prev = Ref(Inf)
     for ωc in (40.0, 120.0)          # sweep the CARRIER frequency; larger ⇒ RWA better
-        sys_lab = TransmonSystem(ω = ωc, δ = δ, levels = levels, lab_frame = true, drive_bounds = fill(1.0, 2))
-        U_lab = UnitaryTrajectory(sys_lab, pulse, Xgoal; algorithm = MagnusAdapt4(),
-                                  abstol = 1e-10, reltol = 1e-10).solution.u[end]
+        sys_lab = TransmonSystem(
+            ω = ωc,
+            δ = δ,
+            levels = levels,
+            lab_frame = true,
+            drive_bounds = fill(1.0, 2),
+        )
+        U_lab = UnitaryTrajectory(
+            sys_lab,
+            pulse,
+            Xgoal;
+            algorithm = MagnusAdapt4(),
+            abstol = 1e-10,
+            reltol = 1e-10,
+        ).solution.u[end]
         U_derot = exp(im * (2π * ωc) * T * nop) * U_lab   # de-rotate by the 2π-scaled carrier
         gap = norm(U_derot - U_rot)
         @test gap < (ωc ≥ 120.0 ? 3e-2 : 1e-1)            # correct sign converges; wrong sign stays O(1)

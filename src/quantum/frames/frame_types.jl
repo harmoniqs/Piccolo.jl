@@ -70,8 +70,9 @@ struct FrameSpec
 end
 function FrameSpec(; number_ops, drive_map, drive_ops)
     dmap = [(Int(s), Symbol(q), Float64(sg)) for (s, q, sg) in drive_map]
-    length(drive_ops) == length(dmap) ||
-        error("FrameSpec: drive_ops ($(length(drive_ops))) must match drive_map ($(length(dmap)))")
+    length(drive_ops) == length(dmap) || error(
+        "FrameSpec: drive_ops ($(length(drive_ops))) must match drive_map ($(length(dmap)))",
+    )
     return FrameSpec(Matrix{ComplexF64}.(number_ops), dmap, Matrix{ComplexF64}.(drive_ops))
 end
 
@@ -111,9 +112,13 @@ function FrameSpec(sys::CompositeQuantumSystem)
     k = n_coupling
     for (i, s) in enumerate(sys.subsystems)
         s.n_drives == 0 && continue
-        s.n_drives == 2 || error("FrameSpec auto-derivation expects 2 quadrature drives per driven subsystem (got $(s.n_drives) on subsystem $i)")
-        push!(dmap, (i, :x, +1.0)); push!(ops, all_ops[k + 1])
-        push!(dmap, (i, :y, +1.0)); push!(ops, all_ops[k + 2])
+        s.n_drives == 2 || error(
+            "FrameSpec auto-derivation expects 2 quadrature drives per driven subsystem (got $(s.n_drives) on subsystem $i)",
+        )
+        push!(dmap, (i, :x, +1.0))
+        push!(ops, all_ops[k+1])
+        push!(dmap, (i, :y, +1.0))
+        push!(ops, all_ops[k+2])
         k += 2
     end
     return FrameSpec(nops, dmap, ops)
@@ -135,10 +140,13 @@ end
     levels = 3
     a = annihilate(levels)
     nop = Matrix(a' * a)
-    Hx = 0.5 * Matrix(a + a'); Hy = 0.5 * Matrix(im * (a' - a))
-    spec = FrameSpec(number_ops = [nop],
-                     drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
-                     drive_ops = [Hx, Hy])
+    Hx = 0.5 * Matrix(a + a')
+    Hy = 0.5 * Matrix(im * (a' - a))
+    spec = FrameSpec(
+        number_ops = [nop],
+        drive_map = [(1, :x, +1.0), (1, :y, +1.0)],
+        drive_ops = [Hx, Hy],
+    )
     @test length(spec.number_ops) == 1
     @test spec.drive_map[2] == (1, :y, +1.0)
     @test length(spec.drive_ops) == 2
