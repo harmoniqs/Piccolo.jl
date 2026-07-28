@@ -633,6 +633,42 @@ end
         free_phase = true,
         subsystem_levels = [2],
     )
+
+    # The free-phase branch must honor trajectory weights (issue #263).
+    #
+    # The default-integrator guard above rejects free_phase, because coupling the
+    # phase globals into the dynamics needs an integrator Piccolo does not ship
+    # (HermitianExponentialIntegrator lives downstream in Piccolissimo). Passing
+    # an explicit integrator bypasses that guard, which is enough to reach and
+    # exercise the objective-construction branch this test is about. The
+    # resulting problem is NOT a physically valid free-phase problem — its
+    # dynamics ignore θ — so this asserts objective wiring only, never a solve.
+    ψp = ComplexF64[1.0, 1.0] / √2
+    ψm = ComplexF64[1.0, -1.0] / √2
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_det =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse_det = ZeroOrderPulse(u_det, collect(range(0.0, T, length = N)))
+
+    function free_phase_objective_value(ws)
+        qt = MultiKetTrajectory(sys, pulse_det, [ψ0, ψ1, ψp], [ψ1, ψ0, ψm]; weights = ws)
+        p = BangBangPulseProblem(
+            qt,
+            N;
+            Q = 100.0,
+            R_du = 1e-1,
+            free_phase = true,
+            subsystem_levels = [2],
+            integrator = BilinearIntegrator(qt, N),
+        )
+        objective_value(p.prob.objective, p.prob.trajectory)
+    end
+
+    @test free_phase_objective_value([0.8, 0.1, 0.1]) !=
+          free_phase_objective_value([0.1, 0.1, 0.8])
+    @test free_phase_objective_value(fill(1 / 3, 3)) ===
+          free_phase_objective_value(fill(1.0, 3))
 end
 
 @testitem "BangBangPulseProblem free_phase requires EmbeddedOperator for unitary" begin
