@@ -365,9 +365,35 @@ function _validate!(spec::ProblemSpec, errs::Vector{SpecError})
         return errs   # compat checks below need the entry
     end
 
+    # `goal` and `pulse` default to `nothing` on ProblemSpec (and the JSON Schema's
+    # control branch requires only `system`), but materializing a control spec needs
+    # both: `_build_goal` has no `Nothing` method, and `_build_pulse_trajectory`
+    # reads `spec.pulse.T` directly. Omitting either used to surface as a
+    # MethodError/FieldError — an internal error with no field path, from the one
+    # code path whose stated contract is "never a materialization crash".
+    if spec.goal === nothing
+        push!(errs, SpecError("goal", "missing [goal] block for a control spec"))
+    end
+    if spec.pulse === nothing
+        push!(errs, SpecError("pulse", "missing [pulse] block for a control spec"))
+    end
+
     # system availability / composite deferral
     if spec.system.kind === :template
-        if lookup_system(spec.system.template) === nothing
+        # `template` is Union{Nothing,Symbol}, and `lookup_system` only accepts a
+        # Symbol — so the omitted-field case has to be caught before the lookup,
+        # not by it.
+        if spec.system.template === nothing
+            push!(
+                errs,
+                SpecError(
+                    "system.template",
+                    "missing `template` for a system with `kind = \"template\"`",
+                    nothing,
+                    sort!(String[string(k) for k in keys(SYSTEMS)]),
+                ),
+            )
+        elseif lookup_system(spec.system.template) === nothing
             push!(
                 errs,
                 SpecError(
@@ -856,4 +882,91 @@ end
     @test_throws Specs.SpecValidationError Specs.materialize(
         Specs.parse_spec(ROBUST_TOML; format = :toml),
     )
+end
+
+@testitem "materialize: omitted required blocks are structured errors, not crashes" begin
+    using Piccolo, Piccolo.Specs
+
+    # `_validate!`'s contract is that materialize is "never a materialization
+    # crash". Each omission below reaches code accepting only a non-nothing value,
+    # so without a pre-pass guard it surfaced as a MethodError/FieldError — an
+    # internal error with no field path, from the one entry point whose job is to
+    # hand a caller something it can correct. `goal`/`system.template` were the two
+    # JET flagged (`_build_goal(::Nothing, …)`, `lookup_system(::Nothing)`); `pulse`
+    # is the same defect one field over, which JET did not reach.
+
+    # Each case below isolates ONE omission (supplying the others) so a failure
+    # names the guard that regressed; the last case checks they collect.
+    _GOAL = """
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    """
+    _PULSE = """
+    [pulse]
+    kind = "linear_spline"
+    T = 10.0
+    """
+    _PROBLEM = """
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+    _SYS = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    """
+    _SYS_NO_TEMPLATE = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    """
+    paths_of(toml) = begin
+        err = try
+            Specs.materialize(Specs.parse_spec(toml; format = :toml))
+            nothing
+        catch e
+            e
+        end
+        @test err isa Specs.SpecValidationError
+        err
+    end
+
+    # [goal] omitted. It parses fine — the schema's control branch requires only
+    # `system` — so this is purely a materialize-time contract.
+    e_goal = paths_of(_SYS * _PULSE * _PROBLEM)
+    @test "goal" in [e.path for e in e_goal.errors]
+
+    # [pulse] omitted: `_build_pulse_trajectory` reads `spec.pulse.T` directly.
+    e_pulse = paths_of(_SYS * _GOAL * _PROBLEM)
+    @test "pulse" in [e.path for e in e_pulse.errors]
+
+    # `kind = "template"` with no `template` key. This one had to be caught AHEAD of
+    # `lookup_system`, not by it — `lookup_system` accepts only a Symbol, so the
+    # existing `lookup_system(...) === nothing` check was itself the crash site.
+    e_tmpl = paths_of(_SYS_NO_TEMPLATE * _GOAL * _PULSE * _PROBLEM)
+    st = only(filter(e -> e.path == "system.template", e_tmpl.errors))
+    @test occursin("missing", st.msg)
+    @test st.allowed !== nothing          # still lists the registered systems
+    @test "TransmonSystem" in st.allowed
+
+    # A known system template still validates — the guard must not swallow the
+    # ordinary path (and an unknown one still reports as unknown, not missing).
+    e_unknown = paths_of(
+        replace(_SYS, "TransmonSystem" => "NoSuchSystem") * _GOAL * _PULSE * _PROBLEM,
+    )
+    su = only(filter(e -> e.path == "system.template", e_unknown.errors))
+    @test occursin("unknown", su.msg)
+
+    # All three omissions at once are COLLECTED, not short-circuited — the
+    # documented behaviour is that a caller fixes every field from one payload.
+    e_all = paths_of(_SYS_NO_TEMPLATE * _PROBLEM)
+    paths = [e.path for e in e_all.errors]
+    @test "goal" in paths
+    @test "pulse" in paths
+    @test "system.template" in paths
 end

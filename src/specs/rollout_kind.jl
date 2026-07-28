@@ -101,7 +101,20 @@ function _validate_rollout!(spec::RolloutSpec, errs::Vector{SpecError})
             ),
         )
     end
-    if spec.system.kind === :template && lookup_system(spec.system.template) === nothing
+    # Mirrors the control path in `materialize.jl`: `template` is
+    # Union{Nothing,Symbol} and `lookup_system` takes only a Symbol, so an omitted
+    # `template` has to be caught ahead of the lookup rather than by it.
+    if spec.system.kind === :template && spec.system.template === nothing
+        push!(
+            errs,
+            SpecError(
+                "system.template",
+                "missing `template` for a system with `kind = \"template\"`",
+                nothing,
+                sort!(String[string(k) for k in keys(SYSTEMS)]),
+            ),
+        )
+    elseif spec.system.kind === :template && lookup_system(spec.system.template) === nothing
         push!(
             errs,
             SpecError(
@@ -536,4 +549,30 @@ end
     """
     plain = Specs.parse_spec(PLAIN_TOML; format = :toml)
     @test Specs.run_spec(plain).verdict === nothing
+end
+
+@testitem "rollout: omitted system.template is a structured error, not a crash" begin
+    using Piccolo, Piccolo.Specs
+
+    # Same guard as the control path in materialize.jl — `_validate_rollout!` called
+    # `lookup_system(spec.system.template)` with template::Union{Nothing,Symbol}, so
+    # an omitted key threw MethodError instead of reporting the field.
+    NO_TEMPLATE = """
+    schema_version = 1
+    kind = "rollout"
+    rollout_kind = "unitary"
+    input_pulse = "pulse.jld2"
+    [system]
+    kind = "template"
+    """
+    err = try
+        Specs.materialize(Specs.parse_spec(NO_TEMPLATE; format = :toml))
+        nothing
+    catch e
+        e
+    end
+    @test err isa Specs.SpecValidationError
+    st = only(filter(e -> e.path == "system.template", err.errors))
+    @test occursin("missing", st.msg)
+    @test "TransmonSystem" in st.allowed
 end
