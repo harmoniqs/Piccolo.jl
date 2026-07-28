@@ -433,7 +433,14 @@ function SmoothPulseProblem(
 
     # Build objective: coherent fidelity for ensemble (with optional free phase)
     J = if free_phase && !isnothing(goals_fn)
-        CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj_smooth; Q = Q)
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            snames,
+            θ_names,
+            traj_smooth;
+            Q = Q,
+            weights = weights,
+        )
     else
         _ensemble_ket_objective(
             qtraj,
@@ -1516,6 +1523,36 @@ end
 
     # Check bounds were set
     @test length(qcp.prob.constraints) > 0
+
+    # The free-phase branch must honor trajectory weights, matching the
+    # fixed-phase branch of the same template (issue #263)
+    ψp = ComplexF64[1.0, 1.0] / √2
+    ψm = ComplexF64[1.0, -1.0] / √2
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_det =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse_det = ZeroOrderPulse(u_det, collect(range(0.0, T, length = N)))
+
+    function free_phase_objective_value(ws)
+        qtraj = MultiKetTrajectory(sys, pulse_det, [ψ0, ψ1, ψp], [ψ1, ψ0, ψm]; weights = ws)
+        p = SmoothPulseProblem(
+            qtraj,
+            N;
+            Q = 100.0,
+            R = 1e-2,
+            free_phase = true,
+            subsystem_levels = [2],
+        )
+        objective_value(p.prob.objective, p.prob.trajectory)
+    end
+
+    @test free_phase_objective_value([0.8, 0.1, 0.1]) !=
+          free_phase_objective_value([0.1, 0.1, 0.8])
+
+    # Uniform weights leave today's value exactly where it was
+    @test free_phase_objective_value(fill(1 / 3, 3)) ===
+          free_phase_objective_value(fill(1.0, 3))
 end
 
 @testitem "SmoothPulseProblem free_phase requires subsystem_levels" begin

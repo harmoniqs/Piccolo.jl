@@ -1,7 +1,11 @@
 module QuantumConstraints
 
 using ..QuantumObjectives
-using ..QuantumObjectives: ket_fidelity_loss, unitary_fidelity_loss, coherent_ket_fidelity
+using ..QuantumObjectives:
+    ket_fidelity_loss,
+    unitary_fidelity_loss,
+    coherent_ket_fidelity,
+    coherent_fidelity_weights
 
 using DirectTrajOpt
 using LinearAlgebra
@@ -85,9 +89,9 @@ end
 
 Create a final fidelity constraint using coherent ket fidelity across multiple states.
 
-Coherent fidelity: F = |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|²
+Coherent fidelity: F = |∑ᵢ wᵢ ⟨ψᵢ_goal|ψᵢ⟩ / ∑ᵢ wᵢ|²
 
-This constraint enforces that all state overlaps have aligned phases, which is 
+This constraint enforces that all state overlaps have aligned phases, which is
 essential when implementing a gate via multiple state transfers (e.g., MultiKetTrajectory).
 
 # Arguments
@@ -95,6 +99,12 @@ essential when implementing a gate via multiple state transfers (e.g., MultiKetT
 - `ψ̃_names::Vector{Symbol}`: Names of isomorphic state variables in trajectory
 - `final_fidelity::Float64`: Minimum fidelity threshold (constraint: F ≥ final_fidelity)
 - `traj::NamedTrajectory`: The trajectory
+
+# Keyword Arguments
+- `weights::Union{Nothing, AbstractVector{<:Real}}=nothing`: Per-state weights on the
+  coherent mean of overlaps. Pass the same weights as the objective so the constrained
+  quantity is the one being minimized. `nothing` or uniform weights give the unweighted
+  fidelity |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|².
 
 # Example
 ```julia
@@ -108,13 +118,18 @@ function FinalCoherentKetFidelityConstraint(
     ψ_goals::Vector{<:AbstractVector{<:Complex}},
     ψ̃_names::Vector{Symbol},
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    weights::Union{Nothing,AbstractVector{<:Real}} = nothing,
 )
     n_states = length(ψ_goals)
     @assert length(ψ̃_names) == n_states "Number of names must match number of goals"
 
     # Convert goals to ComplexF64
     goals = [ComplexF64.(g) for g in ψ_goals]
+
+    # Normalize once at construction, so the constraint captures self-describing
+    # weights and matches the fidelity a weighted objective drives to one
+    ws = coherent_fidelity_weights(weights, n_states)
 
     # Get component info for extracting states from concatenated vector
     state_dims = [traj.dims[name] for name in ψ̃_names]
@@ -129,7 +144,7 @@ function FinalCoherentKetFidelityConstraint(
         end
 
         # Constraint: final_fidelity - F_coherent ≤ 0
-        return [final_fidelity - coherent_ket_fidelity(ψ̃s, goals)]
+        return [final_fidelity - coherent_ket_fidelity(ψ̃s, goals; weights = ws)]
     end
 
     return NonlinearKnotPointConstraint(
@@ -146,17 +161,24 @@ end
 
 Free-phase version: `goals_fn(θ)` returns phase-adjusted goal kets.
 Uses `NonlinearGlobalKnotPointConstraint` to include global phase variables.
+
+Accepts the same `weights` keyword as the fixed-phase method; weights apply to the
+phased overlaps, so weighting composes with the phase rotation.
 """
 function FinalCoherentKetFidelityConstraint(
     goals_fn::Function,
     ψ̃_names::Vector{Symbol},
     θ_names::AbstractVector{Symbol},
     final_fidelity::Float64,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    weights::Union{Nothing,AbstractVector{<:Real}} = nothing,
 )
     n_states = length(ψ̃_names)
     state_dims = [traj.dims[name] for name in ψ̃_names]
     total_state_dim = sum(state_dims)
+
+    # Normalize once at construction (see the fixed-phase method above)
+    ws = coherent_fidelity_weights(weights, n_states)
 
     function terminal_constraint(z)
         x = z[1:total_state_dim]
@@ -171,7 +193,7 @@ function FinalCoherentKetFidelityConstraint(
         end
 
         phased_goals = goals_fn(θ)
-        return [final_fidelity - coherent_ket_fidelity(ψ̃s, phased_goals)]
+        return [final_fidelity - coherent_ket_fidelity(ψ̃s, phased_goals; weights = ws)]
     end
 
     return NonlinearGlobalKnotPointConstraint(
@@ -530,6 +552,103 @@ end
     @test constraint.equality == false
     @test constraint.times == [traj.N]
     @test constraint.g_dim == 1
+end
+
+@testitem "FinalCoherentKetFidelityConstraint honors per-state weights" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    N = 10
+    ket_dim = 4  # iso dim for 2-level system
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    goals = [ψ1, ψ0]
+
+    # Asymmetric states: ⟨ψ1|ψ̃1⟩ = 1, ⟨ψ0|ψ̃2⟩ = ½
+    ψ̃1 = zeros(ket_dim, N)
+    ψ̃2 = zeros(ket_dim, N)
+    for k = 1:N
+        ψ̃1[:, k] = ket_to_iso(ψ1)
+        ψ̃2[:, k] = ket_to_iso(0.5 * ψ0)
+    end
+
+    final_fidelity = 0.9
+
+    residual(c, traj) = (v = zeros(c.dim); DirectTrajOpt.evaluate!(v, c, traj); v)
+
+    # ---- fixed-phase method ----
+    traj = NamedTrajectory(
+        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    fixed(ws) = residual(
+        FinalCoherentKetFidelityConstraint(
+            goals,
+            [:ψ̃1, :ψ̃2],
+            final_fidelity,
+            traj;
+            weights = ws,
+        ),
+        traj,
+    )
+
+    # Constraint is final_fidelity - F_coherent, with
+    # F = |0.9·1 + 0.1·½|² = 0.9025  and  |0.1·1 + 0.9·½|² = 0.3025
+    @test fixed([0.9, 0.1]) ≈ [final_fidelity - 0.9025]
+    @test fixed([0.1, 0.9]) ≈ [final_fidelity - 0.3025]
+    @test fixed([0.9, 0.1]) != fixed([0.1, 0.9])
+    @test fixed(nothing) == fixed([0.5, 0.5])
+    @test fixed(nothing) == fixed([1.0, 1.0])
+
+    # ---- free-phase method ----
+    function goals_fn(θ)
+        phase_diag = [one(eltype(θ)), exp(im * θ[1])]
+        return [phase_diag .* g for g in goals]
+    end
+
+    traj_θ = NamedTrajectory(
+        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.0],
+        global_components = (φ_1 = 1:1,),
+    )
+
+    free(ws) = residual(
+        FinalCoherentKetFidelityConstraint(
+            goals_fn,
+            [:ψ̃1, :ψ̃2],
+            [:φ_1],
+            final_fidelity,
+            traj_θ;
+            weights = ws,
+        ),
+        traj_θ,
+    )
+
+    # At θ = 0 the phased goals equal the goals, so the same analytic values hold
+    @test free([0.9, 0.1]) ≈ [final_fidelity - 0.9025]
+    @test free([0.1, 0.9]) ≈ [final_fidelity - 0.3025]
+    @test free([0.9, 0.1]) != free([0.1, 0.9])
+    @test free(nothing) == free([0.5, 0.5])
+    @test free(nothing) == free([1.0, 1.0])
+
+    # Objective and constraint must agree on what "coherent fidelity" means:
+    # the constraint residual is final_fidelity minus the fidelity the
+    # weighted objective is driving to one
+    obj = CoherentKetInfidelityObjective(
+        goals,
+        [:ψ̃1, :ψ̃2],
+        traj;
+        Q = 1.0,
+        weights = [0.9, 0.1],
+    )
+    F_from_objective = 1 - objective_value(obj, traj)
+    @test only(fixed([0.9, 0.1])) ≈ final_fidelity - F_from_objective
 end
 
 @testitem "BoundStateL2Constraint block layout" begin

@@ -230,9 +230,10 @@ Coherent ket infidelity with optimizable single-qubit Z-phase rotations.
 in the trajectory's `global_data` and optimized alongside the pulse.
 
 The objective minimizes:
-    1 - |1/n Σᵢ ⟨goal_i(θ)|ψ_i⟩|²
+    1 - |Σᵢ wᵢ ⟨goal_i(θ)|ψ_i⟩ / Σᵢ wᵢ|²
 
-where `goal_i(θ) = Φ(θ) · goal_i` with `Φ(θ) = Z₁(θ₁) ⊗ Z₂(θ₂) ⊗ ⋯`.
+where `goal_i(θ) = Φ(θ) · goal_i` with `Φ(θ) = Z₁(θ₁) ⊗ Z₂(θ₂) ⊗ ⋯`. Weights
+apply to the *phased* overlaps, so weighting composes with the phase rotation.
 
 # Arguments
 - `goals_fn::Function`: Maps phase vector `θ` to phased goal kets
@@ -242,6 +243,9 @@ where `goal_i(θ) = Φ(θ) · goal_i` with `Φ(θ) = Z₁(θ₁) ⊗ Z₂(θ₂)
 
 # Keyword Arguments
 - `Q::Float64=100.0`: Weight on the infidelity objective
+- `weights::Union{Nothing, AbstractVector{<:Real}}=nothing`: Per-state weights on the
+  coherent mean of overlaps. Normalized at construction; only their ratios matter.
+  `nothing` or uniform weights give the unweighted fidelity |1/n Σᵢ ⟨goal_i(θ)|ψ_i⟩|².
 """
 function CoherentKetFreePhaseInfidelityObjective(
     goals_fn::Function,
@@ -249,10 +253,14 @@ function CoherentKetFreePhaseInfidelityObjective(
     θ_names::AbstractVector{Symbol},
     traj::NamedTrajectory;
     Q::Float64 = 100.0,
+    weights::Union{Nothing,AbstractVector{<:Real}} = nothing,
 )
     n_states = length(ψ̃_names)
     state_dims = [length(traj.components[name]) for name in ψ̃_names]
     total_state_dim = sum(state_dims)
+
+    # Normalize once at construction, so the loss captures self-describing weights
+    ws = coherent_fidelity_weights(weights, n_states)
 
     function ℓ(z)
         x = z[1:total_state_dim]
@@ -267,7 +275,7 @@ function CoherentKetFreePhaseInfidelityObjective(
         end
 
         phased_goals = goals_fn(θ)
-        return abs(1 - coherent_ket_fidelity(ψ̃s, phased_goals))
+        return abs(1 - coherent_ket_fidelity(ψ̃s, phased_goals; weights = ws))
     end
 
     return GlobalKnotPointObjective(
@@ -740,6 +748,79 @@ end
     J_rand = objective_value(obj_rand, traj_rand)
     @test isfinite(J_rand)
     @test 0.0 <= J_rand <= 100.0
+
+    # Per-state weights must reach the free-phase objective too (issue #263).
+    # Asymmetric states at θ=0: ⟨ψ1|ψ̃1⟩ = 1, ⟨ψ0|ψ̃2⟩ = ½
+    ψ̃1_asym = zeros(ket_dim, N)
+    ψ̃2_asym = zeros(ket_dim, N)
+    for k = 1:N
+        ψ̃1_asym[:, k] = ket_to_iso(ψ1)
+        ψ̃2_asym[:, k] = ket_to_iso(0.5 * ψ0)
+    end
+    traj_asym = NamedTrajectory(
+        (ψ̃1 = ψ̃1_asym, ψ̃2 = ψ̃2_asym, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.0],
+        global_components = (φ_1 = 1:1,),
+    )
+
+    free_phase_value(ws) = objective_value(
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            [:ψ̃1, :ψ̃2],
+            θ_names,
+            traj_asym;
+            Q = 100.0,
+            weights = ws,
+        ),
+        traj_asym,
+    )
+
+    # Goals are phase-rotated by θ=0 here, so the weighted mean is analytic:
+    # F = |0.9·1 + 0.1·½|² = 0.9025  and  |0.1·1 + 0.9·½|² = 0.3025
+    @test free_phase_value([0.9, 0.1]) ≈ 100.0 * (1 - 0.9025)
+    @test free_phase_value([0.1, 0.9]) ≈ 100.0 * (1 - 0.3025)
+    @test free_phase_value([0.9, 0.1]) != free_phase_value([0.1, 0.9])
+
+    # Omitted and uniform weights leave today's value exactly where it is
+    @test free_phase_value(nothing) === free_phase_value([0.5, 0.5])
+    @test free_phase_value(nothing) === free_phase_value([1.0, 1.0])
+
+    # Weighting composes with the phase rotation rather than replacing it:
+    # a nonzero phase still moves a weighted objective
+    traj_phase = NamedTrajectory(
+        (ψ̃1 = ψ̃1_asym, ψ̃2 = ψ̃2_asym, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.7],
+        global_components = (φ_1 = 1:1,),
+    )
+    obj_phase_w = CoherentKetFreePhaseInfidelityObjective(
+        goals_fn,
+        [:ψ̃1, :ψ̃2],
+        θ_names,
+        traj_phase;
+        Q = 100.0,
+        weights = [0.9, 0.1],
+    )
+    @test objective_value(obj_phase_w, traj_phase) != free_phase_value([0.9, 0.1])
+
+    # Weighted free-phase objectives stay differentiable
+    ∇_w = zeros(traj_asym.dim * traj_asym.N + traj_asym.global_dim)
+    gradient!(
+        ∇_w,
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            [:ψ̃1, :ψ̃2],
+            θ_names,
+            traj_asym;
+            Q = 100.0,
+            weights = [0.9, 0.1],
+        ),
+        traj_asym,
+    )
+    @test !all(∇_w .== 0)
 end
 
 @testitem "KetFreePhaseInfidelityObjective" begin

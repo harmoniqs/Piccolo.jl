@@ -533,7 +533,14 @@ function SplinePulseProblem(
 
     # Build objective: coherent fidelity for ensemble (with optional free phase)
     J = if free_phase && !isnothing(goals_fn)
-        CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj; Q = Q)
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            snames,
+            θ_names,
+            traj;
+            Q = Q,
+            weights = weights,
+        )
     else
         _ensemble_ket_objective(qtraj, traj, snames, weights, goals, Q; coherent = coherent)
     end
@@ -1102,6 +1109,30 @@ end
     @test qcp isa QuantumControlProblem
     traj = get_trajectory(qcp)
     @test haskey(traj.global_components, :φ_1)
+
+    # The free-phase branch must honor trajectory weights (issue #263)
+    ψp = ComplexF64[1.0, 1.0] / √2
+    ψm = ComplexF64[1.0, -1.0] / √2
+    pulse_det =
+        LinearSplinePulse(0.1 * reshape(cos.(2π .* (0:(N-1)) ./ (N - 1)), 1, N), times)
+
+    function free_phase_objective_value(ws)
+        qt = MultiKetTrajectory(sys, pulse_det, [ψ0, ψ1, ψp], [ψ1, ψ0, ψm]; weights = ws)
+        p = SplinePulseProblem(
+            qt,
+            N;
+            Q = 100.0,
+            R = 1e-2,
+            free_phase = true,
+            subsystem_levels = [2],
+        )
+        objective_value(p.prob.objective, p.prob.trajectory)
+    end
+
+    @test free_phase_objective_value([0.8, 0.1, 0.1]) !=
+          free_phase_objective_value([0.1, 0.1, 0.8])
+    @test free_phase_objective_value(fill(1 / 3, 3)) ===
+          free_phase_objective_value(fill(1.0, 3))
 end
 
 @testitem "SplinePulseProblem free_phase requires EmbeddedOperator for unitary" begin

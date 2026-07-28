@@ -343,7 +343,14 @@ function BangBangPulseProblem(
 
     # Build objective: weighted sum of infidelities for each state
     J = if free_phase && !isnothing(goals_fn)
-        CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj_bb; Q = Q)
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            snames,
+            θ_names,
+            traj_bb;
+            Q = Q,
+            weights = weights,
+        )
     else
         _ensemble_ket_objective(qtraj, traj_bb, snames, weights, goals, Q; coherent = coherent)
     end
