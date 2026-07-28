@@ -11,6 +11,12 @@ using ...Quantum.Rollouts: rollout
 using ..QuantumControlProblems:
     QuantumControlProblem, fidelity, stored_phases, get_trajectory
 using ..QuantumControlProblems: rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
+# `sync_trajectory!` is imported for its docstring cross-reference, not called here:
+# Documenter resolves `@ref` against the enclosing module's scope, so a
+# `[`sync_trajectory!`](@ref)` in `verify`'s docstring fails the docs build
+# ([:cross_references]) unless the name is in scope. Same reason `rollout_divergence` was
+# imported before it had a caller here.
+using ..QuantumControlProblems: sync_trajectory!
 using ..QuantumObjectives: unitary_fidelity_loss, ket_fidelity_loss
 
 export verify, VerificationReport
