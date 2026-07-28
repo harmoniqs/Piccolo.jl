@@ -109,7 +109,11 @@ generate_docs(
     literate_kwargs = (execute = false,),
     format_kwargs = (
         canonical = "https://docs.harmoniqs.co/Piccolo.jl",
-        size_threshold = 500 * 2^10,  # 400 KiB for lib.md
+        # lib.md is the auto-generated full API reference, so it grows
+        # monotonically with every new docstring. It crossed the previous
+        # 500 KiB limit at 500.82 KiB; raised to 1 MiB for real headroom
+        # rather than another knife's edge. Other pages keep a guard.
+        size_threshold = 1024 * 2^10,
     ),
     mask_cached_solve = true,
     makedocs_kwargs = (draft = draft, plugins = [CopyButton()]),
