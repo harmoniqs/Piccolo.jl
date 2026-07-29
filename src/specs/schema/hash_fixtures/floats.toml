@@ -1,0 +1,36 @@
+# ES Number::toString stress fixture: exercises the exponent/decimal edges of the
+# shared numeric rule — Q=1e5 (integer-valued float -> "100000"), R_u=1e-4 ->
+# "0.0001", R_du=1e-5 -> "0.00001", tol=1e-6 -> "0.000001", a finite du_bound
+# (Inf default is omitted; a finite one is kept), and a non-integer T=39.5.
+schema_version = 1
+kind = "control"
+
+[system]
+kind = "template"
+template = "TransmonSystem"
+params = { levels = 3 }
+
+[goal]
+kind = "unitary"
+gate = "X"
+subsystem_levels = [3]
+
+[pulse]
+kind = "cubic_spline"
+T = 39.5
+seed = 7
+
+[problem]
+template = "SplinePulseProblem"
+N = 41
+Q = 100000.0
+R_u = 0.0001
+R_du = 0.00001
+du_bound = 12.5
+final_fidelity = 0.9999
+
+[solver]
+backend = "ipopt"
+device = "gpu"
+max_iter = 300
+tol = 0.000001
