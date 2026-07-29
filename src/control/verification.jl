@@ -5,14 +5,21 @@ using NamedTrajectories
 using TestItems
 using ...Quantum
 
-using ..QuantumControlProblems: QuantumControlProblem, fidelity, stored_phases
-# `rollout_divergence` is imported for its docstring cross-reference, not called here: Documenter
-# resolves `@ref` against the enclosing module's scope, so a `[`rollout_divergence`](@ref)` in
-# `verify`'s docstring fails the docs build ([:cross_references]) unless the name is in scope.
-using ..QuantumControlProblems: rollout_divergence
+using ...Quantum: extract_pulse
+using ...Quantum.Rollouts: rollout
+
+using ..QuantumControlProblems:
+    QuantumControlProblem, fidelity, stored_phases, get_trajectory
+using ..QuantumControlProblems: rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
+# `sync_trajectory!` is imported for its docstring cross-reference, not called here:
+# Documenter resolves `@ref` against the enclosing module's scope, so a
+# `[`sync_trajectory!`](@ref)` in `verify`'s docstring fails the docs build
+# ([:cross_references]) unless the name is in scope. Same reason `rollout_divergence` was
+# imported before it had a caller here.
+using ..QuantumControlProblems: sync_trajectory!
 using ..QuantumObjectives: unitary_fidelity_loss, ket_fidelity_loss
 
-export verify
+export verify, VerificationReport
 
 # Fidelity of the OPTIMIZER's own terminal state — the collocation state it minimized
 # against — rather than of the rolled-out ODE solution. This lives here, not in
@@ -95,31 +102,141 @@ function _multiket_optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
 end
 
 """
-    verify(qcp::QuantumControlProblem; kwargs...) -> (; F_optimizer, F_rollout, Δ, phases)
+    VerificationReport
 
-Recompute fidelity two ways and return both plus their gap:
+Outcome of [`verify`](@ref): both fidelities, both disagreement measures, the phase
+convention used, and a verdict.
 
-- `F_rollout` — an independent ODE re-rollout of the extracted pulse. **This is the physical
-  number; put it in artifacts, papers and catalogs.**
-- `F_optimizer` — the optimizer's own collocation terminal state. Covers unitary, ket and MultiKet.
-  `nothing` means *not comparable*, never *they agree*: density, MultiDensity, sampling, free-phase
-  MultiKet, or a unitary free-phase problem without an `EmbeddedOperator` goal.
-- `Δ` — `abs(F_optimizer - F_rollout)`, or `nothing` when `F_optimizer` is.
-- `phases` — the phases actually applied, so callers can record the convention used.
+Every numeric field except `F_rollout` is `Union{Nothing,Float64}`, and the absence is
+load-bearing — `nothing` means *the comparison could not be made*, never *it agreed*. That
+is why the verdict is a three-valued `status` rather than a `Bool`: for a problem where
+neither comparison applies, `pass = true` would certify a check that never ran, and
+`pass = false` would report a disagreement that was never measured. The pulse catalog's
+free-phase entries are all unitary free-phase, one of those cases, so this is the common
+path rather than a corner.
 
-Both sides get the **same** phase treatment, so the gap is never an artifact of one side being
-φ-aware. A large `Δ` means the optimizer converged against a model the pulse does not realize.
-Compare [`rollout_divergence`](@ref), which compares terminal *states* and so also catches cases
-where two different states share a fidelity.
+# Fields
+- `F_rollout::Float64`: fidelity of an independent ODE re-rollout. **The physical number
+  — this is what belongs in artifacts, papers and catalogs.**
+- `F_optimizer::Union{Nothing,Float64}`: fidelity of the optimizer's own collocation
+  terminal state. `nothing` for density, MultiDensity, sampling, free-phase MultiKet, or a
+  unitary free-phase problem without an `EmbeddedOperator` goal.
+- `ΔF::Union{Nothing,Float64}`: `abs(F_optimizer - F_rollout)`, compared against `atol`.
+- `divergence::Union{Nothing,Float64}`: [`rollout_divergence`](@ref) — relative
+  disagreement of the terminal *states*, compared against `rtol`. `nothing` when not
+  applicable. Strictly stronger than `ΔF` at detecting a mismatch, since two different
+  states can share a fidelity; it just yields no fidelity to publish.
+- `phases::Union{Nothing,Vector{Float64}}`: the phases actually applied to both sides.
+- `status::Symbol`: `:pass` (every applicable comparison was within tolerance), `:fail`
+  (at least one exceeded it), or `:unverified` (neither applied — nothing was checked).
+- `atol::Float64`, `rtol::Float64`: the thresholds used.
+"""
+struct VerificationReport
+    F_rollout::Float64
+    F_optimizer::Union{Nothing,Float64}
+    ΔF::Union{Nothing,Float64}
+    divergence::Union{Nothing,Float64}
+    phases::Union{Nothing,Vector{Float64}}
+    status::Symbol
+    atol::Float64
+    rtol::Float64
+end
+
+# The verdict rule, factored out of `verify` so it is testable on its own: reaching every
+# branch through a real solve would mean manufacturing a problem for which each comparison
+# individually declines, and the `:unverified` branch is the one most worth pinning.
+#
+# `:pass` means every comparison that COULD be made was, and agreed. When neither could,
+# the answer is `:unverified` — `:pass` there would certify a check that never ran, which
+# is worse than running no check at all, and `:fail` would report a disagreement nobody
+# measured.
+function _verdict(ΔF, divergence, atol, rtol)
+    isnothing(ΔF) && isnothing(divergence) && return :unverified
+    exceeded =
+        (!isnothing(ΔF) && ΔF > atol) || (!isnothing(divergence) && divergence > rtol)
+    return exceeded ? :fail : :pass
+end
+
+# `nothing` prints as an explicit reason, never as a blank or a zero: a report that is
+# silent about an unmade comparison reads as a clean bill of health.
+_fmt(x::Nothing, why::AbstractString) = "— ($why)"
+_fmt(x::Real, ::AbstractString) = string(x)
+
+function Base.show(io::IO, ::MIME"text/plain", r::VerificationReport)
+    println(io, "VerificationReport ($(uppercase(string(r.status))))")
+    println(io, "  F_rollout   (physical): ", r.F_rollout)
+    println(io, "  F_optimizer           : ", _fmt(r.F_optimizer, "not comparable"))
+    println(io, "  ΔF          (atol ", r.atol, "): ", _fmt(r.ΔF, "not comparable"))
+    println(io, "  divergence  (rtol ", r.rtol, "): ", _fmt(r.divergence, "not applicable"))
+    print(io, "  phases                : ", r.phases === nothing ? "none" : r.phases)
+end
+
+Base.show(io::IO, r::VerificationReport) = print(
+    io,
+    "VerificationReport(",
+    r.status,
+    ", F_rollout=",
+    r.F_rollout,
+    ", ΔF=",
+    r.ΔF === nothing ? "nothing" : string(r.ΔF),
+    ", divergence=",
+    r.divergence === nothing ? "nothing" : string(r.divergence),
+    ")",
+)
+
+"""
+    verify(qcp::QuantumControlProblem; kwargs...) -> VerificationReport
+
+Self-certify a solved problem: recompute fidelity two ways, compare the terminal states as
+well, and return a [`VerificationReport`](@ref) carrying both numbers, both disagreements,
+the phase convention used, and a verdict.
+
+The two comparisons answer different questions and neither subsumes the other, so `verify`
+runs both and fails if *either* exceeds tolerance:
+
+- `ΔF` (against `atol`) compares **fidelities**, so it exposes "the optimizer thinks it
+  converged" directly and yields a number you can publish.
+- `divergence` (against `rtol`) compares terminal **states** via
+  [`rollout_divergence`](@ref) — strictly stronger at detecting a mismatch, since two
+  different states can share a fidelity, but it yields no fidelity.
+
+Both fidelity sides get the **same** phase treatment, so `ΔF` is never an artifact of one
+side being φ-aware. A large `ΔF` or `divergence` means the optimizer converged against a
+model the pulse does not realize; only `F_rollout` is physical.
+
+Call after [`sync_trajectory!`](@ref) (or `solve!` with `sync = true`) — before that,
+`qcp.qtraj` holds a stale rollout and every number here is meaningless.
+
+# Keyword arguments
+- `atol::Real = 1e-4`: tolerance on `ΔF`.
+- `rtol::Real = ROLLOUT_DIVERGENCE_RTOL[]`: tolerance on `divergence`.
+- `algorithm = nothing`: when given, re-extract the pulse and roll it out **fresh** with
+  this ODE algorithm instead of reading the stored `qcp.qtraj` solution. Passing a
+  different integrator *family* than the solve used is what makes `F_rollout` genuinely
+  independent rather than a re-read of the solve's own discretization.
+- `n_save::Int = 101`: save points for that fresh rollout (ignored without `algorithm`).
+- `phases = nothing`: phase convention; defaults to the problem's stored `φ_*` globals.
+- `verbose::Bool = true`: `@warn` with both numbers when the verdict is `:fail`.
 
 # Example
 ```julia
 solve!(qcp)
-v = verify(qcp)
-v.Δ > 1e-6 && @warn "optimizer and rollout disagree" v.F_optimizer v.F_rollout
+r = verify(qcp)
+r.status === :pass || @warn "solve did not self-certify" r
+# genuinely independent check — a different integrator family than the solve used:
+r2 = verify(qcp; algorithm = MagnusAdapt4())
 ```
 """
-function verify(qcp::QuantumControlProblem; phases = nothing, kwargs...)
+function verify(
+    qcp::QuantumControlProblem;
+    atol::Real = 1e-4,
+    rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
+    algorithm = nothing,
+    n_save::Int = 101,
+    phases = nothing,
+    verbose::Bool = true,
+    kwargs...,
+)
     φ = isnothing(phases) ? stored_phases(qcp.prob.trajectory) : phases
     if !isnothing(φ) && isempty(φ)
         error(
@@ -128,16 +245,45 @@ function verify(qcp::QuantumControlProblem; phases = nothing, kwargs...)
         )
     end
 
-    F_rollout = if isnothing(φ)
-        Float64(fidelity(qcp.qtraj; kwargs...))
+    # Default reads the stored rollout; `algorithm` forces a fresh propagation of the
+    # extracted pulse, which is the only way to get a family different from the solve's.
+    qtraj_scored = if isnothing(algorithm)
+        qcp.qtraj
     else
-        Float64(fidelity(qcp.qtraj; phases = φ, kwargs...))
+        rollout(
+            qcp.qtraj,
+            extract_pulse(qcp.qtraj, get_trajectory(qcp));
+            algorithm = algorithm,
+            n_save = n_save,
+        )
+    end
+
+    F_rollout = if isnothing(φ)
+        Float64(fidelity(qtraj_scored; kwargs...))
+    else
+        Float64(fidelity(qtraj_scored; phases = φ, kwargs...))
     end
 
     F_optimizer = _optimizer_side_fidelity(qcp, φ)
-    Δ = isnothing(F_optimizer) ? nothing : abs(F_optimizer - F_rollout)
+    ΔF = isnothing(F_optimizer) ? nothing : abs(F_optimizer - F_rollout)
+    divergence = rollout_divergence(qcp)
 
-    return (; F_optimizer, F_rollout, Δ, phases = φ)
+    report = VerificationReport(
+        F_rollout,
+        F_optimizer,
+        ΔF,
+        divergence,
+        isnothing(φ) ? nothing : Vector{Float64}(φ),
+        _verdict(ΔF, divergence, atol, rtol),
+        Float64(atol),
+        Float64(rtol),
+    )
+
+    if verbose && report.status === :fail
+        @warn "verify: the solve did not self-certify — only `F_rollout` is physical" report
+    end
+
+    return report
 end
 
 # ============================================================================= #
@@ -164,13 +310,20 @@ end
     sync_trajectory!(qcp; check_divergence = false)
 
     v = verify(qcp)
-    @test haskey(v, :F_optimizer) && haskey(v, :F_rollout) && haskey(v, :Δ)
+    # `verify` returns a `VerificationReport` now, not a NamedTuple, so this is
+    # `hasproperty` rather than `haskey` — and it covers the two fields the struct added
+    # (`divergence`, `status`) alongside the renamed `ΔF`.
+    @test v isa VerificationReport
+    @test all(
+        f -> hasproperty(v, f),
+        (:F_optimizer, :F_rollout, :ΔF, :divergence, :phases, :status, :atol, :rtol),
+    )
     @test 0 ≤ v.F_rollout ≤ 1
-    @test v.Δ ≈ abs(v.F_optimizer - v.F_rollout)
+    @test v.ΔF ≈ abs(v.F_optimizer - v.F_rollout)
     @test isnothing(v.phases)          # no φ globals on this problem
 
     # Zero controls: collocation and rollout agree, so the gap is ~0.
-    @test v.Δ < 1e-8
+    @test v.ΔF < 1e-8
 end
 
 @testitem "verify: gap is large exactly when the collocation state is wrong" begin
@@ -196,10 +349,11 @@ end
     # exactly the "optimizer converged against a model the pulse does not realize" failure.
     qcp.prob.trajectory.ψ̃[:, end] .= Float64[0, 1, 0, 0]
 
-    v = verify(qcp)
+    v = verify(qcp; verbose = false)   # this case IS the failure; don't log it
     @test v.F_optimizer > 0.99      # the optimizer believes it succeeded
     @test v.F_rollout < 0.01        # the pulse does nothing of the sort
-    @test v.Δ > 0.9
+    @test v.ΔF > 0.9
+    @test v.status === :fail        # and the verdict says so
 end
 
 @testitem "verify covers MultiKet on both sides" begin
@@ -226,7 +380,7 @@ end
     @test v.F_optimizer isa Float64        # NOT `nothing` any more
     @test v.F_rollout isa Float64
     @test 0 ≤ v.F_optimizer ≤ 1
-    @test v.Δ ≈ abs(v.F_optimizer - v.F_rollout)
+    @test v.ΔF ≈ abs(v.F_optimizer - v.F_rollout)
 
     # Corrupting one sub-state's collocation value must move the optimizer-side number, proving it
     # actually reads the collocation states rather than the rollout.
@@ -267,7 +421,7 @@ end
     @test v.F_optimizer isa Float64        # the EmbeddedOperator rotation path is reached
     @test v.F_rollout isa Float64
     @test v.phases == [0.6]
-    @test v.Δ ≈ abs(v.F_optimizer - v.F_rollout)
+    @test v.ΔF ≈ abs(v.F_optimizer - v.F_rollout)
 
     # The rollout side must agree with asking for that φ directly — i.e. verify is not applying
     # some other convention on one side.
@@ -280,3 +434,78 @@ end
 end
 
 end # module Verification
+
+@testitem "verify: the verdict never reports success for a comparison that did not run" begin
+    using Piccolo.Control.Verification: _verdict
+
+    # `:unverified` is the branch that matters. A `pass::Bool` cannot express it, so it
+    # would have to collapse into one of the other two — and `pass = true` on a problem
+    # where neither comparison applied is a worse outcome than running no check at all.
+    # The catalog's free-phase entries are all unitary free-phase, which is one of the
+    # `F_optimizer === nothing` cases, so this is a live path.
+    @test _verdict(nothing, nothing, 1e-4, 5e-3) === :unverified
+
+    # Either comparison alone is enough to reach a real verdict.
+    @test _verdict(1e-9, nothing, 1e-4, 5e-3) === :pass
+    @test _verdict(nothing, 1e-9, 1e-4, 5e-3) === :pass
+    @test _verdict(1e-2, nothing, 1e-4, 5e-3) === :fail
+    @test _verdict(nothing, 1e-1, 1e-4, 5e-3) === :fail
+
+    # Both present: agreement requires BOTH within tolerance, since the two measure
+    # different things and neither subsumes the other.
+    @test _verdict(1e-9, 1e-9, 1e-4, 5e-3) === :pass
+    @test _verdict(1e-2, 1e-9, 1e-4, 5e-3) === :fail
+    @test _verdict(1e-9, 1e-1, 1e-4, 5e-3) === :fail
+
+    # The state comparison catching what the fidelity comparison misses is the whole
+    # reason both run: two different states can share a fidelity.
+    @test _verdict(0.0, 1e-1, 1e-4, 5e-3) === :fail
+
+    # Boundaries are inclusive — exactly at tolerance passes.
+    @test _verdict(1e-4, nothing, 1e-4, 5e-3) === :pass
+    @test _verdict(nothing, 5e-3, 1e-4, 5e-3) === :pass
+end
+
+@testitem "verify: a real converged solve self-certifies" begin
+    using NamedTrajectories
+    using LinearAlgebra
+    using OrdinaryDiffEqLinear: MagnusAdapt4
+
+    # Ported from #252. main's other verify tests hand-build a problem and never run the
+    # optimizer, so nothing exercised the verdict end-to-end on a genuine solve.
+    #
+    # The setup is #252's verbatim, and it has to be: a 2-drive (X,Y) system over a Z drift
+    # at N = 50 converges tightly enough for BOTH comparisons to agree (measured ΔF ≈ 5e-8,
+    # divergence ≈ 2e-4). A single-drive variant does NOT — it lands at ΔF ≈ 0.13 with
+    # divergence ≈ 0.36, i.e. a genuine pairing/resolution failure, and would make this a
+    # test of the problem rather than of `verify`.
+    T, N = 10.0, 50
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
+    solve!(qcp; max_iter = 100, verbose = false, print_level = 1)
+
+    r = verify(qcp; atol = 1e-2)
+    @test r isa VerificationReport
+    @test r.status === :pass
+    @test 0.0 <= r.F_rollout <= 1.0 + 1e-8
+    @test r.F_optimizer !== nothing
+    @test r.ΔF ≈ abs(r.F_optimizer - r.F_rollout)
+    # A pass must certify a genuinely good solve, not a self-consistent one: both numbers
+    # high, not merely in agreement.
+    @test r.F_rollout > 0.9
+    @test r.F_optimizer > 0.9
+
+    # `algorithm` forces a FRESH rollout of the extracted pulse rather than re-reading the
+    # stored solution — the only way to score against a different integrator family. The
+    # numbers should agree closely on a well-resolved solve, but must be computed, not copied.
+    r2 = verify(qcp; atol = 1e-2, algorithm = MagnusAdapt4(), n_save = 51)
+    @test r2 isa VerificationReport
+    @test isapprox(r2.F_rollout, r.F_rollout; atol = 1e-3)
+
+    # `show` must name an unmade comparison rather than leaving it blank.
+    txt = sprint(show, MIME"text/plain"(), verify(qcp))
+    @test occursin("F_rollout", txt)
+    @test occursin("PASS", txt)
+end
