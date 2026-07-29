@@ -310,7 +310,14 @@ end
     sync_trajectory!(qcp; check_divergence = false)
 
     v = verify(qcp)
-    @test haskey(v, :F_optimizer) && haskey(v, :F_rollout) && haskey(v, :Δ)
+    # `verify` returns a `VerificationReport` now, not a NamedTuple, so this is
+    # `hasproperty` rather than `haskey` — and it covers the two fields the struct added
+    # (`divergence`, `status`) alongside the renamed `ΔF`.
+    @test v isa VerificationReport
+    @test all(
+        f -> hasproperty(v, f),
+        (:F_optimizer, :F_rollout, :ΔF, :divergence, :phases, :status, :atol, :rtol),
+    )
     @test 0 ≤ v.F_rollout ≤ 1
     @test v.ΔF ≈ abs(v.F_optimizer - v.F_rollout)
     @test isnothing(v.phases)          # no φ globals on this problem
