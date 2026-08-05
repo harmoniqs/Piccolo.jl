@@ -5,7 +5,13 @@ using NamedTrajectories
 using DirectTrajOpt
 using ...Quantum
 using ...Quantum:
-    SamplingTrajectory, MultiKetTrajectory, state_name, state_names, drive_name
+    SamplingTrajectory,
+    MultiKetTrajectory,
+    MultiDensityTrajectory,
+    state_name,
+    state_names,
+    sampling_member_states,
+    drive_name
 using SparseArrays
 using TestItems
 
@@ -127,14 +133,16 @@ all share the same control variables.
 """
 function BilinearIntegrator(qtraj::SamplingTrajectory, N::Int)
     traj = NamedTrajectory(qtraj, N)
-    snames = state_names(qtraj)
     control_sym = drive_name(qtraj)
     systems = qtraj.systems
+    member_states = sampling_member_states(qtraj)
 
-    return [
-        _sampling_integrator(qtraj.base_trajectory, sys, traj, name, control_sym) for
-        (sys, name) in zip(systems, snames)
-    ]
+    per_member = map(zip(systems, member_states)) do (sys, states)
+        _sampling_integrator(qtraj.base_trajectory, sys, traj, states, control_sym)
+    end
+    # Single-state bases return one integrator per member; multi-state bases
+    # return one vector of integrators per member — flatten either way.
+    return reduce(vcat, map(i -> i isa AbstractVector ? i : [i], per_member))
 end
 
 # Helper to create single integrator for sampling - dispatches on base trajectory type
@@ -167,6 +175,26 @@ function _sampling_integrator(
     else
         Ĝ = u_ -> sys.G(u_, 0.0)
         return BilinearIntegrator(Ĝ, state_sym, control_sym, traj)
+    end
+end
+
+function _sampling_integrator(
+    base_qtraj::MultiKetTrajectory,
+    sys::AbstractQuantumSystem,
+    traj::NamedTrajectory,
+    state_syms::Vector{Symbol},
+    control_sym::Symbol,
+)
+    # One integrator per ket sub-state of this member, all on the member's system
+    if sys.time_dependent
+        Ĝ = (u_, t) -> sys.G(u_, t)
+        return [
+            TimeDependentBilinearIntegrator(Ĝ, name, control_sym, :t, traj) for
+            name in state_syms
+        ]
+    else
+        Ĝ = u_ -> sys.G(u_, 0.0)
+        return [BilinearIntegrator(Ĝ, name, control_sym, traj) for name in state_syms]
     end
 end
 

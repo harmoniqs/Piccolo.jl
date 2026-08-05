@@ -87,6 +87,24 @@ function sampling_state_objective(
     return KetInfidelityObjective(ψ_goal, state_sym, traj; Q = Q)
 end
 
+function sampling_state_objective(
+    qtraj::MultiKetTrajectory,
+    traj::NamedTrajectory,
+    state_syms::Vector{Symbol},
+    Q::Float64,
+)
+    # Per-member coherent ensemble objective — reuses the MultiKetTrajectory
+    # machinery: one coherent infidelity over the member's state transfers,
+    # weighted by the base trajectory's per-state weights.
+    return CoherentKetInfidelityObjective(
+        get_goal(qtraj),
+        state_syms,
+        traj;
+        Q = Q,
+        weights = qtraj.weights,
+    )
+end
+
 # Density bases: Piccolo ships no public density fidelity objective, so the
 # density sampling-objective cells are intentionally loud — construction fails
 # here with an error naming the extension point rather than silently installing
@@ -205,12 +223,13 @@ function SamplingProblem(
             global_components = base_traj.global_components,
         )
     end
-    snames = state_names(sampling_qtraj)
-
-    # 3. Build objective: weighted state objectives + shared regularization
+    # 3. Build objective: weighted per-member state objectives + shared regularization.
+    #    member_states is one Symbol per member for single-state bases, one
+    #    Vector{Symbol} per member for multi-state bases (multi-ket, multi-density).
+    member_states = sampling_member_states(sampling_qtraj)
     J_state = sum(
-        sampling_state_objective(base_qtraj, new_traj, name, w * Q) for
-        (name, w) in zip(snames, weights)
+        sampling_state_objective(base_qtraj, new_traj, names, w * Q) for
+        (names, w) in zip(member_states, weights)
     )
     J_reg = extract_regularization(qcp.prob.objective, state_sym, new_traj)
     J_total = J_state + J_reg
@@ -384,6 +403,63 @@ end
 
     # Solve
     solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
+end
+
+@testitem "SamplingProblem with MultiKetTrajectory" begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 21
+
+    # Systems with a global parameter (to pin globals propagation) and drift variation
+    sys_nom = QuantumSystem(
+        GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.5,),
+    )
+    sys_var = QuantumSystem(
+        1.1 * GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.5,),
+    )
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys_nom, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
+
+    sampling_prob = SamplingProblem(qcp, [sys_nom, sys_var]; Q = 50.0)
+
+    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob.qtraj isa SamplingTrajectory
+
+    traj = get_trajectory(sampling_prob)
+
+    # 2 systems × 2 kets = 4 per-member state components, with bounds propagated
+    for sn in [:ψ̃1, :ψ̃2, :ψ̃3, :ψ̃4]
+        @test haskey(traj.components, sn)
+        @test haskey(traj.bounds, sn)
+    end
+
+    # One shared control and one shared Δt
+    @test haskey(traj.components, :u)
+    @test :u ∈ traj.control_names
+    @test :Δt ∈ traj.control_names
+
+    # Globals propagated from the base problem's trajectory
+    @test traj.global_dim == get_trajectory(qcp).global_dim
+    @test haskey(traj.global_components, :δ)
+    @test traj.global_data == get_trajectory(qcp).global_data
+
+    # 4 dynamics integrators: one per (member, ket)
+    @test length(sampling_prob.prob.integrators) == 4
+
+    # Per-member coherent objectives: evaluating must be finite
+    @test isfinite(sampling_prob.prob.objective(sampling_prob.trajectory))
 end
 
 @testitem "SamplingProblem with custom weights" begin
