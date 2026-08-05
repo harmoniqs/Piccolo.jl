@@ -462,6 +462,32 @@ end
     @test isfinite(sampling_prob.prob.objective(sampling_prob.trajectory))
 end
 
+@testitem "SamplingProblem Solving with MultiKetTrajectory" tags = [:sampling_problem] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 21
+
+    # Robust multi-state transfer over drift uncertainty: X gate via |0⟩→|1⟩, |1⟩→|0⟩
+    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys_nominal, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
+
+    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 50.0)
+
+    # Short end-to-end optimization on CPU
+    solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
+
+    # Didn't blow up
+    @test sampling_prob.prob.objective(sampling_prob.trajectory) < 1e10
+end
+
 @testitem "SamplingProblem with custom weights" begin
     using DirectTrajOpt
 
