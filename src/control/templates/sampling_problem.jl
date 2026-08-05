@@ -289,9 +289,19 @@ function _final_fidelity_constraint(
     traj::NamedTrajectory;
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
-    constraints = [
-        _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj) for name in state_names(qtraj)
-    ]
+    # Per-member constraints: one name per member for single-state bases, one
+    # name-vector per member for multi-state bases. A method may return a single
+    # constraint or a vector of them (multi-density) — flatten either way.
+    constraints = AbstractConstraint[]
+    for member_states in sampling_member_states(qtraj)
+        c = _sampling_fidelity_constraint(
+            qtraj.base_trajectory,
+            member_states,
+            final_fidelity,
+            traj,
+        )
+        c isa AbstractVector ? append!(constraints, c) : push!(constraints, c)
+    end
     return constraints
 end
 
@@ -312,6 +322,22 @@ function _sampling_fidelity_constraint(
     traj::NamedTrajectory,
 )
     return FinalKetFidelityConstraint(qtraj.goal, state_sym, final_fidelity, traj)
+end
+
+function _sampling_fidelity_constraint(
+    qtraj::MultiKetTrajectory,
+    state_syms::Vector{Symbol},
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    # Per-member coherent fidelity constraint over the member's ket sub-states
+    return FinalCoherentKetFidelityConstraint(
+        qtraj.goals,
+        state_syms,
+        final_fidelity,
+        traj;
+        weights = qtraj.weights,
+    )
 end
 
 # Tests
@@ -544,6 +570,43 @@ end
 
     # Solve minimum-time
     solve!(mintime_prob; max_iter = 20, verbose = false, print_level = 1)
+end
+
+@testitem "SamplingProblem + MinimumTimeProblem composition (MultiKet)" begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 21
+
+    sys_nominal = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_perturbed = QuantumSystem(0.11 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys_nominal, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
+
+    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
+    solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
+
+    # Per-member final-fidelity constraints: one coherent constraint per member
+    # (2 members), each over the member's 2 ket components
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(
+        sampling_prob.qtraj,
+        0.80,
+        get_trajectory(sampling_prob),
+    )
+    @test length(cons) == 2
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
+
+    mintime_prob = MinimumTimeProblem(sampling_prob; final_fidelity = 0.80, D = 50.0)
+
+    @test mintime_prob isa QuantumControlProblem
+    @test mintime_prob.qtraj isa SamplingTrajectory
+
+    solve!(mintime_prob; max_iter = 10, verbose = false, print_level = 1)
 end
 
 @testitem "SamplingProblem with EmbeddedOperator" begin
