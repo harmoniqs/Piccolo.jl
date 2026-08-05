@@ -34,6 +34,10 @@ function _optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
     qcp.qtraj isa MultiKetTrajectory &&
         return _multiket_optimizer_side_fidelity(qcp, phases)
 
+    # SamplingTrajectory: per-member collocation readback, weighted aggregate
+    qcp.qtraj isa SamplingTrajectory &&
+        return _sampling_optimizer_side_fidelity(qcp, phases)
+
     traj = qcp.prob.trajectory
     sname = state_name(qcp.qtraj)
     haskey(traj.components, sname) || return nothing
@@ -72,6 +76,52 @@ function _optimizer_side_fidelity(qtraj::KetTrajectory, ψ̃, phases)
 end
 
 _optimizer_side_fidelity(::AbstractQuantumTrajectory, _, _) = nothing
+
+# SamplingTrajectory: per-member collocation readback, weighted with the sampling weights.
+# Density / MultiDensity bases return `nothing` — no comparable definition.
+function _sampling_optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
+    sampling_qtraj = qcp.qtraj
+    base = sampling_qtraj.base_trajectory
+    traj = qcp.prob.trajectory
+    snames = state_names(sampling_qtraj)
+    member_states = sampling_member_states(sampling_qtraj)
+    weights = sampling_qtraj.weights
+
+    # Density bases: no comparable definition
+    base isa DensityTrajectory && return nothing
+    base isa MultiDensityTrajectory && return nothing
+
+    # Single-state bases (unitary, ket): one state component per member
+    if base isa UnitaryTrajectory || base isa KetTrajectory
+        member_fids = Float64[]
+        for (i, sname) in enumerate(snames)
+            haskey(traj.components, sname) || return nothing
+            x_end = traj[sname][:, end]
+            fid = _optimizer_side_fidelity(base, x_end, phases)
+            isnothing(fid) && return nothing
+            push!(member_fids, fid)
+        end
+        return sum(w * f for (w, f) in zip(weights, member_fids))
+    end
+
+    # MultiKet base: per-member coherent fidelity over the member's ket sub-states
+    if base isa MultiKetTrajectory
+        isnothing(phases) || return nothing  # free-phase MultiKet not supported
+        member_fids = Float64[]
+        for (i, mstates) in enumerate(member_states)
+            # mstates is a Vector{Symbol} for multi-state bases
+            n_sub = length(mstates)
+            all(nm -> haskey(traj.components, nm), mstates) || return nothing
+            overlap = sum(
+                base.goals[j]' * iso_to_ket(traj[mstates[j]][:, end]) for j = 1:n_sub
+            )
+            push!(member_fids, Float64(abs2(overlap / n_sub)))
+        end
+        return sum(w * f for (w, f) in zip(weights, member_fids))
+    end
+
+    return nothing
+end
 
 # MultiKet needs its own path: the objective is the COHERENT fidelity across all transfers,
 # F = |1/n Σᵢ ⟨ψᵢ_goal|ψᵢ⟩|², not a per-state loss, and the states live under one component per
@@ -258,10 +308,19 @@ function verify(
         )
     end
 
-    F_rollout = if isnothing(φ)
-        Float64(fidelity(qtraj_scored; kwargs...))
+    F_rollout = if qtraj_scored isa SamplingTrajectory
+        members = if isnothing(φ)
+            fidelity(qtraj_scored; kwargs...)
+        else
+            fidelity(qtraj_scored; phases = φ, kwargs...)
+        end
+        Float64(sum(w * f for (w, f) in zip(qtraj_scored.weights, members)))
     else
-        Float64(fidelity(qtraj_scored; phases = φ, kwargs...))
+        if isnothing(φ)
+            Float64(fidelity(qtraj_scored; kwargs...))
+        else
+            Float64(fidelity(qtraj_scored; phases = φ, kwargs...))
+        end
     end
 
     F_optimizer = _optimizer_side_fidelity(qcp, φ)
@@ -431,6 +490,159 @@ end
     v0 = verify(qcp; phases = [0.0])
     @test !isapprox(v0.F_optimizer, v.F_optimizer; atol = 1e-10)
     @test !isapprox(v0.F_rollout, v.F_rollout; atol = 1e-10)
+end
+
+# ============================================================================= #
+# Tests: sampling trajectory verification
+# ============================================================================= #
+
+@testitem "verify: unitary sampling reports weighted agreement" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # Small 2-qubit unitary problem with two perturbed systems
+    T, N = 2.0, 11
+    sys_nom = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys_var = QuantumSystem(1.05 * GATES[:Z], [GATES[:X]], [1.0])
+
+    pulse = ZeroOrderPulse(0.2 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = UnitaryTrajectory(sys_nom, pulse, GATES[:X])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
+
+    sampling_prob = SamplingProblem(qcp, [sys_nom, sys_var]; Q = 50.0, weights = [0.5, 0.5])
+    solve!(sampling_prob; max_iter = 20, verbose = false, print_level = 0)
+
+    r = verify(sampling_prob)
+    @test r isa VerificationReport
+    @test r.F_optimizer isa Float64    # NOT nothing — per-member collocation readback enabled
+    @test 0.0 <= r.F_rollout <= 1.0 + 1e-8
+    @test r.ΔF !== nothing
+    @test r.ΔF ≈ abs(r.F_optimizer - r.F_rollout)
+
+    # Corrupt one member's collocation state — the optimizer-side number must move
+    traj = get_trajectory(sampling_prob)
+    before = verify(sampling_prob).F_optimizer
+    traj.Ũ⃗1[:, end] .= 0.0
+    @test verify(sampling_prob).F_optimizer != before
+end
+
+@testitem "verify: ket sampling reports weighted agreement" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    T, N = 2.0, 11
+    sys_nom = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_var = QuantumSystem(1.05 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.2 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = KetTrajectory(sys_nom, pulse, ψ0, ψg)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
+
+    sampling_prob = SamplingProblem(qcp, [sys_nom, sys_var]; Q = 50.0, weights = [0.5, 0.5])
+    solve!(sampling_prob; max_iter = 20, verbose = false, print_level = 0)
+
+    r = verify(sampling_prob)
+    @test r isa VerificationReport
+    @test r.F_optimizer isa Float64
+    @test 0.0 <= r.F_rollout <= 1.0 + 1e-8
+    @test r.ΔF !== nothing
+    @test r.ΔF ≈ abs(r.F_optimizer - r.F_rollout)
+end
+
+@testitem "verify: multi-ket sampling reports weighted coherent agreement" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    T, N = 1.0, 11
+    sys_nom = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_var = QuantumSystem(1.05 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys_nom, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 30.0, R = 1e-3)
+
+    sampling_prob = SamplingProblem(qcp, [sys_nom, sys_var]; Q = 30.0, weights = [0.5, 0.5])
+    solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 0)
+
+    r = verify(sampling_prob)
+    @test r isa VerificationReport
+    @test r.F_optimizer isa Float64
+    @test 0.0 <= r.F_rollout <= 1.0 + 1e-8
+    @test r.ΔF !== nothing
+    @test r.ΔF ≈ abs(r.F_optimizer - r.F_rollout)
+end
+
+@testitem "verify: density sampling returns no comparable definition" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    T, N = 1.0, 11
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.2 * randn(1, N), collect(range(0.0, T, length = N)))
+    base_qtraj = DensityTrajectory(sys_nom, pulse, ρ0, ρg)
+
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    prob = DirectTrajOptProblem(
+        traj,
+        NullObjective(),
+        AbstractIntegrator[],
+    )
+    qcp = QuantumControlProblem(sampling_qtraj, prob)
+    sync_trajectory!(qcp; check_divergence = false)
+
+    r = verify(qcp)
+    @test r.F_optimizer === nothing
+    @test r.ΔF === nothing
+    @test r.divergence === nothing
+    @test r.status === :unverified
+end
+
+@testitem "verify: multi-density sampling returns no comparable definition" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    T, N = 1.0, 11
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.2 * randn(1, N), collect(range(0.0, T, length = N)))
+    base_qtraj = MultiDensityTrajectory(sys_nom, pulse, [ρ0, ρ1], [ρ1, ρ0])
+
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    prob = DirectTrajOptProblem(
+        traj,
+        NullObjective(),
+        AbstractIntegrator[],
+    )
+    qcp = QuantumControlProblem(sampling_qtraj, prob)
+    sync_trajectory!(qcp; check_divergence = false)
+
+    r = verify(qcp)
+    @test r.F_optimizer === nothing
+    @test r.ΔF === nothing
+    @test r.divergence === nothing
+    @test r.status === :unverified
 end
 
 end # module Verification
