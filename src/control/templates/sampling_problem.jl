@@ -88,14 +88,60 @@ function sampling_state_objective(
 end
 
 function sampling_state_objective(
+    qtraj::MultiKetTrajectory,
+    traj::NamedTrajectory,
+    state_syms::Vector{Symbol},
+    Q::Float64,
+)
+    # Per-member coherent ensemble objective — reuses the MultiKetTrajectory
+    # machinery: one coherent infidelity over the member's state transfers,
+    # weighted by the base trajectory's per-state weights.
+    return CoherentKetInfidelityObjective(
+        get_goal(qtraj),
+        state_syms,
+        traj;
+        Q = Q,
+        weights = qtraj.weights,
+    )
+end
+
+# Density bases: Piccolo ships no public density fidelity objective, so the
+# density sampling-objective cells are intentionally loud — construction fails
+# here with an error naming the extension point rather than silently installing
+# a null objective that would optimize nothing. A downstream package (e.g.
+# Piccolissimo) registers the density sampling objective by extending
+# `sampling_state_objective` for the density trajectory types.
+const _DENSITY_SAMPLING_OBJECTIVE_ERROR = """
+SamplingProblem cannot build a state objective for a density-matrix base trajectory: \
+Piccolo does not provide a public density fidelity objective. The sampling-trajectory \
+conversion and the compact-Lindbladian bilinear integrators are available, but solving \
+requires a density sampling objective from a downstream package.
+
+Extension point: extend `sampling_state_objective` for the density trajectory types, e.g.
+
+    Piccolo.ProblemTemplates.sampling_state_objective(
+        ::DensityTrajectory, traj::NamedTrajectory, state_sym::Symbol, Q::Float64,
+    )
+
+(Piccolissimo registers its density sampling objective through this hook.) No null \
+objective was installed; this loud error is intentional."""
+
+function sampling_state_objective(
     qtraj::DensityTrajectory,
     traj::NamedTrajectory,
     state_sym::Symbol,
     Q::Float64,
 )
-    # DensityTrajectory doesn't have a fidelity objective yet
-    # Return NullObjective for now
-    return NullObjective(traj)
+    error(_DENSITY_SAMPLING_OBJECTIVE_ERROR)
+end
+
+function sampling_state_objective(
+    qtraj::MultiDensityTrajectory,
+    traj::NamedTrajectory,
+    state_syms::Vector{Symbol},
+    Q::Float64,
+)
+    error(_DENSITY_SAMPLING_OBJECTIVE_ERROR)
 end
 
 # ============================================================================= #
@@ -177,12 +223,13 @@ function SamplingProblem(
             global_components = base_traj.global_components,
         )
     end
-    snames = state_names(sampling_qtraj)
-
-    # 3. Build objective: weighted state objectives + shared regularization
+    # 3. Build objective: weighted per-member state objectives + shared regularization.
+    #    member_states is one Symbol per member for single-state bases, one
+    #    Vector{Symbol} per member for multi-state bases (multi-ket, multi-density).
+    member_states = sampling_member_states(sampling_qtraj)
     J_state = sum(
-        sampling_state_objective(base_qtraj, new_traj, name, w * Q) for
-        (name, w) in zip(snames, weights)
+        sampling_state_objective(base_qtraj, new_traj, names, w * Q) for
+        (names, w) in zip(member_states, weights)
     )
     J_reg = extract_regularization(qcp.prob.objective, state_sym, new_traj)
     J_total = J_state + J_reg
@@ -242,9 +289,19 @@ function _final_fidelity_constraint(
     traj::NamedTrajectory;
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
-    constraints = [
-        _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj) for name in state_names(qtraj)
-    ]
+    # Per-member constraints: one name per member for single-state bases, one
+    # name-vector per member for multi-state bases. A method may return a single
+    # constraint or a vector of them (multi-density) — flatten either way.
+    constraints = AbstractConstraint[]
+    for member_states in sampling_member_states(qtraj)
+        c = _sampling_fidelity_constraint(
+            qtraj.base_trajectory,
+            member_states,
+            final_fidelity,
+            traj,
+        )
+        c isa AbstractVector ? append!(constraints, c) : push!(constraints, c)
+    end
     return constraints
 end
 
@@ -265,6 +322,48 @@ function _sampling_fidelity_constraint(
     traj::NamedTrajectory,
 )
     return FinalKetFidelityConstraint(qtraj.goal, state_sym, final_fidelity, traj)
+end
+
+function _sampling_fidelity_constraint(
+    qtraj::MultiKetTrajectory,
+    state_syms::Vector{Symbol},
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    # Per-member coherent fidelity constraint over the member's ket sub-states
+    return FinalCoherentKetFidelityConstraint(
+        qtraj.goals,
+        state_syms,
+        final_fidelity,
+        traj;
+        weights = qtraj.weights,
+    )
+end
+
+# Density bases: the min-time constraint cell IS supported publicly (unlike the
+# objective cell) — FinalDensityFidelityConstraint is public machinery. It only
+# becomes reachable in a full solve once a downstream density sampling objective
+# registers (see the sampling_state_objective extension point).
+function _sampling_fidelity_constraint(
+    qtraj::DensityTrajectory,
+    state_sym::Symbol,
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    return FinalDensityFidelityConstraint(qtraj.goal, state_sym, final_fidelity, traj)
+end
+
+function _sampling_fidelity_constraint(
+    qtraj::MultiDensityTrajectory,
+    state_syms::Vector{Symbol},
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    # One density fidelity constraint per sub-state of this member
+    return [
+        FinalDensityFidelityConstraint(goal, name, final_fidelity, traj) for
+        (goal, name) in zip(qtraj.goals, state_syms)
+    ]
 end
 
 # Tests
@@ -358,6 +457,89 @@ end
     solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
 end
 
+@testitem "SamplingProblem with MultiKetTrajectory" begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 21
+
+    # Systems with a global parameter (to pin globals propagation) and drift variation
+    sys_nom = QuantumSystem(
+        GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.5,),
+    )
+    sys_var = QuantumSystem(
+        1.1 * GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.5,),
+    )
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys_nom, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
+
+    sampling_prob = SamplingProblem(qcp, [sys_nom, sys_var]; Q = 50.0)
+
+    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob.qtraj isa SamplingTrajectory
+
+    traj = get_trajectory(sampling_prob)
+
+    # 2 systems × 2 kets = 4 per-member state components, with bounds propagated
+    for sn in [:ψ̃1, :ψ̃2, :ψ̃3, :ψ̃4]
+        @test haskey(traj.components, sn)
+        @test haskey(traj.bounds, sn)
+    end
+
+    # One shared control and one shared Δt
+    @test haskey(traj.components, :u)
+    @test :u ∈ traj.control_names
+    @test :Δt ∈ traj.control_names
+
+    # Globals propagated from the base problem's trajectory
+    @test traj.global_dim == get_trajectory(qcp).global_dim
+    @test haskey(traj.global_components, :δ)
+    @test traj.global_data == get_trajectory(qcp).global_data
+
+    # 4 dynamics integrators: one per (member, ket)
+    @test length(sampling_prob.prob.integrators) == 4
+
+    # Per-member coherent objectives: evaluating must be finite
+    @test isfinite(sampling_prob.prob.objective(sampling_prob.trajectory))
+end
+
+@testitem "SamplingProblem Solving with MultiKetTrajectory" tags = [:sampling_problem] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 21
+
+    # Robust multi-state transfer over drift uncertainty: X gate via |0⟩→|1⟩, |1⟩→|0⟩
+    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys_nominal, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
+
+    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 50.0)
+
+    # Short end-to-end optimization on CPU
+    solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
+
+    # Didn't blow up
+    @test sampling_prob.prob.objective(sampling_prob.trajectory) < 1e10
+end
+
 @testitem "SamplingProblem with custom weights" begin
     using DirectTrajOpt
 
@@ -416,6 +598,43 @@ end
     solve!(mintime_prob; max_iter = 20, verbose = false, print_level = 1)
 end
 
+@testitem "SamplingProblem + MinimumTimeProblem composition (MultiKet)" begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 21
+
+    sys_nominal = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_perturbed = QuantumSystem(0.11 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys_nominal, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
+
+    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
+    solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
+
+    # Per-member final-fidelity constraints: one coherent constraint per member
+    # (2 members), each over the member's 2 ket components
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(
+        sampling_prob.qtraj,
+        0.80,
+        get_trajectory(sampling_prob),
+    )
+    @test length(cons) == 2
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
+
+    mintime_prob = MinimumTimeProblem(sampling_prob; final_fidelity = 0.80, D = 50.0)
+
+    @test mintime_prob isa QuantumControlProblem
+    @test mintime_prob.qtraj isa SamplingTrajectory
+
+    solve!(mintime_prob; max_iter = 10, verbose = false, print_level = 1)
+end
+
 @testitem "SamplingProblem with EmbeddedOperator" begin
     using DirectTrajOpt
 
@@ -445,10 +664,132 @@ end
     @test length(sampling_prob.qtraj.systems) == 2
 end
 
-@testitem "SamplingProblem with DensityTrajectory" tags = [:density, :skip] begin
-    # TODO: DensityTrajectory support for SamplingProblem is not yet complete
-    # Needs: BilinearIntegrator dispatch, SamplingTrajectory NamedTrajectory conversion
-    @test_skip "DensityTrajectory support not yet implemented"
+@testitem "SamplingProblem with DensityTrajectory fails loudly (extension point)" tags =
+    [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    # Open systems with dissipation and a drift variation
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = DensityTrajectory(sys_nom, pulse, ρ0, ρg)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+
+    # Piccolo ships no public density fidelity objective: construction must fail
+    # loudly, naming the extension point — never silently install a null objective.
+    err = try
+        SamplingProblem(qcp, [sys_nom, sys_var])
+        nothing
+    catch e
+        e
+    end
+
+    @test err isa Exception
+    @test occursin("sampling_state_objective", sprint(showerror, err))
+    @test occursin("Piccolissimo", sprint(showerror, err))
+end
+
+@testitem "SamplingTrajectory (Density) min-time fidelity constraint" tags = [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    base_qtraj = DensityTrajectory(sys_nom, pulse, ρ0, ρg)
+
+    # Built directly: SamplingProblem construction errors loudly on the density
+    # objective cell (pinned above), so the min-time machinery is exercised at
+    # the dispatch level. Behavior pinned: per-member FinalDensityFidelityConstraint
+    # (public machinery), usable as-is once a downstream objective registers.
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(sampling_qtraj, 0.9, traj)
+    @test length(cons) == 2
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
+end
+
+@testitem "SamplingProblem with MultiDensityTrajectory fails loudly (extension point)" tags =
+    [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiDensityTrajectory(sys_nom, pulse, [ρ0, ρ1], [ρ1, ρ0])
+
+    # No SmoothPulseProblem method exists for MultiDensityTrajectory; a minimal
+    # base problem suffices — SamplingProblem only reads the trajectory and the
+    # objective before the (loud) density objective cell is reached.
+    base_prob = DirectTrajOptProblem(
+        NamedTrajectory(qtraj, N),
+        NullObjective(),
+        AbstractIntegrator[],
+    )
+    qcp = QuantumControlProblem(qtraj, base_prob)
+
+    # Same loud cell as the single-density base, reached through the per-member
+    # (Vector{Symbol}) objective dispatch
+    err = try
+        SamplingProblem(qcp, [sys_nom, sys_var])
+        nothing
+    catch e
+        e
+    end
+
+    @test err isa Exception
+    @test occursin("sampling_state_objective", sprint(showerror, err))
+    @test occursin("Piccolissimo", sprint(showerror, err))
+end
+
+@testitem "SamplingTrajectory (MultiDensity) min-time fidelity constraints" tags =
+    [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    base_qtraj = MultiDensityTrajectory(sys_nom, pulse, [ρ0, ρ1], [ρ1, ρ0])
+
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    # One FinalDensityFidelityConstraint per (member, density) — 2 × 2 = 4
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(sampling_qtraj, 0.9, traj)
+    @test length(cons) == 4
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
 end
 
 @testitem "SamplingProblem with custom integrator factory" begin
