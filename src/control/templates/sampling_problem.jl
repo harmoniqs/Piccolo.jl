@@ -189,6 +189,7 @@ function SamplingProblem(
 
     base_qtraj = qcp.qtraj
     state_sym = state_name(base_qtraj)
+    control_sym = drive_name(base_qtraj)
     base_traj = get_trajectory(qcp)
 
     # 1. Create SamplingTrajectory wrapper (new API: no stored trajectory)
@@ -223,6 +224,31 @@ function SamplingProblem(
             global_components = base_traj.global_components,
         )
     end
+    # 2b. Preserve the base problem's control-derivative structure. A smooth base
+    #     problem carries :du, :ddu components, DerivativeIntegrators, and
+    #     regularizers on them; the sampling rebuild keeps that chain (shared
+    #     across members, like the control itself) so the robust problem is the
+    #     same problem as the base. Detect the chain by the `d`-prefix naming
+    #     convention of `add_control_derivatives` (:du, :ddu, …).
+    deriv_names = Symbol[]
+    while Symbol("d"^(length(deriv_names) + 1) * string(control_sym)) ∈ base_traj.names
+        push!(deriv_names, Symbol("d"^(length(deriv_names) + 1) * string(control_sym)))
+    end
+
+    if !isempty(deriv_names)
+        derivative_bounds = if all(haskey(base_traj.bounds, dn) for dn in deriv_names)
+            Tuple(base_traj.bounds[dn] for dn in deriv_names)
+        else
+            nothing
+        end
+        new_traj = add_control_derivatives(
+            new_traj,
+            length(deriv_names);
+            control_name = control_sym,
+            derivative_bounds = derivative_bounds,
+        )
+    end
+
     # 3. Build objective: weighted per-member state objectives + shared regularization.
     #    member_states is one Symbol per member for single-state bases, one
     #    Vector{Symbol} per member for multi-state bases (multi-ket, multi-density).
@@ -234,11 +260,8 @@ function SamplingProblem(
     J_reg = extract_regularization(qcp.prob.objective, state_sym, new_traj)
     J_total = J_state + J_reg
 
-    # 4. Build integrators: dynamics for each system
-    #    Note: We don't carry over DerivativeIntegrators from the base problem
-    #    because they operate on :du, :ddu which don't exist in the sampling trajectory.
-    #    For now, SamplingProblem operates on the raw controls without derivative smoothing.
-    #    TODO: Consider adding an option to preserve smoothness constraints.
+    # 4. Build integrators: dynamics for each system, then the base problem's
+    #    derivative chain (u → du → ddu …), preserved from step 2b.
 
     # Use BilinearIntegrator by default, or a custom integrator factory via the
     # `integrator` kwarg (must accept (sampling_qtraj, N) and return integrator(s)).
@@ -248,9 +271,18 @@ function SamplingProblem(
         dynamics_integrators = integrator(sampling_qtraj, N)
     end
 
-    all_integrators =
-        dynamics_integrators isa AbstractVector ? dynamics_integrators :
-        [dynamics_integrators]
+    all_integrators = AbstractIntegrator[
+        (dynamics_integrators isa AbstractVector ? dynamics_integrators :
+         [dynamics_integrators])...,
+    ]
+
+    control_chain = [control_sym, deriv_names...]
+    for i in eachindex(deriv_names)
+        push!(
+            all_integrators,
+            DerivativeIntegrator(control_chain[i], control_chain[i+1], new_traj),
+        )
+    end
 
     # 5. Construct problem (TimeConsistencyConstraint auto-applied)
     constraints = AbstractConstraint[]
@@ -396,9 +428,70 @@ end
     @test haskey(traj.components, :u)
 
     # Check integrators
-    # Should have 2 dynamics integrators (one per system)
-    # SamplingProblem doesn't carry derivative integrators from base problem
-    @test length(sampling_prob.prob.integrators) == 2
+    # 2 dynamics integrators (one per system) + 2 derivative integrators
+    # carried over from the smooth base problem's :du/:ddu chain
+    @test length(sampling_prob.prob.integrators) == 4
+end
+
+@testitem "SamplingProblem preserves smooth base structure" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Regression pin for the silent structure drop: a SamplingProblem built from
+    # a smooth base problem must retain the base's derivative components (:du,
+    # :ddu), its DerivativeIntegrators, and its regularizer objectives — the
+    # robust problem is otherwise not the same problem as the base.
+
+    T = 10.0
+    N = 50
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+
+    sampling_prob = SamplingProblem(qcp, [sys, sys])
+    traj = get_trajectory(sampling_prob)
+
+    # Derivative components carried into the sampling trajectory
+    @test haskey(traj.components, :du)
+    @test haskey(traj.components, :ddu)
+
+    # Derivative integrators carried: 2 dynamics (one per member) + 2 derivative
+    n_derivative = count(i -> i isa DerivativeIntegrator, sampling_prob.prob.integrators)
+    @test n_derivative == 2
+    @test length(sampling_prob.prob.integrators) == 4
+
+    # Regularizer objectives carried: the smooth base's quadratic regularizers
+    # on :u, :du, :ddu survive the rebuild (recursively flatten composites).
+    function _regularizer_names(obj)
+        terms = hasproperty(obj, :objectives) ? obj.objectives : (obj,)
+        names = Symbol[]
+        for t in terms
+            if hasproperty(t, :objectives)
+                append!(names, _regularizer_names(t))
+            elseif t isa QuadraticRegularizer
+                push!(names, t.name)
+            end
+        end
+        return names
+    end
+    reg_names = _regularizer_names(sampling_prob.prob.objective)
+    @test :u ∈ reg_names
+    @test :du ∈ reg_names
+    @test :ddu ∈ reg_names
+
+    # The carried structure is live: objective evaluates finite, and the
+    # derivative constraints are consistent at the initial trajectory.
+    @test isfinite(sampling_prob.prob.objective(sampling_prob.trajectory))
+    for integrator in sampling_prob.prob.integrators
+        if integrator isa DerivativeIntegrator
+            δ = zeros(integrator.dim)
+            DirectTrajOpt.evaluate!(δ, integrator, traj)
+            @test norm(δ, Inf) < 1e-8
+        end
+    end
 end
 
 @testitem "SamplingProblem Solving" tags = [:sampling_problem] begin
@@ -507,8 +600,9 @@ end
     @test haskey(traj.global_components, :δ)
     @test traj.global_data == get_trajectory(qcp).global_data
 
-    # 4 dynamics integrators: one per (member, ket)
-    @test length(sampling_prob.prob.integrators) == 4
+    # 4 dynamics integrators (one per (member, ket)) + 2 derivative integrators
+    # carried over from the smooth base problem's :du/:ddu chain
+    @test length(sampling_prob.prob.integrators) == 6
 
     # Per-member coherent objectives: evaluating must be finite
     @test isfinite(sampling_prob.prob.objective(sampling_prob.trajectory))
@@ -813,7 +907,9 @@ end
         SamplingProblem(qcp, [sys_nominal, sys_perturbed]; integrator = custom_factory)
 
     @test sampling_prob isa QuantumControlProblem
-    @test length(sampling_prob.prob.integrators) == 2
+    # 2 factory-supplied dynamics integrators + 2 derivative integrators carried
+    # over from the smooth base problem's :du/:ddu chain
+    @test length(sampling_prob.prob.integrators) == 4
 
     solve!(sampling_prob; max_iter = 5, verbose = false, print_level = 1)
 end
