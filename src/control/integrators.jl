@@ -177,7 +177,11 @@ function _sampling_integrator(
     state_sym::Symbol,
     control_sym::Symbol,
 )
-    return BilinearIntegrator(sys.𝒢, state_sym, control_sym, traj)
+    # Compact Lindbladian (n² × n²) matching the compact density iso the sampling
+    # trajectory carries — same construction as the non-sampling density integrator.
+    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_parts(sys)
+    𝒢c = compact_generator_closure(sys, 𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators)
+    return BilinearIntegrator(𝒢c, state_sym, control_sym, traj)
 end
 
 # ----------------------------------------------------------------------------- #
@@ -362,6 +366,49 @@ end
     for integrator in integrators
         test_integrator(integrator, expanded_traj; atol = 1e-3)
     end
+end
+
+@testitem "BilinearIntegrator dispatch on SamplingTrajectory (Density)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # Open systems with dissipation and a drift variation
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys1 = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys2 = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+
+    base_qtraj = DensityTrajectory(sys1, pulse, ρ0, ρg)
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+    integrators = BilinearIntegrator(sampling_qtraj, N)
+
+    @test integrators isa Vector{<:BilinearIntegrator}
+    @test length(integrators) == 2
+
+    # Compact Lindbladian: state dim is n² (compact iso), NOT 2n² (full vec iso)
+    n = sys1.levels
+    for integrator in integrators
+        @test integrator.x_dim == n^2
+        test_integrator(integrator, expanded_traj; atol = 1e-3)
+    end
+
+    # Parity: the member-1 sampling integrator must agree with the non-sampling
+    # density integrator built on the same system (same compact generator).
+    ref_integrator = BilinearIntegrator(base_qtraj, N)
+    x = randn(n^2)
+    x_next = randn(n^2)
+    u = [0.3]
+    Δt = 0.05
+    @test integrators[1].f(x_next, x, u, Δt) ≈ ref_integrator.f(x_next, x, u, Δt)
 end
 
 @testitem "BilinearIntegrator dispatch on MultiKetTrajectory" begin
