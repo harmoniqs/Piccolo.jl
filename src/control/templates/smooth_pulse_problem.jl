@@ -1265,7 +1265,13 @@ end
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
 
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    # Deterministic smooth init at the trajectory frequency — avoids the
+    # unseeded-randn flake (repo convention; the sampling problem now carries
+    # the base's derivative chain, making the random-init convergence
+    # stochastic at this iteration budget).
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init = 0.1 * reshape(cos.(2π .* times_arr), 1, N)
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys_nominal, pulse, ψ_init, ψ_goal)
     qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 
@@ -1279,8 +1285,10 @@ end
     @test haskey(traj.components, :ψ̃1)
     @test haskey(traj.components, :ψ̃2)
 
-    # Solve
-    solve!(sampling_prob; max_iter = 50, verbose = false, print_level = 1)
+    # Solve. max_iter=100 matches the non-sampling KetTrajectory sibling: the
+    # sampling problem now carries the base's derivative chain (issue #267), so
+    # 50 iterations leaves dynamics residuals stochastic around the 1e-3 gate.
+    solve!(sampling_prob; max_iter = 100, verbose = false, print_level = 1)
 
     # Test dynamics constraints are satisfied
     for integrator in sampling_prob.prob.integrators
