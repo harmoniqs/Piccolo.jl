@@ -346,14 +346,30 @@ function SamplingProblem(
     #     problem carries :du, :ddu components, DerivativeIntegrators, and
     #     regularizers on them; the sampling rebuild keeps that chain (shared
     #     across members, like the control itself) so the robust problem is the
-    #     same problem as the base. Detect the chain by the `d`-prefix naming
-    #     convention of `add_control_derivatives` (:du, :ddu, …).
+    #     same problem as the base. The chain is detected by the `d`-prefix
+    #     naming convention of `add_control_derivatives` (:du, :ddu, …).
+    #     Components the sampling conversion already carries from the pulse data
+    #     (e.g. a CubicSplinePulse's :du Hermite tangents) are NOT re-added.
     deriv_names = Symbol[]
     while Symbol("d"^(length(deriv_names) + 1) * string(control_sym)) ∈ base_traj.names
         push!(deriv_names, Symbol("d"^(length(deriv_names) + 1) * string(control_sym)))
     end
 
-    if !isempty(deriv_names)
+    n_existing = 0
+    while n_existing < length(deriv_names) &&
+          deriv_names[n_existing + 1] ∈ new_traj.names
+        n_existing += 1
+    end
+
+    if 0 < n_existing < length(deriv_names)
+        error(
+            "SamplingProblem cannot preserve the base problem's derivative chain " *
+            "$(deriv_names): the sampling trajectory already carries " *
+            "$(deriv_names[1:n_existing]) from the pulse data, and partially " *
+            "extending a derivative chain is not supported. Rebuild the base " *
+            "problem with a matching chain, or open an issue.",
+        )
+    elseif n_existing == 0 && !isempty(deriv_names)
         derivative_bounds = if all(haskey(base_traj.bounds, dn) for dn in deriv_names)
             Tuple(base_traj.bounds[dn] for dn in deriv_names)
         else
@@ -386,12 +402,24 @@ function SamplingProblem(
     end
     all_integrators = _resolve_sampling_integrators(integrator, sampling_qtraj, N, n_slots)
 
-    control_chain = [control_sym, deriv_names...]
-    for i in eachindex(deriv_names)
-        push!(
-            all_integrators,
-            DerivativeIntegrator(control_chain[i], control_chain[i+1], new_traj),
-        )
+    # Replicate the base problem's derivative integrators exactly (smooth:
+    # u→du→ddu; bang-bang / linear spline: u→du; cubic spline: none — its :du
+    # Hermite tangents are free DOFs, not a constrained chain).
+    for base_int in qcp.prob.integrators
+        base_int isa DerivativeIntegrator || continue
+        if base_int.x_name ∈ new_traj.names && base_int.ẋ_name ∈ new_traj.names
+            push!(
+                all_integrators,
+                DerivativeIntegrator(base_int.x_name, base_int.ẋ_name, new_traj),
+            )
+        else
+            error(
+                "SamplingProblem cannot preserve the base problem's " *
+                "DerivativeIntegrator ($(base_int.x_name) → $(base_int.ẋ_name)): " *
+                "those components do not exist in the sampling trajectory. " *
+                "Only control-derivative chains (:du, :ddu, …) are preserved.",
+            )
+        end
     end
 
     # 5. Construct problem (TimeConsistencyConstraint auto-applied)
@@ -602,6 +630,37 @@ end
             @test norm(δ, Inf) < 1e-8
         end
     end
+
+    # --- Spline bases: the pulse carries :du, so the rebuild must not
+    #     duplicate it; which DerivativeIntegrators survive follows the base. ---
+
+    times = collect(range(0.0, T, length = N))
+
+    # Cubic spline: :du is Hermite tangents (free DOFs) — no DerivativeIntegrator
+    cubic_pulse = CubicSplinePulse(0.1 * randn(1, N), 0.1 * randn(1, N), times)
+    cubic_qtraj = UnitaryTrajectory(sys, cubic_pulse, GATES[:H])
+    cubic_qcp = SplinePulseProblem(cubic_qtraj, N; Q = 100.0)
+
+    cubic_sampling = SamplingProblem(cubic_qcp, [sys, sys])
+    cubic_traj = get_trajectory(cubic_sampling)
+    @test haskey(cubic_traj.components, :du)
+    @test count(==(:du), cubic_traj.names) == 1
+    @test count(i -> i isa DerivativeIntegrator, cubic_sampling.prob.integrators) == 0
+    @test :du ∈ _regularizer_names(cubic_sampling.prob.objective)
+    @test isfinite(cubic_sampling.prob.objective(cubic_sampling.trajectory))
+
+    # Linear spline: :du is a constrained derivative — one DerivativeIntegrator
+    linear_pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    linear_qtraj = UnitaryTrajectory(sys, linear_pulse, GATES[:H])
+    linear_qcp = SplinePulseProblem(linear_qtraj, N; Q = 100.0)
+
+    linear_sampling = SamplingProblem(linear_qcp, [sys, sys])
+    linear_traj = get_trajectory(linear_sampling)
+    @test haskey(linear_traj.components, :du)
+    @test count(==(:du), linear_traj.names) == 1
+    @test count(i -> i isa DerivativeIntegrator, linear_sampling.prob.integrators) == 1
+    @test :du ∈ _regularizer_names(linear_sampling.prob.objective)
+    @test isfinite(linear_sampling.prob.objective(linear_sampling.trajectory))
 end
 
 @testitem "SamplingProblem Solving" tags = [:sampling_problem] begin
