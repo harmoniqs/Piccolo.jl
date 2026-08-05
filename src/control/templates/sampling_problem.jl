@@ -272,6 +272,22 @@ fidelity objectives for each system.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. SamplingProblem builds a fresh constraint list (rather than inheriting from the base `qcp`), so calibration_target pins set on the base `qcp` are *not* automatically carried over — pass them here explicitly. Default empty: globals stay free.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Options for the solver
 
+# Structure preservation
+
+The rebuild preserves the base problem's control-derivative structure: derivative
+components (`:du`, `:ddu`, …) are added to the sampling trajectory (shared across
+members, like the control itself), the base's `DerivativeIntegrator` chain is
+carried over, and regularizer objectives from the base whose variables exist in
+the sampling trajectory are retained. A robust version of a smooth problem is
+therefore the same problem, ensemble-replicated.
+
+**Known limitation:** bang-bang L1/slack structure does not survive the rebuild.
+The `:s_du` slack component, its `LinearRegularizer`, and the `L1SlackConstraint`
+are tied to the base problem's constraint list, which `SamplingProblem` rebuilds
+fresh (cf. `calibration_targets`). A bang-bang base yields a one-derivative
+smooth sampling problem — the `:du` chain and control regularizers survive, the
+L1 sparsity machinery does not.
+
 # Returns
 - `QuantumControlProblem{SamplingTrajectory}`: A new problem with the sampling trajectory
 """
@@ -1078,6 +1094,54 @@ end
     end
     @test err_slots isa Exception
     @test occursin("integrator", lowercase(sprint(showerror, err_slots)))
+end
+
+@testitem "SamplingProblem from bang-bang base: L1 slack limitation" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Pins the documented limitation (issue #267): bang-bang L1/slack structure
+    # does NOT survive the sampling rebuild. The slack component :s_du, its
+    # LinearRegularizer, and the L1SlackConstraint are bang-bang machinery tied
+    # to the base problem's constraint list, which SamplingProblem deliberately
+    # rebuilds fresh. The shared derivative chain (:du + DerivativeIntegrator)
+    # and control regularizers DO survive — the result is a one-derivative
+    # smooth sampling problem, not an L1-sparsified one.
+
+    T = 10.0
+    N = 50
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
+
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
+    qcp = BangBangPulseProblem(qtraj, N; Q = 100.0)
+
+    # Sanity: the bang-bang base really carries the slack structure
+    @test haskey(get_trajectory(qcp).components, :s_du)
+
+    sampling_prob = SamplingProblem(qcp, [sys, sys_perturbed])
+    traj = get_trajectory(sampling_prob)
+
+    # What survives: the 1-derivative chain and its integrator
+    @test haskey(traj.components, :du)
+    @test count(i -> i isa DerivativeIntegrator, sampling_prob.prob.integrators) == 1
+
+    # What does not: no slack component, no L1 slack regularizer
+    @test !haskey(traj.components, :s_du)
+    function _has_linear_regularizer(obj)
+        terms = hasproperty(obj, :objectives) ? obj.objectives : (obj,)
+        return any(
+            t -> hasproperty(t, :objectives) ? _has_linear_regularizer(t) :
+                 t isa LinearRegularizer,
+            terms,
+        )
+    end
+    @test !_has_linear_regularizer(sampling_prob.prob.objective)
+
+    # The rebuilt problem is still well-posed
+    @test isfinite(sampling_prob.prob.objective(sampling_prob.trajectory))
 end
 
 @testitem "SamplingProblem with custom integrator factory" begin
