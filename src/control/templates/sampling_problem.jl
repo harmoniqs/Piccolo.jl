@@ -87,15 +87,43 @@ function sampling_state_objective(
     return KetInfidelityObjective(ψ_goal, state_sym, traj; Q = Q)
 end
 
+# Density bases: Piccolo ships no public density fidelity objective, so the
+# density sampling-objective cells are intentionally loud — construction fails
+# here with an error naming the extension point rather than silently installing
+# a null objective that would optimize nothing. A downstream package (e.g.
+# Piccolissimo) registers the density sampling objective by extending
+# `sampling_state_objective` for the density trajectory types.
+const _DENSITY_SAMPLING_OBJECTIVE_ERROR = """
+SamplingProblem cannot build a state objective for a density-matrix base trajectory: \
+Piccolo does not provide a public density fidelity objective. The sampling-trajectory \
+conversion and the compact-Lindbladian bilinear integrators are available, but solving \
+requires a density sampling objective from a downstream package.
+
+Extension point: extend `sampling_state_objective` for the density trajectory types, e.g.
+
+    Piccolo.ProblemTemplates.sampling_state_objective(
+        ::DensityTrajectory, traj::NamedTrajectory, state_sym::Symbol, Q::Float64,
+    )
+
+(Piccolissimo registers its density sampling objective through this hook.) No null \
+objective was installed; this loud error is intentional."""
+
 function sampling_state_objective(
     qtraj::DensityTrajectory,
     traj::NamedTrajectory,
     state_sym::Symbol,
     Q::Float64,
 )
-    # DensityTrajectory doesn't have a fidelity objective yet
-    # Return NullObjective for now
-    return NullObjective(traj)
+    error(_DENSITY_SAMPLING_OBJECTIVE_ERROR)
+end
+
+function sampling_state_objective(
+    qtraj::MultiDensityTrajectory,
+    traj::NamedTrajectory,
+    state_syms::Vector{Symbol},
+    Q::Float64,
+)
+    error(_DENSITY_SAMPLING_OBJECTIVE_ERROR)
 end
 
 # ============================================================================= #
@@ -445,10 +473,37 @@ end
     @test length(sampling_prob.qtraj.systems) == 2
 end
 
-@testitem "SamplingProblem with DensityTrajectory" tags = [:density, :skip] begin
-    # TODO: DensityTrajectory support for SamplingProblem is not yet complete
-    # Needs: BilinearIntegrator dispatch, SamplingTrajectory NamedTrajectory conversion
-    @test_skip "DensityTrajectory support not yet implemented"
+@testitem "SamplingProblem with DensityTrajectory fails loudly (extension point)" tags =
+    [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    # Open systems with dissipation and a drift variation
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = DensityTrajectory(sys_nom, pulse, ρ0, ρg)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+
+    # Piccolo ships no public density fidelity objective: construction must fail
+    # loudly, naming the extension point — never silently install a null objective.
+    err = try
+        SamplingProblem(qcp, [sys_nom, sys_var])
+        nothing
+    catch e
+        e
+    end
+
+    @test err isa Exception
+    @test occursin("sampling_state_objective", sprint(showerror, err))
+    @test occursin("Piccolissimo", sprint(showerror, err))
 end
 
 @testitem "SamplingProblem with custom integrator factory" begin
