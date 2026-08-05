@@ -340,6 +340,32 @@ function _sampling_fidelity_constraint(
     )
 end
 
+# Density bases: the min-time constraint cell IS supported publicly (unlike the
+# objective cell) — FinalDensityFidelityConstraint is public machinery. It only
+# becomes reachable in a full solve once a downstream density sampling objective
+# registers (see the sampling_state_objective extension point).
+function _sampling_fidelity_constraint(
+    qtraj::DensityTrajectory,
+    state_sym::Symbol,
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    return FinalDensityFidelityConstraint(qtraj.goal, state_sym, final_fidelity, traj)
+end
+
+function _sampling_fidelity_constraint(
+    qtraj::MultiDensityTrajectory,
+    state_syms::Vector{Symbol},
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    # One density fidelity constraint per sub-state of this member
+    return [
+        FinalDensityFidelityConstraint(goal, name, final_fidelity, traj) for
+        (goal, name) in zip(qtraj.goals, state_syms)
+    ]
+end
+
 # Tests
 @testitem "SamplingProblem Construction" begin
     using DirectTrajOpt
@@ -669,6 +695,34 @@ end
     @test err isa Exception
     @test occursin("sampling_state_objective", sprint(showerror, err))
     @test occursin("Piccolissimo", sprint(showerror, err))
+end
+
+@testitem "SamplingTrajectory (Density) min-time fidelity constraint" tags = [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    base_qtraj = DensityTrajectory(sys_nom, pulse, ρ0, ρg)
+
+    # Built directly: SamplingProblem construction errors loudly on the density
+    # objective cell (pinned above), so the min-time machinery is exercised at
+    # the dispatch level. Behavior pinned: per-member FinalDensityFidelityConstraint
+    # (public machinery), usable as-is once a downstream objective registers.
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(sampling_qtraj, 0.9, traj)
+    @test length(cons) == 2
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
 end
 
 @testitem "SamplingProblem with custom integrator factory" begin
