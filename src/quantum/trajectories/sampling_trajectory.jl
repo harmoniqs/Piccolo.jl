@@ -258,6 +258,99 @@ function NamedTrajectory(
     )
 end
 
+"""
+    _build_sampling_named_trajectory(base, times, state_data, initial_nt, goal_nt, bounds; Δt_bounds)
+
+Shared tail for `SamplingTrajectory` conversions: merge the per-member state data
+with the shared control data and Δt from the base pulse, then build the
+`NamedTrajectory`. All members share one control and one Δt.
+"""
+function _build_sampling_named_trajectory(
+    base::AbstractQuantumTrajectory,
+    times::AbstractVector{<:Real},
+    state_data::NamedTuple,
+    initial_nt::NamedTuple,
+    goal_nt::NamedTuple,
+    bounds::NamedTuple;
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+)
+    # Get control data from base pulse
+    control_data, control_names, control_bounds =
+        _get_control_data(get_pulse(base), times, get_system(base))
+
+    # Compute Δt
+    Δt_diff = diff(times)
+    Δt = [Δt_diff; Δt_diff[end]]
+
+    # Build data
+    data = merge(state_data, (; Δt = Δt, t = collect(times)), control_data)
+    bounds = merge(bounds, control_bounds)
+    # Add Δt bounds if provided
+    if !isnothing(Δt_bounds)
+        bounds = merge(bounds, (Δt = ([Δt_bounds[1]], [Δt_bounds[2]]),))
+    end
+
+    return NamedTrajectory(
+        data;
+        timestep = :Δt,
+        controls = (:Δt, control_names...),
+        bounds = bounds,
+        initial = initial_nt,
+        goal = goal_nt,
+    )
+end
+
+"""
+    NamedTrajectory(sampling::SamplingTrajectory{<:AbstractPulse,<:DensityTrajectory}, N_or_times; Δt_bounds=nothing)
+
+Convert a density-base SamplingTrajectory to a NamedTrajectory for optimization.
+
+Creates one compact-iso (n² real params) density component per system (`:ρ⃗̃1`,
+`:ρ⃗̃2`, ...), all sharing the same control pulse and Δt. Each member starts at the
+base trajectory's initial density matrix and shares its goal.
+"""
+function NamedTrajectory(
+    sampling::SamplingTrajectory{P,<:DensityTrajectory{P}},
+    N_or_times::Union{Int,AbstractVector{<:Real}};
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+) where {P<:AbstractPulse}
+    base = sampling.base_trajectory
+    times = _sample_times(base, N_or_times)
+    snames = state_names(sampling)
+
+    # Sample base trajectory for initial state data (compact iso, n² real params)
+    base_states = [base(t) for t in times]
+    ρ̃_base = hcat([density_to_compact_iso(ρ) for ρ in base_states]...)
+    state_dim = size(ρ̃_base, 1)
+
+    # Build state data for each system (initially all same, dynamics will differ)
+    state_data = NamedTuple()
+    initial_nt = NamedTuple()
+    goal_nt = NamedTuple()
+    bounds = NamedTuple()
+
+    # All systems share initial and goal (from base trajectory)
+    ρ_init_iso = density_to_compact_iso(get_initial(base))
+    ρ_goal_iso = density_to_compact_iso(get_goal(base))
+
+    for name in snames
+        state_data = merge(state_data, _named_tuple(name => copy(ρ̃_base)))
+        initial_nt = merge(initial_nt, _named_tuple(name => ρ_init_iso))
+        goal_nt = merge(goal_nt, _named_tuple(name => ρ_goal_iso))
+        bounds = merge(bounds, _named_tuple(name => (-ones(state_dim), ones(state_dim))))
+    end
+
+    return _build_sampling_named_trajectory(
+        base,
+        times,
+        state_data,
+        initial_nt,
+        goal_nt,
+        bounds;
+        Δt_bounds = Δt_bounds,
+    )
+end
+
 # ============================================================================ #
 # Tests for SamplingTrajectory
 # ============================================================================ #
@@ -352,6 +445,51 @@ end
     @test :ψ̃2 ∈ traj.names
     @test :ψ̃3 ∈ traj.names
     @test :u ∈ traj.names
+end
+
+@testitem "SamplingTrajectory with DensityTrajectory" begin
+    using LinearAlgebra
+    using NamedTrajectories: NamedTrajectory
+
+    # Open systems with dissipation and a drift variation
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    T = 1.0
+    times = range(0, T, length = 11)
+    pulse = LinearSplinePulse(zeros(1, 11), collect(times))
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    base_qtraj = DensityTrajectory(sys_nom, pulse, ρ0, ρg)
+
+    sampling = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+
+    @test sampling isa SamplingTrajectory{<:AbstractPulse,<:DensityTrajectory}
+    @test state_names(sampling) == [:ρ⃗̃1, :ρ⃗̃2]
+
+    # NamedTrajectory conversion
+    traj = NamedTrajectory(sampling, 11)
+    @test :ρ⃗̃1 ∈ traj.names
+    @test :ρ⃗̃2 ∈ traj.names
+    @test :u ∈ traj.names
+    @test :Δt ∈ traj.names
+
+    # Compact iso: n² real params (not 2n²), one component per member
+    n = sys_nom.levels
+    @test traj.dims[:ρ⃗̃1] == n^2
+    @test traj.dims[:ρ⃗̃2] == n^2
+
+    # Initial/goal/bounds propagated per member
+    for sn in [:ρ⃗̃1, :ρ⃗̃2]
+        @test haskey(traj.initial, sn)
+        @test haskey(traj.goal, sn)
+        @test haskey(traj.bounds, sn)
+        @test compact_iso_to_density(traj.initial[sn]) ≈ ρ0
+        @test compact_iso_to_density(traj.goal[sn]) ≈ ρg
+    end
 end
 
 @testitem "SamplingTrajectory extract_pulse and rollout" begin
