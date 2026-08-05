@@ -725,6 +725,73 @@ end
     @test all(c -> c isa NonlinearKnotPointConstraint, cons)
 end
 
+@testitem "SamplingProblem with MultiDensityTrajectory fails loudly (extension point)" tags =
+    [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiDensityTrajectory(sys_nom, pulse, [ρ0, ρ1], [ρ1, ρ0])
+
+    # No SmoothPulseProblem method exists for MultiDensityTrajectory; a minimal
+    # base problem suffices — SamplingProblem only reads the trajectory and the
+    # objective before the (loud) density objective cell is reached.
+    base_prob = DirectTrajOptProblem(
+        NamedTrajectory(qtraj, N),
+        NullObjective(),
+        AbstractIntegrator[],
+    )
+    qcp = QuantumControlProblem(qtraj, base_prob)
+
+    # Same loud cell as the single-density base, reached through the per-member
+    # (Vector{Symbol}) objective dispatch
+    err = try
+        SamplingProblem(qcp, [sys_nom, sys_var])
+        nothing
+    catch e
+        e
+    end
+
+    @test err isa Exception
+    @test occursin("sampling_state_objective", sprint(showerror, err))
+    @test occursin("Piccolissimo", sprint(showerror, err))
+end
+
+@testitem "SamplingTrajectory (MultiDensity) min-time fidelity constraints" tags =
+    [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    base_qtraj = MultiDensityTrajectory(sys_nom, pulse, [ρ0, ρ1], [ρ1, ρ0])
+
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    # One FinalDensityFidelityConstraint per (member, density) — 2 × 2 = 4
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(sampling_qtraj, 0.9, traj)
+    @test length(cons) == 4
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
+end
+
 @testitem "SamplingProblem with custom integrator factory" begin
     using DirectTrajOpt
     using LinearAlgebra
