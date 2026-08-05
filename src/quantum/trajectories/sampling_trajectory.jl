@@ -439,6 +439,58 @@ function NamedTrajectory(
     )
 end
 
+"""
+    NamedTrajectory(sampling::SamplingTrajectory{<:AbstractPulse,<:MultiDensityTrajectory}, N_or_times; Δt_bounds=nothing)
+
+Convert a multi-density-base SamplingTrajectory to a NamedTrajectory for
+optimization.
+
+Creates `n_systems × n_densities` compact-iso (n² real params) components —
+member `i` owns `state_names(sampling)[((i-1)*K+1):(i*K)]` — all sharing one
+control and one Δt. Each member replicates the base trajectory's per-density
+initial states and goals.
+"""
+function NamedTrajectory(
+    sampling::SamplingTrajectory{P,<:MultiDensityTrajectory{P}},
+    N_or_times::Union{Int,AbstractVector{<:Real}};
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+) where {P<:AbstractPulse}
+    base = sampling.base_trajectory
+    times = _sample_times(base, N_or_times)
+    snames = state_names(sampling)  # member-major flat names
+    n_members = length(sampling.systems)
+    K = length(base)
+
+    # Sample each base sub-state once (compact iso), then copy per member
+    base_ρ_data = [hcat([density_to_compact_iso(base[j](t)) for t in times]...) for j in 1:K]
+    state_dim = size(base_ρ_data[1], 1)
+    initials_iso = [density_to_compact_iso(ρ) for ρ in base.initials]
+    goals_iso = [density_to_compact_iso(ρ) for ρ in base.goals]
+
+    state_data = NamedTuple()
+    initial_nt = NamedTuple()
+    goal_nt = NamedTuple()
+    bounds = NamedTuple()
+
+    for i in 1:n_members, j in 1:K
+        name = snames[(i-1)*K+j]
+        state_data = merge(state_data, _named_tuple(name => copy(base_ρ_data[j])))
+        initial_nt = merge(initial_nt, _named_tuple(name => initials_iso[j]))
+        goal_nt = merge(goal_nt, _named_tuple(name => goals_iso[j]))
+        bounds = merge(bounds, _named_tuple(name => (-ones(state_dim), ones(state_dim))))
+    end
+
+    return _build_sampling_named_trajectory(
+        base,
+        times,
+        state_data,
+        initial_nt,
+        goal_nt,
+        bounds;
+        Δt_bounds = Δt_bounds,
+    )
+end
+
 # ============================================================================ #
 # Tests for SamplingTrajectory
 # ============================================================================ #
@@ -624,6 +676,50 @@ end
     @test traj.goal[:ψ̃2] ≈ ket_to_iso(ψ0)
     @test traj.goal[:ψ̃3] ≈ ket_to_iso(ψ1)
     @test traj.goal[:ψ̃4] ≈ ket_to_iso(ψ0)
+end
+
+@testitem "SamplingTrajectory with MultiDensityTrajectory" begin
+    using LinearAlgebra
+    using NamedTrajectories: NamedTrajectory
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    T = 1.0
+    times = range(0, T, length = 11)
+    pulse = LinearSplinePulse(zeros(1, 11), collect(times))
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+    base_qtraj = MultiDensityTrajectory(sys_nom, pulse, [ρ0, ρ1], [ρ1, ρ0])
+
+    sampling = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+
+    @test sampling isa SamplingTrajectory{<:AbstractPulse,<:MultiDensityTrajectory}
+
+    # 2 systems × 2 densities = 4 components, member-major
+    @test state_names(sampling) == [:ρ⃗̃1, :ρ⃗̃2, :ρ⃗̃3, :ρ⃗̃4]
+    @test sampling_member_states(sampling) == [[:ρ⃗̃1, :ρ⃗̃2], [:ρ⃗̃3, :ρ⃗̃4]]
+
+    traj = NamedTrajectory(sampling, 11)
+    n = sys_nom.levels
+    for sn in state_names(sampling)
+        @test sn ∈ traj.names
+        @test haskey(traj.initial, sn)
+        @test haskey(traj.goal, sn)
+        @test haskey(traj.bounds, sn)
+        @test traj.dims[sn] == n^2  # compact iso
+    end
+    @test :u ∈ traj.names
+    @test :Δt ∈ traj.names
+
+    # Per-density initial/goal shared across members (from the base trajectory)
+    @test compact_iso_to_density(traj.initial[:ρ⃗̃1]) ≈ ρ0
+    @test compact_iso_to_density(traj.initial[:ρ⃗̃2]) ≈ ρ1
+    @test compact_iso_to_density(traj.goal[:ρ⃗̃3]) ≈ ρ1
+    @test compact_iso_to_density(traj.goal[:ρ⃗̃4]) ≈ ρ0
 end
 
 @testitem "SamplingTrajectory extract_pulse and rollout" begin
