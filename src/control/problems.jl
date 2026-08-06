@@ -269,6 +269,42 @@ _terminal_iso_states(qtraj::MultiKetTrajectory{<:AbstractPulse,RolloutStates}) =
 
 _terminal_iso_states(::AbstractQuantumTrajectory) = nothing
 
+# SamplingTrajectory: one pair per member for states that are comparable (unitary, ket,
+# multi-ket), `nothing` for density bases (no comparable definition). Each pair maps the
+# component name in the NamedTrajectory to the re-rollout terminal state for that member's
+# system — the same iso representation the collocation stores.
+function _terminal_iso_states(qtraj::SamplingTrajectory)
+    base = qtraj.base_trajectory
+    snames = state_names(qtraj)
+    mstates = sampling_member_states(qtraj)
+
+    if base isa DensityTrajectory || base isa MultiDensityTrajectory
+        return nothing
+    end
+
+    result = Pair{Symbol,Vector}[]
+    for (i, sys) in enumerate(qtraj.systems)
+        pulse = qtraj.base_trajectory.pulse
+        if base isa UnitaryTrajectory
+            swapped = UnitaryTrajectory(sys, pulse, get_goal(base))
+            push!(result, snames[i] => operator_to_iso_vec(swapped.solution.u[end]))
+        elseif base isa KetTrajectory
+            swapped = KetTrajectory(sys, pulse, base.initial, base.goal)
+            push!(result, snames[i] => ket_to_iso(swapped.solution.u[end]))
+        elseif base isa MultiKetTrajectory
+            swapped = MultiKetTrajectory(sys, pulse, base.initials, base.goals)
+            K = length(base)
+            for j = 1:K
+                idx = (i - 1) * K + j
+                push!(result, snames[idx] => ket_to_iso(swapped.solution.u[j].u[end]))
+            end
+        else
+            return nothing
+        end
+    end
+    return result
+end
+
 @doc raw"""
     rollout_divergence(qcp::QuantumControlProblem) -> Union{Nothing,Float64}
 
