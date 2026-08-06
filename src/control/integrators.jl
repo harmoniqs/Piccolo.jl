@@ -417,7 +417,8 @@ end
     # Open systems with dissipation and a drift variation
     L = ComplexF64[0.0 0.1; 0.0 0.0]
     sys1 = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
-    sys2 = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys2 =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
 
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρg = ComplexF64[0.0 0.0; 0.0 1.0]
@@ -490,7 +491,8 @@ end
 
     L = ComplexF64[0.0 0.1; 0.0 0.0]
     sys1 = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
-    sys2 = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys2 =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
 
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]

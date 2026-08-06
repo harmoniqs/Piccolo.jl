@@ -495,8 +495,11 @@ using TestItems
     u = randn(1, N)
     Δt = fill(0.1, N)
 
-    traj =
-        NamedTrajectory((ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt); timestep = :Δt, controls = :u)
+    traj = NamedTrajectory(
+        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
+        timestep = :Δt,
+        controls = :u,
+    )
 
     # Goal states for X gate: |0⟩→|1⟩ and |1⟩→|0⟩
     ψ0 = ComplexF64[1.0, 0.0]
@@ -596,7 +599,8 @@ using TestItems
     @test objective_value(obj_w1, traj_asym) != objective_value(obj_w2, traj_asym)
 
     # Uniform weights leave the unweighted value exactly where it is
-    obj_unweighted = CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj_asym; Q = 100.0)
+    obj_unweighted =
+        CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj_asym; Q = 100.0)
     obj_uniform = CoherentKetInfidelityObjective(
         goals,
         [:ψ̃1, :ψ̃2],
@@ -645,8 +649,10 @@ end
     ψ̃s = [ket_to_iso(ψ1), ket_to_iso(0.5 * ψ0)]
 
     # Weighted mean of overlaps, normalized by the weight sum
-    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1]) ≈ abs2(0.9 * 1 + 0.1 * 0.5)
-    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.1, 0.9]) ≈ abs2(0.1 * 1 + 0.9 * 0.5)
+    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1]) ≈
+          abs2(0.9 * 1 + 0.1 * 0.5)
+    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.1, 0.9]) ≈
+          abs2(0.1 * 1 + 0.9 * 0.5)
 
     # Distinct weights give distinct fidelities
     @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1]) !=

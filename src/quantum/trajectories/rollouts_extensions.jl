@@ -1126,11 +1126,22 @@ _swap_system(qtraj::KetTrajectory, sys::AbstractQuantumSystem) =
 _swap_system(qtraj::DensityTrajectory, sys::OpenQuantumSystem) =
     DensityTrajectory(sys, qtraj.pulse, qtraj.initial, qtraj.goal)
 
-_swap_system(qtraj::MultiKetTrajectory, sys::AbstractQuantumSystem) =
-    MultiKetTrajectory(sys, qtraj.pulse, qtraj.initials, qtraj.goals; weights = qtraj.weights)
+_swap_system(qtraj::MultiKetTrajectory, sys::AbstractQuantumSystem) = MultiKetTrajectory(
+    sys,
+    qtraj.pulse,
+    qtraj.initials,
+    qtraj.goals;
+    weights = qtraj.weights,
+)
 
 _swap_system(qtraj::MultiDensityTrajectory, sys::OpenQuantumSystem) =
-    MultiDensityTrajectory(sys, qtraj.pulse, qtraj.initials, qtraj.goals; weights = qtraj.weights)
+    MultiDensityTrajectory(
+        sys,
+        qtraj.pulse,
+        qtraj.initials,
+        qtraj.goals;
+        weights = qtraj.weights,
+    )
 
 # ============================================================================ #
 # Update system with optimized global parameters

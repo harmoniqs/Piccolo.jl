@@ -294,7 +294,7 @@ function _terminal_iso_states(qtraj::SamplingTrajectory)
         elseif base isa MultiKetTrajectory
             swapped = MultiKetTrajectory(sys, pulse, base.initials, base.goals)
             K = length(base)
-            for j in 1:K
+            for j = 1:K
                 idx = (i - 1) * K + j
                 push!(result, snames[idx] => ket_to_iso(swapped.solution.u[j].u[end]))
             end

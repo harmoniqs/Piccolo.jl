@@ -112,9 +112,8 @@ function _sampling_optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
             # mstates is a Vector{Symbol} for multi-state bases
             n_sub = length(mstates)
             all(nm -> haskey(traj.components, nm), mstates) || return nothing
-            overlap = sum(
-                base.goals[j]' * iso_to_ket(traj[mstates[j]][:, end]) for j = 1:n_sub
-            )
+            overlap =
+                sum(base.goals[j]' * iso_to_ket(traj[mstates[j]][:, end]) for j = 1:n_sub)
             push!(member_fids, Float64(abs2(overlap / n_sub)))
         end
         return sum(w * f for (w, f) in zip(weights, member_fids))
@@ -587,7 +586,8 @@ end
     T, N = 1.0, 11
     L = ComplexF64[0.0 0.1; 0.0 0.0]
     sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
-    sys_var = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
 
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρg = ComplexF64[0.0 0.0; 0.0 1.0]
@@ -597,11 +597,7 @@ end
     sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
     traj = NamedTrajectory(sampling_qtraj, N)
 
-    prob = DirectTrajOptProblem(
-        traj,
-        NullObjective(),
-        AbstractIntegrator[],
-    )
+    prob = DirectTrajOptProblem(traj, NullObjective(), AbstractIntegrator[])
     qcp = QuantumControlProblem(sampling_qtraj, prob)
     sync_trajectory!(qcp; check_divergence = false)
 
@@ -620,7 +616,8 @@ end
     T, N = 1.0, 11
     L = ComplexF64[0.0 0.1; 0.0 0.0]
     sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
-    sys_var = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
 
     ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
     ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
@@ -630,11 +627,7 @@ end
     sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
     traj = NamedTrajectory(sampling_qtraj, N)
 
-    prob = DirectTrajOptProblem(
-        traj,
-        NullObjective(),
-        AbstractIntegrator[],
-    )
+    prob = DirectTrajOptProblem(traj, NullObjective(), AbstractIntegrator[])
     qcp = QuantumControlProblem(sampling_qtraj, prob)
     sync_trajectory!(qcp; check_divergence = false)
 

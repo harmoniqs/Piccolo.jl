@@ -196,9 +196,8 @@ vector. Three call shapes, aligned with the other problem templates:
 function _resolve_sampling_integrators(integrator, sampling_qtraj, N::Int, n_slots::Int)
     if isnothing(integrator)
         default_int = BilinearIntegrator(sampling_qtraj, N)
-        return AbstractIntegrator[
-            (default_int isa AbstractVector ? default_int : [default_int])...,
-        ]
+        return AbstractIntegrator[(default_int isa AbstractVector ? default_int :
+                                   [default_int])...,]
     elseif integrator isa AbstractIntegrator
         if n_slots != 1
             error(
@@ -356,8 +355,7 @@ function SamplingProblem(
     end
 
     n_existing = 0
-    while n_existing < length(deriv_names) &&
-          deriv_names[n_existing + 1] ∈ new_traj.names
+    while n_existing < length(deriv_names) && deriv_names[n_existing+1] ∈ new_traj.names
         n_existing += 1
     end
 
@@ -1192,8 +1190,9 @@ end
     function _has_linear_regularizer(obj)
         terms = hasproperty(obj, :objectives) ? obj.objectives : (obj,)
         return any(
-            t -> hasproperty(t, :objectives) ? _has_linear_regularizer(t) :
-                 t isa LinearRegularizer,
+            t ->
+                hasproperty(t, :objectives) ? _has_linear_regularizer(t) :
+                t isa LinearRegularizer,
             terms,
         )
     end

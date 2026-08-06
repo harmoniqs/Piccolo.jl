@@ -410,7 +410,7 @@ function NamedTrajectory(
     K = length(base)
 
     # Sample each base sub-state once, then copy per member
-    base_ket_data = [hcat([ket_to_iso(base[j](t)) for t in times]...) for j in 1:K]
+    base_ket_data = [hcat([ket_to_iso(base[j](t)) for t in times]...) for j = 1:K]
     state_dim = size(base_ket_data[1], 1)
     initials_iso = [ket_to_iso(ψ) for ψ in base.initials]
     goals_iso = [ket_to_iso(ψ) for ψ in base.goals]
@@ -420,7 +420,7 @@ function NamedTrajectory(
     goal_nt = NamedTuple()
     bounds = NamedTuple()
 
-    for i in 1:n_members, j in 1:K
+    for i = 1:n_members, j = 1:K
         name = snames[(i-1)*K+j]
         state_data = merge(state_data, _named_tuple(name => copy(base_ket_data[j])))
         initial_nt = merge(initial_nt, _named_tuple(name => initials_iso[j]))
@@ -462,7 +462,7 @@ function NamedTrajectory(
     K = length(base)
 
     # Sample each base sub-state once (compact iso), then copy per member
-    base_ρ_data = [hcat([density_to_compact_iso(base[j](t)) for t in times]...) for j in 1:K]
+    base_ρ_data = [hcat([density_to_compact_iso(base[j](t)) for t in times]...) for j = 1:K]
     state_dim = size(base_ρ_data[1], 1)
     initials_iso = [density_to_compact_iso(ρ) for ρ in base.initials]
     goals_iso = [density_to_compact_iso(ρ) for ρ in base.goals]
@@ -472,7 +472,7 @@ function NamedTrajectory(
     goal_nt = NamedTuple()
     bounds = NamedTuple()
 
-    for i in 1:n_members, j in 1:K
+    for i = 1:n_members, j = 1:K
         name = snames[(i-1)*K+j]
         state_data = merge(state_data, _named_tuple(name => copy(base_ρ_data[j])))
         initial_nt = merge(initial_nt, _named_tuple(name => initials_iso[j]))
