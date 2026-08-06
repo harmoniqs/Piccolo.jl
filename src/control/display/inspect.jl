@@ -407,8 +407,9 @@ end
 
 _goal_summary(qtraj::UnitaryTrajectory) = _goal_summary_unitary(qtraj.goal)
 _goal_summary(qtraj::KetTrajectory) = "|ψ_init⟩ → |ψ_goal⟩  (dim=$(length(qtraj.goal)))"
-_goal_summary(qtraj::MultiKetTrajectory) =
-    "$(length(qtraj.goals)) state transfers  (dim=$(length(first(qtraj.goals))))"
+_goal_summary(
+    qtraj::MultiKetTrajectory,
+) = "$(length(qtraj.goals)) state transfers  (dim=$(length(first(qtraj.goals))))"
 _goal_summary(qtraj::DensityTrajectory) = "ρ_init → ρ_goal"
 _goal_summary(qtraj::SamplingTrajectory) = "sampled ensemble (n=$(length(qtraj.systems)))"
 _goal_summary(qtraj::AbstractQuantumTrajectory) = string(_typename(qtraj), " goal")
