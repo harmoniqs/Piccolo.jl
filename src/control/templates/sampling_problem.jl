@@ -126,19 +126,13 @@ Extension point: extend `sampling_state_objective` for the density trajectory ty
 (Piccolissimo registers its density sampling objective through this hook.) No null \
 objective was installed; this loud error is intentional."""
 
+# Generic fallback (no density-specific methods): keeps the density cells loud
+# while letting a downstream package EXTEND `sampling_state_objective` with typed
+# density methods at module top level — no method overwrite, no `__init__` eval.
 function sampling_state_objective(
-    qtraj::DensityTrajectory,
+    qtraj::Union{DensityTrajectory, MultiDensityTrajectory},
     traj::NamedTrajectory,
-    state_sym::Symbol,
-    Q::Float64,
-)
-    error(_DENSITY_SAMPLING_OBJECTIVE_ERROR)
-end
-
-function sampling_state_objective(
-    qtraj::MultiDensityTrajectory,
-    traj::NamedTrajectory,
-    state_syms::Vector{Symbol},
+    state_sym,
     Q::Float64,
 )
     error(_DENSITY_SAMPLING_OBJECTIVE_ERROR)
