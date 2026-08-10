@@ -150,6 +150,8 @@ function SplinePulseProblem(
         AbstractVector{Int},
         AbstractVector{<:AbstractVector{Int}},
     } = nothing,
+    spline_interior_bound_constraints::Bool = false,
+    n_interior_bound_points::Int = 3,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -344,6 +346,35 @@ function SplinePulseProblem(
         end
     end
 
+    # Spline interior bounds (H10) — CubicSplinePulse can exceed knot bounds in interior
+    if spline_interior_bound_constraints
+        if qtraj.pulse isa CubicSplinePulse
+            if isdefined(Main, :Piccolissimo) && isdefined(Piccolissimo, :CubicSplineBoundConstraint)
+                for (drive_idx, (lb, ub)) in enumerate(sys.drive_bounds)
+                    if isfinite(lb) && isfinite(ub)
+                        push!(
+                            constraints,
+                            Piccolissimo.CubicSplineBoundConstraint(
+                                traj,
+                                control_sym,
+                                lb,
+                                ub;
+                                n_interior_points = n_interior_bound_points,
+                            ),
+                        )
+                    end
+                end
+                if _show_details(piccolo_options)
+                    println("    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)")
+                end
+            else
+                @warn "spline_interior_bound_constraints=true requires Piccolissimo.jl for CubicSplineBoundConstraint. Load Piccolissimo (using Piccolissimo) or set spline_interior_bound_constraints=false. Interior violation at cat α=2 was 28% (3.20 vs 2.5)."
+            end
+        else
+            @warn "spline_interior_bound_constraints=true only for CubicSplinePulse (LinearSplinePulse interior is linear, knot bounds suffice)."
+        end
+    end
+
     # Add global bounds constraints if specified
     all_constraints = copy(constraints)
     add_global_bounds_constraints!(
@@ -436,6 +467,8 @@ function SplinePulseProblem(
         AbstractVector{Int},
         AbstractVector{<:AbstractVector{Int}},
     } = nothing,
+    spline_interior_bound_constraints::Bool = false,
+    n_interior_bound_points::Int = 3,
 )
     sys = get_system(qtraj)
     control_sym = drive_name(qtraj)
@@ -667,6 +700,35 @@ function SplinePulseProblem(
         push!(integrators, DerivativeIntegrator(control_sym, du_sym, traj))
         if _show_details(piccolo_options)
             println("    added DerivativeIntegrator (LinearSplinePulse)")
+        end
+    end
+
+    # Spline interior bounds (H10) — CubicSplinePulse can exceed knot bounds in interior
+    if spline_interior_bound_constraints
+        if qtraj.pulse isa CubicSplinePulse
+            if isdefined(Main, :Piccolissimo) && isdefined(Piccolissimo, :CubicSplineBoundConstraint)
+                for (drive_idx, (lb, ub)) in enumerate(sys.drive_bounds)
+                    if isfinite(lb) && isfinite(ub)
+                        push!(
+                            constraints,
+                            Piccolissimo.CubicSplineBoundConstraint(
+                                traj,
+                                control_sym,
+                                lb,
+                                ub;
+                                n_interior_points = n_interior_bound_points,
+                            ),
+                        )
+                    end
+                end
+                if _show_details(piccolo_options)
+                    println("    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)")
+                end
+            else
+                @warn "spline_interior_bound_constraints=true requires Piccolissimo.jl for CubicSplineBoundConstraint. Load Piccolissimo (using Piccolissimo) or set spline_interior_bound_constraints=false. Interior violation at cat α=2 was 28% (3.20 vs 2.5)."
+            end
+        else
+            @warn "spline_interior_bound_constraints=true only for CubicSplinePulse (LinearSplinePulse interior is linear, knot bounds suffice)."
         end
     end
 
