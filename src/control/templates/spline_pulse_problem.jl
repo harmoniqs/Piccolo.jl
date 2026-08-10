@@ -209,7 +209,20 @@ function SplinePulseProblem(
                 "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        # Default to BilinearIntegrator
+        # Spline pulses require SplineIntegrator (Bilinear drops du)
+        if qtraj.pulse isa CubicSplinePulse
+            error(
+                "CubicSplinePulse requires SplineIntegrator (BilinearIntegrator silently drops :du, 11-DOF PWC). " *
+                "Use Piccolissimo.SplineIntegrator:\n" *
+                "  using Piccolissimo\n" *
+                "  integrator = SplineIntegrator(qtraj, N)\n" *
+                "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
+            )
+        end
+        # Default to BilinearIntegrator (only for LinearSplinePulse via DerivativeIntegrator, but warn)
+        if qtraj.pulse isa AbstractSplinePulse
+            @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): use SplineIntegrator from Piccolissimo for correct spline physics (Bilinear is PWC, ignores du). Pass integrator=SplineIntegrator(qtraj,N) to silence."
+        end
         default_int = BilinearIntegrator(qtraj, N)
 
         if default_int isa AbstractVector
@@ -218,8 +231,17 @@ function SplinePulseProblem(
             dynamics_integrators = AbstractIntegrator[default_int]
         end
     elseif integrator isa AbstractIntegrator
+        # Guard against PWC-vs-spline mismatch (H1)
+        if qtraj.pulse isa CubicSplinePulse && integrator isa BilinearIntegrator
+            error("CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.")
+        end
         dynamics_integrators = AbstractIntegrator[integrator]
     else
+        for integ in integrator
+            if qtraj.pulse isa CubicSplinePulse && integ isa BilinearIntegrator
+                error("CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.")
+            end
+        end
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
 
@@ -433,6 +455,18 @@ function SplinePulseProblem(
                 "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
+        if qtraj.pulse isa CubicSplinePulse
+            error(
+                "CubicSplinePulse requires SplineIntegrator (BilinearIntegrator silently drops :du, 11-DOF PWC). " *
+                "Use Piccolissimo.SplineIntegrator:\n" *
+                "  using Piccolissimo\n" *
+                "  integrator = SplineIntegrator(qtraj, N)\n" *
+                "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
+            )
+        end
+        if qtraj.pulse isa AbstractSplinePulse
+            @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): use SplineIntegrator from Piccolissimo for correct spline physics (Bilinear is PWC, ignores du). Pass integrator=SplineIntegrator(qtraj,N) to silence."
+        end
         # Choose integrator type based on integrator_type parameter
         if integrator_type == :ensemble
             dynamics_integrators = EnsembleSplineIntegrator(
@@ -451,8 +485,16 @@ function SplinePulseProblem(
             dynamics_integrators = AbstractIntegrator[dynamics_integrators...]
         end
     elseif integrator isa AbstractIntegrator
+        if qtraj.pulse isa CubicSplinePulse && integrator isa BilinearIntegrator
+            error("CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.")
+        end
         dynamics_integrators = AbstractIntegrator[integrator]
     else
+        for integ in integrator
+            if qtraj.pulse isa CubicSplinePulse && integ isa BilinearIntegrator
+                error("CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.")
+            end
+        end
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
 
