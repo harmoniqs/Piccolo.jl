@@ -1,4 +1,59 @@
-export SplinePulseProblem
+# ----------------------------------------------------------------------------- #
+# Template declaration
+# ----------------------------------------------------------------------------- #
+
+@doc raw"""
+    SplinePulseParams <: AbstractTemplateParams
+
+The typed keyword surface of [`SplinePulseProblem`](@ref). `du_bounds` (per-drive
+Hermite-tangent bounds), `integrator_type` and `parallel_backend` live **only**
+here; there is no `R_ddu`/`ddu_bound` because spline knot tangents are independent
+degrees of freedom rather than discrete derivatives.
+
+`R_u`/`R_du` default to `nothing`, not to `R`: the resolved default is
+pulse-type-dependent (0 for cubic Hermite, `R` for linear). The params struct
+records the *declared* keyword, so `nothing` here means "let the template resolve
+it from the pulse type".
+"""
+Base.@kwdef struct SplinePulseParams <: AbstractTemplateParams
+    Q::Float64 = 100.0
+    R::Float64 = 1e-2
+    R_u::Union{Nothing,Float64,Vector{Float64}} = nothing
+    R_du::Union{Nothing,Float64,Vector{Float64}} = nothing
+    du_bound::Float64 = Inf
+    du_bounds::Union{Nothing,Vector{Float64}} = nothing
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing
+    free_phase::Bool = false
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing
+    coherent::Bool = true
+    integrator_type::Symbol = :spline
+    parallel_backend::Symbol = :manual
+    global_names::Union{Nothing,Vector{Symbol}} = nothing
+    global_bounds::Union{Nothing,AbstractDict} = nothing
+    calibration_targets::Vector{Symbol} = Symbol[]
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing
+end
+
+@problem_template SplinePulseTemplate begin
+    julia_name = SplinePulseProblem
+    pulse = AbstractSplinePulse
+    trajectories = (UnitaryTrajectory, KetTrajectory, MultiKetTrajectory, DensityTrajectory)
+    pulse_kinds = (:linear_spline, :cubic_spline)
+    trajectory_kinds = (:unitary, :ket)
+    ket_free_phase = true
+    params = SplinePulseParams
+    passthrough = (:integrator, :constraints, :extra_objectives, :piccolo_options)
+    builder = _spline_pulse_problem
+    requires_N = false
+    hint = """For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
+      qcp = SmoothPulseProblem(qtraj, N; ...)"""
+end
+
 
 # Helper function to determine spline order from pulse type
 _get_spline_order(::LinearSplinePulse) = 1
@@ -102,7 +157,7 @@ already depends on Piccolo). Any `AbstractObjective` defined against the same
 trajectory variables can be injected this way.
 
 # Returns
-- `QuantumControlProblem{<:AbstractQuantumTrajectory}`: Wrapper containing trajectory and optimization problem
+- `SplinePulseProblem` (= `QuantumControlProblem{SplinePulseTemplate, QT}`): Wrapper containing trajectory and optimization problem
 
 # Examples
 ```julia
@@ -124,8 +179,11 @@ solve!(qcp; max_iter=100)
 ```
 
 See also: [`SmoothPulseProblem`](@ref) for piecewise constant pulses with discrete smoothing.
-"""
-function SplinePulseProblem(
+""" SplinePulseProblem
+
+# The construction logic the generated constructor delegates to. Returns the
+# untagged problem; `@problem_template`'s constructor stamps on the tag + params.
+function _spline_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse},
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
@@ -386,7 +444,7 @@ plus:
   branch; setting it to anything other than `:manual` warns and has no effect. Pass a
   parallel integrator via `integrator` instead.
 """
-function SplinePulseProblem(
+function _spline_pulse_problem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
@@ -644,31 +702,8 @@ function SplinePulseProblem(
     return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
-# ============================================================================= #
-# Fallback Error Method
-# ============================================================================= #
-
-"""
-    SplinePulseProblem(qtraj::AbstractQuantumTrajectory, N_or_times; kwargs...)
-
-Fallback method that provides helpful error for non-spline pulse types.
-"""
-function SplinePulseProblem(
-    qtraj::AbstractQuantumTrajectory{P},
-    N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
-    kwargs...,
-) where {P<:AbstractPulse}
-    error(
-        """
-  SplinePulseProblem is only for spline-based pulses (LinearSplinePulse, CubicSplinePulse).
-
-  You provided a trajectory with pulse type: $(nameof(P))
-
-  For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
-      qcp = SmoothPulseProblem(qtraj, N; ...)
-  """,
-    )
-end
+# The wrong-pulse fallback ("use SmoothPulseProblem instead") is now *generated*
+# by `@problem_template` from the declaration's `hint`.
 
 # ============================================================================= #
 # TestItems
@@ -1061,7 +1096,9 @@ end
     # Then create SamplingProblem
     sampling_qcp = SamplingProblem(base_qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
 
-    @test sampling_qcp isa QuantumControlProblem
+    @test sampling_qcp isa SamplingProblem
+    @test sampling_qcp isa AbstractQuantumControlProblem
+    @test inner(sampling_qcp) isa QuantumControlProblem
     @test sampling_qcp.qtraj isa SamplingTrajectory{<:AbstractPulse,<:UnitaryTrajectory}
 
     # Check trajectory has sample states

@@ -1,5 +1,6 @@
 module SpecStructs
 
+using ...Control: AbstractProblemSpec
 export ProblemSpec,
     SystemSpec,
     GoalSpec,
@@ -239,8 +240,10 @@ end
 Top-level declarative spec for the `control` kind: a versioned bundle of
 `system`, `goal`, `pulse`, `trajectory`, `problem`, `integrator`, `wrappers`,
 `solver`, and optional `warm_start`. `schema_version` is an integer.
+Subtypes `Piccolo.Control.AbstractProblemSpec` so a materialized
+`QuantumControlProblem` can retain it in a typed field (`retained_spec`).
 """
-Base.@kwdef struct ProblemSpec
+Base.@kwdef struct ProblemSpec <: AbstractProblemSpec
     schema_version::Int = 1
     kind::Symbol = :control
     system::SystemSpec

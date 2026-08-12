@@ -1,4 +1,45 @@
-export BangBangPulseProblem
+# ----------------------------------------------------------------------------- #
+# Template declaration
+# ----------------------------------------------------------------------------- #
+
+@doc raw"""
+    BangBangPulseParams <: AbstractTemplateParams
+
+The typed keyword surface of [`BangBangPulseProblem`](@ref). Note the absence of
+`R_ddu`/`ddu_bound` (bang-bang regularizes only the first derivative, with an L1
+slack) and of `state_leakage_indices` — per-template keyword truth, enforced as a
+struct-field check.
+"""
+Base.@kwdef struct BangBangPulseParams <: AbstractTemplateParams
+    Q::Float64 = 100.0
+    R::Float64 = 1e-2
+    R_u::Union{Float64,Vector{Float64}} = 0.0
+    R_du::Union{Float64,Vector{Float64}} = R
+    du_bound::Float64 = Inf
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing
+    free_phase::Bool = false
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing
+    coherent::Bool = true
+    global_names::Union{Nothing,Vector{Symbol}} = nothing
+    global_bounds::Union{Nothing,AbstractDict} = nothing
+    calibration_targets::Vector{Symbol} = Symbol[]
+end
+
+@problem_template BangBangPulseTemplate begin
+    julia_name = BangBangPulseProblem
+    pulse = ZeroOrderPulse
+    trajectories = (UnitaryTrajectory, KetTrajectory, MultiKetTrajectory, DensityTrajectory)
+    pulse_kinds = (:zero_order,)
+    trajectory_kinds = (:unitary, :ket)
+    ket_free_phase = true
+    params = BangBangPulseParams
+    passthrough = (:integrator, :constraints, :piccolo_options)
+    builder = _bang_bang_pulse_problem
+    requires_N = true
+    hint = """For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
+      qcp = SplinePulseProblem(qtraj, N; ...)"""
+end
 
 @doc raw"""
     BangBangPulseProblem(qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}, N::Int; kwargs...)
@@ -53,8 +94,11 @@ solve!(qcp; max_iter=200)
 ```
 
 See also: [`SmoothPulseProblem`](@ref) for smooth (L2-regularized) controls.
-"""
-function BangBangPulseProblem(
+""" BangBangPulseProblem
+
+# The construction logic the generated constructor delegates to. Returns the
+# untagged problem; `@problem_template`'s constructor stamps on the tag + params.
+function _bang_bang_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
@@ -247,7 +291,7 @@ of ket state transfers with piecewise constant controls.
 
 See the single-trajectory method for full documentation of keyword arguments.
 """
-function BangBangPulseProblem(
+function _bang_bang_pulse_problem(
     qtraj::MultiKetTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
@@ -419,32 +463,8 @@ function BangBangPulseProblem(
     return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
-# ============================================================================= #
-# Fallback Error Method
-# ============================================================================= #
-
-"""
-    BangBangPulseProblem(qtraj::AbstractQuantumTrajectory, N::Int; kwargs...)
-
-Fallback method that provides helpful error for non-ZeroOrderPulse types.
-"""
-function BangBangPulseProblem(
-    qtraj::AbstractQuantumTrajectory{P},
-    N::Int;
-    kwargs...,
-) where {P<:AbstractPulse}
-    pulse_type = P
-    error(
-        """
-  BangBangPulseProblem is only for piecewise constant pulses (ZeroOrderPulse).
-
-  You provided a trajectory with pulse type: $(pulse_type)
-
-  For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
-      qcp = SplinePulseProblem(qtraj, N; ...)
-  """,
-    )
-end
+# The wrong-pulse fallback ("use SplinePulseProblem instead") is now *generated*
+# by `@problem_template` from the declaration's `hint`.
 
 # ============================================================================= #
 # Tests

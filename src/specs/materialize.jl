@@ -44,6 +44,10 @@ function materialize(spec::ProblemSpec; piccolo_options = nothing)
     base_qcp = _call_template(spec, qtraj; piccolo_options = piccolo_options)
     qcp = _apply_composition(spec, base_qcp)
     qcp = _apply_wrappers(spec, qcp; piccolo_options = piccolo_options)
+    # Retain the originating spec on the materialized object. `extract_spec` returns
+    # it only after verifying it against the object, which is what turns the spec
+    # round-trip into a real consistency check on this function.
+    Control.retain_spec!(qcp, spec)
     return qcp
 end
 
@@ -240,9 +244,18 @@ function _coerce_global_bounds(gb::AbstractDict)
     return out
 end
 
-function _call_template(spec::ProblemSpec, qtraj; piccolo_options = nothing)
+"""
+    _template_kwargs(spec::ProblemSpec) -> Dict{Symbol,Any}
+
+The template keyword arguments a `control` spec maps to — the single mapping from
+wire fields to template keywords. `_call_template` splats it; `extract_spec` replays
+it to verify the retained params against the spec.
+
+Runtime-object keywords (`integrator`, `piccolo_options`) are added by
+`_call_template`, not here: they are never spec-expressible and never retained.
+"""
+function _template_kwargs(spec::ProblemSpec)
     p = spec.problem
-    fac = lookup_template(p.template).factory
     kwargs = Dict{Symbol,Any}(:Q => p.Q, :R => p.R, :free_phase => p.free_phase)
     p.R_u === nothing || (kwargs[:R_u] = p.R_u)
     p.R_du === nothing || (kwargs[:R_du] = p.R_du)
@@ -255,6 +268,13 @@ function _call_template(spec::ProblemSpec, qtraj; piccolo_options = nothing)
     isempty(p.global_bounds) ||
         (kwargs[:global_bounds] = _coerce_global_bounds(p.global_bounds))
     p.free_dt isa Free && (kwargs[:Δt_bounds] = (p.free_dt.lo, p.free_dt.hi))
+    return kwargs
+end
+
+function _call_template(spec::ProblemSpec, qtraj; piccolo_options = nothing)
+    p = spec.problem
+    fac = lookup_template(p.template).factory
+    kwargs = _template_kwargs(spec)
     intg = _build_integrator(spec, qtraj)
     intg === nothing || (kwargs[:integrator] = intg)
     piccolo_options === nothing || (kwargs[:piccolo_options] = piccolo_options)
@@ -335,7 +355,10 @@ function _apply_composition(spec::ProblemSpec, qcp)
     end
 
     new_prob = DirectTrajOptProblem(traj, J, prob.integrators; constraints = constraints)
-    return QuantumControlProblem(qtraj, new_prob)
+    # `with_problem`, not a bare `QuantumControlProblem(...)`: the composition axes
+    # rewrite the NLP but must not flatten the problem back to the untagged flavor —
+    # the template tag and retained params are part of its identity.
+    return Control.with_problem(qcp, qtraj, new_prob)
 end
 
 # ---------------------------------------------------------------------------
@@ -626,13 +649,14 @@ end
 export get_variants
 
 """
-    get_variants(qcp::QuantumControlProblem) -> Vector
+    get_variants(qcp::AbstractQuantumControlProblem) -> Vector
 
 The system variants a materialized problem optimizes over: the sampled `systems`
 for a `SamplingProblem`-backed problem, else the single nominal system.
 """
-get_variants(qcp::QuantumControlProblem) =
-    qcp.qtraj isa Quantum.SamplingTrajectory ? qcp.qtraj.systems : [get_system(qcp)]
+get_variants(qcp::AbstractQuantumControlProblem) =
+    Control.quantum_trajectory(qcp) isa Quantum.SamplingTrajectory ?
+    Control.quantum_trajectory(qcp).systems : [get_system(qcp)]
 
 @testitem "materialize: cubic-spline X gate matches hand-built problem" begin
     using Piccolo, Piccolo.Specs
@@ -868,7 +892,11 @@ end
     variants = [ { "δ" = 0.19 }, { "δ" = 0.21 } ]
     """
     s = Specs.materialize(Specs.parse_spec(SAMPLING_TOML; format = :toml))
-    @test s isa QuantumControlProblem
+    # the [[wrappers]] list is mirrored in the TYPE: a sampled spline problem
+    @test s isa SamplingProblem
+    @test s isa AbstractQuantumControlProblem
+    @test inner(s) isa SplinePulseProblem
+    @test template_tag(s) === SplinePulseTemplate()
     @test length(Specs.get_variants(s)) == 2   # 2 system variants
 
     # robust wrapper is schema-only in Phase 1 → structured "deferred" error.
