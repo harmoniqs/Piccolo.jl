@@ -57,18 +57,28 @@ cloud-latency work actually starting. Doing it now would incur the
 1b lands the macro, the macro *generates* the same `RegistryEntry`, so this
 layer's anti-drift property is preserved unchanged. Explicitly out of Phase 1:
 
-- `@problem_template` macro, **tagged aliases**, parametric **wrapper types**.
-- `AbstractQuantumControlProblem` (there is no such supertype today; do not add
-  one — the migration is 1b's).
-- `extract_spec(problem)` round-tripped **against a materialized object** (needs a
-  `spec` field retained on a typed problem). Phase 1 substitutes the
-  **spec → canonical → parse → canonical** identity (see `run.jl`) plus the
-  materialize golden tests; the runner retains the canonical spec in scope and
-  writes it under `result.toml`'s `params.spec`.
-- `PrecompileTools` `@compile_workload` wiring + sysimage (Phase 4 cloud).
-  `schema.jl` ships a **callable** `precompile_workload(; tier1_only=true)` that
-  exercises the parse → materialize → one-Ipopt-step path on tiny instances, but
-  it is **not** wired to `@compile_workload` and PrecompileTools is not a dep.
+- ~~`@problem_template` macro, **tagged aliases**, parametric **wrapper types**~~ —
+  **landed in Phase 1b**. `SmoothPulseProblem`/`SplinePulseProblem`/
+  `BangBangPulseProblem` are constrained type aliases of
+  `QuantumControlProblem{Tag, QT}`; `SamplingProblem` is a parametric wrapper type;
+  the `TEMPLATES` entries are generated from `TEMPLATE_DECLARATIONS`
+  (`register_templates_from_declarations!`), which is the same `RegistryEntry` this
+  layer's anti-drift property was written against.
+- ~~`AbstractQuantumControlProblem`~~ — **landed in Phase 1b**, together with
+  `AbstractProblemWrapper`/`AbstractProblemTemplate`/`AbstractTemplateParams`.
+- ~~`extract_spec(problem)` round-tripped **against a materialized object**~~ —
+  **landed in Phase 1b** (`extract.jl`). `materialize` retains the originating spec
+  on the (mutable, template-tagged) problem; `extract_spec` returns it only after
+  verifying it against the object's tag type, trajectory/pulse kinds, wrapper
+  nesting and `params`. Phase 1's **spec → canonical → parse → canonical** identity
+  (see `run.jl`) remains as the wire-level check.
+- ~~`PrecompileTools` `@compile_workload` wiring~~ — **landed in Phase 1b**
+  (`Piccolo.jl`). `precompile_workload(; tier1_only=true)` now sweeps the
+  **registry-enumerated type universe** (`type_universe()` =
+  `TEMPLATE_DECLARATIONS` × `pulse_kinds` × `trajectory_kinds`, plus the `sampling`
+  wrapper) as well as the parse → materialize → one-Ipopt-step path, and is wired
+  to `@compile_workload`. Cost: package precompilation ~16 s → ~65 s. The sysimage
+  build is still Phase 4 (cloud).
 
 Also reduced in Phase 1 (spec v1 lists them; not implemented here): `composite`
 systems (`template` + `raw` only), the `robust` wrapper (register-for-schema-only
@@ -181,7 +191,8 @@ Two assumptions here should be confirmed on the amicode/Plan-2 side:
 | `errors.jl` | `SpecError`, `SpecValidationError`, `emit_error_json` (exit-2 contract). |
 | `parse.jl` | Strict TOML/JSON → structs; unknown-field rejection with field paths; kind dispatch. |
 | `hashes.jl` | `canonical_json`, `full_dict`, `structure_fields`, `structure_hash`, `problem_hash`. |
-| `materialize.jl` | `materialize(::ProblemSpec)` → registry lookup → existing template call + composition axes + wrappers + trait validations. |
+| `materialize.jl` | `materialize(::ProblemSpec)` → registry lookup → existing template call + composition axes + wrappers + trait validations; retains the spec on the result. |
+| `extract.jl` | `extract_spec(problem)` — the retained spec, verified against the materialized object (tag/trajectory/pulse/wrappers/params); best-effort `raw` emission when none was retained. |
 | `rollout_kind.jl` | `rollout` materialize/run; `referee_rollout`; independence checks; `Verdict`. |
 | `run.jl` | `solve_spec`/`run_spec` generic runner; `result.toml`; `AMICODE_ITER`/`DONE`/`AMICODE_PULSE_META` sentinels; JLD2 pulse save. |
 | `schema.jl` | `emit_schema()` (draft-07 discriminated union from registries) + `precompile_workload()`. |

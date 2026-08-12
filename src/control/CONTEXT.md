@@ -149,7 +149,7 @@ solve!(sampling_prob; max_iter=200)
 The central type wrapping optimization:
 
 ```julia
-struct QuantumControlProblem{Q<:AbstractQuantumTrajectory}
+struct QuantumControlProblem{T<:AbstractProblemTemplate, QT<:AbstractQuantumTrajectory} <: AbstractQuantumControlProblem
     qtraj::Q                    # Quantum trajectory (physics info)
     prob::DirectTrajOptProblem  # Optimization problem (objectives, constraints)
 end

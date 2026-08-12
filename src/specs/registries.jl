@@ -3,9 +3,12 @@ module SpecRegistries
 using ..SpecStructs
 using ...Quantum          # QuantumSystemTemplates, Gates, etc.
 using ...Control          # ProblemTemplates: SmoothPulseProblem, ...
+using ...Control: Control
 
 export RegistryEntry,
     ConstFactory,
+    reflect_params,
+    register_templates_from_declarations!,
     SYSTEMS,
     TEMPLATES,
     INTEGRATORS,
@@ -72,19 +75,38 @@ end
 """
     RegistryEntry(; factory, params, compat)
 
-A single registry record: the `factory` (a function/callable that materializes
-the object), a hand-declared `params` schema (`name => (; type, default, range,
-doc)`), and `compat` metadata (e.g. `:pulse_kinds`, `:trajectory_kinds`,
-`:ket_free_phase`). The entry is the single source of truth reflected by
-`emit_schema`; when the `@problem_template` macro lands (Phase 1b) it will
-*generate* this same entry.
+A single registry record: the `factory` (a function, or — for the problem
+templates, which are now constrained *type aliases* — a `Type` that materializes
+the object), a `params` schema (`name => (; type, default)`), and `compat`
+metadata (e.g. `:pulse_kinds`, `:trajectory_kinds`, `:ket_free_phase`). The entry
+is the single source of truth reflected by `emit_schema`.
+
+Template entries are **generated** from `@problem_template`'s
+`TEMPLATE_DECLARATIONS` records (Phase 1b), so the Julia types, the registry, and
+the emitted JSON Schema cannot drift apart.
 """
 Base.@kwdef struct RegistryEntry
-    factory::Function
+    factory::Union{Function,Type}
     params::Dict{Symbol,Any} = Dict{Symbol,Any}()   # name → (; type, default, range, doc)
     compat::Dict{Symbol,Any} = Dict{Symbol,Any}()   # e.g. :pulse_kinds, :trajectory_kinds, :requires_nonbilinear
 end
 
+"""
+    reflect_params(PT::Type) -> Dict{Symbol,Any}
+
+Reflect a template params struct into the registry's parameter schema:
+`fieldnames` × `fieldtypes` × the `@kwdef` defaults (read off a
+default-constructed prototype). This replaces hand-written per-template parameter
+schemas — the struct *is* the declaration.
+"""
+function reflect_params(PT::Type)
+    out = Dict{Symbol,Any}()
+    proto = PT()
+    for (name, T) in zip(fieldnames(PT), fieldtypes(PT))
+        out[name] = (; type = T, default = getfield(proto, name))
+    end
+    return out
+end
 const SYSTEMS = Dict{Symbol,RegistryEntry}()
 const TEMPLATES = Dict{Symbol,RegistryEntry}()
 const INTEGRATORS = Dict{Symbol,RegistryEntry}()
@@ -132,6 +154,37 @@ for (fn, reg) in (
 end
 
 """
+    register_templates_from_declarations!()
+
+Turn every `@problem_template` declaration record into a `TEMPLATES`
+[`RegistryEntry`](@ref): `factory` = the constrained type alias, `params` =
+[`reflect_params`](@ref) of the declared params struct, `compat` = the declared
+pulse/trajectory matrix. Idempotent — the record is value-identical across calls,
+so re-registering is a no-op.
+
+This is the anti-drift seam: there is exactly one place a template's
+compatibility matrix is written (the `@problem_template` block), and the registry
+plus the emitted JSON Schema are *derived* from it.
+"""
+function register_templates_from_declarations!()
+    for (name, d) in Control.ProblemTemplates.TEMPLATE_DECLARATIONS
+        register_template!(
+            name,
+            RegistryEntry(;
+                factory = d.alias_type,
+                params = reflect_params(d.params_type),
+                compat = Dict{Symbol,Any}(
+                    :pulse_kinds => copy(d.pulse_kinds),
+                    :trajectory_kinds => copy(d.trajectory_kinds),
+                    :ket_free_phase => d.ket_free_phase,
+                ),
+            ),
+        )
+    end
+    return nothing
+end
+
+"""
     register_all!()
 
 Register Piccolo's own systems, problem templates, the `bilinear` integrator
@@ -153,40 +206,10 @@ function register_all!()
     )
         register_system!(name, RegistryEntry(; factory = fac))
     end
-    # templates (factory = existing function; compat = pulse/trajectory matrix)
-    register_template!(
-        :SmoothPulseProblem,
-        RegistryEntry(;
-            factory = SmoothPulseProblem,
-            compat = Dict(
-                :pulse_kinds => [:zero_order],
-                :trajectory_kinds => [:unitary, :ket],
-                :ket_free_phase => false,
-            ),
-        ),
-    )
-    register_template!(
-        :SplinePulseProblem,
-        RegistryEntry(;
-            factory = SplinePulseProblem,
-            compat = Dict(
-                :pulse_kinds => [:linear_spline, :cubic_spline],
-                :trajectory_kinds => [:unitary, :ket],
-                :ket_free_phase => true,
-            ),
-        ),
-    )
-    register_template!(
-        :BangBangPulseProblem,
-        RegistryEntry(;
-            factory = BangBangPulseProblem,
-            compat = Dict(
-                :pulse_kinds => [:zero_order],
-                :trajectory_kinds => [:unitary, :ket],
-                :ket_free_phase => true,
-            ),
-        ),
-    )
+    # templates — GENERATED from the `@problem_template` declaration records, so a
+    # declaration change moves the registry (and therefore the emitted schema) with
+    # it. Piccolissimo's own declarations land in the same dict when it loads.
+    register_templates_from_declarations!()
     # integrators — bilinear is Piccolo's; exponential/spline are Piccolissimo's (Task 14)
     register_integrator!(:bilinear, RegistryEntry(; factory = _bilinear_integrator_factory))  # sentinel: template default path
     # wrappers
