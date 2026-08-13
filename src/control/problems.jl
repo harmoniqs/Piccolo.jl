@@ -10,31 +10,219 @@ import ...Quantum: get_system, get_goal, state_name, drive_name, extract_pulse, 
 import DirectTrajOpt.Solvers: solve!
 
 export QuantumControlProblem
+export AbstractQuantumControlProblem, AbstractProblemTemplate, AbstractTemplateParams
+export AbstractProblemSpec
+export NoTemplate, NoParams
+export AbstractProblemWrapper, inner, base_problem, wrapper_kind, rewrap, with_problem
+export quantum_trajectory, direct_problem
+export template_tag, template_params, retained_spec, retain_spec!
+export pulse_family, supported_trajectories, supports_free_phase, template_params_type
+export state_dependent_terms
 export get_trajectory, get_system, get_goal, state_name, drive_name
 export solve!, sync_trajectory!, fidelity
 export rollout_divergence, ROLLOUT_DIVERGENCE_RTOL, stored_phases
 # Note: solve! is NOT exported to avoid ambiguity with SciMLBase.solve!
 # Users should use: using DirectTrajOpt (to get solve!)
 
+# ============================================================================= #
+# Abstract interface
+# ============================================================================= #
+
+@doc raw"""
+    AbstractQuantumControlProblem
+
+Supertype of every Piccolo control problem: the template-tagged
+[`QuantumControlProblem`](@ref) and the parametric *wrapper* problems
+(`MinimumTimeProblem`, `SamplingProblem`) that nest one problem inside another.
+
+Downstream code that only needs "some Piccolo problem" should annotate
+`::AbstractQuantumControlProblem` rather than `::QuantumControlProblem`, so
+wrapper types are accepted too.
+
+The interface every subtype provides:
+
+| function | meaning |
+|---|---|
+| `get_trajectory(p)` | the `NamedTrajectory` being optimized |
+| `get_system(p)` / `get_goal(p)` | the quantum system / goal |
+| `state_name(p)` / `drive_name(p)` | trajectory variable names |
+| `template_tag(p)` | the [`AbstractProblemTemplate`](@ref) singleton that built it |
+| `template_params(p)` | the retained [`AbstractTemplateParams`](@ref) |
+| `retained_spec(p)` | the originating `ProblemSpec`, or `nothing` |
+| `inner(p)` | the wrapped problem (wrappers only) |
 """
-    QuantumControlProblem{QT<:AbstractQuantumTrajectory}
+abstract type AbstractQuantumControlProblem end
 
-Wrapper combining quantum trajectory information with trajectory optimization problem.
+@doc raw"""
+    AbstractProblemTemplate
 
-This type enables:
-- Type-stable dispatch on quantum trajectory type (Unitary, Ket, Density)
-- Clean separation of quantum information (system, goal) from optimization details
-- Composable problem transformations (e.g., SmoothPulseProblem → MinimumTimeProblem)
+Supertype of the singleton *template tags* (`SmoothPulseTemplate`,
+`SplinePulseTemplate`, `BangBangPulseTemplate`, …) that parametrize
+[`QuantumControlProblem`](@ref).
+
+The tag is what makes a constructed problem remember which template built it:
+`SmoothPulseProblem` is a constrained type alias of
+`QuantumControlProblem{SmoothPulseTemplate, QT}`, so `qcp isa SmoothPulseProblem`
+holds after construction and `solve!`/plot/analysis/wrapper methods can dispatch
+on problem *flavor*.
+
+Tags are declared by `@problem_template`, which also emits the Holy-trait methods
+[`pulse_family`](@ref), [`supported_trajectories`](@ref) and
+[`supports_free_phase`](@ref) for them.
+"""
+abstract type AbstractProblemTemplate end
+
+@doc raw"""
+    AbstractTemplateParams
+
+Supertype of the per-template `@kwdef` parameter structs (`SmoothPulseParams`,
+`SplinePulseParams`, …) generated/declared alongside a `@problem_template`.
+
+These are plain data: one field per spec-expressible template keyword, with the
+template's own default. They are the *per-template keyword truth* — `R_ddu`
+exists as a field only on `SmoothPulseParams`, so passing it to
+`BangBangPulseProblem` is a construction error rather than a silently ignored
+keyword — and they are what `Specs.emit_schema` reflects the per-template
+parameter schema from.
+
+A constructed problem retains its params (`template_params(qcp)`).
+"""
+abstract type AbstractTemplateParams end
+
+@doc raw"""
+    AbstractProblemSpec
+
+Supertype of the declarative wire-format spec structs (`Specs.ProblemSpec`).
+
+Declared here, in `Piccolo.Control`, rather than in `Piccolo.Specs` so that
+[`QuantumControlProblem`](@ref) can carry a *typed* `spec` field even though
+`Specs` is loaded after `Control`.
+"""
+abstract type AbstractProblemSpec end
+
+"""
+    NoTemplate() <: AbstractProblemTemplate
+
+Tag for a hand-built problem: `QuantumControlProblem(qtraj, prob)` produced it
+directly, not a registered template. Carries no compatibility claims.
+"""
+struct NoTemplate <: AbstractProblemTemplate end
+
+"""
+    NoParams() <: AbstractTemplateParams
+
+Params placeholder for hand-built problems (see [`NoTemplate`](@ref)).
+"""
+struct NoParams <: AbstractTemplateParams end
+
+# The three base-template tags (`SmoothPulseTemplate`, `SplinePulseTemplate`,
+# `BangBangPulseTemplate`) are emitted by `@problem_template` in
+# `Control.ProblemTemplates`, not declared here — the declaration block is their
+# single source of truth.
+
+# ----------------------------------------------------------------------------- #
+# Holy traits — `@problem_template` adds one method per declared template.
+# ----------------------------------------------------------------------------- #
+
+"""
+    pulse_family(tag::AbstractProblemTemplate) -> Type{<:AbstractPulse}
+
+The pulse family a template accepts (e.g. `ZeroOrderPulse` for
+`SmoothPulseTemplate`). This is the same fact as the template alias' trajectory
+bound, queryable by the validator and the schema emitter.
+"""
+function pulse_family end
+
+"""
+    supported_trajectories(tag::AbstractProblemTemplate) -> Tuple{Vararg{Type}}
+
+The quantum-trajectory types a template can build from.
+"""
+function supported_trajectories end
+
+"""
+    supports_free_phase(tag::AbstractProblemTemplate, ::Type{<:AbstractQuantumTrajectory}) -> Bool
+
+Whether a template supports `free_phase = true` for a given trajectory type.
+Defaults to `true`; `@problem_template` emits `false` methods for the declared
+exceptions (e.g. `SmoothPulseTemplate` + `KetTrajectory`).
+"""
+function supports_free_phase end
+
+"""
+    template_params_type(tag::AbstractProblemTemplate) -> Type{<:AbstractTemplateParams}
+
+The params struct a template's keywords splat into.
+"""
+function template_params_type end
+
+"""
+    state_dependent_terms(tag::AbstractProblemTemplate) -> Tuple{Vararg{Symbol}}
+
+Names of the template's *state-dependent* physics terms — terms whose value
+depends on the current iterate. Declared in the `@problem_template` block; the
+macro emits `Live`-only handling for them (see `Live`/`Frozen`). Defaults to `()`.
+"""
+function state_dependent_terms end
+
+supports_free_phase(::AbstractProblemTemplate, ::Type) = true
+state_dependent_terms(::AbstractProblemTemplate) = ()
+
+# Field-wise equality for the params structs. Julia's struct fallback is `===`,
+# which is identity-based for the `Vector`/`Dict` fields these carry — so two
+# separately built but value-identical params would compare unequal, and
+# `extract_spec`'s params verification (and the registry's idempotency check) would
+# see phantom differences.
+function Base.:(==)(a::AbstractTemplateParams, b::AbstractTemplateParams)
+    typeof(a) === typeof(b) || return false
+    return all(isequal(getfield(a, f), getfield(b, f)) for f in fieldnames(typeof(a)))
+end
+function Base.hash(p::AbstractTemplateParams, h::UInt)
+    h = hash(typeof(p), h)
+    for f in fieldnames(typeof(p))
+        h = hash(getfield(p, f), h)
+    end
+    return h
+end
+
+@doc raw"""
+    QuantumControlProblem{T<:AbstractProblemTemplate, QT<:AbstractQuantumTrajectory}
+
+Template-tagged quantum control problem: quantum trajectory information plus the
+`DirectTrajOptProblem` that optimizes it.
+
+The two type parameters are deliberate and ordered *template first*:
+
+- `T` — the [`AbstractProblemTemplate`](@ref) tag identifying which template built
+  the problem. This is what makes `SmoothPulseProblem` a **type** rather than a
+  function: `const SmoothPulseProblem{QT<:AbstractQuantumTrajectory{<:ZeroOrderPulse}}
+  = QuantumControlProblem{SmoothPulseTemplate, QT}` — the alias bound *is* the
+  compatibility matrix, so `SmoothPulseProblem{UnitaryTrajectory{CubicSplinePulse}}`
+  is not a type at all.
+- `QT` — the quantum trajectory type (itself parametric in the pulse type), so
+  dispatch on Unitary/Ket/MultiKet/Density and on the pulse family is free.
+
+Deliberately *not* type parameters: the integrator (it is already its own
+parametric type and carries the specialization where it matters) and
+`PiccoloOptions` (a runtime value). Type parameters are spent only where dispatch
+pays rent.
 
 # Fields
-- `qtraj::QT`: Quantum trajectory containing system, goal, and quantum state information
-- `prob::DirectTrajOptProblem`: Direct trajectory optimization problem with objective, dynamics, constraints
+- `qtraj::QT`: quantum trajectory: system, goal, pulse, quantum state
+- `prob::DirectTrajOptProblem`: objective, dynamics, constraints
+- `params::AbstractTemplateParams`: the retained, typed template keywords
+- `spec::Union{Nothing,AbstractProblemSpec}`: the originating declarative spec
+  (set by `Specs.materialize`), or `nothing` for hand-built problems
 
 # Construction
-Typically created via problem templates:
+Via a problem template (the public call surface, unchanged):
 ```julia
-qtraj = UnitaryTrajectory(sys, U_goal, N)
-qcp = SmoothPulseProblem(qtraj; Q=100.0, R=1e-2)
+qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)   # ::SmoothPulseProblem
+```
+or directly, which yields the untagged `NoTemplate` flavor:
+```julia
+qcp = QuantumControlProblem(qtraj, prob)              # ::QuantumControlProblem{NoTemplate, …}
 ```
 
 # Accessors
@@ -43,84 +231,256 @@ qcp = SmoothPulseProblem(qtraj; Q=100.0, R=1e-2)
 - `get_goal(qcp)`: Get the goal state/unitary
 - `state_name(qcp)`: Get the state variable name
 - `drive_name(qcp)`: Get the control variable name
+- `template_tag(qcp)` / `template_params(qcp)` / `retained_spec(qcp)`
 
 # Solving
 ```julia
 solve!(qcp; max_iter=100, verbose=true)
 ```
 """
-mutable struct QuantumControlProblem{QT<:AbstractQuantumTrajectory}
+mutable struct QuantumControlProblem{
+    T<:AbstractProblemTemplate,
+    QT<:AbstractQuantumTrajectory,
+} <: AbstractQuantumControlProblem
     qtraj::QT
     prob::DirectTrajOptProblem
+    params::AbstractTemplateParams
+    spec::Union{Nothing,AbstractProblemSpec}
+end
+
+"""
+    QuantumControlProblem(qtraj, prob)
+
+Build an untagged ([`NoTemplate`](@ref)) problem directly from a quantum
+trajectory and a `DirectTrajOptProblem`. The hand-built path; template
+constructors produce tagged problems instead.
+"""
+QuantumControlProblem(qtraj::QT, prob::DirectTrajOptProblem) where {QT} =
+    QuantumControlProblem{NoTemplate,QT}(qtraj, prob, NoParams(), nothing)
+
+"""
+    QuantumControlProblem{T}(qtraj, prob; params=NoParams(), spec=nothing)
+
+Build a problem tagged with template `T`. Used by the `@problem_template`-generated
+constructors and by `Specs.materialize`.
+"""
+QuantumControlProblem{T}(
+    qtraj::QT,
+    prob::DirectTrajOptProblem;
+    params::AbstractTemplateParams = NoParams(),
+    spec::Union{Nothing,AbstractProblemSpec} = nothing,
+) where {T<:AbstractProblemTemplate,QT} =
+    QuantumControlProblem{T,QT}(qtraj, prob, params, spec)
+
+# ============================================================================= #
+# Wrapper problems
+# ============================================================================= #
+
+@doc raw"""
+    AbstractProblemWrapper <: AbstractQuantumControlProblem
+
+Supertype of the *parametric wrapper problems* — problems built **around** another
+problem, e.g.
+
+```julia
+SamplingProblem{QuantumControlProblem{SmoothPulseTemplate, UnitaryTrajectory{ZeroOrderPulse}}}
+```
+
+which is the type-level mirror of the ordered `[[wrappers]]` list in a spec: a
+sampled smooth CZ *says so in its type*. Before Phase 1b the wrappers were
+functions returning plain problems, so the wrap history evaporated at construction.
+
+# Field contract
+
+Every subtype carries five fields (this is the interface — the generic accessors
+below read them with `getfield`):
+
+| field | meaning |
+|---|---|
+| `inner` | the wrapped [`AbstractQuantumControlProblem`](@ref) |
+| `qtraj` | the wrapper's own quantum trajectory (e.g. the `SamplingTrajectory`) |
+| `prob` | the wrapper's `DirectTrajOptProblem` (the NLP actually solved) |
+| `params` | the wrapper's typed params |
+| `spec` | retained originating spec, or `nothing` |
+
+and implements [`wrapper_kind`](@ref) and [`rewrap`](@ref).
+
+Everything else — `get_trajectory`, `get_system`, `get_goal`, `state_name`,
+`drive_name`, `fidelity`, `solve!`, `sync_trajectory!`, property forwarding — is
+inherited from the [`AbstractQuantumControlProblem`](@ref) methods.
+"""
+abstract type AbstractProblemWrapper <: AbstractQuantumControlProblem end
+
+"""
+    inner(w::AbstractProblemWrapper) -> AbstractQuantumControlProblem
+
+The problem a wrapper wraps.
+"""
+inner(w::AbstractProblemWrapper) = getfield(w, :inner)
+
+"""
+    base_problem(p) -> QuantumControlProblem
+
+Peel every wrapper layer and return the innermost template-tagged problem.
+"""
+base_problem(qcp::QuantumControlProblem) = qcp
+base_problem(w::AbstractProblemWrapper) = base_problem(inner(w))
+
+"""
+    wrapper_kind(w::AbstractProblemWrapper) -> Symbol
+
+The wrapper's registry name (`:sampling`, …) — the `[[wrappers]] kind` this layer
+corresponds to.
+"""
+function wrapper_kind end
+
+"""
+    rewrap(w::AbstractProblemWrapper, qtraj, prob) -> typeof(w).name.wrapper
+
+Rebuild a wrapper around a *new* quantum trajectory and NLP, preserving `inner`,
+`params` and `spec`. This is how recipes that rewrite the NLP (e.g.
+`MinimumTimeProblem`) keep the wrap history instead of flattening it.
+"""
+function rewrap end
+
+@doc raw"""
+    with_problem(p::AbstractQuantumControlProblem, qtraj, prob) -> typeof(p)
+
+Rebuild a problem around a **new** quantum trajectory and NLP while preserving
+everything that identifies it: the template tag, the retained params, the retained
+spec, and (for wrappers) the wrapped problem.
+
+This is what keeps recipes that rewrite the NLP — `MinimumTimeProblem`, the spec
+layer's composition axes — from silently flattening a problem back to the untagged
+flavor. Dispatches to [`rewrap`](@ref) for wrappers.
+"""
+with_problem(qcp::QuantumControlProblem{T}, qtraj, prob::DirectTrajOptProblem) where {T} =
+    QuantumControlProblem{T}(
+        qtraj,
+        prob;
+        params = template_params(qcp),
+        spec = retained_spec(qcp),
+    )
+with_problem(w::AbstractProblemWrapper, qtraj, prob::DirectTrajOptProblem) =
+    rewrap(w, qtraj, prob)
+
+# ----------------------------------------------------------------------------- #
+# The two structural accessors every problem provides
+# ----------------------------------------------------------------------------- #
+
+"""
+    quantum_trajectory(p::AbstractQuantumControlProblem) -> AbstractQuantumTrajectory
+
+The problem's own quantum trajectory. For a wrapper this is the *wrapper's*
+trajectory (e.g. the `SamplingTrajectory`), not the inner problem's.
+"""
+quantum_trajectory(p::AbstractQuantumControlProblem) = getfield(p, :qtraj)
+
+"""
+    direct_problem(p::AbstractQuantumControlProblem) -> DirectTrajOptProblem
+
+The NLP actually handed to the solver.
+"""
+direct_problem(p::AbstractQuantumControlProblem) = getfield(p, :prob)
+
+# ============================================================================= #
+# Tag / params / spec accessors
+# ============================================================================= #
+
+"""
+    template_tag(qcp) -> AbstractProblemTemplate
+
+The template tag singleton of a problem (`SmoothPulseTemplate()`, …). For a
+wrapper, the tag of the problem it wraps.
+"""
+template_tag(::QuantumControlProblem{T}) where {T} = T()
+template_tag(w::AbstractProblemWrapper) = template_tag(inner(w))
+
+"""
+    template_tag(::Type{<:QuantumControlProblem}) -> Type{<:AbstractProblemTemplate}
+
+Type-level tag extraction.
+"""
+template_tag(::Type{<:QuantumControlProblem{T}}) where {T} = T
+
+"""
+    template_params(qcp) -> AbstractTemplateParams
+
+The retained, typed template keywords the problem was built with.
+"""
+template_params(p::AbstractQuantumControlProblem) = getfield(p, :params)
+
+"""
+    retained_spec(p) -> Union{Nothing,AbstractProblemSpec}
+
+The originating declarative spec, if the problem was materialized from one.
+`nothing` for a problem built by calling a template directly.
+"""
+retained_spec(p::AbstractQuantumControlProblem) = getfield(p, :spec)
+
+"""
+    retain_spec!(p, spec) -> p
+
+Attach the originating declarative spec to a problem. Called by
+`Specs.materialize`; `Specs.extract_spec` reads it back *after verifying it against
+the materialized object*, which is what makes the spec round-trip a real
+consistency check on the materializer rather than a tautology.
+"""
+function retain_spec!(p::AbstractQuantumControlProblem, spec::AbstractProblemSpec)
+    setfield!(p, :spec, spec)
+    return p
 end
 
 # ============================================================================= #
 # Convenience accessors - extend PiccoloQuantumObjects methods
 # ============================================================================= #
 
+# Defined once on `AbstractQuantumControlProblem`, so the wrapper types inherit
+# them through `quantum_trajectory`/`direct_problem`.
+
 """
-    get_trajectory(qcp::QuantumControlProblem)
+    get_trajectory(p::AbstractQuantumControlProblem)
 
 Get the NamedTrajectory from the optimization problem.
 """
-get_trajectory(qcp::QuantumControlProblem) = qcp.prob.trajectory
+get_trajectory(p::AbstractQuantumControlProblem) = direct_problem(p).trajectory
 
 """
-    get_system(qcp::QuantumControlProblem)
+    get_system(p::AbstractQuantumControlProblem)
 
 Get the QuantumSystem from the quantum trajectory.
 """
-get_system(qcp::QuantumControlProblem) = get_system(qcp.qtraj)
+get_system(p::AbstractQuantumControlProblem) = get_system(quantum_trajectory(p))
 
 """
-    get_goal(qcp::QuantumControlProblem)
+    get_goal(p::AbstractQuantumControlProblem)
 
 Get the goal state/operator from the quantum trajectory.
 """
-get_goal(qcp::QuantumControlProblem) = get_goal(qcp.qtraj)
+get_goal(p::AbstractQuantumControlProblem) = get_goal(quantum_trajectory(p))
 
 """
-    state_name(qcp::QuantumControlProblem)
+    state_name(p::AbstractQuantumControlProblem)
 
 Get the state variable name from the quantum trajectory.
 """
-state_name(qcp::QuantumControlProblem) = state_name(qcp.qtraj)
+state_name(p::AbstractQuantumControlProblem) = state_name(quantum_trajectory(p))
 
 """
-    drive_name(qcp::QuantumControlProblem)
+    drive_name(p::AbstractQuantumControlProblem)
 
 Get the control variable name from the quantum trajectory.
 """
-drive_name(qcp::QuantumControlProblem) = drive_name(qcp.qtraj)
+drive_name(p::AbstractQuantumControlProblem) = drive_name(quantum_trajectory(p))
 
 """
-    stored_phases(traj::NamedTrajectory) -> Union{Nothing,Vector{Float64}}
-
-Free-phase globals `φ_*` held by a trajectory, concatenated in sorted name order, or
-`nothing` when the trajectory carries none.
-
-Returns an **empty vector** — distinct from `nothing` — when `φ_*` components are declared but
-hold no data. That state is corrupt input rather than "no phases", and callers are expected to
-refuse it rather than silently fall back to the fixed-phase answer.
-"""
-function stored_phases(traj)
-    names = sort!([n for n in keys(traj.global_components) if startswith(string(n), "φ_")])
-    isempty(names) && return nothing
-    return reduce(
-        vcat,
-        (Vector{Float64}(traj.global_data[traj.global_components[n]]) for n in names);
-        init = Float64[],
-    )
-end
-
-"""
-    fidelity(qcp::QuantumControlProblem; kwargs...)
+    fidelity(p::AbstractQuantumControlProblem; kwargs...)
 
 Compute the fidelity of the quantum trajectory, **applying the problem's optimized free
 phases** when it has any.
 
 A `free_phase = true` problem is optimized against the *phase-rotated* goal, so this reads the
-`φ_*` globals off `qcp.prob.trajectory` and forwards them. An explicit `phases = ...` always
+`φ_*` globals off `p.trajectory` and forwards them. An explicit `phases = ...` always
 wins; pass `phases = zeros(n)` for the fixed-phase number deliberately.
 
 !!! warning "Behaviour changed 2026-07-25"
@@ -135,13 +495,13 @@ fid = fidelity(qcp)                     # φ-aware when the problem has φ globa
 raw = fidelity(qcp; phases = zeros(2))  # fixed-phase, explicitly
 ```
 """
-function fidelity(qcp::QuantumControlProblem; phases = nothing, kwargs...)
+function fidelity(p::AbstractQuantumControlProblem; phases = nothing, kwargs...)
     if !isnothing(phases)
-        return fidelity(qcp.qtraj; phases = phases, kwargs...)
+        return fidelity(quantum_trajectory(p); phases = phases, kwargs...)
     end
 
-    φ = stored_phases(qcp.prob.trajectory)
-    isnothing(φ) && return fidelity(qcp.qtraj; kwargs...)
+    φ = stored_phases(get_trajectory(p))
+    isnothing(φ) && return fidelity(quantum_trajectory(p); kwargs...)
 
     if isempty(φ)
         error(
@@ -152,7 +512,7 @@ function fidelity(qcp::QuantumControlProblem; phases = nothing, kwargs...)
         )
     end
 
-    return fidelity(qcp.qtraj; phases = φ, kwargs...)
+    return fidelity(quantum_trajectory(p); phases = φ, kwargs...)
 end
 
 # ============================================================================= #
@@ -160,7 +520,7 @@ end
 # ============================================================================= #
 
 """
-    sync_trajectory!(qcp::QuantumControlProblem)
+    sync_trajectory!(p::AbstractQuantumControlProblem)
 
 Update the quantum trajectory in-place from the optimized control values.
 
@@ -184,25 +544,27 @@ pulse = get_pulse(qcp.qtraj)  # Get the optimized pulse
 ```
 """
 function sync_trajectory!(
-    qcp::QuantumControlProblem;
+    p::AbstractQuantumControlProblem;
     check_divergence::Bool = true,
     divergence_rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
 )
+    qtraj = quantum_trajectory(p)
+    traj = direct_problem(p).trajectory
     # Update global parameters in the system BEFORE rollout so the ODE uses optimized values
-    sys = get_system(qcp.qtraj)
+    sys = get_system(qtraj)
     if hasproperty(sys, :global_params) &&
        !isempty(sys.global_params) &&
-       qcp.prob.trajectory.global_dim > 0
-        update_global_params!(qcp.qtraj, qcp.prob.trajectory)
+       traj.global_dim > 0
+        update_global_params!(qtraj, traj)
     end
 
     # Extract the optimized pulse from the discrete trajectory and roll it out in-place
-    pulse = extract_pulse(qcp.qtraj, qcp.prob.trajectory)
-    rollout!(qcp.qtraj, pulse)
+    pulse = extract_pulse(qtraj, traj)
+    rollout!(qtraj, pulse)
 
     # Both terminal states are now in hand — the collocation one the optimizer actually
     # minimized against, and the ODE one just produced. Nothing compared them before.
-    check_divergence && _warn_on_rollout_divergence(qcp; rtol = divergence_rtol)
+    check_divergence && _warn_on_rollout_divergence(p; rtol = divergence_rtol)
 
     return nothing
 end
@@ -268,42 +630,6 @@ _terminal_iso_states(qtraj::MultiKetTrajectory{<:AbstractPulse,RolloutStates}) =
     ] : nothing
 
 _terminal_iso_states(::AbstractQuantumTrajectory) = nothing
-
-# SamplingTrajectory: one pair per member for states that are comparable (unitary, ket,
-# multi-ket), `nothing` for density bases (no comparable definition). Each pair maps the
-# component name in the NamedTrajectory to the re-rollout terminal state for that member's
-# system — the same iso representation the collocation stores.
-function _terminal_iso_states(qtraj::SamplingTrajectory)
-    base = qtraj.base_trajectory
-    snames = state_names(qtraj)
-    mstates = sampling_member_states(qtraj)
-
-    if base isa DensityTrajectory || base isa MultiDensityTrajectory
-        return nothing
-    end
-
-    result = Pair{Symbol,Vector}[]
-    for (i, sys) in enumerate(qtraj.systems)
-        pulse = qtraj.base_trajectory.pulse
-        if base isa UnitaryTrajectory
-            swapped = UnitaryTrajectory(sys, pulse, get_goal(base))
-            push!(result, snames[i] => operator_to_iso_vec(swapped.solution.u[end]))
-        elseif base isa KetTrajectory
-            swapped = KetTrajectory(sys, pulse, base.initial, base.goal)
-            push!(result, snames[i] => ket_to_iso(swapped.solution.u[end]))
-        elseif base isa MultiKetTrajectory
-            swapped = MultiKetTrajectory(sys, pulse, base.initials, base.goals)
-            K = length(base)
-            for j = 1:K
-                idx = (i - 1) * K + j
-                push!(result, snames[idx] => ket_to_iso(swapped.solution.u[j].u[end]))
-            end
-        else
-            return nothing
-        end
-    end
-    return result
-end
 
 @doc raw"""
     rollout_divergence(qcp::QuantumControlProblem) -> Union{Nothing,Float64}
@@ -385,7 +711,7 @@ function _warn_on_rollout_divergence(
 end
 
 """
-    solve!(qcp::QuantumControlProblem; sync::Bool=true, verbose::Bool=false, kwargs...)
+    solve!(p::AbstractQuantumControlProblem; sync::Bool=true, verbose::Bool=false, kwargs...)
 
 Solve the quantum control problem by forwarding to the inner DirectTrajOptProblem.
 
@@ -403,17 +729,17 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 All other keyword arguments are passed to the DirectTrajOpt solver.
 """
 function solve!(
-    qcp::QuantumControlProblem;
+    p::AbstractQuantumControlProblem;
     sync::Bool = true,
     verbose::Bool = false,
     check_divergence::Bool = true,
     divergence_rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
     kwargs...,
 )
-    solve!(qcp.prob; verbose = verbose, kwargs...)
+    solve!(direct_problem(p); verbose = verbose, kwargs...)
     if sync
         sync_trajectory!(
-            qcp;
+            p;
             check_divergence = check_divergence,
             divergence_rtol = divergence_rtol,
         )
@@ -422,17 +748,15 @@ function solve!(
 end
 
 # Forward other common DirectTrajOptProblem accessors
-Base.getproperty(qcp::QuantumControlProblem, s::Symbol) = begin
-    if s === :qtraj
-        getfield(qcp, :qtraj)
-    elseif s === :prob
-        getfield(qcp, :prob)
+Base.getproperty(p::AbstractQuantumControlProblem, s::Symbol) = begin
+    if s === :qtraj || s === :prob || s === :params || s === :spec || s === :inner
+        getfield(p, s)
         # Forward to prob for common fields
     elseif s in (:objective, :dynamics, :constraints, :trajectory)
-        getproperty(qcp.prob, s)
+        getproperty(getfield(p, :prob), s)
     else
         # Fall back to default behavior
-        getfield(qcp, s)
+        getfield(p, s)
     end
 end
 

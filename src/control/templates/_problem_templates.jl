@@ -3,7 +3,22 @@ module ProblemTemplates
 using ..QuantumObjectives
 using ..QuantumConstraints
 using ..QuantumIntegrators
-using ..QuantumControlProblems: QuantumControlProblem, get_trajectory, get_system
+using ..QuantumControlProblems:
+    QuantumControlProblem,
+    AbstractQuantumControlProblem,
+    AbstractProblemTemplate,
+    AbstractTemplateParams,
+    AbstractProblemSpec,
+    NoTemplate,
+    NoParams,
+    template_tag,
+    template_params,
+    retained_spec,
+    get_trajectory,
+    get_system
+using ..QuantumControlProblems
+# `import` (not `using`) for the wrapper-interface generics we add methods to.
+import ..QuantumControlProblems: wrapper_kind, rewrap
 using ..Options
 using ..ProblemDisplay: show_problem
 
@@ -89,6 +104,8 @@ function _fmt_bounds(b)
         return string(b)
     end
 end
+
+include("problem_template.jl")
 
 include("smooth_pulse_problem.jl")
 include("bang_bang_pulse_problem.jl")

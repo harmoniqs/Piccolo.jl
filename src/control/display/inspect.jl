@@ -114,15 +114,15 @@ _typename(T::Type) = string(nameof(T))
 _typename(x) = _typename(typeof(x))
 
 """
-    inspect(qcp::QuantumControlProblem) -> ProblemInspection
+    inspect(qcp::AbstractQuantumControlProblem) -> ProblemInspection
 
 Gather everything needed for the rich `display(qcp)` view. Evaluates the
 objective and constraints once at the current trajectory point.
 """
-function inspect(qcp::QuantumControlProblem)
-    prob = qcp.prob
+function inspect(qcp::AbstractQuantumControlProblem)
+    prob = QuantumControlProblems.direct_problem(qcp)
     traj = prob.trajectory
-    qtraj = qcp.qtraj
+    qtraj = QuantumControlProblems.quantum_trajectory(qcp)
     sys = QuantumControlProblems.get_system(qcp)
 
     # Identity

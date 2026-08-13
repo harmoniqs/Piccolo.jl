@@ -1,5 +1,3 @@
-export SmoothPulseProblem
-
 # ----------------------------------------------------------------------------- #
 # Free-phase helpers for ket goals (shared by SmoothPulseProblem & SplinePulseProblem)
 # ----------------------------------------------------------------------------- #
@@ -64,6 +62,61 @@ function _make_free_phase_ket_goal(
 end
 
 # ----------------------------------------------------------------------------- #
+# Template declaration
+# ----------------------------------------------------------------------------- #
+
+@doc raw"""
+    SmoothPulseParams <: AbstractTemplateParams
+
+The typed keyword surface of [`SmoothPulseProblem`](@ref) — one field per
+spec-expressible keyword, carrying the template's own default. Constructed by the
+generated constructor from the call's keywords and retained on the problem
+(`template_params(qcp)`).
+
+`R_ddu` and `ddu_bound` live **only** here (the smooth template is the only one
+with a second discrete derivative), so passing them to another template is a
+construction error rather than a silently ignored keyword.
+
+Runtime objects (`integrator`, `constraints`, `piccolo_options`) are *passthrough*
+keywords: accepted by the constructor, never retained here, never spec-expressible.
+"""
+Base.@kwdef struct SmoothPulseParams <: AbstractTemplateParams
+    Q::Float64 = 100.0
+    R::Float64 = 1e-2
+    R_u::Union{Float64,Vector{Float64}} = R
+    R_du::Union{Float64,Vector{Float64}} = R
+    R_ddu::Union{Float64,Vector{Float64}} = R
+    du_bound::Float64 = Inf
+    ddu_bound::Float64 = 1.0
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing
+    free_phase::Bool = false
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing
+    coherent::Bool = true
+    global_names::Union{Nothing,Vector{Symbol}} = nothing
+    global_bounds::Union{Nothing,AbstractDict} = nothing
+    calibration_targets::Vector{Symbol} = Symbol[]
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing
+end
+
+@problem_template SmoothPulseTemplate begin
+    julia_name = SmoothPulseProblem
+    pulse = ZeroOrderPulse
+    trajectories = (UnitaryTrajectory, KetTrajectory, MultiKetTrajectory, DensityTrajectory)
+    pulse_kinds = (:zero_order,)
+    trajectory_kinds = (:unitary, :ket)
+    ket_free_phase = false
+    params = SmoothPulseParams
+    passthrough = (:integrator, :constraints, :piccolo_options)
+    builder = _smooth_pulse_problem
+    requires_N = true
+    hint = """For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
+      qcp = SplinePulseProblem(qtraj, N; ...)"""
+end
 
 @doc raw"""
     SmoothPulseProblem(qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}, N::Int; kwargs...)
@@ -116,8 +169,11 @@ solve!(qcp)
 ```
 
 See also: [`SplinePulseProblem`](@ref) for spline-based pulses.
-"""
-function SmoothPulseProblem(
+""" SmoothPulseProblem
+
+# The construction logic the generated constructor delegates to. Returns the
+# untagged problem; `@problem_template`'s constructor stamps on the tag + params.
+function _smooth_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
@@ -332,7 +388,7 @@ use `SplinePulseProblem` instead.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
 
 # Returns
-- `QuantumControlProblem{MultiKetTrajectory}`: Wrapper containing ensemble trajectory and optimization problem
+- `QuantumControlProblem{SmoothPulseTemplate, <:MultiKetTrajectory}`: Wrapper containing ensemble trajectory and optimization problem
 
 # Examples
 ```julia
@@ -350,7 +406,7 @@ solve!(qcp; max_iter=100)
 
 See also: [`SplinePulseProblem`](@ref) for spline-based pulses.
 """
-function SmoothPulseProblem(
+function _smooth_pulse_problem(
     qtraj::MultiKetTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
@@ -711,32 +767,8 @@ function _apply_piccolo_options(
     )
 end
 
-# ============================================================================= #
-# Fallback Error Method
-# ============================================================================= #
-
-"""
-    SmoothPulseProblem(qtraj::AbstractQuantumTrajectory, N::Int; kwargs...)
-
-Fallback method that provides helpful error for non-ZeroOrderPulse types.
-"""
-function SmoothPulseProblem(
-    qtraj::AbstractQuantumTrajectory{P},
-    N::Int;
-    kwargs...,
-) where {P<:AbstractPulse}
-    pulse_type = P
-    error(
-        """
-  SmoothPulseProblem is only for piecewise constant pulses (ZeroOrderPulse).
-
-  You provided a trajectory with pulse type: $(pulse_type)
-
-  For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
-      qcp = SplinePulseProblem(qtraj, N; ...)
-  """,
-    )
-end
+# The wrong-pulse fallback ("use SplinePulseProblem instead") is now *generated*
+# by `@problem_template` from the declaration's `hint`.
 
 # ============================================================================= #
 # Tests
@@ -1230,7 +1262,9 @@ end
 
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
 
-    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob isa SamplingProblem
+    @test sampling_prob isa AbstractQuantumControlProblem
+    @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:UnitaryTrajectory}
 
     # Check trajectory has sample states
@@ -1265,19 +1299,15 @@ end
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
 
-    # Deterministic smooth init at the trajectory frequency — avoids the
-    # unseeded-randn flake (repo convention; the sampling problem now carries
-    # the base's derivative chain, making the random-init convergence
-    # stochastic at this iteration budget).
-    times_arr = (0:(N-1)) ./ (N - 1)
-    u_init = 0.1 * reshape(cos.(2π .* times_arr), 1, N)
-    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys_nominal, pulse, ψ_init, ψ_goal)
     qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
 
-    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob isa SamplingProblem
+    @test sampling_prob isa AbstractQuantumControlProblem
+    @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:KetTrajectory}
 
     # Check trajectory has sample states
@@ -1285,10 +1315,8 @@ end
     @test haskey(traj.components, :ψ̃1)
     @test haskey(traj.components, :ψ̃2)
 
-    # Solve. max_iter=100 matches the non-sampling KetTrajectory sibling: the
-    # sampling problem now carries the base's derivative chain (issue #267), so
-    # 50 iterations leaves dynamics residuals stochastic around the 1e-3 gate.
-    solve!(sampling_prob; max_iter = 100, verbose = false, print_level = 1)
+    # Solve
+    solve!(sampling_prob; max_iter = 50, verbose = false, print_level = 1)
 
     # Test dynamics constraints are satisfied
     for integrator in sampling_prob.prob.integrators
@@ -1371,7 +1399,9 @@ end
     # Create sampling problem
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
 
-    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob isa SamplingProblem
+    @test sampling_prob isa AbstractQuantumControlProblem
+    @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:UnitaryTrajectory}
 
     # Check trajectory has sample states
