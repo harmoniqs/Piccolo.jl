@@ -5,7 +5,13 @@ using NamedTrajectories
 using DirectTrajOpt
 using ...Quantum
 using ...Quantum:
-    SamplingTrajectory, MultiKetTrajectory, state_name, state_names, drive_name
+    SamplingTrajectory,
+    MultiKetTrajectory,
+    MultiDensityTrajectory,
+    state_name,
+    state_names,
+    sampling_member_states,
+    drive_name
 using SparseArrays
 using TestItems
 
@@ -127,14 +133,16 @@ all share the same control variables.
 """
 function BilinearIntegrator(qtraj::SamplingTrajectory, N::Int)
     traj = NamedTrajectory(qtraj, N)
-    snames = state_names(qtraj)
     control_sym = drive_name(qtraj)
     systems = qtraj.systems
+    member_states = sampling_member_states(qtraj)
 
-    return [
-        _sampling_integrator(qtraj.base_trajectory, sys, traj, name, control_sym) for
-        (sys, name) in zip(systems, snames)
-    ]
+    per_member = map(zip(systems, member_states)) do (sys, states)
+        _sampling_integrator(qtraj.base_trajectory, sys, traj, states, control_sym)
+    end
+    # Single-state bases return one integrator per member; multi-state bases
+    # return one vector of integrators per member — flatten either way.
+    return reduce(vcat, map(i -> i isa AbstractVector ? i : [i], per_member))
 end
 
 # Helper to create single integrator for sampling - dispatches on base trajectory type
@@ -171,13 +179,50 @@ function _sampling_integrator(
 end
 
 function _sampling_integrator(
+    base_qtraj::MultiKetTrajectory,
+    sys::AbstractQuantumSystem,
+    traj::NamedTrajectory,
+    state_syms::Vector{Symbol},
+    control_sym::Symbol,
+)
+    # One integrator per ket sub-state of this member, all on the member's system
+    if sys.time_dependent
+        Ĝ = (u_, t) -> sys.G(u_, t)
+        return [
+            TimeDependentBilinearIntegrator(Ĝ, name, control_sym, :t, traj) for
+            name in state_syms
+        ]
+    else
+        Ĝ = u_ -> sys.G(u_, 0.0)
+        return [BilinearIntegrator(Ĝ, name, control_sym, traj) for name in state_syms]
+    end
+end
+
+function _sampling_integrator(
     base_qtraj::DensityTrajectory,
     sys::OpenQuantumSystem,
     traj::NamedTrajectory,
     state_sym::Symbol,
     control_sym::Symbol,
 )
-    return BilinearIntegrator(sys.𝒢, state_sym, control_sym, traj)
+    # Compact Lindbladian (n² × n²) matching the compact density iso the sampling
+    # trajectory carries — same construction as the non-sampling density integrator.
+    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_parts(sys)
+    𝒢c = compact_generator_closure(sys, 𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators)
+    return BilinearIntegrator(𝒢c, state_sym, control_sym, traj)
+end
+
+function _sampling_integrator(
+    base_qtraj::MultiDensityTrajectory,
+    sys::OpenQuantumSystem,
+    traj::NamedTrajectory,
+    state_syms::Vector{Symbol},
+    control_sym::Symbol,
+)
+    # One compact-Lindbladian integrator per density sub-state of this member
+    𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators = compact_lindbladian_parts(sys)
+    𝒢c = compact_generator_closure(sys, 𝒢c_drift_ham, 𝒢c_drives, 𝒢c_dissipators)
+    return [BilinearIntegrator(𝒢c, name, control_sym, traj) for name in state_syms]
 end
 
 # ----------------------------------------------------------------------------- #
@@ -432,6 +477,116 @@ end
     @test length(integrators) == 2
 
     for integrator in integrators
+        test_integrator(integrator, expanded_traj; atol = 1e-3)
+    end
+end
+
+@testitem "BilinearIntegrator dispatch on SamplingTrajectory (Density)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # Open systems with dissipation and a drift variation
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys1 = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys2 =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+
+    base_qtraj = DensityTrajectory(sys1, pulse, ρ0, ρg)
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+    integrators = BilinearIntegrator(sampling_qtraj, N)
+
+    @test integrators isa Vector{<:BilinearIntegrator}
+    @test length(integrators) == 2
+
+    # Compact Lindbladian: state dim is n² (compact iso), NOT 2n² (full vec iso)
+    n = sys1.levels
+    for integrator in integrators
+        @test integrator.x_dim == n^2
+        test_integrator(integrator, expanded_traj; atol = 1e-3)
+    end
+
+    # Parity: the member-1 sampling integrator must agree with the non-sampling
+    # density integrator built on the same system (same compact generator).
+    ref_integrator = BilinearIntegrator(base_qtraj, N)
+    x = randn(n^2)
+    x_next = randn(n^2)
+    u = [0.3]
+    Δt = 0.05
+    @test integrators[1].f(x_next, x, u, Δt) ≈ ref_integrator.f(x_next, x, u, Δt)
+end
+
+@testitem "BilinearIntegrator dispatch on SamplingTrajectory (MultiKet)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+
+    # Systems with drift variation
+    sys1 = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys2 = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(zeros(2, N), times)
+
+    base_qtraj = MultiKetTrajectory(sys1, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+    integrators = BilinearIntegrator(sampling_qtraj, N)
+
+    # 2 members × 2 kets = 4 integrators, one per (member, ket) state component
+    @test integrators isa Vector{<:BilinearIntegrator}
+    @test length(integrators) == 4
+    @test [i.x_name for i in integrators] == [:ψ̃1, :ψ̃2, :ψ̃3, :ψ̃4]
+
+    for integrator in integrators
+        test_integrator(integrator, expanded_traj; atol = 1e-3)
+    end
+end
+
+@testitem "BilinearIntegrator dispatch on SamplingTrajectory (MultiDensity)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys1 = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys2 =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+
+    base_qtraj = MultiDensityTrajectory(sys1, pulse, [ρ0, ρ1], [ρ1, ρ0])
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+    integrators = BilinearIntegrator(sampling_qtraj, N)
+
+    # 2 members × 2 densities = 4 compact-Lindbladian integrators
+    @test integrators isa Vector{<:BilinearIntegrator}
+    @test length(integrators) == 4
+    @test [i.x_name for i in integrators] == [:ρ⃗̃1, :ρ⃗̃2, :ρ⃗̃3, :ρ⃗̃4]
+
+    n = sys1.levels
+    for integrator in integrators
+        @test integrator.x_dim == n^2  # compact iso, not 2n²
         test_integrator(integrator, expanded_traj; atol = 1e-3)
     end
 end
