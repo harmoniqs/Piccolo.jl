@@ -180,7 +180,7 @@ qcp_lin = SplinePulseProblem(
 
 cached_solve!(qcp_lin, "two_qubit_linear_spline"; max_iter = 80)
 
-# !!! note "Number of Timesteps"
+# !!! note "Number of Knot Points"
 #     The discretized dynamics constraints of the optimizer are not exact when
 #     the control pulses are not piecewise-constant. Consequently, the number of
 #     knot points may need to be increased, depending the degree of physical
