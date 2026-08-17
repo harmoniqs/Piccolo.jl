@@ -130,7 +130,7 @@ objective was installed; this loud error is intentional."""
 # while letting a downstream package EXTEND `sampling_state_objective` with typed
 # density methods at module top level — no method overwrite, no `__init__` eval.
 function sampling_state_objective(
-    qtraj::Union{DensityTrajectory, MultiDensityTrajectory},
+    qtraj::Union{DensityTrajectory,MultiDensityTrajectory},
     traj::NamedTrajectory,
     state_sym,
     Q::Float64,

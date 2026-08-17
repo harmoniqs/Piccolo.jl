@@ -20,7 +20,7 @@
         @test recorded[slug]["structure_hash"] == Specs.structure_hash(spec)
         @test recorded[slug]["problem_hash"] == Specs.problem_hash(spec)
         # the round-trip identity the wire format promises
-        @test         Specs.parse_spec(emitted; format = :json) isa Specs.ProblemSpec
+        @test Specs.parse_spec(emitted; format = :json) isa Specs.ProblemSpec
         global n_fixtures += 1
     end
     @test n_fixtures == length(recorded)  # no orphan files, no missing fixtures
