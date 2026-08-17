@@ -169,7 +169,7 @@ a different system (e.g., parameter variations), but all share the same controls
 # Create sampling trajectory with 3 system variations
 sampling = SamplingTrajectory(base_qtraj, [sys1, sys2, sys3])
 
-# Convert to NamedTrajectory with 51 timesteps
+# Convert to NamedTrajectory with 51 knot points
 traj = NamedTrajectory(sampling, 51)
 # Result has: :Ũ⃗1, :Ũ⃗2, :Ũ⃗3, :u, :Δt, :t
 ```

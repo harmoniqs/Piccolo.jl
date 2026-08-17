@@ -1068,7 +1068,7 @@ end
     global_params = (δ = 0.5, Ω = 1.0)
     sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
 
-    # Create a unitary trajectory (2 drives × 2 timesteps)
+    # Create a unitary trajectory (2 drives × 2 knot points)
     pulse = ZeroOrderPulse([0.5 0.3; 0.5 0.3], [0.0, 1.0])
     U_goal = PAULIS[:X]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)

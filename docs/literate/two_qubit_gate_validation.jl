@@ -183,7 +183,7 @@ cached_solve!(qcp_lin, "two_qubit_linear_spline"; max_iter = 80)
 # !!! note "Number of Timesteps"
 #     The discretized dynamics constraints of the optimizer are not exact when
 #     the control pulses are not piecewise-constant. Consequently, the number of
-#     timesteps may need to be increased, depending the degree of physical
+#     knot points may need to be increased, depending the degree of physical
 #     accuracy needed. If the discretized dynamics are not accurate, the
 #     optimizer may maximize the fidelity for the *discretized* dynamics, while
 #     the actual fidelity for the real, *continuous-time* dynamics is not as
@@ -207,7 +207,7 @@ lin_traj = get_trajectory(qcp_lin)
 pulse_cub = CubicSplinePulse(lin_traj[:u], zero(lin_traj[:u]), get_times(lin_traj))
 qtraj_cub = UnitaryTrajectory(sys, pulse_cub, U_goal)
 
-# We now perform the optimization, again noting that the number of timesteps
+# We now perform the optimization, again noting that the number of knot points
 # may need to be adjusted for greater physical accuracy.
 
 N_timesteps_cub = N_params

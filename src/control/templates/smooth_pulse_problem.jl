@@ -79,7 +79,7 @@ The problem adds discrete derivative variables (du, ddu) that:
 
 # Arguments
 - `qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}`: Quantum trajectory with piecewise constant pulse
-- `N::Int`: Number of timesteps for discretization
+- `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator (which does not support global variables). A custom integrator is required when `global_names` is specified.
@@ -315,7 +315,7 @@ use `SplinePulseProblem` instead.
 
 # Arguments
 - `qtraj::MultiKetTrajectory{<:ZeroOrderPulse}`: Ensemble of ket state transfers with piecewise constant pulse
-- `N::Int`: Number of timesteps for the discretization
+- `N::Int`: number of knot points for the discretization
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, the default `BilinearIntegrator` is used. When `global_names` is specified, you must supply a custom integrator here (i.e., do not rely on the default `BilinearIntegrator`) that supports global variables.

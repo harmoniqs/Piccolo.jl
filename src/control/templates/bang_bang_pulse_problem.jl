@@ -21,7 +21,7 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 
 # Arguments
 - `qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}`: Quantum trajectory with piecewise constant pulse
-- `N::Int`: Number of timesteps for discretization
+- `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator.
