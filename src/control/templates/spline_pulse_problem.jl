@@ -288,13 +288,17 @@ function SplinePulseProblem(
     elseif integrator isa AbstractIntegrator
         # Guard against PWC-vs-spline mismatch (H1)
         if qtraj.pulse isa CubicSplinePulse && integrator isa BilinearIntegrator
-            error("CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.")
+            error(
+                "CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.",
+            )
         end
         dynamics_integrators = AbstractIntegrator[integrator]
     else
         for integ in integrator
             if qtraj.pulse isa CubicSplinePulse && integ isa BilinearIntegrator
-                error("CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.")
+                error(
+                    "CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.",
+                )
             end
         end
         dynamics_integrators = AbstractIntegrator[integrator...]
@@ -349,7 +353,8 @@ function SplinePulseProblem(
     # Spline interior bounds (H10) — CubicSplinePulse can exceed knot bounds in interior
     if spline_interior_bound_constraints
         if qtraj.pulse isa CubicSplinePulse
-            if isdefined(Main, :Piccolissimo) && isdefined(Piccolissimo, :CubicSplineBoundConstraint)
+            if isdefined(Main, :Piccolissimo) &&
+               isdefined(Piccolissimo, :CubicSplineBoundConstraint)
                 for (drive_idx, (lb, ub)) in enumerate(sys.drive_bounds)
                     if isfinite(lb) && isfinite(ub)
                         push!(
@@ -365,7 +370,9 @@ function SplinePulseProblem(
                     end
                 end
                 if _show_details(piccolo_options)
-                    println("    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)")
+                    println(
+                        "    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)",
+                    )
                 end
             else
                 @warn "spline_interior_bound_constraints=true requires Piccolissimo.jl for CubicSplineBoundConstraint. Load Piccolissimo (using Piccolissimo) or set spline_interior_bound_constraints=false. Interior violation at cat α=2 was 28% (3.20 vs 2.5)."
@@ -587,7 +594,8 @@ function SplinePulseProblem(
             )
         end
         if qtraj.pulse isa AbstractSplinePulse
-            @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): use SplineIntegrator from Piccolissimo for correct spline physics (Bilinear is PWC, ignores :du)." maxlog = 1
+            @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): use SplineIntegrator from Piccolissimo for correct spline physics (Bilinear is PWC, ignores :du)." maxlog =
+                1
         end
 
         # `integrator_type` names what you actually get. `:pwc` is the only backend Piccolo
@@ -641,13 +649,17 @@ function SplinePulseProblem(
         end
     elseif integrator isa AbstractIntegrator
         if qtraj.pulse isa CubicSplinePulse && integrator isa BilinearIntegrator
-            error("CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.")
+            error(
+                "CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.",
+            )
         end
         dynamics_integrators = AbstractIntegrator[integrator]
     else
         for integ in integrator
             if qtraj.pulse isa CubicSplinePulse && integ isa BilinearIntegrator
-                error("CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.")
+                error(
+                    "CubicSplinePulse with BilinearIntegrator: Bilinear never reads :du (H1). Use SplineIntegrator.",
+                )
             end
         end
         dynamics_integrators = AbstractIntegrator[integrator...]
@@ -706,7 +718,8 @@ function SplinePulseProblem(
     # Spline interior bounds (H10) — CubicSplinePulse can exceed knot bounds in interior
     if spline_interior_bound_constraints
         if qtraj.pulse isa CubicSplinePulse
-            if isdefined(Main, :Piccolissimo) && isdefined(Piccolissimo, :CubicSplineBoundConstraint)
+            if isdefined(Main, :Piccolissimo) &&
+               isdefined(Piccolissimo, :CubicSplineBoundConstraint)
                 for (drive_idx, (lb, ub)) in enumerate(sys.drive_bounds)
                     if isfinite(lb) && isfinite(ub)
                         push!(
@@ -722,7 +735,9 @@ function SplinePulseProblem(
                     end
                 end
                 if _show_details(piccolo_options)
-                    println("    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)")
+                    println(
+                        "    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)",
+                    )
                 end
             else
                 @warn "spline_interior_bound_constraints=true requires Piccolissimo.jl for CubicSplineBoundConstraint. Load Piccolissimo (using Piccolissimo) or set spline_interior_bound_constraints=false. Interior violation at cat α=2 was 28% (3.20 vs 2.5)."
