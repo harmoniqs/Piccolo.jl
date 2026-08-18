@@ -27,12 +27,13 @@
 # # Linear spline
 # pulse = LinearSplinePulse(controls, times)
 # qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-# qcp = SplinePulseProblem(qtraj)  # Works
+# qcp = SplinePulseProblem(qtraj)  # Works (warns: default PWC integrator)
 #
-# # Cubic spline
+# # Cubic spline — the integrator choice must be explicit (#275)
 # pulse = CubicSplinePulse(controls, tangents, times)
 # qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-# qcp = SplinePulseProblem(qtraj)  # Works
+# qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)  # acknowledged PWC
+# # or, for spline-faithful dynamics: integrator = Piccolissimo.SplineIntegrator(qtraj, N)
 # ```
 #
 # ## Constructor Variants
@@ -113,16 +114,20 @@ pulse = CubicSplinePulse(controls, tangents, times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve using native knot times
-qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0)
+## `integrator_type = :pwc` acknowledges (see the warning below) that Piccolo's
+## only built-in integrator treats the drive as piecewise constant.
+qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0, integrator_type = :pwc)
 cached_solve!(qcp, "spline_pulse_basic"; max_iter = 100)
 
 # !!! warning "The default integrator is piecewise constant — check the divergence"
-#     Every `SplinePulseProblem` on this page uses the **default** integrator, which is
+#     Every solve on this page uses the **PWC** integrator (`integrator_type = :pwc`),
 #     `BilinearIntegrator`: it models the drive as **piecewise constant on each interval**. That
 #     is not what a spline pulse is, so the optimizer is minimizing against a different waveform
 #     than the one your pulse actually produces. For a `CubicSplinePulse` it is worse still — the
 #     Hermite tangents (`:du`) get no gradient at all, so they simply sit at their initial values
-#     and are then integrated for real by the re-rollout.
+#     and are then integrated for real by the re-rollout. Constructing a cubic-spline problem
+#     without declaring the integrator choice is an **error** as of #275 — this page declares
+#     `:pwc` explicitly so you can see exactly what you are getting.
 #
 #     This is easy to *see* rather than take on faith. `rollout_divergence` compares the
 #     optimizer's collocation solution against an ODE re-rollout of the same pulse at the final
@@ -172,7 +177,7 @@ verify(qcp)
 # qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
 #
 # # Use native knot times (no resampling)
-# qcp = SplinePulseProblem(qtraj)
+# qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)
 # solve!(qcp; max_iter=50)  # Converges quickly from good initial guess
 # ```
 #
@@ -180,7 +185,7 @@ verify(qcp)
 #
 # The original pulse above has 50 knots. We can resample to 100 for finer control:
 
-qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
+qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0, integrator_type = :pwc)
 cached_solve!(qcp_resampled, "spline_pulse_resampled"; max_iter = 100)
 
 # ### Linear vs Cubic Splines
