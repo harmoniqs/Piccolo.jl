@@ -923,7 +923,14 @@ end
 
     # Test with du_bound specified
     du_bound = 5.0
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, du_bound = du_bound, integrator_type = :pwc)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        du_bound = du_bound,
+        integrator_type = :pwc,
+    )
 
     traj = get_trajectory(qcp)
 
@@ -940,7 +947,8 @@ end
     @test all(upper_bounds .≈ du_bound)
 
     # Test without du_bound (should default to Inf)
-    qcp_unbounded = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, integrator_type = :pwc)
+    qcp_unbounded =
+        SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, integrator_type = :pwc)
     traj_unbounded = get_trajectory(qcp_unbounded)
 
     # Without explicit du_bound, bounds should still be set to Inf (not throw error)
@@ -1597,8 +1605,13 @@ end
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
     qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
-    qcp_empty =
-        SplinePulseProblem(qtraj, N; Q = 100.0, extra_objectives = AbstractObjective[], integrator_type = :pwc)
+    qcp_empty = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        extra_objectives = AbstractObjective[],
+        integrator_type = :pwc,
+    )
 
     n_default =
         qcp_default.prob.objective isa DirectTrajOpt.CompositeObjective ?
