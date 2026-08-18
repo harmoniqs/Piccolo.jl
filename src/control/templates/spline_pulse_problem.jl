@@ -889,7 +889,7 @@ end
 
     # Create trajectory and problem
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, integrator_type = :pwc)
 
     @test qcp isa QuantumControlProblem
     @test get_trajectory(qcp) isa NamedTrajectory
@@ -923,7 +923,7 @@ end
 
     # Test with du_bound specified
     du_bound = 5.0
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, du_bound = du_bound)
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, du_bound = du_bound, integrator_type = :pwc)
 
     traj = get_trajectory(qcp)
 
@@ -940,7 +940,7 @@ end
     @test all(upper_bounds .≈ du_bound)
 
     # Test without du_bound (should default to Inf)
-    qcp_unbounded = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    qcp_unbounded = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, integrator_type = :pwc)
     traj_unbounded = get_trajectory(qcp_unbounded)
 
     # Without explicit du_bound, bounds should still be set to Inf (not throw error)
@@ -1554,7 +1554,7 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0)
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
     @test qcp isa QuantumControlProblem
 
     # The QuadraticRegularizer contribution must be exactly zero on any
@@ -1596,9 +1596,9 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0)
+    qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
     qcp_empty =
-        SplinePulseProblem(qtraj, N; Q = 100.0, extra_objectives = AbstractObjective[])
+        SplinePulseProblem(qtraj, N; Q = 100.0, extra_objectives = AbstractObjective[], integrator_type = :pwc)
 
     n_default =
         qcp_default.prob.objective isa DirectTrajOpt.CompositeObjective ?
@@ -1635,7 +1635,7 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp_baseline = SplinePulseProblem(qtraj, N; Q = 100.0)
+    qcp_baseline = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
 
     # Build the extra regularizer against the actual trajectory we will use.
     # The unitary template emits this same trajectory via NamedTrajectory(qtraj, N).
