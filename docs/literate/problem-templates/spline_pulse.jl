@@ -201,7 +201,7 @@ qcp_linear = SplinePulseProblem(qtraj_linear)
 
 pulse_cubic = CubicSplinePulse(controls, tangents, times)
 qtraj_cubic = UnitaryTrajectory(sys, pulse_cubic, GATES[:X])
-qcp_cubic = SplinePulseProblem(qtraj_cubic)
+qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared PWC — see the warning above
 ## du (tangents) are independent variables
 
 # ### Per-Drive Derivative Bounds
