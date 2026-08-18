@@ -1248,12 +1248,14 @@ end
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
     # Attempting to use global_bounds without globals in trajectory should error
+    # (declare the PWC backend so the #275 guard doesn't fire first)
     @test_throws "Global variable :δ not found" SplinePulseProblem(
         qtraj,
         N;
         Q = 100.0,
         R = 1e-2,
         global_bounds = Dict(:δ => 0.5),  # δ doesn't exist in trajectory
+        integrator_type = :pwc,
     )
 end
 
@@ -1484,7 +1486,7 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0)  # no explicit R_u, R_du
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)  # no explicit R_u, R_du
 
     @test qcp isa QuantumControlProblem
 
