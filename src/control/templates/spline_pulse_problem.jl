@@ -129,6 +129,7 @@ function SplinePulseProblem(
     qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse},
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    integrator_type::Union{Nothing,Symbol} = nothing,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -264,19 +265,37 @@ function SplinePulseProblem(
                 "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        # Spline pulses require SplineIntegrator (Bilinear drops du)
-        if qtraj.pulse isa CubicSplinePulse
+        # Spline pulses must not silently land on PWC dynamics: BilinearIntegrator
+        # never reads :du, so a spline pulse would optimize a different waveform
+        # than its name promises (issue #275). `integrator_type = :pwc` is the
+        # explicit, acknowledged escape hatch.
+        isnothing(integrator_type) ||
+            integrator_type === :pwc ||
             error(
-                "CubicSplinePulse requires SplineIntegrator (BilinearIntegrator silently drops :du, 11-DOF PWC). " *
-                "Use Piccolissimo.SplineIntegrator:\n" *
-                "  using Piccolissimo\n" *
-                "  integrator = SplineIntegrator(qtraj, N)\n" *
-                "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
+                "unknown `integrator_type = :$integrator_type`. " *
+                "Piccolo ships one backend: `:pwc` (`BilinearIntegrator`).",
             )
-        end
-        # Default to BilinearIntegrator (only for LinearSplinePulse via DerivativeIntegrator, but warn)
-        if qtraj.pulse isa AbstractSplinePulse
-            @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): use SplineIntegrator from Piccolissimo for correct spline physics (Bilinear is PWC, ignores du). Pass integrator=SplineIntegrator(qtraj,N) to silence."
+        if qtraj.pulse isa CubicSplinePulse
+            if integrator_type === :pwc
+                @warn "CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the " *
+                      "dynamics treat the drive as piecewise constant and ignore :du — the " *
+                      "optimized waveform differs from the cubic spline the pulse object " *
+                      "describes. Acknowledged because you asked for it explicitly." maxlog =
+                    1
+            else
+                error(
+                    "CubicSplinePulse defaults are not allowed: the default PWC backend " *
+                    "silently drops :du (a cubic problem would optimize a piecewise-constant " *
+                    "waveform, not a spline — issue #275). Either pass a spline-faithful " *
+                    "integrator (Piccolissimo.SplineIntegrator) or explicitly request the PWC " *
+                    "backend with `integrator_type = :pwc`.",
+                )
+            end
+        elseif qtraj.pulse isa AbstractSplinePulse
+            @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): " *
+                  "Bilinear is PWC and ignores :du. Pass a SplineIntegrator (Piccolissimo) for " *
+                  "spline-faithful dynamics, or `integrator_type = :pwc` to acknowledge." maxlog =
+                1
         end
         default_int = BilinearIntegrator(qtraj, N)
 
@@ -436,12 +455,13 @@ plus:
 - `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
 - `initial_phases::Union{Nothing, Vector{Float64}}=nothing`: Initial values for the per-subsystem phase variables when `free_phase=true`. Length must equal the number of subsystems.
 - `coherent::Bool=true`: If `true`, uses a coherent fidelity objective (phases must align across state pairs). If `false`, uses per-state fidelity.
-- `integrator_type::Symbol=:pwc`: Integrator backend. `:pwc` is the only value Piccolo ships —
-  `BilinearIntegrator`, which integrates the drive as **piecewise constant**. Note that this is
-  a PWC approximation *of your spline*; for spline-faithful dynamics pass `integrator =
-  Piccolissimo.SplineIntegrator(...)` explicitly. The former `:spline` and `:ensemble` values
-  now raise an informative error: `:spline` silently returned the PWC integrator, and
-  `:ensemble` referenced a type that was never defined.
+- `integrator_type::Union{Nothing,Symbol}=nothing`: Integrator backend choice. `nothing` (default)
+  infers by pulse kind — `ZeroOrderPulse` is silent PWC; spline pulses guard against the silent-PWC
+  trap (cubic errors, linear warns; issue #275). `:pwc` explicitly requests the **piecewise-constant**
+  `BilinearIntegrator` — allowed with any pulse, acknowledged by warning for splines. The former
+  `:spline` and `:ensemble` values raise informative errors: `:spline` silently returned the PWC
+  integrator, and `:ensemble` referenced a type that was never defined. For spline-faithful dynamics
+  pass `integrator = Piccolissimo.SplineIntegrator(...)` explicitly.
 - `parallel_backend::Symbol=:manual`: **Inert.** Its only consumer was the removed `:ensemble`
   branch; setting it to anything other than `:manual` warns and has no effect. Pass a
   parallel integrator via `integrator` instead.
@@ -450,7 +470,7 @@ function SplinePulseProblem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
-    integrator_type::Symbol = :pwc,  # :pwc is the only backend Piccolo ships
+    integrator_type::Union{Nothing,Symbol} = nothing,  # nothing = infer (see guards); :pwc = acknowledged PWC
     parallel_backend::Symbol = :manual,  # inert — see the docstring
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
@@ -582,18 +602,23 @@ function SplinePulseProblem(
 
         # Spline pulses must not silently land on the PWC default: BilinearIntegrator
         # never reads :du, so a CubicSplinePulse would optimize a piecewise-constant
-        # waveform while the name promises a spline (issue #275).
-        if qtraj.pulse isa CubicSplinePulse
+        # waveform while the name promises a spline (issue #275). Explicit
+        # `integrator_type = :pwc` is the acknowledged escape hatch.
+        if qtraj.pulse isa CubicSplinePulse && integrator_type !== :pwc
             error(
-                "CubicSplinePulse requires SplineIntegrator (BilinearIntegrator silently drops :du — " *
-                "the problem would optimize a PWC waveform, not a spline). " *
-                "Use Piccolissimo.SplineIntegrator:\n" *
-                "  using Piccolissimo\n" *
-                "  integrator = SplineIntegrator(qtraj, N)\n" *
-                "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
+                "CubicSplinePulse defaults are not allowed: the default PWC backend " *
+                "silently drops :du (a cubic problem would optimize a piecewise-constant " *
+                "waveform, not a spline — issue #275). Either pass a spline-faithful " *
+                "integrator (Piccolissimo.SplineIntegrator) or explicitly request the PWC " *
+                "backend with `integrator_type = :pwc`.",
             )
         end
-        if qtraj.pulse isa AbstractSplinePulse
+        if qtraj.pulse isa CubicSplinePulse && integrator_type === :pwc
+            @warn "CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the " *
+                  "dynamics treat the drive as piecewise constant and ignore :du — the " *
+                  "optimized waveform differs from the cubic spline the pulse object " *
+                  "describes. Acknowledged because you asked for it explicitly." maxlog = 1
+        elseif qtraj.pulse isa AbstractSplinePulse && integrator_type !== :pwc
             @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): use SplineIntegrator from Piccolissimo for correct spline physics (Bilinear is PWC, ignores :du)." maxlog =
                 1
         end
@@ -601,7 +626,7 @@ function SplinePulseProblem(
         # `integrator_type` names what you actually get. `:pwc` is the only backend Piccolo
         # ships: `BilinearIntegrator`, which models the drive as piecewise constant on each
         # interval. There is deliberately no `:spline` value — see the errors below.
-        if integrator_type === :pwc
+        if isnothing(integrator_type) || integrator_type === :pwc
             dynamics_integrators = BilinearIntegrator(qtraj, N)
         elseif integrator_type === :spline
             error(

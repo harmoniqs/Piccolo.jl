@@ -631,7 +631,7 @@ end
     # Cubic spline: :du is Hermite tangents (free DOFs) — no DerivativeIntegrator
     cubic_pulse = CubicSplinePulse(0.1 * randn(1, N), 0.1 * randn(1, N), times)
     cubic_qtraj = UnitaryTrajectory(sys, cubic_pulse, GATES[:H])
-    cubic_qcp = SplinePulseProblem(cubic_qtraj, N; Q = 100.0)
+    cubic_qcp = SplinePulseProblem(cubic_qtraj, N; Q = 100.0, integrator_type = :pwc)
 
     cubic_sampling = SamplingProblem(cubic_qcp, [sys, sys])
     cubic_traj = get_trajectory(cubic_sampling)
