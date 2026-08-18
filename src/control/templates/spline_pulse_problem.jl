@@ -1663,6 +1663,7 @@ end
         N;
         Q = 100.0,
         extra_objectives = AbstractObjective[extra_reg],
+        integrator_type = :pwc,
     )
 
     n_baseline =
