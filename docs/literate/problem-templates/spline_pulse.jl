@@ -213,6 +213,7 @@ qcp_per_drive = SplinePulseProblem(
     qtraj;
     Q = 100.0,
     du_bounds = [5.0, 2.0],  ## drive 1 allows faster slopes than drive 2
+    integrator_type = :pwc,  ## declared PWC — see the warning above
 )
 
 # ## Trajectory Structure
