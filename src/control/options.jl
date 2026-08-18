@@ -67,13 +67,6 @@ Options for the Piccolo quantum optimal control library.
   `Δt_bounds`, letting the optimizer choose a non-uniform grid (concentrating
   samples where the pulse is changing fast). Set to `true` to force uniform
   spacing — useful when the target hardware has a fixed sample-rate.
-- `rollout_integrator::Function = expv`: **DEPRECATED (removed in v2.0)** — stored
-  but never consulted; rollout algorithms are chosen by `default_algorithm(system)`.
-  A non-default value warns.
-- `geodesic = true`: **DEPRECATED (removed in v2.0)** — stored but never consulted
-  (geodesic initialization is not wired to this flag). Setting `false` warns.
-- `zero_initial_and_final_derivative::Bool=false`: **DEPRECATED (removed in v2.0)** —
-  stored but never consulted. Setting `true` warns.
 - `complex_control_norm_constraint_name::Union{Nothing, Symbol} = nothing`: Name of the complex control norm constraint.
 - `complex_control_norm_constraint_radius::Float64 = 1.0`: Radius of the complex control norm constraint.
 - `bound_state::Bool = true`: Keep the default [-1, 1] box bounds on each component
@@ -91,9 +84,6 @@ Options for the Piccolo quantum optimal control library.
 mutable struct PiccoloOptions
     display::Symbol
     timesteps_all_equal::Bool
-    rollout_integrator::Function
-    geodesic::Bool
-    zero_initial_and_final_derivative::Bool
     complex_control_norm_constraint_name::Union{Nothing,Symbol}
     complex_control_norm_constraint_radius::Float64
     bound_state::Bool
@@ -107,9 +97,6 @@ function PiccoloOptions(;
     display::Union{Symbol,Nothing} = nothing,
     verbose = nothing,
     timesteps_all_equal::Bool = false,
-    rollout_integrator::Function = expv,
-    geodesic::Bool = true,
-    zero_initial_and_final_derivative::Bool = false,
     complex_control_norm_constraint_name::Union{Nothing,Symbol} = nothing,
     complex_control_norm_constraint_radius::Float64 = 1.0,
     bound_state::Bool = true,
@@ -135,29 +122,9 @@ function PiccoloOptions(;
     end
     display === nothing && (display = :standard)
     display_level(display)  # validate
-    # DEPRECATED (v2.0 removal): these three fields are stored but never consulted
-    # anywhere in Piccolo (verified by whole-tree grep). Warn on a non-default value
-    # so it is not silently ignored. `rollout_integrator` is especially misleading —
-    # rollout algorithms are actually chosen by `default_algorithm(system)`.
-    rollout_integrator === expv || @warn(
-        "PiccoloOptions `rollout_integrator` is not consulted anywhere in Piccolo " *
-        "and will be removed in v2.0; rollout algorithms are chosen by " *
-        "`default_algorithm(system)`."
-    )
-    geodesic || @warn(
-        "PiccoloOptions `geodesic` is not consulted anywhere in Piccolo and will be " *
-        "removed in v2.0 (geodesic initialization is not wired to this flag)."
-    )
-    zero_initial_and_final_derivative && @warn(
-        "PiccoloOptions `zero_initial_and_final_derivative` is not consulted anywhere " *
-        "in Piccolo and will be removed in v2.0."
-    )
     return PiccoloOptions(
         display,
         timesteps_all_equal,
-        rollout_integrator,
-        geodesic,
-        zero_initial_and_final_derivative,
         complex_control_norm_constraint_name,
         complex_control_norm_constraint_radius,
         bound_state,
@@ -168,23 +135,12 @@ function PiccoloOptions(;
     )
 end
 
-@testitem "PiccoloOptions warns on deprecated inert fields" begin
+@testitem "PiccoloOptions constructor is quiet on defaults" begin
     using Piccolo
 
-    # `Logging` is not a Piccolo dependency; use the LogLevel from Base.CoreLogging
-    # (always available) so `@test_logs min_level=` filters to warnings-and-above.
     # Defaults, and consulted fields, produce no warning.
     @test_logs min_level = Base.CoreLogging.Warn PiccoloOptions()
     @test_logs min_level = Base.CoreLogging.Warn PiccoloOptions(bound_state = false)
-
-    # The three inert fields each warn on a non-default value (removed in v2.0).
-    @test_logs (:warn, r"rollout_integrator") match_mode = :any PiccoloOptions(
-        rollout_integrator = identity,
-    )
-    @test_logs (:warn, r"geodesic") match_mode = :any PiccoloOptions(geodesic = false)
-    @test_logs (:warn, r"zero_initial_and_final_derivative") match_mode = :any PiccoloOptions(
-        zero_initial_and_final_derivative = true,
-    )
 end
 
 end
