@@ -161,6 +161,8 @@ qcp_lin = SplinePulseProblem(
 )
 
 solve!(qcp_lin; max_iter = 80)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SplinePulseProblem [UnitaryTrajectory / LinearSplinePulse]
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>SplinePulseProblem default BilinearIntegrator with LinearSplinePulse: Bilinear is PWC and ignores :du. Pass a SplineIntegrator (Piccolissimo) for spline-faithful dynamics, or `integrator_type = :pwc` to acknowledge.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.ProblemTemplates ~/work/Piccolo.jl/Piccolo.jl/src/control/templates/spline_pulse_problem.jl:295</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
 <span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
 <span class="sgr33"><span class="sgr1">│ </span></span>
@@ -303,9 +305,12 @@ qcp_cub = SplinePulseProblem(
     Q = 100.0,
     R_du = 0.1,
     piccolo_options = PiccoloOptions(timesteps_all_equal = true),
+    integrator_type = :pwc,  # declared PWC — see the spline_pulse template&#39;s warning
 )
 
 solve!(qcp_cub; max_iter = 80)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SplinePulseProblem [UnitaryTrajectory / CubicSplinePulse]
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the dynamics treat the drive as piecewise constant and ignore :du — the optimized waveform differs from the cubic spline the pulse object describes. Acknowledged because you asked for it explicitly.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.ProblemTemplates ~/work/Piccolo.jl/Piccolo.jl/src/control/templates/spline_pulse_problem.jl:280</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
 <span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
 <span class="sgr33"><span class="sgr1">│ </span></span>
@@ -549,7 +554,7 @@ let
     Legend(fig[1, length(rollouts)+1], entries, basis_labels)
     Label(fig[0, :], &quot;Population dynamics: evolution of |10⟩&quot;; font = :bold, fontsize = 18)
     fig
-end</code></pre><img src="71e5e12a.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 18 August 2026 11:26">Tuesday 18 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+end</code></pre><img src="71e5e12a.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 18 August 2026 19:24">Tuesday 18 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./two_qubit_gate_validation.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/two_qubit_gate_validation.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
@@ -771,6 +776,7 @@ qcp_cub = SplinePulseProblem(
     Q = 100.0,
     R_du = 0.1,
     piccolo_options = PiccoloOptions(timesteps_all_equal = true),
+    integrator_type = :pwc,  # declared PWC — see the spline_pulse template's warning
 )
 
 solve!(qcp_cub; max_iter = 80)
