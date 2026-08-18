@@ -257,6 +257,12 @@ function _call_template(spec::ProblemSpec, qtraj; piccolo_options = nothing)
     p.free_dt isa Free && (kwargs[:Δt_bounds] = (p.free_dt.lo, p.free_dt.hi))
     intg = _build_integrator(spec, qtraj)
     intg === nothing || (kwargs[:integrator] = intg)
+    # The spec always names its integrator (schema-level field), so a bilinear
+    # integrator is a DECLARED choice, never a silent template default — pass it
+    # explicitly so spline-template pulse-type guards (#275) treat it as such.
+    if intg === nothing && p.template === :SplinePulseProblem
+        kwargs[:integrator_type] = :pwc
+    end
     piccolo_options === nothing || (kwargs[:piccolo_options] = piccolo_options)
     return fac(qtraj, p.N; kwargs...)
 end
@@ -664,7 +670,7 @@ get_variants(qcp::QuantumControlProblem) =
     times = collect(range(0.0, 10.0, 11))
     pulse = CubicSplinePulse(zeros(2, 11), zeros(2, 11), times)
     traj = UnitaryTrajectory(sys, pulse, goal)
-    ref = SplinePulseProblem(traj, 11)
+    ref = SplinePulseProblem(traj, 11; integrator_type = :pwc)
 
     # A single-term objective is a bare objective (no `.objectives`); normalize.
     nterms(J) = J isa DirectTrajOpt.CompositeObjective ? length(J.objectives) : 1

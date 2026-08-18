@@ -140,7 +140,7 @@ get_duration(get_trajectory(qcp_mintime))
 # qtraj_spline = UnitaryTrajectory(sys, spline_pulse, U_goal)
 #
 # # Refine with spline problem
-# qcp_spline = SplinePulseProblem(qtraj_spline; Q=100.0)
+# qcp_spline = SplinePulseProblem(qtraj_spline; Q=100.0, integrator_type = :pwc)
 # solve!(qcp_spline; max_iter=50)  # Quick refinement
 # ```
 #

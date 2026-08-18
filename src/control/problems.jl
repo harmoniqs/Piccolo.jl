@@ -403,8 +403,8 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 All other keyword arguments are passed to the DirectTrajOpt solver.
 
 Returns `DirectTrajOpt.Solvers.SolveStats` (termination status, raw status string,
-NLP objective, IPM iterations, solve wall time, solver symbol) once DirectTrajOpt
-provides it; `nothing` until then.
+NLP objective, IPM iterations, solve wall time, solver symbol) —
+computed after the trajectory sync, describing the trajectory you hold.
 """
 function solve!(
     qcp::QuantumControlProblem;
@@ -416,8 +416,7 @@ function solve!(
 )
     # SolveStats (status, iterations, objective, wall time) from the backend —
     # returned AFTER the trajectory sync so callers get data describing the
-    # trajectory they actually hold. (Returns nothing until DirectTrajOpt's
-    # registry release carries the SolveStats return.)
+    # trajectory they actually hold.
     stats = solve!(qcp.prob; verbose = verbose, kwargs...)
     if sync
         sync_trajectory!(
