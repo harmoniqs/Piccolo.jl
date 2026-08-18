@@ -211,7 +211,7 @@ function SplinePulseProblem(
     # N_or_times=nothing uses native pulse knot times (preserves warm-start exactly)
     base_traj =
         NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
-    N = base_traj.N  # Get actual number of timesteps
+    N = base_traj.N  # Get actual number of knot points
 
     # Always add control derivatives to trajectory
     # For CubicSplinePulse, :du is already included in the base trajectory (Hermite tangents)
@@ -460,7 +460,7 @@ function SplinePulseProblem(
     # N_or_times=nothing uses native pulse knot times (preserves warm-start exactly)
     base_traj =
         NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
-    N = base_traj.N  # Get actual number of timesteps
+    N = base_traj.N  # Get actual number of knot points
 
     # Always add control derivatives to trajectory
     # For CubicSplinePulse, :du is already included in the base trajectory (Hermite tangents)

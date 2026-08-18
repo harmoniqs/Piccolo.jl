@@ -1311,7 +1311,7 @@ end
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     X_gate = ComplexF64[0 1; 1 0]
 
-    # Create trajectory with initial pulse (1 drive × 2 timesteps)
+    # Create trajectory with initial pulse (1 drive × 2 knot points)
     pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
     qtraj = UnitaryTrajectory(system, pulse1, X_gate)
     @test length(qtraj.solution.u) == 101
