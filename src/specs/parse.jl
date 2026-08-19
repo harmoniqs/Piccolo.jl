@@ -588,6 +588,7 @@ end
         end
     paths(e) = Set(x.path for x in e.errors)
     msgs(e) = Set(x.msg for x in e.errors)
+    @test errs_of(BASE) === nothing  # the helper's success path
 
     # integer-valued floats coerce (TOML has no Int/Float distinction)
     spec = Specs.parse_spec(replace(BASE, "N = 11" => "N = 11.0"); format = :toml)
@@ -664,6 +665,7 @@ end
         end
     paths(e) = Set(x.path for x in e.errors)
     msgs(e) = Set(x.msg for x in e.errors)
+    @test errs_of(BASE) === nothing  # the helper's success path
 
     # free_dt: false (default) and [lo, hi] parse; true / bad ordering / bad shape error
     spec = Specs.parse_spec(replace(BASE, "N = 11" => "N = 11\nfree_dt = [0.05, 0.5]"))
@@ -737,6 +739,7 @@ end
         end
     paths(e) = Set(x.path for x in e.errors)
     msgs(e) = Set(x.msg for x in e.errors)
+    @test errs_of(BASE) === nothing  # the helper's success path
 
     # every block-typed field rejects a scalar with "expected a table" at its path
     nontable = [

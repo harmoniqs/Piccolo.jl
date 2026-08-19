@@ -1845,6 +1845,19 @@ end
     ) isa QuantumControlProblem
     @test SplinePulseProblem(uq_lin2, N; piccolo_options = opts) isa QuantumControlProblem
 
+    # same printlns on the MultiKetTrajectory method
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+    mk_cub2 = MultiKetTrajectory(sys, cub2, [ψ0, ψ1], [ψ1, ψ0])
+    mk_lin2 = MultiKetTrajectory(sys, lin2, [ψ0, ψ1], [ψ1, ψ0])
+    @test SplinePulseProblem(
+        mk_cub2,
+        N;
+        du_bound = 4.0,
+        integrator_type = :pwc,
+        piccolo_options = opts,
+    ) isa QuantumControlProblem
+    @test SplinePulseProblem(mk_lin2, N; piccolo_options = opts) isa QuantumControlProblem
+
     # single KetTrajectory free-phase: subsystem_levels gate + φ globals +
     # KetFreePhaseInfidelityObjective
     sys1 = QuantumSystem(0.01 * σz, [σx], [1.0])

@@ -1142,6 +1142,49 @@ end
         e
     end
     @test e isa Specs.SpecValidationError
+
+    # _build_goal's CompositeQuantumSystem branch: the goal embeds into each
+    # subsystem's computational subspace (unreachable via registered spec
+    # templates — MultiTransmonSystem takes positional args, so the specs
+    # kwargs-only factory cannot build one).
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sub1 = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sub2 = QuantumSystem(0.02 * σz, [σx], [1.0])
+    comp = CompositeQuantumSystem(
+        0.01 * kron(σx, σx),
+        Matrix{ComplexF64}[],
+        [sub1, sub2],
+        [1.0, 1.0],
+    )
+    goal = Specs._build_goal(Specs.GoalSpec(; kind = :unitary, gate = :CZ), comp)
+    @test goal isa EmbeddedOperator
+
+    # _build_goal / _build_pulse_trajectory defensive throws for an unknown
+    # goal kind — validation's trajectory-compat check blocks these on the
+    # materialize path (every registered template rejects :banana), so they are
+    # exercised directly.
+    e = try
+        Specs._build_goal(Specs.GoalSpec(; kind = :banana), sub1)
+        nothing
+    catch e
+        e
+    end
+    @test e isa Specs.SpecValidationError
+
+    spec = Specs.ProblemSpec(;
+        system = Specs.SystemSpec(; kind = :template, template = :TransmonSystem),
+        goal = Specs.GoalSpec(; kind = :banana),
+        pulse = Specs.PulseSpec(; kind = :linear_spline, T = 10.0),
+        problem = Specs.TemplateBlock(; template = :SplinePulseProblem, N = 11),
+    )
+    e = try
+        Specs._build_pulse_trajectory(spec, sub1, nothing)
+        nothing
+    catch e
+        e
+    end
+    @test e isa Specs.SpecValidationError
 end
 
 @testitem "materialize: integrator registration fallbacks via injected registry entry" begin
