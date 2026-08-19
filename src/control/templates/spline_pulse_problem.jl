@@ -1728,3 +1728,295 @@ end
     extra_contribution = objective_value(extra_reg, qcp_extra.prob.trajectory)
     @test J_extra ≈ J_baseline + extra_contribution
 end
+
+@testitem "SplinePulseProblem #275 guards: cubic defaults, explicit integrator paths" begin
+    using Piccolo
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    T, N = 10.0, 11
+    times = collect(range(0.0, T, length = N))
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    lin = LinearSplinePulse(0.1 * randn(1, N), times)
+    cub = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
+    U_goal = σx
+    uq_lin = UnitaryTrajectory(sys, lin, U_goal)
+    uq_cub = UnitaryTrajectory(sys, cub, U_goal)
+
+    # CubicSplinePulse + no integrator declared: ERROR (issue #275 — the default
+    # PWC backend would silently drop :du and optimize a different waveform).
+    err = try
+        SplinePulseProblem(uq_cub, N)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("CubicSplinePulse defaults are not allowed", err.msg)
+    @test occursin("integrator_type = :pwc", err.msg)
+
+    # global_names without an integrator is an error on both trajectory methods
+    err = try
+        SplinePulseProblem(uq_lin, N; global_names = [:δ])
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("global_names requires a custom integrator", err.msg)
+
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+    mk = MultiKetTrajectory(sys, lin, [ψ0, ψ1], [ψ1, ψ0])
+    err = try
+        SplinePulseProblem(mk, N; global_names = [:δ])
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("global_names requires a custom integrator", err.msg)
+
+    # explicit single-integrator kwarg: fine for a linear spline (warns on the
+    # PWC default elsewhere), H1 error for cubic + BilinearIntegrator
+    integ = BilinearIntegrator(uq_lin, N)
+    qcp = SplinePulseProblem(uq_lin, N; integrator = integ)
+    @test qcp isa QuantumControlProblem
+
+    err = try
+        SplinePulseProblem(uq_cub, N; integrator = BilinearIntegrator(uq_cub, N))
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("H1", err.msg)
+
+    # explicit vector-of-integrators kwarg: same contract per element
+    qcp_vec = SplinePulseProblem(uq_lin, N; integrator = [integ])
+    @test qcp_vec isa QuantumControlProblem
+
+    err = try
+        SplinePulseProblem(uq_cub, N; integrator = [BilinearIntegrator(uq_cub, N)])
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("H1", err.msg)
+end
+
+@testitem "SplinePulseProblem du_bounds vectors, verbose details, KetTrajectory free_phase" begin
+    using Piccolo
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    T, N = 10.0, 11
+    times = collect(range(0.0, T, length = N))
+    # two drives so per-drive du_bounds differ from the scalar fill
+    sys = QuantumSystem(0.01 * σz, [σx, σx], [1.0, 1.0])
+    U_goal = σx
+
+    lin2 = LinearSplinePulse(0.1 * randn(2, N), times)
+    cub2 = CubicSplinePulse(0.1 * randn(2, N), zeros(2, N), times)
+    uq_lin2 = UnitaryTrajectory(sys, lin2, U_goal)
+    uq_cub2 = UnitaryTrajectory(sys, cub2, U_goal)
+
+    # per-drive du_bounds: LinearSplinePulse derivative-add path
+    qcp = SplinePulseProblem(uq_lin2, N; du_bounds = [5.0, 2.0])
+    lo, hi = get_trajectory(qcp).bounds[:du]
+    @test lo ≈ [-5.0, -2.0]
+    @test hi ≈ [5.0, 2.0]
+
+    # per-drive du_bounds: CubicSplinePulse update_bound! path
+    qcp2 = SplinePulseProblem(uq_cub2, N; du_bounds = [5.0, 2.0], integrator_type = :pwc)
+    lo2, hi2 = get_trajectory(qcp2).bounds[:du]
+    @test lo2 ≈ [-5.0, -2.0]
+    @test hi2 ≈ [5.0, 2.0]
+
+    # detailed display exercises the du-bounds and DerivativeIntegrator printlns
+    opts = PiccoloOptions(; display = :detailed)
+    @test SplinePulseProblem(
+        uq_cub2,
+        N;
+        du_bound = 4.0,
+        integrator_type = :pwc,
+        piccolo_options = opts,
+    ) isa QuantumControlProblem
+    @test SplinePulseProblem(uq_lin2, N; piccolo_options = opts) isa QuantumControlProblem
+
+    # same printlns on the MultiKetTrajectory method
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+    mk_cub2 = MultiKetTrajectory(sys, cub2, [ψ0, ψ1], [ψ1, ψ0])
+    mk_lin2 = MultiKetTrajectory(sys, lin2, [ψ0, ψ1], [ψ1, ψ0])
+    @test SplinePulseProblem(
+        mk_cub2,
+        N;
+        du_bound = 4.0,
+        integrator_type = :pwc,
+        piccolo_options = opts,
+    ) isa QuantumControlProblem
+    @test SplinePulseProblem(mk_lin2, N; piccolo_options = opts) isa QuantumControlProblem
+
+    # single KetTrajectory free-phase: subsystem_levels gate + φ globals +
+    # KetFreePhaseInfidelityObjective
+    sys1 = QuantumSystem(0.01 * σz, [σx], [1.0])
+    lin1 = LinearSplinePulse(0.1 * randn(1, N), times)
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+    kq = KetTrajectory(sys1, lin1, ψ0, ψ1)
+    qcp3 = SplinePulseProblem(kq, N; free_phase = true, subsystem_levels = [2])
+    @test qcp3 isa QuantumControlProblem
+    @test haskey(get_trajectory(qcp3).global_components, :φ_1)
+
+    err = try
+        SplinePulseProblem(kq, N; free_phase = true)
+        nothing
+    catch e
+        e
+    end
+    @test err isa AssertionError
+end
+
+@testitem "SplinePulseProblem global_params system data and spline_interior_bound_constraints" begin
+    using Piccolo
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    T, N = 10.0, 11
+    times = collect(range(0.0, T, length = N))
+    U_goal = σx
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+
+    # a system carrying global_params seeds global_data on BOTH trajectory
+    # methods (the φ free-phase globals merge on top of it when asked for).
+    sysg = QuantumSystem(0.01 * σz, [σx], [1.0]; global_params = (δ = 0.2,))
+    lin = LinearSplinePulse(0.1 * randn(1, N), times)
+
+    uq = UnitaryTrajectory(sysg, lin, U_goal)
+    qcp = SplinePulseProblem(uq, N)
+    @test haskey(get_trajectory(qcp).global_components, :δ)
+
+    mk = MultiKetTrajectory(sysg, lin, [ψ0, ψ1], [ψ1, ψ0])
+    qcp2 = SplinePulseProblem(mk, N)
+    @test haskey(get_trajectory(qcp2).global_components, :δ)
+
+    sys1 = QuantumSystem(0.01 * σz, [σx], [1.0])
+    cub = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
+    lin1 = LinearSplinePulse(0.1 * randn(1, N), times)
+
+    # spline_interior_bound_constraints without Piccolissimo loaded: warns and
+    # constructs (the Piccolissimo-present side needs the package; this env
+    # covers the fallback side only).
+    @test_logs (:warn, r"requires Piccolissimo") match_mode = :any SplinePulseProblem(
+        UnitaryTrajectory(sys1, cub, U_goal),
+        N;
+        integrator_type = :pwc,
+        spline_interior_bound_constraints = true,
+    )
+
+    # LinearSplinePulse: knot bounds suffice; the kwarg warns and is inert
+    @test_logs (:warn, r"only for CubicSplinePulse") match_mode = :any SplinePulseProblem(
+        UnitaryTrajectory(sys1, lin1, U_goal),
+        N;
+        spline_interior_bound_constraints = true,
+    )
+
+    # multi-ket method: both warnings, cubic via the acknowledged :pwc backend
+    mk_cub = MultiKetTrajectory(sys1, cub, [ψ0, ψ1], [ψ1, ψ0])
+    @test_logs (:warn, r"requires Piccolissimo") match_mode = :any SplinePulseProblem(
+        mk_cub,
+        N;
+        integrator_type = :pwc,
+        spline_interior_bound_constraints = true,
+    )
+    mk_lin = MultiKetTrajectory(sys1, lin1, [ψ0, ψ1], [ψ1, ψ0])
+    @test_logs (:warn, r"only for CubicSplinePulse") match_mode = :any SplinePulseProblem(
+        mk_lin,
+        N;
+        spline_interior_bound_constraints = true,
+    )
+end
+
+@testitem "SplinePulseProblem MultiKet cubic guards, du bounds, explicit integrators" begin
+    using Piccolo
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    T, N = 10.0, 11
+    times = collect(range(0.0, T, length = N))
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+
+    lin = LinearSplinePulse(0.1 * randn(1, N), times)
+    cub = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
+    mk_lin = MultiKetTrajectory(sys, lin, [ψ0, ψ1], [ψ1, ψ0])
+    mk_cub = MultiKetTrajectory(sys, cub, [ψ0, ψ1], [ψ1, ψ0])
+
+    # cubic + no integrator_type on the multi-ket method: same #275 error
+    err = try
+        SplinePulseProblem(mk_cub, N)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("CubicSplinePulse defaults are not allowed", err.msg)
+
+    # cubic + acknowledged :pwc backend: warns, constructs
+    @test_logs (:warn, r"PWC backend") match_mode = :any SplinePulseProblem(
+        mk_cub,
+        N;
+        integrator_type = :pwc,
+    )
+
+    # scalar du_bound: linear add-derivatives path and cubic update_bound! path
+    qcp = SplinePulseProblem(mk_lin, N; du_bound = 5.0)
+    lo, hi = get_trajectory(qcp).bounds[:du]
+    @test lo ≈ [-5.0] && hi ≈ [5.0]
+
+    qcp2 = SplinePulseProblem(mk_cub, N; du_bound = 5.0, integrator_type = :pwc)
+    lo2, hi2 = get_trajectory(qcp2).bounds[:du]
+    @test lo2 ≈ [-5.0] && hi2 ≈ [5.0]
+
+    # per-drive du_bounds vector on the multi-ket linear path
+    sys2 = QuantumSystem(0.01 * σz, [σx, σx], [1.0, 1.0])
+    lin2 = LinearSplinePulse(0.1 * randn(2, N), times)
+    mk_lin2 = MultiKetTrajectory(sys2, lin2, [ψ0, ψ1], [ψ1, ψ0])
+    qcp3 = SplinePulseProblem(mk_lin2, N; du_bounds = [5.0, 2.0])
+    lo3, hi3 = get_trajectory(qcp3).bounds[:du]
+    @test lo3 ≈ [-5.0, -2.0] && hi3 ≈ [5.0, 2.0]
+
+    # single-integrator kwarg branch: linear + a single integrator constructs
+    # (the vector-returning BilinearIntegrator(multiket, N) takes the vector
+    # branch; the single branch is the parallel-integrator contract).
+    uq_lin = UnitaryTrajectory(sys, lin, σx)
+    qcp4 = SplinePulseProblem(mk_lin, N; integrator = BilinearIntegrator(uq_lin, N))
+    @test qcp4 isa QuantumControlProblem
+
+    # cubic + a single BilinearIntegrator: the H1 guard fires before anything
+    # is built
+    uq_cub = UnitaryTrajectory(sys, cub, σx)
+    err = try
+        SplinePulseProblem(mk_cub, N; integrator = BilinearIntegrator(uq_cub, N))
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("H1", err.msg)
+
+    # 2-state ensemble: BilinearIntegrator returns a VECTOR — the vector branch
+    integs = BilinearIntegrator(mk_lin, N)
+    @test integs isa AbstractVector
+    qcp5 = SplinePulseProblem(mk_lin, N; integrator = integs)
+    @test qcp5 isa QuantumControlProblem
+
+    err = try
+        SplinePulseProblem(mk_cub, N; integrator = BilinearIntegrator(mk_cub, N))
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("H1", err.msg)
+end
