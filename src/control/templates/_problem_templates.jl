@@ -727,4 +727,216 @@ end
     @test _safe_bound_times(:x, traj3) == collect(2:(N-1))
 end
 
+
+@testitem "setup_free_phase_globals! variants" begin
+    using Piccolo
+    using .ProblemTemplates: setup_free_phase_globals!
+
+    # Both dicts nothing: fresh dicts created, phases default to 0
+    θ_names, gd, gb = setup_free_phase_globals!(2, nothing, nothing)
+    @test θ_names == [:φ_1, :φ_2]
+    @test gd[:φ_1] == [0.0]
+    @test gd[:φ_2] == [0.0]
+    @test gb[:φ_1] == (-2π, 2π)
+    @test gb[:φ_2] == (-2π, 2π)
+
+    # Existing dicts are mutated; a pre-set bound is left alone (haskey guard)
+    gd = Dict(:φ_1 => [0.25], :other => [1.0])
+    gb = Dict{Symbol,Union{Float64,Tuple{Float64,Float64}}}(:φ_1 => (0.0, Float64(π)))
+    θ_names, gd2, gb2 = setup_free_phase_globals!(1, gd, gb)
+    @test gd2 === gd                       # mutated in place
+    @test gd[:φ_1] == [0.0]                # phase value reset to the default 0
+    @test gb2 === gb
+    @test gb[:φ_1] == (0.0, Float64(π))    # pre-existing bound preserved
+    @test !haskey(gb, :φ_2)                # only n_qubits bounds are touched
+    @test gd[:other] == [1.0]              # unrelated entries untouched
+
+    # initial_phases seed the values; wrong length asserts
+    _, gd3, _ = setup_free_phase_globals!(2, nothing, nothing; initial_phases = [0.1, 0.2])
+    @test gd3[:φ_1] == [0.1]
+    @test gd3[:φ_2] == [0.2]
+    @test_throws AssertionError setup_free_phase_globals!(
+        2,
+        nothing,
+        nothing;
+        initial_phases = [0.1],
+    )
+
+    # verbose runs without error
+    _, _, _ = setup_free_phase_globals!(1, nothing, nothing; verbose = true)
+end
+
+@testitem "_fmt_bounds formatting variants" begin
+    using Piccolo
+    using .ProblemTemplates: _fmt_bounds
+
+    @test _fmt_bounds(0.5) == "±0.5"
+    @test _fmt_bounds((-1.0, 1.0)) == "±1.0"
+    @test _fmt_bounds((-0.2, 0.8)) == "[-0.2, 0.8]"
+    @test _fmt_bounds([0.1, 0.2]) == "±[0.1, 0.2]"
+    @test _fmt_bounds(([-1.0, -0.5], [1.0, 0.5])) == "±[1.0, 0.5]"
+    # Asymmetric vector bounds render as "[lo, hi]"
+    @test occursin("[", _fmt_bounds(([-0.5, 0.0], [1.0, 0.5])))
+    @test _fmt_bounds(:weird) == "weird"    # fallback
+end
+
+@testitem "_unbind_state! and _safe_bound_times remaining branches" begin
+    using Piccolo
+    using NamedTrajectories
+
+    _unbind_state! = Piccolo.Control.ProblemTemplates._unbind_state!
+    _safe_bound_times = Piccolo.Control.ProblemTemplates._safe_bound_times
+
+    N = 5
+    traj = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        bounds = (x = (-ones(2), ones(2)), u = 1.0),
+    )
+
+    # Name not present in bounds: no-op, returns nothing
+    @test _unbind_state!(traj, :u_not_there) === nothing
+    @test all(traj.bounds[:x][1] .== -1.0)
+
+    # Final-only: times 1:(N-1)
+    traj_fin = NamedTrajectory(
+        (x = rand(2, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        final = (x = rand(2),),
+    )
+    @test _safe_bound_times(:x, traj_fin) == collect(1:(N-1))
+end
+
+@testitem "apply_piccolo_options! remaining branches" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    apply_piccolo_options! = Piccolo.Control.ProblemTemplates.apply_piccolo_options!
+
+    N = 6
+    traj = NamedTrajectory(
+        (ψ̃ = rand(4, N), u = rand(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    # Leakage with a single Symbol state name: converted to vector form
+    opts = PiccoloOptions(
+        leakage_constraint = true,
+        leakage_constraint_value = 0.01,
+        display = :silent,
+    )
+    cons = AbstractConstraint[]
+    J = apply_piccolo_options!(
+        opts,
+        cons,
+        traj;
+        state_names = :ψ̃,
+        state_leakage_indices = [2, 3],
+    )
+    @test J isa AbstractObjective
+    # LeakageConstraint(...) builds a NonlinearKnotPointConstraint on the leakage indices
+    leak = filter(c -> c isa NonlinearKnotPointConstraint, cons)
+    @test length(leak) == 1
+
+    # timesteps_all_equal adds an AllEqualConstraint on the timestep variable
+    cons2 = AbstractConstraint[]
+    apply_piccolo_options!(
+        PiccoloOptions(timesteps_all_equal = true, display = :silent),
+        cons2,
+        traj;
+    )
+    ae = filter(c -> c isa AllEqualConstraint, cons2)
+    @test length(ae) == 1
+    @test ae[1].var_name === :Δt
+
+    # complex_control_norm_constraint_name adds a nonlinear inequality on :u
+    cons3 = AbstractConstraint[]
+    apply_piccolo_options!(
+        PiccoloOptions(complex_control_norm_constraint_name = :u, display = :silent),
+        cons3,
+        traj;
+    )
+    @test length(cons3) == 1
+    @test cons3[1] isa NonlinearKnotPointConstraint
+    @test cons3[1].equality == false
+
+    # :detailed display drives the verbose println branches without error
+    cons4 = AbstractConstraint[]
+    apply_piccolo_options!(
+        PiccoloOptions(
+            leakage_constraint = true,
+            timesteps_all_equal = true,
+            complex_control_norm_constraint_name = :u,
+            bound_state = false,
+            bound_state_l2 = true,
+            display = :detailed,
+        ),
+        cons4,
+        traj;
+        state_names = :ψ̃,
+        state_leakage_indices = [2, 3],
+    )
+    @test !isempty(cons4)
+end
+
+@testitem "_apply_piccolo_options leakage-index resolution" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(9)
+    T, N = 5.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # ── UnitaryTrajectory: user override + EmbeddedOperator auto-derivation ──
+    op = EmbeddedOperator(GATES[:X], 1:2, 2)
+    qtraj_u = UnitaryTrajectory(sys, pulse, op)
+    cons = AbstractConstraint[]
+    J = Piccolo.Control.ProblemTemplates._apply_piccolo_options(
+        qtraj_u,
+        PiccoloOptions(leakage_constraint = true, display = :silent),
+        cons,
+        NamedTrajectory(qtraj_u, N),
+        :Ũ⃗;
+        state_leakage_indices = [5, 6, 7, 8],
+    )
+    @test J isa AbstractObjective
+    @test length(filter(c -> c isa NonlinearKnotPointConstraint, cons)) == 1
+
+    # ── MultiKetTrajectory: single vector broadcast to every state ──
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    qtraj_mk = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    cons_mk = AbstractConstraint[]
+    Piccolo.Control.ProblemTemplates._apply_piccolo_options(
+        qtraj_mk,
+        PiccoloOptions(leakage_constraint = true, display = :silent),
+        cons_mk,
+        NamedTrajectory(qtraj_mk, N),
+        [:ψ̃1, :ψ̃2];
+        state_leakage_indices = [3, 4],
+    )
+    # one leakage constraint per state
+    @test length(filter(c -> c isa NonlinearKnotPointConstraint, cons_mk)) == 2
+
+    # ── MultiKetTrajectory: per-state vectors pass through untouched ──
+    cons_mk2 = AbstractConstraint[]
+    Piccolo.Control.ProblemTemplates._apply_piccolo_options(
+        qtraj_mk,
+        PiccoloOptions(leakage_constraint = true, display = :silent),
+        cons_mk2,
+        NamedTrajectory(qtraj_mk, N),
+        [:ψ̃1, :ψ̃2];
+        state_leakage_indices = [[3, 4], [3, 4]],
+    )
+    @test length(filter(c -> c isa NonlinearKnotPointConstraint, cons_mk2)) == 2
+end
+
 end
