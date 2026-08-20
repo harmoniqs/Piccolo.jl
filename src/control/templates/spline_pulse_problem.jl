@@ -2020,3 +2020,28 @@ end
     @test err isa ErrorException
     @test occursin("H1", err.msg)
 end
+
+@testitem "coverage: _get_spline_order + verbose construction path" begin
+    using Piccolo
+
+    @test Piccolo.Control.ProblemTemplates._get_spline_order(
+        LinearSplinePulse(randn(1, 5), collect(0.0:0.1:0.4)),
+    ) == 1
+    @test Piccolo.Control.ProblemTemplates._get_spline_order(
+        CubicSplinePulse(randn(1, 5), randn(1, 5), collect(0.0:0.1:0.4)),
+    ) == 3
+
+    # the :detailed display level exercises the verbose println branches
+    sys = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
+    times = collect(range(0.0, 1.0; length = 11))
+    pulse = LinearSplinePulse(0.1 .* randn(1, 11), times)
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
+    qcp = SplinePulseProblem(
+        qtraj,
+        11;
+        Q = 100.0,
+        R = 1e-2,
+        piccolo_options = PiccoloOptions(display = :detailed),
+    )
+    @test qcp isa QuantumControlProblem
+end

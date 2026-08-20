@@ -3,7 +3,7 @@
 # `src/specs/schema/hash_fixtures/*.hashes.json` are the AUTHORITATIVE structure/
 # problem hashes for the shared spec fixtures — the values amicode's TypeScript
 # `hashing.ts` mirror and Prova's vendored fixtures are checked against. They are
-# produced by `emit_hash_fixtures.jl`, which a human has to remember to re-run.
+# produced by `scripts/emit_hash_fixtures.jl`, which a human has to remember to re-run.
 #
 # Without this gate, a change to `hashes.jl` (the canonical-JSON rule, a
 # structure-field carve-out, a numeric formatting detail) leaves the checked-in
@@ -16,7 +16,7 @@
 # (`parse_spec(toml; format = :toml)` → `structure_hash`/`problem_hash`) and
 # compares against the sidecar on disk. If it fails, re-run:
 #
-#   julia --project=. src/specs/schema/emit_hash_fixtures.jl
+#   julia --project=. scripts/emit_hash_fixtures.jl
 #
 # and re-vendor the sidecars into amicode (packages/schema/test/fixtures/hashes/)
 # and Prova (test/fixtures/hashes/) — a failure here is a CROSS-REPO change.

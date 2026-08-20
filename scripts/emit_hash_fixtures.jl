@@ -17,7 +17,7 @@ using Piccolo
 using Piccolo.Specs
 
 const HERE = @__DIR__
-const FIXDIR = joinpath(HERE, "hash_fixtures")
+const FIXDIR = joinpath(HERE, "..", "src", "specs", "schema", "hash_fixtures")
 
 # Minimal JSON string escaper for the two hex digests (always ASCII hex, but keep
 # it honest). We hand-write the object so no JSON dep is needed and the sidecar is
