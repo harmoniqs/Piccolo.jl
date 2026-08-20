@@ -132,7 +132,7 @@ The problem adds discrete derivative variables (du, ddu) that:
 
 # Arguments
 - `qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}`: Quantum trajectory with piecewise constant pulse
-- `N::Int`: Number of timesteps for discretization
+- `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator (which does not support global variables). A custom integrator is required when `global_names` is specified.
@@ -371,7 +371,7 @@ use `SplinePulseProblem` instead.
 
 # Arguments
 - `qtraj::MultiKetTrajectory{<:ZeroOrderPulse}`: Ensemble of ket state transfers with piecewise constant pulse
-- `N::Int`: Number of timesteps for the discretization
+- `N::Int`: number of knot points for the discretization
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, the default `BilinearIntegrator` is used. When `global_names` is specified, you must supply a custom integrator here (i.e., do not rely on the default `BilinearIntegrator`) that supports global variables.
@@ -1738,4 +1738,107 @@ end
     # Verify leakage constraints were added — problem should have more constraints
     # than a problem without leakage
     @test length(qcp.prob.constraints) >= 2
+end
+
+@testitem "SmoothPulseProblem free_phase error contract (single trajectory)" begin
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(21)
+    T, N = 5.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # KetTrajectory: no subsystem_levels plumbing on this method at all
+    qtraj_k = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    @test_throws ErrorException SmoothPulseProblem(qtraj_k, N; free_phase = true)
+
+    # UnitaryTrajectory with a plain-matrix goal: free_phase requires EmbeddedOperator
+    qtraj_u = UnitaryTrajectory(sys, pulse, GATES[:X])
+    @test_throws AssertionError SmoothPulseProblem(qtraj_u, N; free_phase = true)
+
+    # EmbeddedOperator goal: the θ globals are set up, then construction stops
+    # at the integrator requirement (BilinearIntegrator does not carry globals).
+    op = EmbeddedOperator(GATES[:X], 1:2, 2)
+    qtraj_e = UnitaryTrajectory(sys, pulse, op)
+    @test_throws ErrorException SmoothPulseProblem(
+        qtraj_e,
+        N;
+        free_phase = true,
+        piccolo_options = PiccoloOptions(display = :silent),
+    )
+end
+
+@testitem "SmoothPulseProblem builds global_data from system global_params" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(31)
+    T, N = 2.0, 10
+    sys = QuantumSystem(
+        GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.1,),
+    )
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # Single-trajectory path: global_data seeded from sys.global_params
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    traj = get_trajectory(qcp)
+    @test haskey(traj.global_components, :δ)
+    @test traj.global_data[traj.global_components[:δ]] ≈ [0.1]
+
+    # MultiKet path: same seeding
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    qtraj_mk = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp_mk = SmoothPulseProblem(
+        qtraj_mk,
+        N;
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test haskey(get_trajectory(qcp_mk).global_components, :δ)
+end
+
+@testitem "SmoothPulseProblem accepts prebuilt integrators" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(41)
+    T, N = 5.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # Single integrator (not a vector) for the single-trajectory method
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        integrator = BilinearIntegrator(qtraj, N),
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test qcp isa QuantumControlProblem
+
+    # Vector of integrators for the MultiKet method (one per state)
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    qtraj_mk = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    integrators = collect(BilinearIntegrator(qtraj_mk, N))
+    qcp_mk = SmoothPulseProblem(
+        qtraj_mk,
+        N;
+        integrator = integrators,
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test qcp_mk isa QuantumControlProblem
 end

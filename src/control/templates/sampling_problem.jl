@@ -144,14 +144,152 @@ function sampling_state_objective(
 end
 
 function sampling_state_objective(
-    qtraj::DensityTrajectory,
+    qtraj::MultiKetTrajectory,
     traj::NamedTrajectory,
-    state_sym::Symbol,
+    state_syms::Vector{Symbol},
     Q::Float64,
 )
-    # DensityTrajectory doesn't have a fidelity objective yet
-    # Return NullObjective for now
-    return NullObjective(traj)
+    # Per-member coherent ensemble objective — reuses the MultiKetTrajectory
+    # machinery: one coherent infidelity over the member's state transfers,
+    # weighted by the base trajectory's per-state weights.
+    return CoherentKetInfidelityObjective(
+        get_goal(qtraj),
+        state_syms,
+        traj;
+        Q = Q,
+        weights = qtraj.weights,
+    )
+end
+
+# Density bases: Piccolo ships no public density fidelity objective, so the
+# density sampling-objective cells are intentionally loud — construction fails
+# here with an error naming the extension point rather than silently installing
+# a null objective that would optimize nothing. A downstream package (e.g.
+# Piccolissimo) registers the density sampling objective by extending
+# `sampling_state_objective` for the density trajectory types.
+const _DENSITY_SAMPLING_OBJECTIVE_ERROR = """
+SamplingProblem cannot build a state objective for a density-matrix base trajectory: \
+Piccolo does not provide a public density fidelity objective. The sampling-trajectory \
+conversion and the compact-Lindbladian bilinear integrators are available, but solving \
+requires a density sampling objective from a downstream package.
+
+Extension point: extend `sampling_state_objective` for the density trajectory types, e.g.
+
+    Piccolo.ProblemTemplates.sampling_state_objective(
+        ::DensityTrajectory, traj::NamedTrajectory, state_sym::Symbol, Q::Float64,
+    )
+
+(Piccolissimo registers its density sampling objective through this hook.) No null \
+objective was installed; this loud error is intentional."""
+
+# Generic fallback (no density-specific methods): keeps the density cells loud
+# while letting a downstream package EXTEND `sampling_state_objective` with typed
+# density methods at module top level — no method overwrite, no `__init__` eval.
+function sampling_state_objective(
+    qtraj::Union{DensityTrajectory,MultiDensityTrajectory},
+    traj::NamedTrajectory,
+    state_sym,
+    Q::Float64,
+)
+    error(_DENSITY_SAMPLING_OBJECTIVE_ERROR)
+end
+
+# ============================================================================= #
+# Integrator keyword resolution
+# ============================================================================= #
+
+"""
+    _validate_sampling_integrator_vector(integrators, n_slots; source) -> Vector{AbstractIntegrator}
+
+Validate a user-supplied integrator vector for a sampling problem: every element
+must be an `AbstractIntegrator`, and there must be one integrator per ensemble
+dynamics slot (one per member for single-state bases, one per (member, sub-state)
+for multi-state bases). Errors are actionable and name the offending shape.
+"""
+function _validate_sampling_integrator_vector(
+    integrators::AbstractVector,
+    n_slots::Int;
+    source::String,
+)
+    bad = findfirst(i -> !(i isa AbstractIntegrator), integrators)
+    if !isnothing(bad)
+        error(
+            "SamplingProblem $source: every integrator must be an AbstractIntegrator, " *
+            "but element $bad is a $(typeof(integrators[bad])). " *
+            "Pass integrators built against the sampling trajectory, e.g. " *
+            "`BilinearIntegrator(SamplingTrajectory(qtraj, systems), N)`.",
+        )
+    end
+    if length(integrators) != n_slots
+        error(
+            "SamplingProblem $source: the ensemble has $n_slots dynamics slot(s) " *
+            "(one per member, times sub-states for multi-state bases), but received " *
+            "$(length(integrators)) integrator(s). Pass one integrator per slot, or a " *
+            "factory `(sampling_qtraj, N) -> integrators`.",
+        )
+    end
+    return AbstractIntegrator[integrators...]
+end
+
+"""
+    _resolve_sampling_integrators(integrator, sampling_qtraj, N, n_slots) -> Vector{AbstractIntegrator}
+
+Resolve the `integrator` keyword of `SamplingProblem` into the dynamics integrator
+vector. Three call shapes, aligned with the other problem templates:
+
+- `nothing` — default `BilinearIntegrator(sampling_qtraj, N)`.
+- an `AbstractIntegrator` instance — valid only for single-slot ensembles.
+- a vector of integrators — one per ensemble dynamics slot.
+- a factory `Function` — called as `integrator(sampling_qtraj, N)`, returning an
+  integrator or vector of integrators (validated like the shapes above).
+"""
+function _resolve_sampling_integrators(integrator, sampling_qtraj, N::Int, n_slots::Int)
+    if isnothing(integrator)
+        default_int = BilinearIntegrator(sampling_qtraj, N)
+        return AbstractIntegrator[(default_int isa AbstractVector ? default_int :
+                                   [default_int])...,]
+    elseif integrator isa AbstractIntegrator
+        if n_slots != 1
+            error(
+                "SamplingProblem integrator keyword: a single integrator instance was " *
+                "provided, but the ensemble has $n_slots dynamics slots (one per member). " *
+                "Pass a per-member vector of integrators or a factory " *
+                "`(sampling_qtraj, N) -> integrators`.",
+            )
+        end
+        return AbstractIntegrator[integrator]
+    elseif integrator isa AbstractVector
+        return _validate_sampling_integrator_vector(
+            integrator,
+            n_slots;
+            source = "integrator keyword",
+        )
+    else
+        # Factory: called as integrator(sampling_qtraj, N)
+        result = integrator(sampling_qtraj, N)
+        if result isa AbstractIntegrator
+            if n_slots != 1
+                error(
+                    "SamplingProblem integrator factory returned a single integrator, " *
+                    "but the ensemble has $n_slots dynamics slots (one per member). " *
+                    "Return one integrator per slot, e.g. " *
+                    "`(sq, n) -> BilinearIntegrator(sq, n)`.",
+                )
+            end
+            return AbstractIntegrator[result]
+        elseif result isa AbstractVector
+            return _validate_sampling_integrator_vector(
+                result,
+                n_slots;
+                source = "integrator factory",
+            )
+        else
+            error(
+                "SamplingProblem integrator factory must return an AbstractIntegrator " *
+                "or a vector of integrators; got $(typeof(result)).",
+            )
+        end
+    end
 end
 
 # ============================================================================= #
@@ -245,22 +383,21 @@ function SamplingProblem(
     J_total = J_state + J_reg
 
     # 4. Build integrators: dynamics for each system
-    #    Note: We don't carry over DerivativeIntegrators from the base problem
-    #    because they operate on :du, :ddu which don't exist in the sampling trajectory.
-    #    For now, SamplingProblem operates on the raw controls without derivative smoothing.
-    #    TODO: Consider adding an option to preserve smoothness constraints.
+    #    We carry over DerivativeIntegrators from the base problem to preserve
+    #    smoothness constraints on the shared controls.
+    n_members = length(systems)
+    dynamics_integrators =
+        _resolve_sampling_integrators(integrator, sampling_qtraj, N, n_members)
 
-    # Use BilinearIntegrator by default, or a custom integrator factory via the
-    # `integrator` kwarg (must accept (sampling_qtraj, N) and return integrator(s)).
-    if isnothing(integrator)
-        dynamics_integrators = BilinearIntegrator(sampling_qtraj, N)
-    else
-        dynamics_integrators = integrator(sampling_qtraj, N)
+    all_integrators = AbstractIntegrator[dynamics_integrators...]
+
+    # Carry over derivative integrators from the base problem
+    base_prob = direct_problem(qcp)
+    for int in base_prob.integrators
+        if int isa DerivativeIntegrator
+            push!(all_integrators, int)
+        end
     end
-
-    all_integrators =
-        dynamics_integrators isa AbstractVector ? dynamics_integrators :
-        [dynamics_integrators]
 
     # 5. Construct problem (TimeConsistencyConstraint auto-applied)
     constraints = AbstractConstraint[]
@@ -369,9 +506,101 @@ end
     @test haskey(traj.components, :u)
 
     # Check integrators
-    # Should have 2 dynamics integrators (one per system)
-    # SamplingProblem doesn't carry derivative integrators from base problem
-    @test length(sampling_prob.prob.integrators) == 2
+    # 2 dynamics integrators (one per system) + 2 derivative integrators
+    # carried over from the smooth base problem's :du/:ddu chain
+    @test length(sampling_prob.prob.integrators) == 4
+end
+
+@testitem "SamplingProblem preserves smooth base structure" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    # Regression pin for the silent structure drop: a SamplingProblem built from
+    # a smooth base problem must retain the base's derivative components (:du,
+    # :ddu), its DerivativeIntegrators, and its regularizer objectives — the
+    # robust problem is otherwise not the same problem as the base.
+
+    T = 10.0
+    N = 50
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
+
+    sampling_prob = SamplingProblem(qcp, [sys, sys])
+    traj = get_trajectory(sampling_prob)
+
+    # Derivative components carried into the sampling trajectory
+    @test haskey(traj.components, :du)
+    @test haskey(traj.components, :ddu)
+
+    # Derivative integrators carried: 2 dynamics (one per member) + 2 derivative
+    n_derivative = count(i -> i isa DerivativeIntegrator, sampling_prob.prob.integrators)
+    @test n_derivative == 2
+    @test length(sampling_prob.prob.integrators) == 4
+
+    # Regularizer objectives carried: the smooth base's quadratic regularizers
+    # on :u, :du, :ddu survive the rebuild (recursively flatten composites).
+    function _regularizer_names(obj)
+        terms = hasproperty(obj, :objectives) ? obj.objectives : (obj,)
+        names = Symbol[]
+        for t in terms
+            if hasproperty(t, :objectives)
+                append!(names, _regularizer_names(t))
+            elseif t isa QuadraticRegularizer
+                push!(names, t.name)
+            end
+        end
+        return names
+    end
+    reg_names = _regularizer_names(sampling_prob.prob.objective)
+    @test :u ∈ reg_names
+    @test :du ∈ reg_names
+    @test :ddu ∈ reg_names
+
+    # The carried structure is live: objective evaluates finite, and the
+    # derivative constraints are consistent at the initial trajectory.
+    @test isfinite(sampling_prob.prob.objective(sampling_prob.trajectory))
+    for integrator in sampling_prob.prob.integrators
+        if integrator isa DerivativeIntegrator
+            δ = zeros(integrator.dim)
+            DirectTrajOpt.evaluate!(δ, integrator, traj)
+            @test norm(δ, Inf) < 1e-8
+        end
+    end
+
+    # --- Spline bases: the pulse carries :du, so the rebuild must not
+    #     duplicate it; which DerivativeIntegrators survive follows the base. ---
+
+    times = collect(range(0.0, T, length = N))
+
+    # Cubic spline: :du is Hermite tangents (free DOFs) — no DerivativeIntegrator
+    cubic_pulse = CubicSplinePulse(0.1 * randn(1, N), 0.1 * randn(1, N), times)
+    cubic_qtraj = UnitaryTrajectory(sys, cubic_pulse, GATES[:H])
+    cubic_qcp = SplinePulseProblem(cubic_qtraj, N; Q = 100.0, integrator_type = :pwc)
+
+    cubic_sampling = SamplingProblem(cubic_qcp, [sys, sys])
+    cubic_traj = get_trajectory(cubic_sampling)
+    @test haskey(cubic_traj.components, :du)
+    @test count(==(:du), cubic_traj.names) == 1
+    @test count(i -> i isa DerivativeIntegrator, cubic_sampling.prob.integrators) == 0
+    @test :du ∈ _regularizer_names(cubic_sampling.prob.objective)
+    @test isfinite(cubic_sampling.prob.objective(cubic_sampling.trajectory))
+
+    # Linear spline: :du is a constrained derivative — one DerivativeIntegrator
+    linear_pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    linear_qtraj = UnitaryTrajectory(sys, linear_pulse, GATES[:H])
+    linear_qcp = SplinePulseProblem(linear_qtraj, N; Q = 100.0)
+
+    linear_sampling = SamplingProblem(linear_qcp, [sys, sys])
+    linear_traj = get_trajectory(linear_sampling)
+    @test haskey(linear_traj.components, :du)
+    @test count(==(:du), linear_traj.names) == 1
+    @test count(i -> i isa DerivativeIntegrator, linear_sampling.prob.integrators) == 1
+    @test :du ∈ _regularizer_names(linear_sampling.prob.objective)
+    @test isfinite(linear_sampling.prob.objective(linear_sampling.trajectory))
 end
 
 @testitem "SamplingProblem Solving" tags = [:sampling_problem] begin

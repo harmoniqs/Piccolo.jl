@@ -1068,7 +1068,7 @@ end
     global_params = (δ = 0.5, Ω = 1.0)
     sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
 
-    # Create a unitary trajectory (2 drives × 2 timesteps)
+    # Create a unitary trajectory (2 drives × 2 knot points)
     pulse = ZeroOrderPulse([0.5 0.3; 0.5 0.3], [0.0, 1.0])
     U_goal = PAULIS[:X]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
@@ -1280,5 +1280,232 @@ end
     end
 end
 
+@testitem "Rollouts: fidelity and unitary_fidelity primitives" begin
+    using LinearAlgebra
+
+    # Ket fidelity: |⟨ψ_goal|ψ⟩|²
+    ψ = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[1.0, 0.0]
+    @test fidelity(ψ, ψ_goal) ≈ 1.0
+    ψ_orth = ComplexF64[0.0, 1.0]
+    @test fidelity(ψ, ψ_orth) ≈ 0.0
+    ψ_mixed = normalize(ComplexF64[1.0, 1.0])
+    @test fidelity(ψ, ψ_mixed) ≈ 0.5
+    # Global phase invariance
+    @test fidelity(exp(im * 0.3) * ψ, ψ_goal) ≈ 1.0
+
+    # Density fidelity: tr(ρ ρ_goal)
+    ρ = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ_goal = ComplexF64[0.0 0.0; 0.0 1.0]
+    @test fidelity(ρ, ρ_goal) ≈ 0.0
+    @test fidelity(ρ, ρ) ≈ 1.0
+    ρ_half = ComplexF64[0.5 0.0; 0.0 0.5]
+    @test fidelity(ρ, ρ_half) ≈ 0.5
+
+    # unitary_fidelity with an explicit subspace: only the subspace block counts
+    U = GATES[:X]
+    @test unitary_fidelity(U, GATES[:X]) ≈ 1.0
+    @test unitary_fidelity(U, GATES[:Z]) ≈ 0.0
+    # A 3-level embedding of the same 2-level X: the subspace restricts the score
+    U3 = zeros(ComplexF64, 3, 3)
+    U3[1:2, 1:2] .= GATES[:X]
+    U3[3, 3] = 1.0
+    U3_goal = Matrix{ComplexF64}(I, 3, 3)
+    @test unitary_fidelity(U3, U3_goal; subspace = 1:2) ≈
+          unitary_fidelity(GATES[:X], Matrix{ComplexF64}(I, 2, 2))
+end
+
+@testitem "UnitaryODEProblem (non-operator RHS) matches the Magnus path" begin
+    using OrdinaryDiffEqTsit5
+    using OrdinaryDiffEqLinear
+    using LinearAlgebra
+
+    T, Δt = 1.0, 0.1
+    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    u = t -> [t; 0.0]
+    times = 0:Δt:T
+
+    prob = UnitaryODEProblem(sys, u, times)
+    sol = solve(prob, Tsit5(); saveat = [T])
+    UT = sol.u[end]
+
+    # Same rollout through the Lie-group (operator) integrator
+    prob_op = UnitaryOperatorODEProblem(sys, u, times)
+    sol_op = solve(prob_op, MagnusGL4(); saveat = [T])
+    UT_op = sol_op.u[end]
+
+    @test size(UT) == (2, 2)
+    @test UT ≈ UT_op atol = 1e-6
+
+    # Consistency with the ket rollout: U(T) ψ0 == ψ(T)
+    ψ0 = ComplexF64[1.0, 0.0]
+    ket_prob = KetODEProblem(sys, u, ψ0, times)
+    ket_sol = solve(ket_prob, Tsit5(); saveat = [T])
+    @test UT * ψ0 ≈ ket_sol.u[end] atol = 1e-6
+
+    # Symbolic access + rename
+    sol_full = solve(prob, Tsit5())
+    @test sol_full[:U] ≈ sol_full.u
+    prob_renamed = UnitaryODEProblem(sys, u, times; state_name = :V)
+    sol_ren = solve(prob_renamed, Tsit5())
+    @test sol_ren[:V] ≈ sol_ren.u
+end
+
+@testitem "Rollouts append global params to controls in operator/RHS closures" begin
+    using OrdinaryDiffEqTsit5
+    using OrdinaryDiffEqLinear
+    using LinearAlgebra
+
+    # Function-based system carrying a global: the rollout closures must
+    # append the global values to the control vector before calling H.
+    Hfn = (u, t) -> u[2] * GATES[:Z] + u[1] * GATES[:X]
+    sys = QuantumSystem(Hfn, [1.0]; global_params = (δ = 0.25,))
+
+    T, Δt = 1.0, 0.1
+    times = 0:Δt:T
+    u = t -> [0.5]
+    ψ0 = ComplexF64[1.0, 0.0]
+
+    # Operator path (MatrixOperator update!) — globals branch of _construct_operator
+    op_prob = KetOperatorODEProblem(sys, u, ψ0, times)
+    sol_op = solve(op_prob, MagnusGL4(); saveat = [T])
+
+    # RHS path — globals branch of _construct_rhs
+    rhs_prob = KetODEProblem(sys, u, ψ0, times)
+    sol_rhs = solve(rhs_prob, Tsit5(); saveat = [T])
+
+    @test sol_op.u[end] ≈ sol_rhs.u[end] atol = 1e-6
+
+    # Expected evolution: the appended global δ=0.25 reaches the Hamiltonian
+    H = 0.25 * GATES[:Z] + 0.5 * GATES[:X]
+    @test sol_op.u[end] ≈ exp(-im * H * T) * ψ0 atol = 1e-6
+
+    # Open system with globals: DensityODEProblem drives the dissipator path
+    osys = OpenQuantumSystem(
+        GATES[:Z],
+        [GATES[:X]],
+        [1.0];
+        dissipation_operators = [1e-3 * ComplexF64[0 1; 0 0]],
+        global_params = (δ = 0.25,),
+    )
+    ρ0 = ψ0 * ψ0'
+    d_prob = DensityODEProblem(osys, u, ρ0, times)
+    d_sol = solve(d_prob, Tsit5(); saveat = [T])
+    @test tr(d_sol.u[end]) ≈ 1.0 atol = 1e-6
+    # The open system's matrix H is Z + 0.5X (globals are stored, not consumed);
+    # the dissipator is O(1e-3), so the pure-state comparison carries that scale.
+    W = exp(-im * (GATES[:Z] + 0.5 * GATES[:X]) * T)
+    @test d_sol.u[end] ≈ W * ρ0 * W' atol = 5e-3
+end
+
+@testitem "rollout_fidelity and ket_rollout across interpolation kinds" begin
+    using NamedTrajectories
+    using LinearAlgebra
+
+    T = 1.0
+    N = 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+
+    traj = NamedTrajectory(
+        (
+            ψ̃ = repeat(ket_to_iso(ψ_init), 1, N),
+            u = 0.3 .* ones(1, N),
+            du = zeros(1, N),
+            Δt = fill(T / (N - 1), N),
+        );
+        controls = :u,
+        timestep = :Δt,
+        initial = (ψ̃ = ket_to_iso(ψ_init),),
+        goal = (ψ̃ = ket_to_iso(ψ_goal),),
+    )
+
+    # All three interpolation kinds return a scalar fidelity in [0, 1]
+    for interp in (:constant, :linear, :cubic)
+        fid = rollout_fidelity(traj, sys; interpolation = interp)
+        @test fid isa Float64
+        @test 0.0 <= fid <= 1.0
+    end
+
+    # ket_rollout_fidelity delegates to rollout_fidelity
+    @test ket_rollout_fidelity(traj, sys; interpolation = :linear) ==
+          rollout_fidelity(traj, sys; interpolation = :linear)
+
+    # Unknown interpolation kind is rejected
+    @test_throws ErrorException rollout_fidelity(traj, sys; interpolation = :quintic)
+    @test_throws ErrorException ket_rollout_fidelity(traj, sys; interpolation = :quintic)
+
+    # Missing state component is rejected
+    @test_throws ErrorException rollout_fidelity(traj, sys; state_name = :χ̃)
+
+    # Explicit algorithm kwarg is honored (Magnus on a closed system)
+    fid_magnus = rollout_fidelity(
+        traj,
+        sys;
+        interpolation = :linear,
+        algorithm = QuantumSystems.default_algorithm(sys),
+    )
+    @test fid_magnus isa Float64
+
+    # ket_rollout returns an iso-vector trajectory sampled at the knot times
+    ψ̃_out = ket_rollout(traj, sys; interpolation = :cubic)
+    @test size(ψ̃_out) == (4, N)
+    ψ_end = iso_to_ket(ψ̃_out[:, end])
+    @test norm(ψ_end) ≈ 1.0 atol = 1e-8
+    fid_manual = fidelity(ψ_end, ψ_goal)
+    @test ket_rollout_fidelity(traj, sys; interpolation = :cubic) ≈ fid_manual atol = 1e-6
+
+    # Missing state component is rejected by ket_rollout as well
+    @test_throws ErrorException ket_rollout(traj, sys; state_name = :χ̃)
+end
+
+@testitem "unitary_rollout_fidelity and unitary_rollout across interpolation kinds" begin
+    using NamedTrajectories
+    using LinearAlgebra
+
+    T = 1.0
+    N = 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    U_goal = GATES[:X]
+
+    traj = NamedTrajectory(
+        (
+            Ũ⃗ = repeat(operator_to_iso_vec(Matrix{ComplexF64}(I, 2, 2)), 1, N),
+            u = 0.3 .* ones(1, N),
+            du = zeros(1, N),
+            Δt = fill(T / (N - 1), N),
+        );
+        controls = :u,
+        timestep = :Δt,
+        initial = (Ũ⃗ = operator_to_iso_vec(Matrix{ComplexF64}(I, 2, 2)),),
+        goal = (Ũ⃗ = operator_to_iso_vec(U_goal),),
+    )
+
+    for interp in (:constant, :linear, :cubic)
+        fid = unitary_rollout_fidelity(traj, sys; interpolation = interp)
+        @test fid isa Float64
+        @test 0.0 <= fid <= 1.0
+    end
+
+    # Unknown interpolation kind and missing state are rejected
+    @test_throws ErrorException unitary_rollout_fidelity(
+        traj,
+        sys;
+        interpolation = :quintic,
+    )
+    @test_throws ErrorException unitary_rollout_fidelity(traj, sys; state_name = :Ṽ⃗)
+
+    # unitary_rollout returns an iso-vec trajectory over the saved times
+    Ũ⃗_out = unitary_rollout(traj, sys; interpolation = :cubic)
+    @test size(Ũ⃗_out) == (8, N)
+    U_end = iso_vec_to_operator(Ũ⃗_out[:, end])
+    @test unitary_rollout_fidelity(traj, sys; interpolation = :cubic) ≈
+          unitary_fidelity(U_end, U_goal) atol = 1e-6
+
+    # Missing state component is rejected by unitary_rollout as well
+    @test_throws ErrorException unitary_rollout(traj, sys; state_name = :Ṽ⃗)
+end
 
 end

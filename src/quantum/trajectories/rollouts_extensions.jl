@@ -1311,7 +1311,7 @@ end
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     X_gate = ComplexF64[0 1; 1 0]
 
-    # Create trajectory with initial pulse (1 drive × 2 timesteps)
+    # Create trajectory with initial pulse (1 drive × 2 knot points)
     pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
     qtraj = UnitaryTrajectory(system, pulse1, X_gate)
     @test length(qtraj.solution.u) == 101
@@ -1337,6 +1337,13 @@ end
     # Roll out with different algorithm
     qtraj_rk = rollout(qtraj, pulse2; algorithm = Tsit5())
     @test length(qtraj_rk.solution.u) == 101
+
+    # In-place variants
+    rollout!(qtraj; n_save = 41)
+    @test length(qtraj.solution.u) == 41
+    rollout!(qtraj, pulse2)
+    @test qtraj.pulse === pulse2
+    @test length(qtraj.solution.u) == 101
 end
 
 @testitem "rollout - KetTrajectory" begin
@@ -1357,6 +1364,20 @@ end
 
     @test length(qtraj_new.solution.u) == 201
     @test qtraj_new.pulse === pulse2
+
+    # In-place variants
+    rollout!(qtraj, pulse2)
+    @test qtraj.pulse === pulse2
+    @test length(qtraj.solution.u) == 101
+    rollout!(qtraj; n_save = 41)
+    @test length(qtraj.solution.u) == 41
+
+    # Same-pulse re-solve returns a NEW trajectory
+    qtraj_resolved = rollout(qtraj; n_save = 41)
+    @test qtraj_resolved isa KetTrajectory
+    @test qtraj_resolved !== qtraj
+    @test length(qtraj_resolved.solution.u) == 41
+    @test qtraj_resolved.pulse === qtraj.pulse
 end
 
 @testitem "rollout preserves MultiKetTrajectory solution structure" begin
@@ -1404,6 +1425,21 @@ end
 
     @test length(qtraj_new.solution.u) == 2
     @test qtraj_new.pulse === pulse2
+
+    # In-place variants
+    rollout!(qtraj, pulse2)
+    @test qtraj.pulse === pulse2
+    @test length(qtraj.solution.u) == 2
+    rollout!(qtraj; n_save = 41)
+    @test length(qtraj.solution.u) == 2
+    @test length(qtraj.solution.u[1].t) == 41
+
+    # Same-pulse re-solve returns a NEW trajectory
+    qtraj_resolved = rollout(qtraj; n_save = 41)
+    @test qtraj_resolved isa MultiKetTrajectory
+    @test qtraj_resolved !== qtraj
+    @test length(qtraj_resolved.solution.u) == 2
+    @test qtraj_resolved.weights == qtraj.weights
 end
 
 @testitem "rollout - DensityTrajectory" begin
@@ -1425,6 +1461,21 @@ end
 
     @test length(qtraj_new.solution.u) == 301
     @test qtraj_new.pulse === pulse2
+
+    # In-place variants
+    rollout!(qtraj, pulse2)
+    @test qtraj.pulse === pulse2
+    @test length(qtraj.solution.u) == 101
+    rollout!(qtraj; n_save = 41)
+    @test length(qtraj.solution.u) == 41
+    rollout!(qtraj; algorithm = nothing)  # falls back to default_algorithm(::OpenQuantumSystem)
+    @test length(qtraj.solution.u) == 101
+
+    # Same-pulse re-solve returns a NEW trajectory
+    qtraj_resolved = rollout(qtraj; n_save = 41)
+    @test qtraj_resolved isa DensityTrajectory
+    @test qtraj_resolved !== qtraj
+    @test length(qtraj_resolved.solution.u) == 41
 end
 
 @testitem "fidelity with EmbeddedOperator uses Pedersen formula" begin
@@ -1491,4 +1542,147 @@ end
     # With explicit subspace
     fid_sub = fidelity(qtraj; subspace = [1, 2])
     @test 0.0 <= fid_sub <= 1.0
+end
+
+@testitem "rollout - MultiDensityTrajectory" begin
+    using LinearAlgebra
+
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0s = [ComplexF64[1.0 0.0; 0.0 0.0], ComplexF64[0.0 0.0; 0.0 1.0]]
+    ρgs = [ComplexF64[0.0 0.0; 0.0 1.0], ComplexF64[1.0 0.0; 0.0 0.0]]
+
+    pulse1 = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
+    qtraj = MultiDensityTrajectory(system, pulse1, ρ0s, ρgs)
+
+    # Roll out a new pulse (non-mutating)
+    pulse2 = ZeroOrderPulse([0.8 0.8], [0.0, 1.0])
+    qtraj_new = rollout(qtraj, pulse2; n_save = 201)
+
+    @test qtraj_new isa MultiDensityTrajectory
+    @test qtraj_new !== qtraj
+    @test length(qtraj_new.solution.u) == 2
+    @test length(qtraj_new.solution.u[1].t) == 201
+    @test qtraj_new.pulse === pulse2
+    @test qtraj_new.system === qtraj.system
+    @test qtraj_new.initials == ρ0s
+    @test qtraj_new.goals == ρgs
+    @test qtraj_new.weights == qtraj.weights
+    @test 0.0 <= fidelity(qtraj_new) <= 1.0
+
+    # Same-pulse re-solve with new ODE parameters (non-mutating)
+    qtraj_fine = rollout(qtraj; n_save = 201)
+    @test qtraj_fine isa MultiDensityTrajectory
+    @test qtraj_fine.pulse === pulse1
+    @test length(qtraj_fine.solution.u) == 2
+
+    # In-place variants
+    rollout!(qtraj, pulse2)
+    @test qtraj.pulse === pulse2
+    @test length(qtraj.solution.u) == 2
+    rollout!(qtraj; n_save = 41)
+    @test length(qtraj.solution.u) == 2
+    @test length(qtraj.solution.u[1].t) == 41
+    rollout!(qtraj; algorithm = nothing)  # falls back to default_algorithm(::OpenQuantumSystem)
+    @test length(qtraj.solution.u) == 2
+end
+
+@testitem "fidelity warns and ignores phases for non-EmbeddedOperator goals" begin
+    using LinearAlgebra
+
+    # Plain matrix goal: `phases` cannot be applied — the kwarg must warn, not silently apply.
+    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    X_gate = ComplexF64[0 1; 1 0]
+    pulse = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
+    qtraj = UnitaryTrajectory(sys, pulse, X_gate)
+
+    f_unphased = fidelity(qtraj)
+    f_phased = @test_logs (:warn, r"phases` kwarg is ignored") match_mode = :any fidelity(
+        qtraj;
+        phases = [0.3],
+    )
+    @test f_phased ≈ f_unphased
+
+    # EmbeddedOperator goal with an explicit `subspace`: same warning, standard fidelity path.
+    H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
+    H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
+    sys3 = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    U_goal = EmbeddedOperator(X_gate, [1, 2], [3])
+    qt3 = UnitaryTrajectory(sys3, pulse, U_goal)
+
+    f_sub = @test_logs (:warn, r"phases` kwarg is ignored") match_mode = :any fidelity(
+        qt3;
+        subspace = [1, 2],
+        phases = [0.0],
+    )
+    @test 0.0 <= f_sub <= 1.0
+end
+
+@testitem "fidelity(::MultiKetTrajectory; phases) rotates goals coherently" begin
+    using LinearAlgebra
+
+    # Zero drift and zero controls: the states never move, so the phased coherent
+    # fidelity is hand-computable. With goals == initials only the |01⟩ goal picks up
+    # a phase, so F = |(1 + e^{-iθ₂})/2|² = cos²(θ₂/2) — independent of θ₁.
+    sys = QuantumSystem(zeros(ComplexF64, 4, 4), [kron(PAULIS[:X], PAULIS[:I])], [1.0])
+    ψa = ComplexF64[1, 0, 0, 0]
+    ψb = ComplexF64[0, 1, 0, 0]
+    pulse = ZeroOrderPulse(zeros(1, 2), [0.0, 1.0])
+    qtraj = MultiKetTrajectory(sys, pulse, [ψa, ψb], [ψa, ψb])
+
+    @test fidelity(qtraj) ≈ 1.0 atol = 1e-10
+    @test fidelity(qtraj; phases = [0.0, 0.0], subsystem_levels = [2, 2]) ≈ 1.0 atol = 1e-10
+    @test fidelity(qtraj; phases = [0.3, π / 2], subsystem_levels = [2, 2]) ≈ 0.5 atol =
+        1e-8
+    @test fidelity(qtraj; phases = [0.9, π / 2], subsystem_levels = [2, 2]) ≈ 0.5 atol =
+        1e-8
+
+    # phases without subsystem_levels is an assertion error
+    @test_throws AssertionError fidelity(qtraj; phases = [0.1, 0.2])
+end
+
+@testitem "Rollouts._update_system! swaps the system across trajectory types" begin
+    using LinearAlgebra
+
+    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys2 = QuantumSystem(0.9 * PAULIS.Z, [PAULIS.X], [1.0])
+    pulse = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
+
+    qtraj_u = UnitaryTrajectory(sys, pulse, GATES[:X])
+    Rollouts._update_system!(qtraj_u, sys2)
+    @test qtraj_u.system === sys2
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    qtraj_k = KetTrajectory(sys, pulse, ψ0, ψg)
+    Rollouts._update_system!(qtraj_k, sys2)
+    @test qtraj_k.system === sys2
+
+    qtraj_mk = MultiKetTrajectory(sys, pulse, [ψ0, ψg], [ψg, ψ0])
+    Rollouts._update_system!(qtraj_mk, sys2)
+    @test qtraj_mk.system === sys2
+
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    osys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    osys2 =
+        OpenQuantumSystem(0.9 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+
+    qtraj_d = DensityTrajectory(osys, pulse, ρ0, ρg)
+    Rollouts._update_system!(qtraj_d, osys2)
+    @test qtraj_d.system === osys2
+
+    qtraj_md = MultiDensityTrajectory(osys, pulse, [ρ0, ρg], [ρg, ρ0])
+    Rollouts._update_system!(qtraj_md, osys2)
+    @test qtraj_md.system === osys2
+
+    # SamplingTrajectory delegates to its base trajectory only — the systems
+    # array (the sampled variations) is deliberately untouched.
+    base = UnitaryTrajectory(sys, pulse, GATES[:X])
+    sampling = SamplingTrajectory(base, [sys, sys2])
+    Rollouts._update_system!(sampling, sys2)
+    @test sampling.base_trajectory.system === sys2
+    @test sampling.systems == [sys, sys2]
 end

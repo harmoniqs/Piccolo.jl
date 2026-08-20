@@ -727,6 +727,10 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 - `divergence_rtol::Real=ROLLOUT_DIVERGENCE_RTOL[]`: Relative tolerance for that check.
 
 All other keyword arguments are passed to the DirectTrajOpt solver.
+
+Returns `DirectTrajOpt.Solvers.SolveStats` (termination status, raw status string,
+NLP objective, IPM iterations, solve wall time, solver symbol) —
+computed after the trajectory sync, describing the trajectory you hold.
 """
 function solve!(
     p::AbstractQuantumControlProblem;
@@ -736,7 +740,10 @@ function solve!(
     divergence_rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
     kwargs...,
 )
-    solve!(direct_problem(p); verbose = verbose, kwargs...)
+    # SolveStats (status, iterations, objective, wall time) from the backend —
+    # returned AFTER the trajectory sync so callers get data describing the
+    # trajectory they actually hold.
+    stats = solve!(direct_problem(p); verbose = verbose, kwargs...)
     if sync
         sync_trajectory!(
             p;
@@ -744,7 +751,7 @@ function solve!(
             divergence_rtol = divergence_rtol,
         )
     end
-    return nothing
+    return stats
 end
 
 # Forward other common DirectTrajOptProblem accessors

@@ -556,3 +556,268 @@ _parse_referee(raw, path, errs) =
     bad = toml * "\nnonsense_field = true\n"
     @test_throws Specs.SpecValidationError Specs.parse_spec(bad; format = :toml)
 end
+
+@testitem "parse: scalar coercion and required-field errors carry field paths" begin
+    using Piccolo.Specs
+
+    BASE = """
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    subsystem_levels = [3, 3]
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+
+    # Collect the SpecValidationError a toml produces (nothing when it parses).
+    errs_of(toml; format = :toml) =
+        try
+            Specs.parse_spec(toml; format = format)
+            nothing
+        catch e
+            e isa Specs.SpecValidationError ? e : rethrow()
+        end
+    paths(e) = Set(x.path for x in e.errors)
+    msgs(e) = Set(x.msg for x in e.errors)
+    @test errs_of(BASE) === nothing  # the helper's success path
+
+    # integer-valued floats coerce (TOML has no Int/Float distinction)
+    spec = Specs.parse_spec(replace(BASE, "N = 11" => "N = 11.0"); format = :toml)
+    @test spec.problem.N == 11
+
+    # non-numeric integers / numbers / booleans are collected, not first-fatal
+    e = errs_of(replace(BASE, "N = 11" => "N = \"eleven\""))
+    @test "problem.N" in paths(e)
+    @test any(m -> occursin("expected an integer", m), msgs(e))
+    e = errs_of(replace(BASE, "N = 11" => "N = true"))
+    @test "problem.N" in paths(e)
+
+    e = errs_of(replace(BASE, "T = 10.0" => "T = \"fast\""))
+    @test "pulse.T" in paths(e)
+    @test any(m -> occursin("expected a number", m), msgs(e))
+
+    e = errs_of(replace(BASE, "N = 11" => "N = 11\nfree_phase = \"yes\""))
+    @test "problem.free_phase" in paths(e)
+    @test any(m -> occursin("expected a boolean", m), msgs(e))
+
+    # unknown top-level kind and unknown format
+    e = errs_of(replace(BASE, "kind = \"control\"" => "kind = \"banana\""))
+    @test "kind" in paths(e)
+    e = try
+        Specs.parse_spec(BASE; format = :yaml)
+        nothing
+    catch e
+        e
+    end
+    @test e isa Specs.SpecValidationError
+    @test "format" in paths(e)
+
+    # missing required blocks / fields, each with its dotted path
+    e = errs_of(replace(BASE, r"\[system\][^\0]*?\n\[goal\]" => "[goal]"))
+    @test "system" in paths(e)
+    e = errs_of(replace(BASE, "kind = \"unitary\"\ngate = \"X\"" => "gate = \"X\""))
+    @test "goal.kind" in paths(e)
+    e = errs_of(replace(BASE, "kind = \"cubic_spline\"" => ""))
+    @test "pulse.kind" in paths(e)
+    e = errs_of(replace(BASE, "T = 10.0" => ""))
+    @test "pulse.T" in paths(e)
+    e = errs_of(replace(BASE, "template = \"SplinePulseProblem\"" => ""))
+    @test "problem.template" in paths(e)
+    e = errs_of(replace(BASE, "N = 11" => ""))
+    @test "problem.N" in paths(e)
+end
+
+@testitem "parse: free_dt and objective/wrapper list-shape errors" begin
+    using Piccolo.Specs
+
+    BASE = """
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+
+    errs_of(toml) =
+        try
+            Specs.parse_spec(toml; format = :toml)
+            nothing
+        catch e
+            e isa Specs.SpecValidationError ? e : rethrow()
+        end
+    paths(e) = Set(x.path for x in e.errors)
+    msgs(e) = Set(x.msg for x in e.errors)
+    @test errs_of(BASE) === nothing  # the helper's success path
+
+    # free_dt: false (default) and [lo, hi] parse; true / bad ordering / bad shape error
+    spec = Specs.parse_spec(replace(BASE, "N = 11" => "N = 11\nfree_dt = [0.05, 0.5]"))
+    @test spec.problem.free_dt isa Free
+    @test spec.problem.free_dt.lo == 0.05
+    @test spec.problem.free_dt.hi == 0.5
+
+    e = errs_of(replace(BASE, "N = 11" => "N = 11\nfree_dt = true"))
+    @test "problem.free_dt" in paths(e)
+    @test any(m -> occursin("not true", m), msgs(e))
+
+    e = errs_of(replace(BASE, "N = 11" => "N = 11\nfree_dt = [0.5, 0.1]"))
+    @test "problem.free_dt" in paths(e)
+    @test any(m -> occursin("0 < lo < hi", m), msgs(e))
+
+    for bad in ("[1, 2, 3]", "\"yes\"", "[0.1]")
+        e = errs_of(replace(BASE, "N = 11" => "N = 11\nfree_dt = $bad"))
+        @test "problem.free_dt" in paths(e)
+        @test any(m -> occursin("false or [lo, hi]", m), msgs(e))
+    end
+
+    # [[problem.objectives]] shape errors
+    e = errs_of(replace(BASE, "N = 11" => "N = 11\nobjectives = \"nope\""))
+    @test "problem.objectives" in paths(e)
+    @test any(m -> occursin("expected a list", m), msgs(e))
+
+    e = errs_of(replace(BASE, "N = 11" => "N = 11\nobjectives = [\"nope\"]"))
+    @test "problem.objectives[1]" in paths(e)
+
+    e = errs_of(replace(BASE, "N = 11" => "N = 11\n[[problem.objectives]]\nweight = 1.0"))
+    @test "problem.objectives[1].kind" in paths(e)
+
+    # wrappers shape errors (top-level keys must precede the first [table])
+    e = errs_of("wrappers = \"nope\"\n" * BASE)
+    @test "wrappers" in paths(e)
+    @test any(m -> occursin("expected a list of wrappers", m), msgs(e))
+
+    e = errs_of("wrappers = [\"nope\"]\n" * BASE)
+    @test "wrappers[1]" in paths(e)
+
+    e = errs_of("wrappers = [ {} ]\n" * BASE)
+    @test "wrappers[1].kind" in paths(e)
+end
+
+@testitem "parse: non-table blocks, optional blocks, and rollout-side errors" begin
+    using Piccolo.Specs
+
+    BASE = """
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+
+    errs_of(toml; format = :toml) =
+        try
+            Specs.parse_spec(toml; format = format)
+            nothing
+        catch e
+            e isa Specs.SpecValidationError ? e : rethrow()
+        end
+    paths(e) = Set(x.path for x in e.errors)
+    msgs(e) = Set(x.msg for x in e.errors)
+    @test errs_of(BASE) === nothing  # the helper's success path
+
+    # every block-typed field rejects a scalar with "expected a table" at its path
+    nontable = [
+        (
+            "system",
+            "system = \"oops\"\n" *
+            replace(BASE, r"\[system\][^\0]*?\n\[goal\]" => "[goal]"),
+        ),
+        ("goal", "goal = 5\n" * replace(BASE, r"\[goal\][^\0]*?\n\[pulse\]" => "[pulse]")),
+        (
+            "pulse",
+            "pulse = \"oops\"\n" *
+            replace(BASE, r"\[pulse\][^\0]*?\n\[problem\]" => "[problem]"),
+        ),
+        ("problem", "problem = \"oops\"\n" * replace(BASE, r"\[problem\][^\0]*\z" => "")),
+        ("trajectory", "trajectory = \"oops\"\n" * BASE),
+        ("integrator", "integrator = \"oops\"\n" * BASE),
+        ("solver", "solver = \"oops\"\n" * BASE),
+        ("warm_start", "warm_start = \"oops\"\n" * BASE),
+    ]
+    for (name, toml) in nontable
+        e = errs_of(toml)
+        @test name in paths(e)
+        @test any(m -> occursin("expected a table", m), msgs(e))
+    end
+
+    # optional blocks parse on the happy path
+    spec = Specs.parse_spec(BASE * "\n[trajectory]\nkind = \"unitary\"")
+    @test spec.trajectory isa TrajectorySpec
+    @test spec.trajectory.kind == :unitary
+
+    spec = Specs.parse_spec(
+        BASE * "\n[warm_start]\ncatalog_ref = \"transmon/x-v1\"\npulse_hash = \"abc123\"";
+    )
+    @test spec.warm_start isa WarmStartSpec
+    @test spec.warm_start.catalog_ref == "transmon/x-v1"
+    @test spec.warm_start.pulse_hash == "abc123"
+
+    # rollout kind: required fields and non-table [report]/[referee]
+    ROLLOUT = """
+    kind = "rollout"
+    input_pulse = "pulse.jld2"
+    rollout_kind = "unitary"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    """
+
+    e = errs_of("report = \"oops\"\n" * ROLLOUT)
+    @test "report" in paths(e)
+    e = errs_of("referee = \"oops\"\n" * ROLLOUT)
+    @test "referee" in paths(e)
+
+    e = errs_of(replace(ROLLOUT, "input_pulse = \"pulse.jld2\"\n" => ""))
+    @test "input_pulse" in paths(e)
+    e = errs_of(replace(ROLLOUT, "rollout_kind = \"unitary\"\n" => ""))
+    @test "rollout_kind" in paths(e)
+    e = errs_of("""
+    kind = "rollout"
+    input_pulse = "pulse.jld2"
+    rollout_kind = "unitary"
+    """)
+    @test "system" in paths(e)
+
+    # referee: every missing required field is collected
+    e = errs_of(ROLLOUT * "\n[referee]\nrun = \"r1\"")
+    @test "referee.solve_knots" in paths(e)
+    @test "referee.solve_integrator" in paths(e)
+    @test "referee.fidelity_reported" in paths(e)
+
+    # report happy path incl. nested goal
+    spec = Specs.parse_spec(
+        ROLLOUT *
+        "\n[report]\nfidelity = false\npopulations = true\n[report.goal]\nkind = \"unitary\"\ngate = \"X\"";
+    )
+    @test spec.report isa RolloutReportSpec
+    @test spec.report.fidelity == false
+    @test spec.report.populations == true
+    @test spec.report.goal isa GoalSpec
+end

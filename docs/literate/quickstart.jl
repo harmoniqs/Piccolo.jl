@@ -41,7 +41,7 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 
 ## Time parameters
 T = 10.0   # Total gate duration
-N = 100    # Number of timesteps
+N = 100    # Number of knot points
 
 ## Create time vector
 times = collect(range(0, T, length = N))

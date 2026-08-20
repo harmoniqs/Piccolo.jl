@@ -277,6 +277,12 @@ function _call_template(spec::ProblemSpec, qtraj; piccolo_options = nothing)
     kwargs = _template_kwargs(spec)
     intg = _build_integrator(spec, qtraj)
     intg === nothing || (kwargs[:integrator] = intg)
+    # The spec always names its integrator (schema-level field), so a bilinear
+    # integrator is a DECLARED choice, never a silent template default — pass it
+    # explicitly so spline-template pulse-type guards (#275) treat it as such.
+    if intg === nothing && p.template === :SplinePulseProblem
+        kwargs[:integrator_type] = :pwc
+    end
     piccolo_options === nothing || (kwargs[:piccolo_options] = piccolo_options)
     return fac(qtraj, p.N; kwargs...)
 end
@@ -688,7 +694,7 @@ get_variants(qcp::AbstractQuantumControlProblem) =
     times = collect(range(0.0, 10.0, 11))
     pulse = CubicSplinePulse(zeros(2, 11), zeros(2, 11), times)
     traj = UnitaryTrajectory(sys, pulse, goal)
-    ref = SplinePulseProblem(traj, 11)
+    ref = SplinePulseProblem(traj, 11; integrator_type = :pwc)
 
     # A single-term objective is a bare objective (no `.objectives`); normalize.
     nterms(J) = J isa DirectTrajOpt.CompositeObjective ? length(J.objectives) : 1
@@ -997,4 +1003,537 @@ end
     @test "goal" in paths
     @test "pulse" in paths
     @test "system.template" in paths
+end
+
+@testitem "materialize: raw system + SmoothPulseProblem + zero-order pulse" begin
+    using Piccolo, Piccolo.Specs
+
+    # kind = "raw": explicit H_drift/H_drives as nested [re, im] pairs, default
+    # and explicit drive_bounds, zero-order pulse on the SmoothPulseProblem path.
+    RAW_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "raw"
+    H_drift = [[[0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.01, 0.0]]]
+    H_drives = [[[[0.0, 0.0], [1.0, 0.0]], [[1.0, 0.0], [0.0, 0.0]]]]
+    params = { drive_bounds = [0.5] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "zero_order"
+    T = 10.0
+    [problem]
+    template = "SmoothPulseProblem"
+    N = 11
+    """
+    qcp = Specs.materialize(Specs.parse_spec(RAW_TOML; format = :toml))
+    @test qcp isa QuantumControlProblem
+    @test get_system(qcp).H(zeros(1), 0.0) ≈ ComplexF64[0.0 0.0; 0.0 0.01]
+    @test get_system(qcp).n_drives == 1
+
+    # omitted params → drive_bounds defaults to fill(1.0, n_drives)
+    qcp2 = Specs.materialize(
+        Specs.parse_spec(
+            replace(RAW_TOML, "params = { drive_bounds = [0.5] }\n" => "");
+            format = :toml,
+        ),
+    )
+    @test qcp2 isa QuantumControlProblem
+
+    # kind = "composite" is deferred — a structured validation error, never a crash
+    e = try
+        Specs.materialize(
+            Specs.parse_spec(
+                replace(RAW_TOML, "kind = \"raw\"" => "kind = \"composite\"");
+                format = :toml,
+            ),
+        )
+        nothing
+    catch e
+        e
+    end
+    @test e isa Specs.SpecValidationError
+    @test "system.kind" in [x.path for x in e.errors]
+end
+
+@testitem "materialize: ket goals, subspace goals, random pulse init" begin
+    using Piccolo, Piccolo.Specs
+
+    KET_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "ket"
+    target = "[0.0, 1.0, 0.0]"
+    [pulse]
+    kind = "linear_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+
+    # default initial state (first basis vector), parsed target ket
+    qcp = Specs.materialize(Specs.parse_spec(KET_TOML; format = :toml))
+    @test qcp.qtraj isa KetTrajectory
+    @test qcp.qtraj.initial ≈ [1.0, 0.0, 0.0]
+    @test qcp.qtraj.goal ≈ [0.0, 1.0, 0.0]
+
+    # explicit initial: also a Julia-parseable complex vector
+    toml = replace(
+        KET_TOML,
+        "target = \"[0.0, 1.0, 0.0]\"" => "target = \"[0.0, 1.0, 0.0]\"\ninitial = \"[0.5, 0.5, 0.0]\"",
+    )
+    qcp2 = Specs.materialize(Specs.parse_spec(toml; format = :toml))
+    @test qcp2.qtraj.initial ≈ [0.5, 0.5, 0.0]
+
+    # ket goal without a target: structured error naming goal.target
+    e = try
+        Specs.materialize(
+            Specs.parse_spec(
+                replace(KET_TOML, "target = \"[0.0, 1.0, 0.0]\"" => "");
+                format = :toml,
+            ),
+        )
+        nothing
+    catch e
+        e
+    end
+    @test e isa Specs.SpecValidationError
+    @test "goal.target" in [x.path for x in e.errors]
+
+    # unitary goal with a subspace: EmbeddedOperator on the computational subspace
+    SUBSPACE_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    subspace = [[1, 2]]
+    [pulse]
+    kind = "linear_spline"
+    T = 10.0
+    init = "random"
+    seed = 42
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+    qcp3 = Specs.materialize(Specs.parse_spec(SUBSPACE_TOML; format = :toml))
+    @test qcp3.qtraj.goal isa EmbeddedOperator
+    @test qcp3.qtraj.goal.subspace == [1, 2]
+
+    # init = "random" seeds a deterministic, nonzero control guess
+    @test any(!=(0.0), get_trajectory(qcp3).u)
+    qcp3_again = Specs.materialize(Specs.parse_spec(SUBSPACE_TOML; format = :toml))
+    @test get_trajectory(qcp3_again).u == get_trajectory(qcp3).u  # same seed ⇒ same guess
+end
+
+@testitem "materialize: _concretize, _coerce_global_bounds, composite _build_system" begin
+    using Piccolo, Piccolo.Specs
+
+    # _concretize narrows boxed TOML/JSON vectors to concrete element types,
+    # leaving non-numeric and empty vectors untouched.
+    @test Specs._concretize([1, 2, 3]) == [1, 2, 3]
+    @test Specs._concretize([1, 2, 3]) isa Vector{Int}
+    @test Specs._concretize([0.02, 0.02]) isa Vector{Float64}
+    @test Specs._concretize(["a", "b"]) == ["a", "b"]
+    @test Specs._concretize([]) == []
+    @test Specs._concretize(3.0) == 3.0
+    @test Specs._concretize([1, 2.5]) == [1, 2.5]        # mixed → untouched
+    @test Specs._concretize_params(Dict(:b => [1, 2]))[:b] isa Vector{Int}
+
+    # _coerce_global_bounds: vector / scalar / tuple value forms
+    out = Specs._coerce_global_bounds(
+        Dict(:vec => [0.1, 0.9], :scl => 0.5, :tup => (0.2, 0.8)),
+    )
+    @test out[:vec] == (0.1, 0.9)
+    @test out[:scl] == 0.5
+    @test out[:tup] == (0.2, 0.8)
+
+    # :composite reaches _build_system only via a direct call (validation blocks
+    # it first on the materialize path) — the defensive throw is still SpecValidationError.
+    e = try
+        Specs._build_system(Specs.SystemSpec(; kind = :composite))
+        nothing
+    catch e
+        e
+    end
+    @test e isa Specs.SpecValidationError
+
+    # _build_goal's CompositeQuantumSystem branch: the goal embeds into each
+    # subsystem's computational subspace (unreachable via registered spec
+    # templates — MultiTransmonSystem takes positional args, so the specs
+    # kwargs-only factory cannot build one).
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sub1 = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sub2 = QuantumSystem(0.02 * σz, [σx], [1.0])
+    comp = CompositeQuantumSystem(
+        0.01 * kron(σx, σx),
+        Matrix{ComplexF64}[],
+        [sub1, sub2],
+        [1.0, 1.0],
+    )
+    goal = Specs._build_goal(Specs.GoalSpec(; kind = :unitary, gate = :CZ), comp)
+    @test goal isa EmbeddedOperator
+
+    # _build_goal / _build_pulse_trajectory defensive throws for an unknown
+    # goal kind — validation's trajectory-compat check blocks these on the
+    # materialize path (every registered template rejects :banana), so they are
+    # exercised directly.
+    e = try
+        Specs._build_goal(Specs.GoalSpec(; kind = :banana), sub1)
+        nothing
+    catch e
+        e
+    end
+    @test e isa Specs.SpecValidationError
+
+    spec = Specs.ProblemSpec(;
+        system = Specs.SystemSpec(; kind = :template, template = :TransmonSystem),
+        goal = Specs.GoalSpec(; kind = :banana),
+        pulse = Specs.PulseSpec(; kind = :linear_spline, T = 10.0),
+        problem = Specs.TemplateBlock(; template = :SplinePulseProblem, N = 11),
+    )
+    e = try
+        Specs._build_pulse_trajectory(spec, sub1, nothing)
+        nothing
+    catch e
+        e
+    end
+    @test e isa Specs.SpecValidationError
+end
+
+@testitem "materialize: integrator registration fallbacks via injected registry entry" begin
+    using Piccolo, Piccolo.Specs
+    using Piccolo: BilinearIntegrator
+
+    # `exponential`/`spline` integrators live in Piccolissimo; without it the
+    # registry only has the `bilinear` sentinel. Inject a stand-in entry to
+    # exercise the non-bilinear branches (_build_integrator, the free_phase
+    # gating pass, _sampling_integrator_factory, and the template integrator
+    # kwarg pass-through), then remove it — the registries are process-global
+    # and shared across test items on a worker (see registries.jl testitem).
+    Specs.register_integrator!(
+        :probe_integrator,
+        Specs.RegistryEntry(;
+            factory = (qtraj, N; alg = :probe) -> BilinearIntegrator(qtraj, N),
+        ),
+    )
+
+    try
+        BASE = """
+        schema_version = 1
+        kind = "control"
+        [system]
+        kind = "template"
+        template = "TransmonSystem"
+        params = { levels = 3, drive_bounds = [0.02, 0.02] }
+        [goal]
+        kind = "unitary"
+        gate = "X"
+        subspace = [[1, 2]]
+        [pulse]
+        kind = "linear_spline"
+        T = 10.0
+        [problem]
+        template = "SplinePulseProblem"
+        N = 11
+        [integrator]
+        kind = "probe_integrator"
+        """
+
+        # the declared integrator is built and passed to the template explicitly
+        qcp = Specs.materialize(Specs.parse_spec(BASE; format = :toml))
+        @test qcp isa QuantumControlProblem
+        @test any(i -> i isa BilinearIntegrator, qcp.prob.integrators)
+
+        # free_phase is gated on a non-bilinear integrator kind: with the
+        # injected entry it passes validation, and global_bounds coerce into the
+        # free-phase φ variable's bounds.
+        for (gb_form, expected) in (
+            ("global_bounds = { \"φ_1\" = [0.1, 0.9] }" => (0.1, 0.9)),
+            ("global_bounds = { \"φ_1\" = 0.5 }" => (-0.5, 0.5)),
+        )
+            toml = replace(BASE, "[problem]" => "[problem]\nfree_phase = true\n$gb_form")
+            qcp = Specs.materialize(Specs.parse_spec(toml; format = :toml))
+            @test haskey(get_trajectory(qcp).global_components, :φ_1)
+        end
+
+        # the sampling wrapper resolves the same declared integrator into a
+        # factory for SamplingProblem (bilinear → nothing is the other branch).
+        SAMPLING_TOML = """
+        schema_version = 1
+        kind = "control"
+        [system]
+        kind = "template"
+        template = "TransmonSystem"
+        params = { levels = 3, drive_bounds = [0.02, 0.02], "δ" = 0.2 }
+        [goal]
+        kind = "unitary"
+        gate = "X"
+        [pulse]
+        kind = "linear_spline"
+        T = 10.0
+        [problem]
+        template = "SplinePulseProblem"
+        N = 11
+        [integrator]
+        kind = "probe_integrator"
+        [[wrappers]]
+        kind = "sampling"
+        variants = [ { "δ" = 0.19 }, { "δ" = 0.21 } ]
+        """
+        s = Specs.materialize(Specs.parse_spec(SAMPLING_TOML; format = :toml))
+        @test length(Specs.get_variants(s)) == 2
+
+        # _sampling_integrator_factory: nothing for bilinear / absent kinds
+        bilinear_spec = Specs.parse_spec(
+            replace(SAMPLING_TOML, "kind = \"probe_integrator\"" => "kind = \"bilinear\"");
+            format = :toml,
+        )
+        @test Specs._sampling_integrator_factory(bilinear_spec) === nothing
+        no_int_spec = Specs.parse_spec(
+            replace(SAMPLING_TOML, "[integrator]\nkind = \"probe_integrator\"\n" => "");
+            format = :toml,
+        )
+        @test Specs._sampling_integrator_factory(no_int_spec) === nothing
+
+        # ket + free_phase on SmoothPulseProblem (compat ket_free_phase = false):
+        # reachable only with a non-bilinear integrator kind declared, and then
+        # still a structured validation error.
+        KET_SMOOTH_TOML = """
+        schema_version = 1
+        kind = "control"
+        [system]
+        kind = "template"
+        template = "TransmonSystem"
+        params = { levels = 3, drive_bounds = [0.02, 0.02] }
+        [goal]
+        kind = "ket"
+        target = "[0.0, 1.0, 0.0]"
+        [pulse]
+        kind = "zero_order"
+        T = 10.0
+        [problem]
+        template = "SmoothPulseProblem"
+        N = 11
+        free_phase = true
+        [integrator]
+        kind = "probe_integrator"
+        """
+        e = try
+            Specs.materialize(Specs.parse_spec(KET_SMOOTH_TOML; format = :toml))
+            nothing
+        catch e
+            e
+        end
+        @test e isa Specs.SpecValidationError
+        @test "problem.free_phase" in [x.path for x in e.errors]
+    finally
+        delete!(Specs.INTEGRATORS, :probe_integrator)
+    end
+end
+
+@testitem "materialize: objective term kinds build into the composed problem" begin
+    using Piccolo, Piccolo.Specs
+
+    _obj_terms(J) =
+        J isa DirectTrajOpt.CompositeObjective ? collect(J.objectives) :
+        AbstractObjective[J]
+
+    BASE = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "linear_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+
+    # reg_u: an extra QuadraticRegularizer on the drive variable
+    qcp = Specs.materialize(
+        Specs.parse_spec(
+            BASE * "\n[[problem.objectives]]\nkind = \"reg_u\"\nweight = 0.1\n";
+            format = :toml,
+        ),
+    )
+    @test count(
+        o -> o isa DirectTrajOpt.QuadraticRegularizer && o.name == :u,
+        _obj_terms(qcp.prob.objective),
+    ) == 2
+
+    # reg_ddu: only valid on SmoothPulseProblem (the ddu-carrying template)
+    smooth = replace(
+        BASE,
+        "linear_spline" => "zero_order",
+        "SplinePulseProblem" => "SmoothPulseProblem",
+    )
+    qcp2 = Specs.materialize(
+        Specs.parse_spec(
+            smooth * "\n[[problem.objectives]]\nkind = \"reg_ddu\"\nweight = 0.1\n";
+            format = :toml,
+        ),
+    )
+    @test qcp2 isa QuantumControlProblem
+
+    # leakage: a LeakageObjective is a full-horizon (times 1:N) KnotPointObjective
+    # on the state variable — structurally distinct from the terminal-knot
+    # infidelity objective and from the QuadraticRegularizer terms.
+    qcp3 = Specs.materialize(
+        Specs.parse_spec(
+            BASE * "\n[[problem.objectives]]\nkind = \"leakage\"\nweight = 10.0\n";
+            format = :toml,
+        ),
+    )
+    leaky = filter(_obj_terms(qcp3.prob.objective)) do o
+        o isa DirectTrajOpt.KnotPointObjective &&
+            o.var_names == [state_name(qcp3.qtraj)] &&
+            o.times == 1:11
+    end
+    @test length(leaky) == 1
+
+    # sensitivity: a UnitarySensitivityObjective is a terminal-knot (times [N])
+    # KnotPointObjective — a second one beyond the built-in infidelity term.
+    qcp4 = Specs.materialize(
+        Specs.parse_spec(
+            BASE * "\n[[problem.objectives]]\nkind = \"sensitivity\"\nweight = 10.0\n";
+            format = :toml,
+        ),
+    )
+    terminal = count(
+        o ->
+            o isa DirectTrajOpt.KnotPointObjective &&
+            o.var_names == [state_name(qcp4.qtraj)] &&
+            o.times == [11],
+        _obj_terms(qcp4.prob.objective),
+    )
+    @test terminal == 2
+
+    # a REGISTERED but unsupported term kind is a structured materialize error,
+    # not a silent skip or a MethodError (inject one, then remove it).
+    Specs.register_objective_term!(
+        :probe_term,
+        Specs.RegistryEntry(; factory = Specs.ConstFactory(:probe_term)),
+    )
+    try
+        e = try
+            Specs.materialize(
+                Specs.parse_spec(
+                    BASE *
+                    "\n[[problem.objectives]]\nkind = \"probe_term\"\nweight = 1.0\n";
+                    format = :toml,
+                ),
+            )
+            nothing
+        catch e
+            e
+        end
+        @test e isa Specs.SpecValidationError
+        @test "problem.objectives" in [x.path for x in e.errors]
+    finally
+        delete!(Specs.OBJECTIVE_TERMS, :probe_term)
+    end
+end
+
+@testitem "materialize: validation branch matrix" begin
+    using Piccolo, Piccolo.Specs
+
+    BASE = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "linear_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+
+    # (name, toml, expected error path)
+    cases = [
+        ("missing [problem] block", replace(BASE, r"\[problem\][^\0]*\z" => ""), "problem"),
+        (
+            "unknown template",
+            replace(BASE, "SplinePulseProblem" => "NoSuchTemplate"),
+            "problem.template",
+        ),
+        (
+            "unregistered integrator kind",
+            BASE * "\n[integrator]\nkind = \"exponential\"\n",
+            "integrator.kind",
+        ),
+        (
+            "unknown goal kind",
+            replace(BASE, "kind = \"unitary\"" => "kind = \"banana\""),
+            "goal.kind",
+        ),
+        (
+            "pulse kind incompatible",
+            replace(BASE, "linear_spline" => "banana_pulse"),
+            "pulse.kind",
+        ),
+        (
+            "unknown objective term kind",
+            BASE * "\n[[problem.objectives]]\nkind = \"banana\"\n",
+            "problem.objectives",
+        ),
+        (
+            "reg_ddu requires SmoothPulseProblem",
+            BASE * "\n[[problem.objectives]]\nkind = \"reg_ddu\"\n",
+            "problem.objectives",
+        ),
+        (
+            "time objective requires free_dt",
+            BASE * "\n[[problem.objectives]]\nkind = \"time\"\n",
+            "problem.free_dt",
+        ),
+        (
+            "calibration target not in global_names",
+            BASE * "\ncalibration_targets = [\"δ\"]\n",
+            "problem.calibration_targets",
+        ),
+        (
+            "unknown wrapper kind",
+            BASE * "\n[[wrappers]]\nkind = \"banana\"\n",
+            "wrappers[1]",
+        ),
+    ]
+    for (name, toml, path) in cases
+        e = try
+            Specs.materialize(Specs.parse_spec(toml; format = :toml))
+            nothing
+        catch e
+            e
+        end
+        @test e isa Specs.SpecValidationError
+        @test path in [x.path for x in e.errors]
+    end
 end
