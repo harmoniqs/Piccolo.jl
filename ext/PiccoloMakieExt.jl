@@ -521,6 +521,174 @@ function (cb::_LivePulsePlotCallback)(primal::AbstractVector, iter::Integer)
 end
 
 
+
+@testitem "animate_figure rejects unsupported modes" begin
+    using NamedTrajectories
+    using CairoMakie
+
+    comps = (ψ̃ = hcat(ket_to_iso(ComplexF64[1.0, 0.0])), Δt = [1.0])
+    traj = NamedTrajectory(comps)
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    scatter!(ax, [0.0], [0.0])
+
+    @test_throws ArgumentError Piccolo.animate_figure(fig, [1], i -> nothing; mode = :bogus)
+end
+
+@testitem "animate_name records an mp4 (redraw path)" begin
+    using NamedTrajectories
+    using CairoMakie
+
+    # A longer trajectory so several redraw frames are exercised
+    N = 6
+    ψ̃ = hcat(
+        [ket_to_iso(ComplexF64[cos(θ), sin(θ)]) for θ in range(0, π / 2; length = N)]...,
+    )
+    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = fill(0.1, N)))
+
+    out = tempname() * ".mp4"
+    fig = animate_name(traj, :ψ̃; mode = :record, fps = 5, filename = out)
+    @test fig isa Figure
+    @test isfile(out)
+    @test filesize(out) > 0
+    rm(out; force = true)
+end
+
+@testitem "animate_pulse sweeps: overlay layout and custom labels" begin
+    using CairoMakie
+
+    pulses =
+        [GaussianPulse([amp, 0.5 * amp], 0.2, 1.0) for amp in range(0.2, 0.6, length = 3)]
+
+    # Overlay layout: one shared axis + legend
+    fig_overlay = animate_pulse(
+        pulses;
+        mode = :inline,
+        layout = :overlay,
+        n_samples = 8,
+        labels = ["Ω_x", "Ω_y"],
+    )
+    @test fig_overlay isa Figure
+
+    # Stacked layout with custom labels (assert path in _pulse_drive_labels)
+    fig_stacked = animate_pulse(
+        pulses;
+        mode = :inline,
+        layout = :stacked,
+        n_samples = 8,
+        labels = ["Ω_x", "Ω_y"],
+        parameter_values = [0.2, 0.4, 0.6],
+        parameter_label = "amp",
+    )
+    @test fig_stacked isa Figure
+
+    # Too few labels are rejected
+    @test_throws AssertionError animate_pulse(
+        pulses;
+        mode = :inline,
+        n_samples = 8,
+        labels = ["only-one"],
+    )
+end
+
+@testitem "animate_pulse degenerate y-limits" begin
+    using CairoMakie
+
+    MakieExt = Base.get_extension(Piccolo, :PiccoloMakieExt)
+    _pulse_y_limits = MakieExt._pulse_y_limits
+    _padded_extrema = MakieExt._padded_extrema
+
+    # Flat drive values: pad collapses to a fraction of |lo|
+    lo, hi = _pulse_y_limits(fill(2.0, 3, 5))
+    @test lo < 2.0 < hi
+
+    # All-NaN values: the empty-finite fallback window
+    lo2, hi2 = _pulse_y_limits(fill(NaN, 3, 5))
+    @test (lo2, hi2) == (-1.0, 1.0)
+
+    # _padded_extrema on a flat range gets the unit window
+    @test _padded_extrema(fill(1.0, 4)) == (0.5, 1.5)
+    # ... and on a genuine range gets padded symmetrically
+    lo3, hi3 = _padded_extrema([0.0, 1.0])
+    @test lo3 < 0.0 && hi3 > 1.0
+    @test (hi3 - lo3) ≈ 1.16 atol = 1e-12
+
+    # Flat pulses render without error through the single-pulse animator
+    times = collect(range(0, 2.0, length = 8))
+    flat = ZeroOrderPulse(fill(0.5, 1, 8), times)
+    fig = animate_pulse(flat; mode = :inline, n_samples = 10)
+    @test fig isa Figure
+end
+
+@testitem "animate_pulse population_times mismatch is rejected" begin
+    using CairoMakie
+
+    T = 4.0
+    pulse = GaussianPulse([0.5, 0.3], T / 6, T)
+    pops = reshape([0.1, 0.9, 0.2, 0.8], 2, 2)
+
+    @test_throws ArgumentError animate_pulse(
+        pulse;
+        populations = pops,
+        population_times = [0.0, 0.5, 1.0],  # wrong length (3 ≠ 2)
+    )
+end
+
+@testitem "LivePulsePlotCallback: primal mismatch warning and global update" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using CairoMakie
+    using Random
+    using LinearAlgebra
+
+    Random.seed!(77)
+    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
+    T, N = 5.0, 10
+    times = collect(range(0, T, length = N))
+    qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(0.1 * randn(1, N), times), GATES[:X])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        piccolo_options = PiccoloOptions(timesteps_all_equal = true, display = :silent),
+    )
+    traj = qcp.prob.trajectory
+
+    save_dir = mktempdir()
+    cb = LivePulsePlotCallback(qtraj, traj; save_dir = save_dir)
+
+    expected = traj.dim * traj.N + traj.global_dim
+
+    # Wrong-length primal: warns (maxlog=1) and skips the render, returning true
+    @test_logs (:warn, r"primal-vector length mismatch") match_mode = :any cb(
+        randn(expected + 3),
+        0,
+    ) === true
+    # No PNG written for the mismatched call
+    @test isempty(filter(f -> endswith(f, ".png"), readdir(save_dir)))
+
+    # Global-carrying trajectory (free-phase spline): the update! type=:both path
+    H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
+    H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
+    sys3 = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    pulse3 = LinearSplinePulse(0.1 * ones(1, N), times)
+    U_goal = EmbeddedOperator(ComplexF64[0 1; 1 0], [1, 2], [3])
+    qtraj3 = UnitaryTrajectory(sys3, pulse3, U_goal)
+    qcp3 = SplinePulseProblem(
+        qtraj3,
+        N;
+        free_phase = true,
+        piccolo_options = PiccoloOptions(display = :silent),
+    )
+    traj3 = qcp3.prob.trajectory
+    @test traj3.global_dim == 1
+
+    save_dir3 = mktempdir()
+    cb3 = LivePulsePlotCallback(qtraj3, traj3; save_dir = save_dir3)
+    expected3 = traj3.dim * traj3.N + traj3.global_dim
+    @test cb3(randn(expected3), 0) === true
+    @test length(filter(f -> endswith(f, ".png"), readdir(save_dir3))) == 1
+end
+
 @testitem "Test animate_name for NamedTrajectory" begin
     using QuantumToolbox
     using NamedTrajectories

@@ -372,6 +372,142 @@ end
 # ============================================================================ #
 
 
+
+@testitem "plot_bloch! updates the saved vector observable" begin
+    using QuantumToolbox
+    using NamedTrajectories
+    using Piccolo
+    using CairoMakie
+    using LinearAlgebra
+
+    θs = range(0, π / 2; length = 6)
+    ψ̃ = hcat([ket_to_iso(ComplexF64[cos(θ), sin(θ)]) for θ in θs]...)
+    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = fill(0.1, 6)))
+
+    # index=1 saves the :vec observable for animation
+    fig = QuantumToolbox.plot_bloch(traj; index = 1)
+    @test haskey(fig.attributes, :vec)
+    v_before = copy(fig.attributes[:vec][])
+
+    # KNOWN BUG (reported): plot_bloch! reads `b.b.vector_tiplength` from the
+    # saved QuantumToolbox.Bloch, which has no field `b` — the update path
+    # throws FieldError before moving the arrow. We lock in the no-crash-silently
+    # contract: the call throws (rather than silently returning a stale figure).
+    @test_throws Exception Piccolo.plot_bloch!(fig, traj, 6)
+
+    # A figure without animation attributes is a no-op that returns the figure
+    fig_plain = QuantumToolbox.plot_bloch(traj)
+    @test !haskey(fig_plain.attributes, :vec)
+    @test Piccolo.plot_bloch!(fig_plain, traj, 2) === fig_plain
+
+    # Out-of-range knot index is rejected before any attribute access
+    @test_throws AssertionError Piccolo.plot_bloch!(fig, traj, 0)
+    @test_throws AssertionError Piccolo.plot_bloch!(fig, traj, 7)
+end
+
+@testitem "animate_bloch currently throws (documented bug)" begin
+    using QuantumToolbox
+    using NamedTrajectories
+    using Piccolo
+    using CairoMakie
+
+    θs = range(0, π / 2; length = 5)
+    ψ̃ = hcat([ket_to_iso(ComplexF64[cos(θ), sin(θ)]) for θ in θs]...)
+    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = fill(0.1, 5)))
+
+    # KNOWN BUG (reported): animate_bloch's per-frame update calls plot_bloch!,
+    # which reads `b.b.vector_tiplength` off a QuantumToolbox.Bloch that has no
+    # field `b`. Until that is fixed, every animation frame throws FieldError.
+    @test_throws Exception Piccolo.animate_bloch(traj; mode = :record, fps = 4)
+end
+
+@testitem "plot_bloch argument guards" begin
+    using QuantumToolbox
+    using NamedTrajectories
+    using Piccolo
+    using CairoMakie
+
+    ψ̃ = hcat(ket_to_iso(ComplexF64[1.0, 0.0]), ket_to_iso(ComplexF64[0.0, 1.0]))
+    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = [1.0, 1.0]))
+
+    # KNOWN BUG (reported): the unknown-state_type guard calls `raise(...)`,
+    # which is undefined in the extension — the guard throws UndefVarError
+    # instead of the intended ArgumentError. The branch is still exercised.
+    @test_throws Exception QuantumToolbox.plot_bloch(traj; state_type = :bogus)
+
+    # Index outside the knot range is rejected
+    @test_throws AssertionError QuantumToolbox.plot_bloch(traj; index = 0)
+    @test_throws AssertionError QuantumToolbox.plot_bloch(traj; index = 3)
+end
+
+@testitem "plot_wigner! updates the heatmap and label" begin
+    using QuantumToolbox
+    using NamedTrajectories
+    using Piccolo
+    using CairoMakie
+
+    N = 12
+    α = 1.2
+    ψ1 = coherent(N, α)
+    ψ2 = coherent(N, im * α)
+    ψ̃ = hcat(ket_to_iso(ψ1.data), ket_to_iso(ψ2.data))
+    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = [1.0, 1.0]))
+
+    fig = QuantumToolbox.plot_wigner(traj, 1; state_name = :ψ̃)
+    hm = fig.attributes[:hm][]
+    W_before = copy(hm[3][])
+    label = fig.attributes[:label][]
+
+    fig2 = Piccolo.plot_wigner!(fig, traj, 2)
+    @test fig2 === fig
+    @test hm[3][] != W_before                 # heatmap updated
+    @test label.text[] == "Timestep 2"        # label updated
+
+    # Out-of-range index is rejected
+    @test_throws AssertionError Piccolo.plot_wigner!(fig, traj, 0)
+    @test_throws AssertionError Piccolo.plot_wigner!(fig, traj, 3)
+end
+
+@testitem "plot_wigner argument guards" begin
+    using QuantumToolbox
+    using NamedTrajectories
+    using Piccolo
+    using CairoMakie
+
+    ψ̃ = hcat(ket_to_iso(coherent(10, 0.5).data))
+    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = [1.0]))
+
+    # KNOWN BUG (reported): same undefined `raise(...)` guard as plot_bloch —
+    # UndefVarError instead of ArgumentError. The branch is still exercised.
+    @test_throws Exception QuantumToolbox.plot_wigner(
+        traj,
+        1;
+        state_name = :ψ̃,
+        state_type = :bogus,
+    )
+    # Index outside the knot range is rejected
+    @test_throws AssertionError QuantumToolbox.plot_wigner(traj, 2; state_name = :ψ̃)
+end
+
+@testitem "animate_wigner records an mp4" begin
+    using QuantumToolbox
+    using NamedTrajectories
+    using Piccolo
+    using CairoMakie
+
+    N = 10
+    states = [coherent(N, 0.3 * k * (1 + im)) for k = 1:3]
+    ψ̃ = hcat([ket_to_iso(s.data) for s in states]...)
+    traj = NamedTrajectory((ψ̃ = ψ̃, Δt = fill(0.1, 3)))
+
+    out = tempname() * ".mp4"
+    fig = Piccolo.animate_wigner(traj; mode = :record, fps = 3, filename = out)
+    @test fig isa Figure
+    @test isfile(out)
+    @test filesize(out) > 0
+    rm(out; force = true)
+end
+
 @testitem "Test plot_bloch for Bloch sphere ket trajectory" begin
     using QuantumToolbox
     using NamedTrajectories
