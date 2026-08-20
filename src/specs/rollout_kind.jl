@@ -576,3 +576,161 @@ end
     @test occursin("missing", st.msg)
     @test "TransmonSystem" in st.allowed
 end
+
+@testitem "coverage: rollout alg variants, error paths, and the ket rollout lane" begin
+    using Piccolo, Piccolo.Specs
+    import JLD2
+    using OrdinaryDiffEqTsit5: Tsit5
+
+    # A tiny saved pulse for the happy-path lanes.
+    CTRL_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+    qcp = Specs.materialize(Specs.parse_spec(CTRL_TOML; format = :toml))
+    solve!(qcp; max_iter = 10, print_level = 0, verbose = false)
+    pulse = extract_pulse(qcp.qtraj, get_trajectory(qcp))
+    path = tempname() * ".jld2"
+    JLD2.save(path, pulse)
+
+    # ── alg variants: magnus_gl4 / magnus_adapt4 map; unknown alg errors ──
+    for (alg, T_alg) in (:magnus_gl4 => "magnus_gl4", :magnus_adapt4 => "magnus_adapt4")
+        ROLLOUT_TOML = """
+        schema_version = 1
+        kind = "rollout"
+        input_pulse = "$(path)"
+        rollout_kind = "unitary"
+        alg = "$(T_alg)"
+        n_samples = 21
+        [system]
+        kind = "template"
+        template = "TransmonSystem"
+        params = { levels = 3, drive_bounds = [0.02, 0.02] }
+        [report]
+        fidelity = true
+        [report.goal]
+        kind = "unitary"
+        gate = "X"
+        """
+        res = Specs.run_spec(Specs.parse_spec(ROLLOUT_TOML; format = :toml))
+        @test isfinite(res.fidelity)
+    end
+
+    # unknown alg: the structured error names the allowed set
+    BAD_ALG = """
+    schema_version = 1
+    kind = "rollout"
+    input_pulse = "$(path)"
+    rollout_kind = "unitary"
+    alg = "bogus"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3 }
+    [report]
+    fidelity = true
+    [report.goal]
+    kind = "unitary"
+    gate = "X"
+    """
+    err = try
+        Specs.parse_spec(BAD_ALG; format = :toml) |> Specs.run_spec
+        nothing
+    catch e
+        e
+    end
+    @test err isa Specs.SpecValidationError
+
+    # ── the ket lane: goal + initial ket strings ──
+    KET_TOML = """
+    schema_version = 1
+    kind = "rollout"
+    input_pulse = "$(path)"
+    rollout_kind = "ket"
+    alg = "tsit5"
+    initial = "ComplexF64[1.0, 0.0, 0.0]"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [report]
+    fidelity = true
+    [report.goal]
+    kind = "ket"
+    target = "ComplexF64[0.0, 1.0, 0.0]"
+    """
+    kres = Specs.run_spec(Specs.parse_spec(KET_TOML; format = :toml))
+    @test isfinite(kres.fidelity)
+
+    # ket without `initial`: the structured error
+    KET_NOINIT = replace(KET_TOML, "initial = \"ComplexF64[1.0, 0.0, 0.0]\"" => "")
+    err2 = try
+        Specs.parse_spec(KET_NOINIT; format = :toml) |> Specs.run_spec
+        nothing
+    catch e
+        e
+    end
+    @test err2 isa Specs.SpecValidationError
+
+    # ── density lanes: not-yet-wired (closed system) + unknown kind ──
+    DENS_TOML = """
+    schema_version = 1
+    kind = "rollout"
+    input_pulse = "$(path)"
+    rollout_kind = "density"
+    alg = "tsit5"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3 }
+    [report]
+    fidelity = true
+    [report.goal]
+    kind = "unitary"
+    gate = "X"
+    """
+    err3 = try
+        Specs.parse_spec(DENS_TOML; format = :toml) |> Specs.run_spec
+        nothing
+    catch e
+        e
+    end
+    @test err3 isa Specs.SpecValidationError
+
+    BAD_KIND =
+        replace(DENS_TOML, "rollout_kind = \"density\"" => "rollout_kind = \"hologram\"")
+    err4 = try
+        Specs.parse_spec(BAD_KIND; format = :toml) |> Specs.run_spec
+        nothing
+    catch e
+        e
+    end
+    @test err4 isa Specs.SpecValidationError
+
+    # non-.jld2 input_pulse: the Phase-1 structured error
+    BAD_PULSE = replace(
+        DENS_TOML,
+        "rollout_kind = \"density\"" => "rollout_kind = \"unitary\"",
+        "input_pulse = \"$(path)\"" => "input_pulse = \"catalog:xyz\"",
+    )
+    err5 = try
+        Specs.parse_spec(BAD_PULSE; format = :toml) |> Specs.run_spec
+        nothing
+    catch e
+        e
+    end
+    @test err5 isa Specs.SpecValidationError
+end
