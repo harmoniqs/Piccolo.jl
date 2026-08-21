@@ -317,19 +317,20 @@ function _global_infos(traj, constraints)
     out = GlobalInfo[]
     isempty(traj.global_components) && return out
 
-    # Build a map: global name → constraint involvement
+    # Build a map: global name → constraint involvement. In DirectTrajOpt,
+    # `GlobalEqualityConstraint`/`GlobalBoundsConstraint` are constructor
+    # *functions* that return plain EqualityConstraint/BoundsConstraint structs
+    # flagged with `is_global = true` — so global constraints must be detected
+    # structurally (type + flag), never by typename.
     pinned_names = Set{Symbol}()
-    bounded_names = Dict{Symbol,Any}()  # name → bounds tuple
+    bounded_names = Dict{Symbol,Any}()  # name → bounds spec
     for c in constraints
-        # GlobalEqualityConstraint pins a value
-        if _typename(c) == "GlobalEqualityConstraint" && hasproperty(c, :name)
-            push!(pinned_names, c.name)
-        end
-        # GlobalBoundsConstraint adds bounds
-        if _typename(c) == "GlobalBoundsConstraint" && hasproperty(c, :name)
-            if hasproperty(c, :bounds)
-                bounded_names[c.name] = c.bounds
-            end
+        # A global EqualityConstraint pins a value (e.g. a calibration target)
+        if c isa EqualityConstraint && c.is_global
+            push!(pinned_names, c.var_names)
+            # A global BoundsConstraint adds bounds
+        elseif c isa BoundsConstraint && c.is_global
+            bounded_names[c.var_names] = c.bounds_values
         end
     end
 
@@ -683,13 +684,27 @@ end
 
 function _fidelity_at(qtraj::KetTrajectory, traj, θ)
     # subsystem_levels for the phase rotation aren't stored on the qtraj; we
-    # need them to build the rotation. Best-effort: try to infer from system.
+    # need them to build the rotation. Best-effort: infer from the system.
     sys = QuantumControlProblems.get_system(qtraj)
-    levels = hasproperty(sys, :levels) ? sys.levels : nothing
+    levels = _subsystem_levels_for_phase(sys)
     levels === nothing && return nothing
     ψ̃ = traj[state_name(qtraj)][:, end]
     ψ_goal_phased = _phased_ket_goal(qtraj.goal, θ, levels)
     return Float64(QuantumObjectives.ket_fidelity_loss(ψ̃, ψ_goal_phased))
+end
+
+# `_phased_ket_goal` expects one level count per subsystem. A plain
+# QuantumSystem stores a scalar `levels::Int` (a single subsystem — wrap it);
+# a CompositeQuantumSystem stores `subsystem_levels::Vector{Int}` (its
+# `levels` field is the *total* dimension and must not be wrapped).
+function _subsystem_levels_for_phase(sys)
+    if hasproperty(sys, :subsystem_levels) &&
+       sys.subsystem_levels isa AbstractVector{<:Integer}
+        return collect(Int, sys.subsystem_levels)
+    elseif hasproperty(sys, :levels) && sys.levels isa Integer
+        return [Int(sys.levels)]
+    end
+    return nothing
 end
 
 _fidelity_at(::AbstractQuantumTrajectory, _, _) = nothing
