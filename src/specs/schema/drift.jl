@@ -11,7 +11,7 @@
 # public CI never loads Piccolissimo. See plan review correction (Blocking #1).
 
 @testitem "OSS schema drift: emit_schema() == checked-in problemspec.oss.schema.json" begin
-    using Piccolo.Specs, JSON3
+    using Piccolo, Piccolo.Specs, JSON3
     Specs.register_all!()
     emitted = JSON3.write(JSON3.read(Specs.emit_schema()))
     file =
@@ -22,7 +22,7 @@
 end
 
 @testitem "OSS schema excludes private Piccolissimo enum values (scoped)" begin
-    using Piccolo.Specs, JSON3
+    using Piccolo, Piccolo.Specs, JSON3
     Specs.register_all!()
     sch = JSON3.read(Specs.emit_schema())
     ctrl = sch.oneOf[1].properties.kind.const == "control" ? sch.oneOf[1] : sch.oneOf[2]
