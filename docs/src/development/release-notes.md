@@ -2,6 +2,36 @@
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.1] - 2026-08-21
+
+The 2.0.0 follow-up: the specs-path correctness fixes found by the coverage
+campaign, plus the campaign's own test additions.
+
+### Fixed
+
+- **Specs: `MultiTransmonSystem` was registered but unbuildable** — the
+  registry calls factories kwargs-only; the constructor takes positionals.
+  Fixed with a named wrapper; a TOML spec naming it now materializes
+  end-to-end (#297, #302).
+- **Specs: ket + `free_phase` was un-materializable** — `subsystem_levels`
+  was never threaded into the template call; every passing-compat spec
+  crashed on the template's assert (#297, #302).
+- **Display: global pin/bound status never rendered** (pinned calibration
+  targets and global bounds displayed as `:free`/`—`), **ket phased fidelity
+  silently MethodErrored** (no `F (with φ)` line for any ket problem),
+  **`animate_bloch` was fully broken** (a `b.b.` field access on a Bloch
+  with no field `b` — every frame FieldErrored), and **three `raise()`
+  guards** threw `UndefVarError` instead of the intended `ArgumentError`
+  (#299, #303).
+- **Specs test flake**: the drift testitems' `pkgdir(Piccolo)` resolved only
+  when an earlier testitem had loaded Piccolo (#304).
+
+### Housekeeping
+
+- Coverage clusters A–D merged: 85.45% → ~96% line coverage, 11 bugs found
+  and filed (#294, #295, #296, #298, #301). `emit_hash_fixtures.jl`
+  relocated to `scripts/`.
+
 ## [v2.0.0] - 2026-08-18
 
 The multiple-shooting notation release: **N stays N** — the number of knot
