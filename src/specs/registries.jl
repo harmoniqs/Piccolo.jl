@@ -53,6 +53,22 @@ Base.hash(f::ConstFactory, h::UInt) = hash(f.value, hash(ConstFactory, h))
 # marks "pass integrator=nothing" (we never construct BilinearIntegrator here).
 _bilinear_integrator_factory(args...; kwargs...) = nothing
 
+# MultiTransmonSystem takes POSITIONAL (ωs, δs, gs); the materializer calls
+# system factories kwargs-only (`entry.factory(; params...)`), so wrap the
+# constructor (#297). A named function, not a closure: `register_all!`
+# idempotency compares factories with `==`, and anonymous closures are never
+# `==` across calls. TOML/JSON carry the coupling matrix `gs` as nested row
+# vectors — normalize to the Matrix the constructor's `@assert size(gs)` expects.
+function _multi_transmon_system_factory(; ωs, δs, gs, kwargs...)
+    gs_matrix = gs isa AbstractMatrix ? gs : Matrix{Float64}(permutedims(reduce(hcat, gs)))
+    return MultiTransmonSystem(
+        Float64.(collect(ωs)),
+        Float64.(collect(δs)),
+        gs_matrix;
+        kwargs...,
+    )
+end
+
 """
     RegistryEntry(; factory, params, compat)
 
@@ -128,7 +144,7 @@ function register_all!()
     # systems (factory = the template constructor; params/compat hand-declared)
     for (name, fac) in (
         (:TransmonSystem, TransmonSystem),
-        (:MultiTransmonSystem, MultiTransmonSystem),
+        (:MultiTransmonSystem, _multi_transmon_system_factory),
         (:TransmonCavitySystem, TransmonCavitySystem),
         (:RydbergChainSystem, RydbergChainSystem),
         (:IonChainSystem, IonChainSystem),

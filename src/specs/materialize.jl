@@ -250,6 +250,11 @@ function _call_template(spec::ProblemSpec, qtraj; piccolo_options = nothing)
     isfinite(p.du_bound) && (kwargs[:du_bound] = p.du_bound)
     p.ddu_bound === nothing || (kwargs[:ddu_bound] = Float64(p.ddu_bound))
     p.initial_phases === nothing || (kwargs[:initial_phases] = p.initial_phases)
+    # free_phase for ket goals: the templates assert `subsystem_levels` is set
+    # (a KetTrajectory goal has no EmbeddedOperator to infer them from), so
+    # thread the goal's declaration into the template call (#297).
+    spec.goal.subsystem_levels === nothing ||
+        (kwargs[:subsystem_levels] = spec.goal.subsystem_levels)
     isempty(p.calibration_targets) || (kwargs[:calibration_targets] = p.calibration_targets)
     isempty(p.global_names) || (kwargs[:global_names] = p.global_names)
     isempty(p.global_bounds) ||
@@ -1030,6 +1035,45 @@ end
     @test "system.kind" in [x.path for x in e.errors]
 end
 
+@testitem "materialize: MultiTransmonSystem spec builds a composite problem" begin
+    using Piccolo, Piccolo.Specs
+
+    # MultiTransmonSystem takes positional (ωs, δs, gs); the registry entry wraps
+    # them into a kwargs-only factory (#297). TOML carries `gs` as nested rows.
+    MULTI_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "MultiTransmonSystem"
+    params = { "ωs" = [4.0, 4.1], "δs" = [0.2, 0.21], "gs" = [[0.0, 0.01], [0.01, 0.0]], subsystem_levels = [2, 2] }
+    [goal]
+    kind = "unitary"
+    gate = "CZ"
+    [pulse]
+    kind = "linear_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    """
+    spec = Specs.parse_spec(MULTI_TOML; format = :toml)
+
+    # the factory path alone: a CompositeQuantumSystem of 2 transmons × 2 levels
+    sys = Specs._build_system(spec.system)
+    @test sys isa CompositeQuantumSystem
+    @test sys.subsystem_levels == [2, 2]
+    @test sys.levels == 4
+    @test sys.n_drives == 4            # 2 drive quadratures per transmon
+
+    # and the full problem materializes: CZ embeds on the qubit subspace of the
+    # composite system (the `_build_goal` CompositeQuantumSystem branch).
+    qcp = Specs.materialize(spec)
+    @test qcp isa QuantumControlProblem
+    @test get_system(qcp).levels == 4
+    @test qcp.qtraj.goal isa EmbeddedOperator
+end
+
 @testitem "materialize: ket goals, subspace goals, random pulse init" begin
     using Piccolo, Piccolo.Specs
 
@@ -1313,6 +1357,55 @@ end
         end
         @test e isa Specs.SpecValidationError
         @test "problem.free_phase" in [x.path for x in e.errors]
+    finally
+        delete!(Specs.INTEGRATORS, :probe_integrator)
+    end
+end
+
+@testitem "materialize: ket + free_phase threads goal.subsystem_levels" begin
+    using Piccolo, Piccolo.Specs
+    using Piccolo: BilinearIntegrator
+
+    # free_phase validation requires a non-bilinear integrator KIND;
+    # exponential/spline live in Piccolissimo, so inject the same
+    # BilinearIntegrator-backed stand-in the integrator-fallback test uses.
+    Specs.register_integrator!(
+        :probe_integrator,
+        Specs.RegistryEntry(;
+            factory = (qtraj, N; alg = :probe) -> BilinearIntegrator(qtraj, N),
+        ),
+    )
+    try
+        # Before #297 this spec passed every compat check (SplinePulseProblem,
+        # ket goal, free_phase, non-bilinear integrator kind) and then crashed
+        # on the template's `@assert !isnothing(subsystem_levels)` —
+        # `_call_template` never threaded the goal's subsystem_levels through.
+        KET_FREEPHASE_TOML = """
+        schema_version = 1
+        kind = "control"
+        [system]
+        kind = "template"
+        template = "TransmonSystem"
+        params = { levels = 3, drive_bounds = [0.02, 0.02] }
+        [goal]
+        kind = "ket"
+        target = "[0.0, 1.0, 0.0]"
+        subsystem_levels = [3]
+        [pulse]
+        kind = "linear_spline"
+        T = 10.0
+        [problem]
+        template = "SplinePulseProblem"
+        N = 11
+        free_phase = true
+        [integrator]
+        kind = "probe_integrator"
+        """
+        qcp = Specs.materialize(Specs.parse_spec(KET_FREEPHASE_TOML; format = :toml))
+        @test qcp isa QuantumControlProblem
+        @test qcp.qtraj isa KetTrajectory
+        # one free-phase global per subsystem (φ_1 for the single [3] subsystem)
+        @test haskey(get_trajectory(qcp).global_components, :φ_1)
     finally
         delete!(Specs.INTEGRATORS, :probe_integrator)
     end
