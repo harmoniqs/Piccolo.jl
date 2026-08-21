@@ -157,7 +157,7 @@ function QuantumToolbox.plot_bloch(
         elseif state_type == :density
             iso_vec_to_bloch(s, subspace)
         else
-            raise(ArgumentError("State type must be :ket or :density."))
+            throw(ArgumentError("State type must be :ket or :density."))
         end
     end
 
@@ -202,7 +202,7 @@ function Piccolo.plot_bloch!(fig::Figure, traj::NamedTrajectory, idx::Int; kwarg
         state_name = fig.attributes[:state_name][]
         subspace = fig.attributes[:subspace][]
         v = iso_to_bloch(traj[idx][state_name], subspace)
-        fig.attributes[:vec] = [bloch_arrow(v, b.b.vector_tiplength)]
+        fig.attributes[:vec] = [bloch_arrow(v, b.vector_tiplength)]
     end
 
     return fig
@@ -307,7 +307,7 @@ function QuantumToolbox.plot_wigner(
     elseif state_type == :density
         QuantumObject(iso_vec_to_density(traj[idx][state_name]))
     else
-        raise(ArgumentError("State type must be :ket or :density."))
+        throw(ArgumentError("State type must be :ket or :density."))
     end
 
     fig, ax, hm = QuantumToolbox.plot_wigner(state; library = Val(:Makie), kwargs...)
@@ -338,7 +338,7 @@ function Piccolo.plot_wigner!(fig::Figure, traj::NamedTrajectory, idx::Int)
     elseif state_type == :density
         QuantumObject(iso_vec_to_density(traj[idx][state_name]))
     else
-        raise(ArgumentError("State type must be :ket or :density."))
+        throw(ArgumentError("State type must be :ket or :density."))
     end
     W = transpose(wigner(state, hm[1][], hm[2][]))
     hm[3][] = W
@@ -389,11 +389,15 @@ end
     @test haskey(fig.attributes, :vec)
     v_before = copy(fig.attributes[:vec][])
 
-    # KNOWN BUG (reported): plot_bloch! reads `b.b.vector_tiplength` from the
-    # saved QuantumToolbox.Bloch, which has no field `b` — the update path
-    # throws FieldError before moving the arrow. We lock in the no-crash-silently
-    # contract: the call throws (rather than silently returning a stale figure).
-    @test_throws Exception Piccolo.plot_bloch!(fig, traj, 6)
+    # plot_bloch! moves the saved arrow to knot 6 — reading the tip-length
+    # styling directly off the stored QuantumToolbox.Bloch (which exposes
+    # vector_tiplength as a field). The result must match the vector a fresh
+    # index=6 figure saves, and differ from the knot-1 arrow.
+    fig6 = QuantumToolbox.plot_bloch(traj; index = 6)
+    @test Piccolo.plot_bloch!(fig, traj, 6) === fig
+    v_after = fig.attributes[:vec][]
+    @test collect(v_after[1]) ≈ collect(fig6.attributes[:vec][][1])
+    @test collect(v_after[1]) != collect(v_before[1])
 
     # A figure without animation attributes is a no-op that returns the figure
     fig_plain = QuantumToolbox.plot_bloch(traj)
@@ -405,7 +409,7 @@ end
     @test_throws AssertionError Piccolo.plot_bloch!(fig, traj, 7)
 end
 
-@testitem "animate_bloch currently throws (documented bug)" begin
+@testitem "animate_bloch records an mp4" begin
     using QuantumToolbox
     using NamedTrajectories
     using Piccolo
@@ -415,10 +419,14 @@ end
     ψ̃ = hcat([ket_to_iso(ComplexF64[cos(θ), sin(θ)]) for θ in θs]...)
     traj = NamedTrajectory((ψ̃ = ψ̃, Δt = fill(0.1, 5)))
 
-    # KNOWN BUG (reported): animate_bloch's per-frame update calls plot_bloch!,
-    # which reads `b.b.vector_tiplength` off a QuantumToolbox.Bloch that has no
-    # field `b`. Until that is fixed, every animation frame throws FieldError.
-    @test_throws Exception Piccolo.animate_bloch(traj; mode = :record, fps = 4)
+    # The per-frame update reads the tip-length styling off the stored Bloch
+    # (no field `b`), so every frame renders and the animation records cleanly.
+    out = tempname() * ".mp4"
+    fig = Piccolo.animate_bloch(traj; mode = :record, fps = 4, filename = out)
+    @test fig isa Figure
+    @test isfile(out)
+    @test filesize(out) > 0
+    rm(out; force = true)
 end
 
 @testitem "plot_bloch argument guards" begin
@@ -430,10 +438,8 @@ end
     ψ̃ = hcat(ket_to_iso(ComplexF64[1.0, 0.0]), ket_to_iso(ComplexF64[0.0, 1.0]))
     traj = NamedTrajectory((ψ̃ = ψ̃, Δt = [1.0, 1.0]))
 
-    # KNOWN BUG (reported): the unknown-state_type guard calls `raise(...)`,
-    # which is undefined in the extension — the guard throws UndefVarError
-    # instead of the intended ArgumentError. The branch is still exercised.
-    @test_throws Exception QuantumToolbox.plot_bloch(traj; state_type = :bogus)
+    # The unknown-state_type guard throws the intended ArgumentError
+    @test_throws ArgumentError QuantumToolbox.plot_bloch(traj; state_type = :bogus)
 
     # Index outside the knot range is rejected
     @test_throws AssertionError QuantumToolbox.plot_bloch(traj; index = 0)
@@ -477,9 +483,8 @@ end
     ψ̃ = hcat(ket_to_iso(coherent(10, 0.5).data))
     traj = NamedTrajectory((ψ̃ = ψ̃, Δt = [1.0]))
 
-    # KNOWN BUG (reported): same undefined `raise(...)` guard as plot_bloch —
-    # UndefVarError instead of ArgumentError. The branch is still exercised.
-    @test_throws Exception QuantumToolbox.plot_wigner(
+    # The unknown-state_type guard throws the intended ArgumentError
+    @test_throws ArgumentError QuantumToolbox.plot_wigner(
         traj,
         1;
         state_name = :ψ̃,

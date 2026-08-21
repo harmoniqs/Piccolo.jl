@@ -417,6 +417,7 @@ end
 @testitem "inspect.jl system/trajectory helper branches" begin
     using Piccolo
     using NamedTrajectories
+    using DirectTrajOpt
 
     PD = Piccolo.Control.ProblemDisplay
 
@@ -492,6 +493,58 @@ end
     )
     # x contributes dim 2 × N 4 = 8; u contributes 1 × 4 = 4; globals 1
     @test PD._count_bounded_vars(traj_count) == 13
+
+    # -- _global_infos: pin/bound status detected structurally --
+    # GlobalEqualityConstraint/GlobalBoundsConstraint are constructor functions
+    # in DirectTrajOpt: they return plain EqualityConstraint/BoundsConstraint
+    # structs with is_global = true, so detection keys on type + flag.
+    traj_glob = NamedTrajectory(
+        (u = randn(1, 5), Δt = fill(0.1, 5));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.7, 0.3],
+        global_components = (δ = 1:1, ω = 2:2),
+    )
+    cons = AbstractConstraint[
+        BoundsConstraint(:u, collect(1:5), 1.0),     # non-global: must be ignored
+        GlobalBoundsConstraint(:ω, ([-0.2], [0.8])), # bounded global (asymmetric)
+    ]
+    fix_global_variable!(cons, :δ, [0.7])            # pinned calibration target
+    infos = PD._global_infos(traj_glob, cons)
+    by_name = Dict(g.name => g for g in infos)
+    @test by_name[:δ].status === :pinned
+    @test by_name[:δ].bound_repr == "pinned"
+    @test by_name[:ω].status === :free
+    @test by_name[:ω].bound_repr == "[[-0.2], [0.8]]"
+
+    # A free-phase global with its usual ±2π bounds reports :free_phase
+    traj_phi = NamedTrajectory(
+        (u = randn(1, 5), Δt = fill(0.1, 5));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.0, 2π],
+        global_components = (φ_1 = 1:1, φ_2 = 2:2),
+    )
+    cons_phi = AbstractConstraint[
+        GlobalBoundsConstraint(:φ_1, ([-2π], [2π])),
+        GlobalBoundsConstraint(:φ_2, ([-2π], [2π])),
+    ]
+    phi_infos = PD._global_infos(traj_phi, cons_phi)
+    phi_by_name = Dict(g.name => g for g in phi_infos)
+    @test phi_by_name[:φ_1].status === :free_phase
+    @test phi_by_name[:φ_1].bound_repr == "±2π"
+
+    # A global with no constraints at all stays :free with an em dash
+    traj_free = NamedTrajectory(
+        (u = randn(1, 5), Δt = fill(0.1, 5));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.5],
+        global_components = (δ = 1:1,),
+    )
+    g_free = only(PD._global_infos(traj_free, AbstractConstraint[]))
+    @test g_free.status === :free
+    @test g_free.bound_repr == "—"
 end
 
 @testitem "inspect.jl goal summaries and integrator rendering" begin
@@ -737,19 +790,26 @@ end
     )
     @test PD._fidelity_at(qtraj_u, traj, [0.3]) === nothing
 
-    # _fidelity_at on a KetTrajectory: QuantumSystem.levels is a scalar Int, so
-    # _phased_ket_goal has no matching method — the MethodError is caught by
-    # _fidelity_with_stored_phases (which then reports F_with_phase = nothing).
+    # _fidelity_at on a KetTrajectory: the system's scalar `levels::Int` is
+    # wrapped as [levels] (one subsystem), so _phased_ket_goal gets the
+    # per-subsystem vector it expects and the phased goal is actually built
+    # (previously this MethodError'd and _fidelity_with_stored_phases silently
+    # swallowed it, reporting F_with_phase = nothing for every ket problem).
     qtraj_k = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    ψ_end = ComplexF64[1.0, 1.0] / √2
     traj_ket = NamedTrajectory(
-        (ψ̃ = randn(4, 5), u = randn(1, 5), Δt = fill(0.25, 5));
+        (ψ̃ = hcat([ket_to_iso(ψ_end) for _ = 1:5]...), u = randn(1, 5), Δt = fill(0.25, 5));
         controls = :u,
         timestep = :Δt,
         global_data = [0.3],
         global_components = (φ_1 = 1:1,),
     )
-    @test_throws MethodError PD._fidelity_at(qtraj_k, traj_ket, [0.3])
-    @test PD._fidelity_with_stored_phases(qtraj_k, traj_ket) === nothing
+    F_ket = PD._fidelity_at(qtraj_k, traj_ket, [0.3])
+    @test F_ket isa Float64
+    @test F_ket ≈ abs2(ψ_end[2])   # phased goal is e^{iφ}|1⟩ → F = |⟨1|ψ_end⟩|²
+    F_ket_phase = PD._fidelity_with_stored_phases(qtraj_k, traj_ket)
+    @test F_ket_phase isa Float64
+    @test F_ket_phase ≈ F_ket      # same φ_1 = 0.3 read out of global_data
 
     # _fidelity_with_stored_phases: no φ_ globals → nothing
     traj_nophi = NamedTrajectory(
@@ -901,7 +961,10 @@ end
     @test occursin("free_phase", s)
 
     # Global bounds on φ_1 surface as a ±2π row in the inspection
-    @test any(g -> g.name === :φ_1, ins.globals)
+    φ_rows = filter(g -> g.name === :φ_1, ins.globals)
+    @test length(φ_rows) == 1
+    @test φ_rows[1].status === :free_phase
+    @test φ_rows[1].bound_repr == "±2π"
 end
 
 @testitem "_maybe_display respects the display tier" begin
