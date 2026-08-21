@@ -32,7 +32,7 @@ T = 10.0  # duration
 qtraj = UnitaryTrajectory(sys, U_goal, T)  # creates zero pulse internally
 
 # 3. Build optimization problem
-N = 51  # number of timesteps
+N = 51  # number of knot points
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
 
 # 4. Solve (use 'options' keyword for IpoptOptions)

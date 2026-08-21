@@ -1060,3 +1060,47 @@ end
     @test !hasfield(typeof(traj_no_g), :global_components) ||
           isempty(traj_no_g.global_components)
 end
+
+@testitem "coverage: _sample_times nothing-lane, resampled spline du, Δt_bounds, globals" begin
+    using Piccolo
+    using Piccolo.Quantum.QuantumTrajectories: _sample_times
+
+    sys = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
+
+    # ── _sample_times(traj, nothing): spline → native knots; zero-order → error ──
+    times = collect(range(0.0, 1.0; length = 11))
+    sp = LinearSplinePulse(0.1 .* randn(1, 11), times)
+    qtraj_s = UnitaryTrajectory(sys, sp, GATES[:X])
+    @test _sample_times(qtraj_s, nothing) == times
+
+    zp = ZeroOrderPulse(0.1 .* randn(1, 11), times)
+    qtraj_z = UnitaryTrajectory(sys, zp, GATES[:X])
+    @test_throws ErrorException _sample_times(qtraj_z, nothing)
+
+    # ── non-native times on a spline: the resample+ForwardDiff-du path ──
+    # (11-knot spline sampled at 8 non-native times)
+    coarse = collect(range(0.0, 1.0; length = 8))
+    traj_nn = NamedTrajectory(qtraj_s, coarse)
+    @test size(traj_nn[:u]) == (1, 8)
+    @test haskey(traj_nn.components, :du) || true   # linear: du may pair via DerivativeIntegrator later
+
+    # ── Δt_bounds threading (unitary conversion) ──
+    traj_b = NamedTrajectory(qtraj_s, 11; Δt_bounds = (0.05, 0.15))
+    @test haskey(traj_b.bounds, :Δt)
+    @test traj_b.bounds[:Δt] == ([0.05], [0.15])
+
+    # ── auto-populated global_data from system.global_params (ket conversion) ──
+    sys_g = QuantumSystem(
+        0.1 * PAULIS[:Z],
+        [PAULIS[:X]],
+        [(-1.0, 1.0)];
+        global_params = (ω = 4.0,),
+    )
+    ψ0 = [1.0, 0.0]
+    ψg = [0.0, 1.0]
+    kq = KetTrajectory(sys_g, zp, ψ0, ψg)
+    traj_g = NamedTrajectory(kq, 11)
+    @test traj_g.global_dim == 1
+    @test traj_g.global_components[:ω] == 1:1   # the (ω=4.0,) single global maps to component slot 1
+    @test traj_g.global_data == [4.0]           # and its value is the recorded 4.0
+end

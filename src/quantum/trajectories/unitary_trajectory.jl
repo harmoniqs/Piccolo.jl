@@ -80,7 +80,8 @@ end
 """
     UnitaryTrajectory(system, goal, T::Real; drive_name=:u, algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8)
 
-Convenience constructor that creates a zero pulse of duration T.
+Convenience constructor that creates a random pulse of duration T
+(each drive sampled uniformly within its `drive_bounds`; pass `rng` for reproducibility).
 
 # Arguments
 - `system::QuantumSystem`: The quantum system
@@ -101,9 +102,11 @@ function UnitaryTrajectory(
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
+    rng::AbstractRNG = default_rng(),
 )
     times = [0.0, T]
-    controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
+    controls =
+        vcat([rand(rng, Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
     return UnitaryTrajectory(system, pulse, goal; algorithm, abstol, reltol)
 end
@@ -367,4 +370,19 @@ end
     )
 
     @test fid_adapt ≈ fid_gl4_fine atol = 1e-6
+end
+
+@testitem "convenience UnitaryTrajectory ctor is rng-reproducible" begin
+    using Piccolo
+    using Random: MersenneTwister
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.1σz, [σx], [1.0])
+    goal = ComplexF64[0 1; 1 0]   # X gate
+
+    # The convenience ctor draws a RANDOM pulse; a supplied rng makes it reproducible.
+    controls(rng) = sample(get_pulse(UnitaryTrajectory(sys, goal, 1.0; rng = rng)), 8)[1]
+    @test controls(MersenneTwister(0)) == controls(MersenneTwister(0))   # same seed → identical
+    @test controls(MersenneTwister(0)) != controls(MersenneTwister(1))   # different seed → differs
 end

@@ -79,7 +79,7 @@ The problem adds discrete derivative variables (du, ddu) that:
 
 # Arguments
 - `qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}`: Quantum trajectory with piecewise constant pulse
-- `N::Int`: Number of timesteps for discretization
+- `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator (which does not support global variables). A custom integrator is required when `global_names` is specified.
@@ -315,7 +315,7 @@ use `SplinePulseProblem` instead.
 
 # Arguments
 - `qtraj::MultiKetTrajectory{<:ZeroOrderPulse}`: Ensemble of ket state transfers with piecewise constant pulse
-- `N::Int`: Number of timesteps for the discretization
+- `N::Int`: number of knot points for the discretization
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, the default `BilinearIntegrator` is used. When `global_names` is specified, you must supply a custom integrator here (i.e., do not rely on the default `BilinearIntegrator`) that supports global variables.
@@ -379,7 +379,7 @@ function SmoothPulseProblem(
 )
     if _show_header(piccolo_options)
         println(
-            "    constructing SmoothPulseProblem for MultiKetTrajectory ($(length(qtraj.initials)) states)...",
+            "    constructing SmoothPulseProblem for $(nameof(typeof(qtraj))) ($(length(qtraj.initials)) states)...",
         )
     end
 
@@ -433,7 +433,14 @@ function SmoothPulseProblem(
 
     # Build objective: coherent fidelity for ensemble (with optional free phase)
     J = if free_phase && !isnothing(goals_fn)
-        CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj_smooth; Q = Q)
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            snames,
+            θ_names,
+            traj_smooth;
+            Q = Q,
+            weights = weights,
+        )
     else
         _ensemble_ket_objective(
             qtraj,
@@ -578,6 +585,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = indices,
+        iso_layout = :interleaved_columns,
     )
 end
 
@@ -595,6 +603,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
+        iso_layout = :block,
     )
 end
 
@@ -612,6 +621,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
+        iso_layout = :compact_density,
     )
 end
 
@@ -626,10 +636,14 @@ Create a coherent fidelity objective for ensemble state transfers.
 
 For ensemble trajectories (implementing a gate via multiple state transfers),
 we use coherent fidelity:
-    F_coherent = |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|²
+    F_coherent = |∑ᵢ wᵢ ⟨ψᵢ_goal|ψᵢ⟩ / ∑ᵢ wᵢ|²
 
 This requires all state overlaps to have aligned phases, which is essential
 for gate implementation (the gate should have a single global phase).
+
+`weights` are honored on both branches: they reweight the coherent mean of
+overlaps, and scale the per-state `Q` in the incoherent branch. Uniform weights
+reduce to the unweighted formula.
 """
 function _ensemble_ket_objective(
     qtraj::MultiKetTrajectory,
@@ -642,7 +656,7 @@ function _ensemble_ket_objective(
 )
     if coherent
         # Use coherent fidelity - phases must align for gate implementation
-        return CoherentKetInfidelityObjective(goals, snames, traj; Q = Q)
+        return CoherentKetInfidelityObjective(goals, snames, traj; Q = Q, weights = weights)
     else
         # Use individual fidelity - each state optimized independently
         # Useful for cold-start on gates with negative phases (e.g. CZ)
@@ -693,6 +707,7 @@ function _apply_piccolo_options(
         traj;
         state_names = snames,
         state_leakage_indices = leakage_indices,
+        iso_layout = :block,
     )
 end
 
@@ -960,6 +975,47 @@ end
     end
 end
 
+@testitem "SmoothPulseProblem honors MultiKetTrajectory weights (coherent)" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    T = 10.0
+    N = 20
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    ψp = ComplexF64[1.0, 1.0] / √2
+    ψm = ComplexF64[1.0, -1.0] / √2
+
+    # Deterministic pulse so both problems see the identical trajectory —
+    # only the weights differ between them
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
+
+    initials = [ψ0, ψ1, ψp]
+    goals = [ψ1, ψ0, ψm]
+
+    function fidelity_objective_value(ws)
+        qtraj = MultiKetTrajectory(sys, pulse, initials, goals; weights = ws)
+        qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+        objective_value(qcp.prob.objective, qcp.prob.trajectory)
+    end
+
+    # A trajectory carrying non-uniform weights must produce an objective whose
+    # value depends on those weights (issue #261)
+    J_front = fidelity_objective_value([0.8, 0.1, 0.1])
+    J_back = fidelity_objective_value([0.1, 0.1, 0.8])
+    @test J_front != J_back
+
+    # Uniform weights leave the unweighted result exactly where it was
+    @test fidelity_objective_value(fill(1 / 3, 3)) ===
+          fidelity_objective_value(fill(1.0, 3))
+end
+
 # ============================================================================= #
 # MultiKetTrajectory Tests (manual setup)
 # ============================================================================= #
@@ -1209,7 +1265,13 @@ end
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
 
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    # Deterministic smooth init at the trajectory frequency — avoids the
+    # unseeded-randn flake (repo convention; the sampling problem now carries
+    # the base's derivative chain, making the random-init convergence
+    # stochastic at this iteration budget).
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init = 0.1 * reshape(cos.(2π .* times_arr), 1, N)
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys_nominal, pulse, ψ_init, ψ_goal)
     qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 
@@ -1223,8 +1285,10 @@ end
     @test haskey(traj.components, :ψ̃1)
     @test haskey(traj.components, :ψ̃2)
 
-    # Solve
-    solve!(sampling_prob; max_iter = 50, verbose = false, print_level = 1)
+    # Solve. max_iter=100 matches the non-sampling KetTrajectory sibling: the
+    # sampling problem now carries the base's derivative chain (issue #267), so
+    # 50 iterations leaves dynamics residuals stochastic around the 1e-3 gate.
+    solve!(sampling_prob; max_iter = 100, verbose = false, print_level = 1)
 
     # Test dynamics constraints are satisfied
     for integrator in sampling_prob.prob.integrators
@@ -1467,6 +1531,36 @@ end
 
     # Check bounds were set
     @test length(qcp.prob.constraints) > 0
+
+    # The free-phase branch must honor trajectory weights, matching the
+    # fixed-phase branch of the same template (issue #263)
+    ψp = ComplexF64[1.0, 1.0] / √2
+    ψm = ComplexF64[1.0, -1.0] / √2
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_det =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse_det = ZeroOrderPulse(u_det, collect(range(0.0, T, length = N)))
+
+    function free_phase_objective_value(ws)
+        qtraj = MultiKetTrajectory(sys, pulse_det, [ψ0, ψ1, ψp], [ψ1, ψ0, ψm]; weights = ws)
+        p = SmoothPulseProblem(
+            qtraj,
+            N;
+            Q = 100.0,
+            R = 1e-2,
+            free_phase = true,
+            subsystem_levels = [2],
+        )
+        objective_value(p.prob.objective, p.prob.trajectory)
+    end
+
+    @test free_phase_objective_value([0.8, 0.1, 0.1]) !=
+          free_phase_objective_value([0.1, 0.1, 0.8])
+
+    # Uniform weights leave today's value exactly where it was
+    @test free_phase_objective_value(fill(1 / 3, 3)) ===
+          free_phase_objective_value(fill(1.0, 3))
 end
 
 @testitem "SmoothPulseProblem free_phase requires subsystem_levels" begin
@@ -1545,6 +1639,45 @@ end
     val_inc = objective_value(J_incoherent, traj)
     @test val_coh ≈ 0.0 atol = 1e-8
     @test val_inc ≈ 0.0 atol = 1e-8
+
+    # The coherent branch must not discard per-state weights (issue #261).
+    # Asymmetric states: ⟨ψ1|ψ̃1⟩ = 1, ⟨ψ0|ψ̃2⟩ = ½
+    ψ̃1_asym = zeros(ket_dim, N)
+    ψ̃2_asym = zeros(ket_dim, N)
+    for k = 1:N
+        ψ̃1_asym[:, k] = ket_to_iso(ψ1)
+        ψ̃2_asym[:, k] = ket_to_iso(0.5 * ψ0)
+    end
+    traj_asym = NamedTrajectory(
+        (ψ̃1 = ψ̃1_asym, ψ̃2 = ψ̃2_asym, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    coh(ws) = objective_value(
+        _ensemble_ket_objective(
+            qtraj,
+            traj_asym,
+            [:ψ̃1, :ψ̃2],
+            ws,
+            goals,
+            100.0;
+            coherent = true,
+        ),
+        traj_asym,
+    )
+
+    # F = |0.9·1 + 0.1·½|² = 0.9025  and  |0.1·1 + 0.9·½|² = 0.3025
+    @test coh([0.9, 0.1]) ≈ 100.0 * (1 - 0.9025)
+    @test coh([0.1, 0.9]) ≈ 100.0 * (1 - 0.3025)
+    @test coh([0.9, 0.1]) != coh([0.1, 0.9])
+
+    # Uniform weights leave the unweighted value exactly where it was
+    @test coh([0.5, 0.5]) === coh([1.0, 1.0])
+
+    # Weights carried by the trajectory itself reach the coherent objective
+    qtraj_w = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], goals; weights = [0.9, 0.1])
+    @test coh(qtraj_w.weights) ≈ coh([0.9, 0.1])
 end
 
 @testitem "SmoothPulseProblem auto-computes leakage indices" begin
@@ -1575,4 +1708,107 @@ end
     # Verify leakage constraints were added — problem should have more constraints
     # than a problem without leakage
     @test length(qcp.prob.constraints) >= 2
+end
+
+@testitem "SmoothPulseProblem free_phase error contract (single trajectory)" begin
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(21)
+    T, N = 5.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # KetTrajectory: no subsystem_levels plumbing on this method at all
+    qtraj_k = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    @test_throws ErrorException SmoothPulseProblem(qtraj_k, N; free_phase = true)
+
+    # UnitaryTrajectory with a plain-matrix goal: free_phase requires EmbeddedOperator
+    qtraj_u = UnitaryTrajectory(sys, pulse, GATES[:X])
+    @test_throws AssertionError SmoothPulseProblem(qtraj_u, N; free_phase = true)
+
+    # EmbeddedOperator goal: the θ globals are set up, then construction stops
+    # at the integrator requirement (BilinearIntegrator does not carry globals).
+    op = EmbeddedOperator(GATES[:X], 1:2, 2)
+    qtraj_e = UnitaryTrajectory(sys, pulse, op)
+    @test_throws ErrorException SmoothPulseProblem(
+        qtraj_e,
+        N;
+        free_phase = true,
+        piccolo_options = PiccoloOptions(display = :silent),
+    )
+end
+
+@testitem "SmoothPulseProblem builds global_data from system global_params" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(31)
+    T, N = 2.0, 10
+    sys = QuantumSystem(
+        GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.1,),
+    )
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # Single-trajectory path: global_data seeded from sys.global_params
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    traj = get_trajectory(qcp)
+    @test haskey(traj.global_components, :δ)
+    @test traj.global_data[traj.global_components[:δ]] ≈ [0.1]
+
+    # MultiKet path: same seeding
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    qtraj_mk = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp_mk = SmoothPulseProblem(
+        qtraj_mk,
+        N;
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test haskey(get_trajectory(qcp_mk).global_components, :δ)
+end
+
+@testitem "SmoothPulseProblem accepts prebuilt integrators" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(41)
+    T, N = 5.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # Single integrator (not a vector) for the single-trajectory method
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        integrator = BilinearIntegrator(qtraj, N),
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test qcp isa QuantumControlProblem
+
+    # Vector of integrators for the MultiKet method (one per state)
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    qtraj_mk = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    integrators = collect(BilinearIntegrator(qtraj_mk, N))
+    qcp_mk = SmoothPulseProblem(
+        qtraj_mk,
+        N;
+        integrator = integrators,
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test qcp_mk isa QuantumControlProblem
 end

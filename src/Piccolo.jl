@@ -15,6 +15,10 @@ include("quantum/_quantum.jl")
 include("control/_control.jl")
 @reexport using .Control
 
+# Declarative problem specs: wire-format ProblemSpec, parser, registries, hashes
+include("specs/_specs.jl")
+@reexport using .Specs
+
 # Visualizations
 include("visualizations/_visualizations.jl")
 @reexport using .Visualizations

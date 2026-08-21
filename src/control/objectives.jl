@@ -68,7 +68,7 @@ end
 # ---------------------------------------------------------
 
 """
-    coherent_ket_fidelity(ψ̃s, ψ_goals)
+    coherent_ket_fidelity(ψ̃s, ψ_goals; weights=nothing)
 
 Compute coherent fidelity across multiple ket states:
 
@@ -77,19 +77,70 @@ Compute coherent fidelity across multiple ket states:
 This requires all overlaps to have consistent phases (global phase alignment),
 which is necessary for implementing gates via state transfer.
 
+With per-state `weights`, the mean of overlaps becomes a *weighted* mean,
+normalized by the weight sum:
+
+    F_coherent = |∑ᵢ wᵢ ⟨ψᵢ_goal|ψᵢ⟩ / ∑ᵢ wᵢ|²
+
+Only the ratios between weights matter — they need not be normalized. Uniform
+weights are the identity case, recovering the unweighted formula exactly.
+
 # Arguments
 - `ψ̃s::Vector{<:AbstractVector}`: List of isomorphic state vectors
 - `ψ_goals::Vector{<:AbstractVector{<:Complex}}`: List of goal states
+
+# Keyword Arguments
+- `weights::Union{Nothing, AbstractVector{<:Real}}=nothing`: Per-state weights.
+  `nothing` (the default) means uniform weighting.
 """
-function coherent_ket_fidelity(ψ̃s, ψ_goals::AbstractVector{<:AbstractVector{<:Complex}})
+function coherent_ket_fidelity(
+    ψ̃s,
+    ψ_goals::AbstractVector{<:AbstractVector{<:Complex}};
+    weights::Union{Nothing,AbstractVector{<:Real}} = nothing,
+)
     n = length(ψ̃s)
     @assert n == length(ψ_goals) "Number of states must match number of goals"
+    isnothing(weights) ||
+        @assert n == length(weights) "Number of states must match number of weights"
 
-    # Sum of overlaps (complex)
-    overlap_sum = sum(ψ_goals[i]' * iso_to_ket(ψ̃s[i]) for i = 1:n)
+    # Uniform weights are the identity case — take the unweighted path so the
+    # value is bit-for-bit what it was before weights existed
+    if isnothing(weights) || allequal(weights)
+        # Sum of overlaps (complex)
+        overlap_sum = sum(ψ_goals[i]' * iso_to_ket(ψ̃s[i]) for i = 1:n)
 
-    # Coherent fidelity: |⟨sum⟩/n|²
-    return abs2(overlap_sum / n)
+        # Coherent fidelity: |⟨sum⟩/n|²
+        return abs2(overlap_sum / n)
+    else
+        # Weighted sum of overlaps (complex)
+        overlap_sum = sum(weights[i] * (ψ_goals[i]' * iso_to_ket(ψ̃s[i])) for i = 1:n)
+
+        # Weighted coherent fidelity: |⟨weighted sum⟩/∑w|²
+        return abs2(overlap_sum / sum(weights))
+    end
+end
+
+"""
+    coherent_fidelity_weights(weights, n_states) -> Union{Nothing, Vector{Float64}}
+
+Canonicalize per-state weights for coherent fidelity.
+
+Returns `nothing` — the unweighted code path — when `weights` is `nothing` or
+uniform. Uniform weights are mathematically the identity case, and routing them
+back to the unweighted formula makes that identity hold *bit-for-bit* rather
+than up to floating-point rounding, so existing unweighted results do not move.
+
+Otherwise returns the weights normalized to sum to one, so that a constructed
+objective captures self-describing weights.
+"""
+coherent_fidelity_weights(::Nothing, ::Int) = nothing
+
+function coherent_fidelity_weights(weights::AbstractVector{<:Real}, n_states::Int)
+    @assert length(weights) == n_states "Number of weights must match number of states"
+    @assert all(≥(0), weights) "Weights must be non-negative"
+    @assert sum(weights) > 0 "Weights must not all be zero"
+    allequal(weights) && return nothing
+    return collect(Float64, weights) ./ sum(weights)
 end
 
 """
@@ -98,9 +149,9 @@ end
 Create a terminal objective for coherent ket state infidelity across multiple states.
 
 Coherent fidelity is defined as:
-    F_coherent = |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|²
+    F_coherent = |∑ᵢ wᵢ ⟨ψᵢ_goal|ψᵢ⟩ / ∑ᵢ wᵢ|²
 
-Unlike incoherent fidelity (average of individual |⟨ψᵢ_goal|ψᵢ⟩|²), coherent fidelity 
+Unlike incoherent fidelity (average of individual |⟨ψᵢ_goal|ψᵢ⟩|²), coherent fidelity
 requires all state overlaps to have aligned phases. This is essential when implementing
 a gate via multiple state transfers - the gate should have a single global phase,
 not independent phases per state.
@@ -112,6 +163,9 @@ not independent phases per state.
 
 # Keyword Arguments
 - `Q::Float64=100.0`: Weight on the infidelity objective
+- `weights::Union{Nothing, AbstractVector{<:Real}}=nothing`: Per-state weights on the
+  coherent mean of overlaps. Normalized at construction; only their ratios matter.
+  `nothing` or uniform weights give the unweighted fidelity |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|².
 
 # Example
 ```julia
@@ -119,6 +173,9 @@ not independent phases per state.
 goals = [ComplexF64[0, 1], ComplexF64[1, 0]]
 names = [:ψ̃1, :ψ̃2]
 obj = CoherentKetInfidelityObjective(goals, names, traj; Q=100.0)
+
+# Emphasize the first state transfer
+obj = CoherentKetInfidelityObjective(goals, names, traj; Q=100.0, weights=[0.9, 0.1])
 ```
 """
 function CoherentKetInfidelityObjective(
@@ -126,12 +183,16 @@ function CoherentKetInfidelityObjective(
     ψ̃_names::Vector{Symbol},
     traj::NamedTrajectory;
     Q::Float64 = 100.0,
+    weights::Union{Nothing,AbstractVector{<:Real}} = nothing,
 )
     n_states = length(ψ_goals)
     @assert length(ψ̃_names) == n_states "Number of names must match number of goals"
 
     # Convert goals to ComplexF64
     goals = [ComplexF64.(g) for g in ψ_goals]
+
+    # Normalize once at construction, so the loss captures self-describing weights
+    ws = coherent_fidelity_weights(weights, n_states)
 
     # Get component indices for each state at terminal time
     state_comps = [traj.components[name] for name in ψ̃_names]
@@ -148,10 +209,11 @@ function CoherentKetInfidelityObjective(
         end
 
         # Coherent infidelity: 1 - F_coherent
-        return abs(1 - coherent_ket_fidelity(ψ̃s, goals))
+        return abs(1 - coherent_ket_fidelity(ψ̃s, goals; weights = ws))
     end
 
-    # Pass vector of component names for multi-component terminal objective
+    # Pass vector of component names for multi-component terminal objective.
+    # (Matrix-free per-knot HVP carrier construction lives in Piccolissimo.)
     return TerminalObjective(ℓ, ψ̃_names, traj; Q = Q)
 end
 
@@ -168,9 +230,10 @@ Coherent ket infidelity with optimizable single-qubit Z-phase rotations.
 in the trajectory's `global_data` and optimized alongside the pulse.
 
 The objective minimizes:
-    1 - |1/n Σᵢ ⟨goal_i(θ)|ψ_i⟩|²
+    1 - |Σᵢ wᵢ ⟨goal_i(θ)|ψ_i⟩ / Σᵢ wᵢ|²
 
-where `goal_i(θ) = Φ(θ) · goal_i` with `Φ(θ) = Z₁(θ₁) ⊗ Z₂(θ₂) ⊗ ⋯`.
+where `goal_i(θ) = Φ(θ) · goal_i` with `Φ(θ) = Z₁(θ₁) ⊗ Z₂(θ₂) ⊗ ⋯`. Weights
+apply to the *phased* overlaps, so weighting composes with the phase rotation.
 
 # Arguments
 - `goals_fn::Function`: Maps phase vector `θ` to phased goal kets
@@ -180,6 +243,9 @@ where `goal_i(θ) = Φ(θ) · goal_i` with `Φ(θ) = Z₁(θ₁) ⊗ Z₂(θ₂)
 
 # Keyword Arguments
 - `Q::Float64=100.0`: Weight on the infidelity objective
+- `weights::Union{Nothing, AbstractVector{<:Real}}=nothing`: Per-state weights on the
+  coherent mean of overlaps. Normalized at construction; only their ratios matter.
+  `nothing` or uniform weights give the unweighted fidelity |1/n Σᵢ ⟨goal_i(θ)|ψ_i⟩|².
 """
 function CoherentKetFreePhaseInfidelityObjective(
     goals_fn::Function,
@@ -187,10 +253,14 @@ function CoherentKetFreePhaseInfidelityObjective(
     θ_names::AbstractVector{Symbol},
     traj::NamedTrajectory;
     Q::Float64 = 100.0,
+    weights::Union{Nothing,AbstractVector{<:Real}} = nothing,
 )
     n_states = length(ψ̃_names)
     state_dims = [length(traj.components[name]) for name in ψ̃_names]
     total_state_dim = sum(state_dims)
+
+    # Normalize once at construction, so the loss captures self-describing weights
+    ws = coherent_fidelity_weights(weights, n_states)
 
     function ℓ(z)
         x = z[1:total_state_dim]
@@ -205,7 +275,7 @@ function CoherentKetFreePhaseInfidelityObjective(
         end
 
         phased_goals = goals_fn(θ)
-        return abs(1 - coherent_ket_fidelity(ψ̃s, phased_goals))
+        return abs(1 - coherent_ket_fidelity(ψ̃s, phased_goals; weights = ws))
     end
 
     return GlobalKnotPointObjective(
@@ -280,8 +350,9 @@ function UnitaryInfidelityObjective(
     traj::NamedTrajectory;
     Q = 100.0,
 )
+    # Matrix-free per-knot HVP carrier construction lives in Piccolissimo.
     ℓ = Ũ⃗ -> abs(1 - unitary_fidelity_loss(Ũ⃗, U_goal))
-    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
+    return TerminalObjective(ℓ, Ũ⃗_name, traj; Q = Q)
 end
 
 function UnitaryFreePhaseInfidelityObjective(
@@ -395,7 +466,7 @@ function LeakageObjective(
     indices::AbstractVector{Int},
     name::Symbol,
     traj::NamedTrajectory;
-    times = 1:traj.N,
+    times = 1:(traj.N),
     Qs::AbstractVector{<:Float64} = fill(1.0, length(times)),
 )
     leakage_objective(x) = sum(abs2, x[indices]) / length(indices)
@@ -424,11 +495,8 @@ using TestItems
     u = randn(1, N)
     Δt = fill(0.1, N)
 
-    traj = NamedTrajectory(
-        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
-        timestep = :Δt,
-        controls = :u,
-    )
+    traj =
+        NamedTrajectory((ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt); timestep = :Δt, controls = :u)
 
     # Goal states for X gate: |0⟩→|1⟩ and |1⟩→|0⟩
     ψ0 = ComplexF64[1.0, 0.0]
@@ -489,6 +557,60 @@ using TestItems
     # overlap_sum = ⟨ψ1|ψ1⟩ + ⟨ψ0|(-ψ0)⟩ = 1 + (-1) = 0
     # F_coherent = |0/2|² = 0
     @test J_phase > 50.0  # Should be high infidelity (close to Q * 1.0)
+
+    # Per-state weights must reach the objective value.
+    # Asymmetric states: ⟨ψ1|ψ̃1⟩ = 1, ⟨ψ0|ψ̃2⟩ = ½
+    ψ̃1_asym = zeros(ket_dim, N)
+    ψ̃2_asym = zeros(ket_dim, N)
+    for k = 1:N
+        ψ̃1_asym[:, k] = ket_to_iso(ψ1)
+        ψ̃2_asym[:, k] = ket_to_iso(0.5 * ψ0)
+    end
+
+    traj_asym = NamedTrajectory(
+        (ψ̃1 = ψ̃1_asym, ψ̃2 = ψ̃2_asym, u = u, Δt = Δt);
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    obj_w1 = CoherentKetInfidelityObjective(
+        goals,
+        [:ψ̃1, :ψ̃2],
+        traj_asym;
+        Q = 100.0,
+        weights = [0.9, 0.1],
+    )
+    obj_w2 = CoherentKetInfidelityObjective(
+        goals,
+        [:ψ̃1, :ψ̃2],
+        traj_asym;
+        Q = 100.0,
+        weights = [0.1, 0.9],
+    )
+
+    # F = |0.9·1 + 0.1·½|² = 0.9025  and  |0.1·1 + 0.9·½|² = 0.3025
+    @test objective_value(obj_w1, traj_asym) ≈ 100.0 * (1 - 0.9025)
+    @test objective_value(obj_w2, traj_asym) ≈ 100.0 * (1 - 0.3025)
+
+    # Two different weight vectors give two different objective values
+    @test objective_value(obj_w1, traj_asym) != objective_value(obj_w2, traj_asym)
+
+    # Uniform weights leave the unweighted value exactly where it is
+    obj_unweighted = CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj_asym; Q = 100.0)
+    obj_uniform = CoherentKetInfidelityObjective(
+        goals,
+        [:ψ̃1, :ψ̃2],
+        traj_asym;
+        Q = 100.0,
+        weights = [0.5, 0.5],
+    )
+    @test objective_value(obj_uniform, traj_asym) ===
+          objective_value(obj_unweighted, traj_asym)
+
+    # Weighted objectives stay differentiable
+    ∇_w = zeros(traj_asym.dim * traj_asym.N + traj_asym.global_dim)
+    gradient!(∇_w, obj_w1, traj_asym)
+    @test !all(∇_w .== 0)
 end
 
 @testitem "coherent_ket_fidelity accepts generic Complex types" begin
@@ -509,6 +631,39 @@ end
     goals_f64 = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
     F2 = Piccolo.QuantumObjectives.coherent_ket_fidelity(ψ̃s, goals_f64)
     @test F2 ≈ 1.0
+end
+
+@testitem "weighted coherent_ket_fidelity" begin
+    using LinearAlgebra
+    const coherent_ket_fidelity = Piccolo.QuantumObjectives.coherent_ket_fidelity
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    goals = [ψ1, ψ0]
+
+    # Overlaps: ⟨ψ1|ψ1⟩ = 1, ⟨ψ0|½ψ0⟩ = ½
+    ψ̃s = [ket_to_iso(ψ1), ket_to_iso(0.5 * ψ0)]
+
+    # Weighted mean of overlaps, normalized by the weight sum
+    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1]) ≈ abs2(0.9 * 1 + 0.1 * 0.5)
+    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.1, 0.9]) ≈ abs2(0.1 * 1 + 0.9 * 0.5)
+
+    # Distinct weights give distinct fidelities
+    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1]) !=
+          coherent_ket_fidelity(ψ̃s, goals; weights = [0.1, 0.9])
+
+    # Weights need not be normalized — only their ratio matters
+    @test coherent_ket_fidelity(ψ̃s, goals; weights = [9.0, 1.0]) ≈
+          coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1])
+
+    # Uniform weights are the identity case: bit-for-bit equal to the unweighted value,
+    # including when 1/n is not exactly representable
+    ψ̃s3 = [ket_to_iso(ψ1), ket_to_iso(0.5 * ψ0), ket_to_iso(0.25 * ψ1)]
+    goals3 = [ψ1, ψ0, ψ1]
+    F_plain = coherent_ket_fidelity(ψ̃s3, goals3)
+    @test coherent_ket_fidelity(ψ̃s3, goals3; weights = nothing) === F_plain
+    @test coherent_ket_fidelity(ψ̃s3, goals3; weights = fill(1 / 3, 3)) === F_plain
+    @test coherent_ket_fidelity(ψ̃s3, goals3; weights = fill(1.0, 3)) === F_plain
 end
 
 @testitem "CoherentKetFreePhaseInfidelityObjective" begin
@@ -593,6 +748,79 @@ end
     J_rand = objective_value(obj_rand, traj_rand)
     @test isfinite(J_rand)
     @test 0.0 <= J_rand <= 100.0
+
+    # Per-state weights must reach the free-phase objective too (issue #263).
+    # Asymmetric states at θ=0: ⟨ψ1|ψ̃1⟩ = 1, ⟨ψ0|ψ̃2⟩ = ½
+    ψ̃1_asym = zeros(ket_dim, N)
+    ψ̃2_asym = zeros(ket_dim, N)
+    for k = 1:N
+        ψ̃1_asym[:, k] = ket_to_iso(ψ1)
+        ψ̃2_asym[:, k] = ket_to_iso(0.5 * ψ0)
+    end
+    traj_asym = NamedTrajectory(
+        (ψ̃1 = ψ̃1_asym, ψ̃2 = ψ̃2_asym, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.0],
+        global_components = (φ_1 = 1:1,),
+    )
+
+    free_phase_value(ws) = objective_value(
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            [:ψ̃1, :ψ̃2],
+            θ_names,
+            traj_asym;
+            Q = 100.0,
+            weights = ws,
+        ),
+        traj_asym,
+    )
+
+    # Goals are phase-rotated by θ=0 here, so the weighted mean is analytic:
+    # F = |0.9·1 + 0.1·½|² = 0.9025  and  |0.1·1 + 0.9·½|² = 0.3025
+    @test free_phase_value([0.9, 0.1]) ≈ 100.0 * (1 - 0.9025)
+    @test free_phase_value([0.1, 0.9]) ≈ 100.0 * (1 - 0.3025)
+    @test free_phase_value([0.9, 0.1]) != free_phase_value([0.1, 0.9])
+
+    # Omitted and uniform weights leave today's value exactly where it is
+    @test free_phase_value(nothing) === free_phase_value([0.5, 0.5])
+    @test free_phase_value(nothing) === free_phase_value([1.0, 1.0])
+
+    # Weighting composes with the phase rotation rather than replacing it:
+    # a nonzero phase still moves a weighted objective
+    traj_phase = NamedTrajectory(
+        (ψ̃1 = ψ̃1_asym, ψ̃2 = ψ̃2_asym, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.7],
+        global_components = (φ_1 = 1:1,),
+    )
+    obj_phase_w = CoherentKetFreePhaseInfidelityObjective(
+        goals_fn,
+        [:ψ̃1, :ψ̃2],
+        θ_names,
+        traj_phase;
+        Q = 100.0,
+        weights = [0.9, 0.1],
+    )
+    @test objective_value(obj_phase_w, traj_phase) != free_phase_value([0.9, 0.1])
+
+    # Weighted free-phase objectives stay differentiable
+    ∇_w = zeros(traj_asym.dim * traj_asym.N + traj_asym.global_dim)
+    gradient!(
+        ∇_w,
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            [:ψ̃1, :ψ̃2],
+            θ_names,
+            traj_asym;
+            Q = 100.0,
+            weights = [0.9, 0.1],
+        ),
+        traj_asym,
+    )
+    @test !all(∇_w .== 0)
 end
 
 @testitem "KetFreePhaseInfidelityObjective" begin

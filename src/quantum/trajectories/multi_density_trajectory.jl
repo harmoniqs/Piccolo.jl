@@ -97,7 +97,8 @@ end
 """
     MultiDensityTrajectory(system, initials, goals, T::Real; weights=..., drive_name=:u, algorithm=Tsit5(), abstol=1e-8, reltol=1e-8)
 
-Convenience constructor that creates a zero pulse of duration T.
+Convenience constructor that creates a random pulse of duration T
+(each drive sampled uniformly within its `drive_bounds`; pass `rng` for reproducibility).
 
 # Arguments
 - `system::OpenQuantumSystem`: The open quantum system
@@ -122,9 +123,11 @@ function MultiDensityTrajectory(
     algorithm = Tsit5(),
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
+    rng::AbstractRNG = default_rng(),
 )
     times = [0.0, T]
-    controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
+    controls =
+        vcat([rand(rng, Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
     return MultiDensityTrajectory(
         system,
