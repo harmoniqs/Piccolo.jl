@@ -109,13 +109,30 @@ fidelity(qcp)
 # - **R = 0.1**: Very smooth pulses
 # - **R = 1e-4**: Allow aggressive controls
 #
-# ### Number of Timesteps (N)
+# ### Number of Knot Points (N)
 #
-# `N` is the discretization resolution:
+# `N` is the discretization resolution — the number of knot points (nodes, in the
+# direct multiple-shooting literature) at which the trajectory is discretized:
 #
 # - **N = 50**: Coarse, fast optimization
 # - **N = 100**: Typical
 # - **N = 200+**: Fine control, slower
+#
+# ### Notation
+#
+# Throughout the Piccolo ecosystem the notation is aligned with the direct
+# multiple-shooting literature:
+#
+# - **N** — the number of knot points (nodes); `traj.N`. Prose says "knot
+#   points" at first mention, "knots" thereafter.
+# - **T** — the total pulse duration (a scalar).
+# - **Δt_k** — the timestep of knot `k` (the `:Δt` trajectory component; on a
+#   uniform grid `T = N·Δt`). The word "timestep" always means this per-knot
+#   quantity, never the count.
+# - **u(t)** — the control/drive amplitudes; **Ũ̃/ψ̃** — real-vector-isomorphism
+#   states.
+# - A **piecewise-constant (zero-order hold)** drive is one value of `u` per
+#   knot; spline drives interpolate between knots.
 #
 # ## Common Patterns
 #

@@ -97,3 +97,75 @@ function plot_weyl_trajectory(traj::NamedTrajectory, output_mp4 = "weyl_trajecto
 
     return fig
 end
+
+# ============================================================================ #
+# Tests
+# ============================================================================ #
+
+@testitem "c1c2c3 maps canonical two-qubit gates to their Weyl chamber classes" begin
+    using Piccolo
+    using LinearAlgebra
+
+    c1c2c3 = Piccolo.Visualizations.QuantumObjectPlots.c1c2c3
+
+    I4 = Matrix{ComplexF64}(I, 4, 4)
+    SWAP = ComplexF64[1 0 0 0; 0 0 1 0; 0 1 0 0; 0 0 0 1]
+    CNOT = ComplexF64[1 0 0 0; 0 1 0 0; 0 0 0 1; 0 0 1 0]
+    iSWAP = ComplexF64[1 0 0 0; 0 0 im 0; 0 im 0 0; 0 0 0 1]
+    CZ = ComplexF64[1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 -1]
+
+    # Corners of the Weyl chamber.
+    @test collect(c1c2c3(I4)) ≈ [0.0, 0.0, 0.0] atol = 1e-6    # identity: O
+    @test collect(c1c2c3(SWAP)) ≈ [0.5, 0.5, 0.5] atol = 1e-6  # SWAP: A3
+    @test collect(c1c2c3(iSWAP)) ≈ [0.5, 0.5, 0.0] atol = 1e-6 # iSWAP: A1
+    @test collect(c1c2c3(CNOT)) ≈ [0.5, 0.0, 0.0] atol = 1e-6  # CNOT: A2
+    @test collect(c1c2c3(CZ)) ≈ [0.5, 0.0, 0.0] atol = 1e-6    # CZ is locally equivalent to CNOT
+
+    # A product of single-qubit gates is locally equivalent to the identity.
+    @test collect(c1c2c3(kron(PAULIS[:X], PAULIS[:X]))) ≈ [0.0, 0.0, 0.0] atol = 1e-6
+
+    # Local gates conjugating CNOT leave the class invariant.
+    L = kron(PAULIS[:X], PAULIS[:Y])
+    R = kron(PAULIS[:Z], PAULIS[:X])
+    @test collect(c1c2c3(L * CNOT * R)) ≈ collect(c1c2c3(CNOT)) atol = 1e-6
+
+    # The global phase is divided out via the det normalization.
+    @test collect(c1c2c3(exp(im * π / 7) * CNOT)) ≈ collect(c1c2c3(CNOT)) atol = 1e-6
+
+    # Only 4×4 matrices are accepted.
+    @test_throws DimensionMismatch c1c2c3(Matrix{ComplexF64}(I, 2, 2))
+    @test_throws DimensionMismatch c1c2c3(Matrix{ComplexF64}(I, 8, 8))
+end
+
+@testitem "plot_weyl_trajectory renders headlessly and records an mp4" begin
+    using Piccolo
+    using CairoMakie
+    using LinearAlgebra
+
+    # A short trajectory: identity → CNOT family → SWAP.
+    N = 5
+    I4 = Matrix{ComplexF64}(I, 4, 4)
+    SWAP = ComplexF64[1 0 0 0; 0 0 1 0; 0 1 0 0; 0 0 0 1]
+    CNOT = ComplexF64[1 0 0 0; 0 1 0 0; 0 0 0 1; 0 0 1 0]
+    Us = [I4, exp(-im * 0.2 * CNOT), exp(-im * 0.4 * CNOT), exp(-im * 0.7 * SWAP), SWAP]
+
+    traj = NamedTrajectory(
+        (Ũ⃗ = hcat(operator_to_iso_vec.(Us)...), u = zeros(1, N), Δt = fill(0.1, N));
+        controls = :u,
+        timestep = :Δt,
+    )
+
+    # Explicit output path.
+    out = tempname() * ".mp4"
+    fig = plot_weyl_trajectory(traj, out)
+    @test fig isa Figure
+    @test isfile(out)
+    @test filesize(out) > 0
+    rm(out; force = true)
+
+    # Default filename lands in the working directory.
+    fig2 = plot_weyl_trajectory(traj)
+    @test fig2 isa Figure
+    @test isfile("weyl_trajectory.mp4")
+    rm("weyl_trajectory.mp4"; force = true)
+end

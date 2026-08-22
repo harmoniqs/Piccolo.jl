@@ -61,7 +61,7 @@ sys.levels, sys.n_drives
 
 ## Gate duration and discretization
 T = 10.0   # Total time (in units where ω = 1)
-N = 100    # Number of timesteps
+N = 100    # Number of knot points
 
 ## Time vector
 times = collect(range(0, T, length = N))

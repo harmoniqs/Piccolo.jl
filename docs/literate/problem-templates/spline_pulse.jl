@@ -27,12 +27,13 @@
 # # Linear spline
 # pulse = LinearSplinePulse(controls, times)
 # qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-# qcp = SplinePulseProblem(qtraj)  # Works
+# qcp = SplinePulseProblem(qtraj)  # Works (warns: default PWC integrator)
 #
-# # Cubic spline
+# # Cubic spline — the integrator choice must be explicit (#275)
 # pulse = CubicSplinePulse(controls, tangents, times)
 # qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-# qcp = SplinePulseProblem(qtraj)  # Works
+# qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)  # acknowledged PWC
+# # or, for spline-faithful dynamics: integrator = Piccolissimo.SplineIntegrator(qtraj, N)
 # ```
 #
 # ## Constructor Variants
@@ -84,7 +85,7 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator (uses `BilinearIntegrator` if `nothing`) |
+# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator. **Defaults to `BilinearIntegrator`, which is piecewise constant** — a mismatch for every spline pulse; see the warning below. |
 # | `global_names` | `Vector{Symbol}` | `nothing` | Global parameters to optimize |
 # | `global_bounds` | `Dict{Symbol, ...}` | `nothing` | Bounds on global variables |
 # | `constraints` | `Vector{AbstractConstraint}` | `[]` | Additional constraints |
@@ -113,8 +114,57 @@ pulse = CubicSplinePulse(controls, tangents, times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 ## Solve using native knot times
-qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0)
+## `integrator_type = :pwc` acknowledges (see the warning below) that Piccolo's
+## only built-in integrator treats the drive as piecewise constant.
+qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0, integrator_type = :pwc)
 cached_solve!(qcp, "spline_pulse_basic"; max_iter = 100)
+
+# !!! warning "The default integrator is piecewise constant — check the divergence"
+#     Every solve on this page uses the **PWC** integrator (`integrator_type = :pwc`),
+#     `BilinearIntegrator`: it models the drive as **piecewise constant on each interval**. That
+#     is not what a spline pulse is, so the optimizer is minimizing against a different waveform
+#     than the one your pulse actually produces. For a `CubicSplinePulse` it is worse still — the
+#     Hermite tangents (`:du`) get no gradient at all, so they simply sit at their initial values
+#     and are then integrated for real by the re-rollout. Constructing a cubic-spline problem
+#     without declaring the integrator choice is an **error** as of #275 — this page declares
+#     `:pwc` explicitly so you can see exactly what you are getting.
+#
+#     This is easy to *see* rather than take on faith. `rollout_divergence` compares the
+#     optimizer's collocation solution against an ODE re-rollout of the same pulse at the final
+#     time, and `sync_trajectory!` warns automatically when the two part company:
+
+rollout_divergence(qcp)
+
+# Reference points, so you can judge the number above: a *correctly* paired
+# spline-pulse-plus-spline-integrator problem measures `3.5e-7 … 6.4e-4`, while a spline pulse
+# under a piecewise-constant integrator measures `5.9e-2 … 1.9e-1` — roughly a 90× gap, which is
+# why `ROLLOUT_DIVERGENCE_RTOL[]` defaults to `5e-3`. Refining the grid does **not** help; the
+# divergence *grows* with `N`, because a finer collocation grid gives the optimizer more room to
+# exploit the model.
+#
+# `verify` says the same thing in fidelity terms — what the optimizer believes, versus what the
+# pulse achieves:
+
+verify(qcp)
+
+# **This example is itself affected, and not subtly.** At the time of writing it reports
+# `F_optimizer ≈ 0.999998` against `F_rollout ≈ 0.77` — the optimizer is confident to six digits
+# about a pulse that misses by roughly 0.23 in absolute fidelity. The `F_optimizer` figure is the
+# one you would have read off this page before the divergence check existed. Prefer `F_rollout`.
+
+# !!! note "Getting a matched integrator"
+#     Piccolo ships no spline integrator, so this page cannot demonstrate the correct pairing —
+#     `SplineIntegrator` lives in Piccolissimo, which is not a dependency of these docs. Pass it
+#     explicitly:
+#
+#     ```julia
+#     using Piccolissimo: SplineIntegrator, MagnusGL4Alg
+#     integrator = SplineIntegrator(qtraj, N; alg = MagnusGL4Alg(n_steps = 50))
+#     qcp = SplinePulseProblem(qtraj, N; integrator = integrator, Q = 100.0)
+#     ```
+#
+#     Without it, treat the fidelity reported by any example on this page as an artifact of the
+#     PWC model rather than a property of the pulse, and always prefer `verify(qcp).F_rollout`.
 
 # ### Warm-Starting from Previous Solution
 #
@@ -127,7 +177,7 @@ cached_solve!(qcp, "spline_pulse_basic"; max_iter = 100)
 # qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
 #
 # # Use native knot times (no resampling)
-# qcp = SplinePulseProblem(qtraj)
+# qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)
 # solve!(qcp; max_iter=50)  # Converges quickly from good initial guess
 # ```
 #
@@ -135,7 +185,7 @@ cached_solve!(qcp, "spline_pulse_basic"; max_iter = 100)
 #
 # The original pulse above has 50 knots. We can resample to 100 for finer control:
 
-qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
+qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0, integrator_type = :pwc)
 cached_solve!(qcp_resampled, "spline_pulse_resampled"; max_iter = 100)
 
 # ### Linear vs Cubic Splines
@@ -151,7 +201,7 @@ qcp_linear = SplinePulseProblem(qtraj_linear)
 
 pulse_cubic = CubicSplinePulse(controls, tangents, times)
 qtraj_cubic = UnitaryTrajectory(sys, pulse_cubic, GATES[:X])
-qcp_cubic = SplinePulseProblem(qtraj_cubic)
+qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared PWC — see the warning above
 ## du (tangents) are independent variables
 
 # ### Per-Drive Derivative Bounds
@@ -163,6 +213,7 @@ qcp_per_drive = SplinePulseProblem(
     qtraj;
     Q = 100.0,
     du_bounds = [5.0, 2.0],  ## drive 1 allows faster slopes than drive 2
+    integrator_type = :pwc,  ## declared PWC — see the warning above
 )
 
 # ## Trajectory Structure

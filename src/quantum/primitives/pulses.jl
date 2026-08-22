@@ -2272,3 +2272,105 @@ end
 end
 
 end # module Pulses
+
+@testitem "Pulse boundary-value :free and error branches" begin
+    using Piccolo
+
+    controls = [0.5 0.25 -0.1; -0.5 0.25 0.1]
+    times = [0.0, 0.5, 1.0]
+    derivs = [0.1 0.0 0.0; -0.1 0.0 0.0]
+
+    for P in (ZeroOrderPulse, LinearSplinePulse)
+        p_free = P(controls, times; initial_value = :free, final_value = :free)
+        @test all(isnan, p_free.initial_value)
+        @test all(isnan, p_free.final_value)
+        # Unknown symbols are rejected
+        @test_throws ErrorException P(controls, times; initial_value = :frozen)
+        @test_throws ErrorException P(controls, times; final_value = :frozen)
+    end
+
+    p_cubic_free = CubicSplinePulse(
+        controls,
+        derivs,
+        times;
+        initial_value = :free,
+        final_value = :free,
+    )
+    @test all(isnan, p_cubic_free.initial_value)
+    @test all(isnan, p_cubic_free.final_value)
+    @test_throws ErrorException CubicSplinePulse(
+        controls,
+        derivs,
+        times;
+        initial_value = :frozen,
+    )
+    @test_throws ErrorException CubicSplinePulse(
+        controls,
+        derivs,
+        times;
+        final_value = :frozen,
+    )
+end
+
+@testitem "Pulse show/summary rendering" begin
+    using Piccolo
+
+    pulse = ZeroOrderPulse([0.5 0.25], [0.0, 1.0])
+
+    # Base.show (compact) delegates to summary
+    s = sprint(show, pulse)
+    @test occursin("ZeroOrderPulse", s)
+    @test occursin("drives = 1", s)
+    @test occursin("T = 1.0", s)
+
+    # MIME text/plain rendering
+    s_full = sprint(show, MIME"text/plain"(), pulse)
+    @test occursin("ZeroOrderPulse", s_full)
+    @test occursin("drives: 1", s_full)
+    @test occursin("duration: 1.0", s_full)
+
+    # Same surface for the other pulse families
+    for p in (
+        LinearSplinePulse([0.5 0.25], [0.0, 1.0]),
+        CubicSplinePulse([0.5 0.25], [0.0 0.0], [0.0, 1.0]),
+        GaussianPulse([1.0], 0.1, 1.0),
+    )
+        @test sprint(show, p) isa String
+        @test sprint(show, MIME"text/plain"(), p) isa String
+    end
+end
+
+@testitem "Spline pulse knot accessors" begin
+    using Piccolo
+
+    times = [0.0, 0.25, 0.5, 0.75, 1.0]
+    controls = [1.0 2.0 3.0 2.0 1.0]
+    derivs = [0.0 0.0 0.0 0.0 0.0]
+
+    lin = LinearSplinePulse(controls, times)
+    @test get_knot_times(lin) == times
+    @test get_knot_count(lin) == 5
+    @test get_knot_values(lin) == controls
+
+    cub = CubicSplinePulse(controls, derivs, times)
+    @test get_knot_times(cub) == times
+    @test get_knot_count(cub) == 5
+    @test get_knot_values(cub) == controls
+    @test get_knot_derivatives(cub) == derivs
+
+    zop = ZeroOrderPulse(controls, times)
+    @test get_knot_times(zop) == times
+
+    # Analytic pulses: knots are just the endpoints; composite unions them
+    g = GaussianPulse([1.0], 0.1, 1.0)
+    @test get_knot_times(g) == [0.0, 1.0]
+    e = ErfPulse([1.0], 0.1, 2.0)
+    @test get_knot_times(e) == [0.0, 2.0]
+    f = FunctionPulse(t -> [sin(t)], 1.0, 1)
+    @test get_knot_times(f) == [0.0, 1.0]
+    comp = CompositePulse(
+        [ZeroOrderPulse([0.0 0.0 0.0 0.0], [0.0, 0.25, 0.5, 1.0]), g],
+        :concatenate,
+    )
+    @test get_knot_times(comp) == [0.0, 0.25, 0.5, 1.0]
+end
