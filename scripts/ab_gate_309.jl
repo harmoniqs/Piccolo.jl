@@ -25,12 +25,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
 function solve_with(R_bend)
     Random.seed!(309)               # identical starts
-    qcp = SplinePulseProblem(
-        qtraj, N;
-        Q = 100.0,
-        R_bend = R_bend,
-        integrator_type = :pwc,
-    )
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R_bend = R_bend, integrator_type = :pwc)
     solve!(qcp; max_iter = 200, print_level = 0)
     rep = verify(qcp; verbose = false)   # independent rollout of the extracted pulse
     F = rep.F_rollout

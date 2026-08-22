@@ -565,7 +565,7 @@ function shape_metrics(pulse::AbstractPulse; mesh::Int = 2^16)
     U = Matrix{Float64}(undef, mesh, n_d)
     for (i, t) in enumerate(ts)
         u = pulse(t)
-        for d in 1:n_d
+        for d = 1:n_d
             U[i, d] = u[d]
         end
     end
@@ -573,7 +573,7 @@ function shape_metrics(pulse::AbstractPulse; mesh::Int = 2^16)
     int_u2 = zeros(n_d)
     max_du = zeros(n_d)
     crest = zeros(n_d)
-    for d in 1:n_d
+    for d = 1:n_d
         us = view(U, :, d)
         int_u2[d] = sum(abs2, us) * (T / (mesh - 1))
         d1 = diff(us) ./ (T / (mesh - 1))
@@ -583,8 +583,7 @@ function shape_metrics(pulse::AbstractPulse; mesh::Int = 2^16)
         rms = sqrt(int_u2[d] / T)
         crest[d] = rms > 0 ? maximum(abs.(us)) / rms : 0.0
     end
-    param = pulse isa LinearSplinePulse ? 1 :
-            pulse isa CubicSplinePulse ? 3 : 0
+    param = pulse isa LinearSplinePulse ? 1 : pulse isa CubicSplinePulse ? 3 : 0
     return (
         bend = bend,
         int_u2 = int_u2,

@@ -2136,13 +2136,7 @@ end
     @test bend_default[1].R == [1e-3]
 
     # Opt-out: R_bend = 0 → no bending term
-    qcp_off = SplinePulseProblem(
-        qtraj,
-        N;
-        Q = 100.0,
-        integrator_type = :pwc,
-        R_bend = 0,
-    )
+    qcp_off = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, R_bend = 0)
     bend_off = filter(x -> x isa HermiteBendingEnergyRegularizer, terms(qcp_off))
     @test isempty(bend_off)
 
@@ -2179,10 +2173,9 @@ end
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
-    terms_ =
-        let obj = qcp.prob.objective
-            obj isa DirectTrajOpt.CompositeObjective ? obj.objectives : [obj]
-        end
+    terms_ = let obj = qcp.prob.objective
+        obj isa DirectTrajOpt.CompositeObjective ? obj.objectives : [obj]
+    end
     bend = filter(x -> x isa HermiteBendingEnergyRegularizer, terms_)
     @test length(bend) == 1
     @test bend[1].R == [1e-3]
@@ -2218,7 +2211,7 @@ end
     d2f(t) = -(2π)^2 * sin(2π * t) - 10.8π^2 * cos(6π * t)  # 0.3·(6π)² = 10.8π²
     N_ref = 200_000
     h = T / (N_ref - 1)
-    J_exact = 0.5 * h * sum(abs2, d2f.(collect(0:h:(T - h))))
+    J_exact = 0.5 * h * sum(abs2, d2f.(collect(0:h:(T-h))))
 
     Js = [closed_form_bend(N) for N in (51, 201, 801)]
     rel_drift = maximum(Js) / minimum(Js) - 1.0

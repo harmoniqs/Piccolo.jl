@@ -1,0 +1,158 @@
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+┌ Warning: CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the dynamics treat the drive as piecewise constant and ignore :du — the optimized waveform differs from the cubic spline the pulse object describes. Acknowledged because you asked for it explicitly.
+└ @ Piccolo.Control.ProblemTemplates /private/tmp/piccolo-bend/src/control/templates/spline_pulse_problem.jl:298
+┌ Warning: Trajectory has timestep variable :Δt but no bounds on it.
+│ Adding default lower bound of 0 to prevent negative timesteps.
+│ 
+│ Recommended: Add explicit bounds when creating the trajectory:
+│   NamedTrajectory(...; Δt_bounds=(min, max))
+│ Example:
+│   NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
+│ 
+│ Or use timesteps_all_equal=true in problem options to fix timesteps.
+└ @ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66
+┌ Warning: Optimizer and rollout disagree at the final time.
+│ 
+│ relative divergence = 1.36  (tolerance 0.005)
+│ 
+│ `fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+│ optimizer's own objective was evaluated on the collocation solution, which is a
+│ different waveform, so any fidelity taken from it is not what this pulse does.
+│ 
+│ Two usual causes:
+│   • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+│     integrator is the common case: the interpolation the optimizer constrained is
+│     not the one being integrated. Pair a spline pulse with
+│     `Piccolissimo.SplineIntegrator`.
+│   • Collocation grid too coarse for the dynamics — increase the number of knots.
+│ 
+│ Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+│ `ROLLOUT_DIVERGENCE_RTOL[]`.
+└ @ Piccolo.Control.QuantumControlProblems /private/tmp/piccolo-bend/src/control/problems.jl:365
+┌ Warning: Optimizer and rollout disagree at the final time.
+│ 
+│ relative divergence = 1.01  (tolerance 0.005)
+│ 
+│ `fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+│ optimizer's own objective was evaluated on the collocation solution, which is a
+│ different waveform, so any fidelity taken from it is not what this pulse does.
+│ 
+│ Two usual causes:
+│   • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+│     integrator is the common case: the interpolation the optimizer constrained is
+│     not the one being integrated. Pair a spline pulse with
+│     `Piccolissimo.SplineIntegrator`.
+│   • Collocation grid too coarse for the dynamics — increase the number of knots.
+│ 
+│ Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+│ `ROLLOUT_DIVERGENCE_RTOL[]`.
+└ @ Piccolo.Control.QuantumControlProblems /private/tmp/piccolo-bend/src/control/problems.jl:365
+solving R_bend = 0 (opt-out)…
+constructing SplinePulseProblem [UnitaryTrajectory / CubicSplinePulse]
+QuantumControlProblem
+├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  BilinearIntegrator
+│  
+├─ System
+│    dim=2   drives=1
+│  
+├─ Trajectory
+│    N=41   T=10.000   Δt∈[0, Inf]
+│    Ũ⃗   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  ✓  state
+│    Δt  (1)  [0.0, Inf]                     ✓  timestep
+│    t   (1)                                 ·  state
+│    u   (1)  ±[1.0]                         ✓  control
+│    du  (1)                                 ·  control
+│  
+├─ Goal
+│    U_goal  (2×2)
+│  
+├─ Objective   total = 100  @ current x
+│    KnotPointObjective          w=1             100
+│    QuadraticRegularizer(:u)    w=1             0
+│    QuadraticRegularizer(:du)   w=1             0
+│    NullObjective               w=1             0
+│  
+├─ Constraints   1/12 violated at x₀
+│    [dyn]  BilinearIntegrator          ✗  (‖c‖∞ = 0.191)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [bnd]  BoundsConstraint            ✓  
+│    [bnd]  BoundsConstraint            ✓  
+│    [bnd]  BoundsConstraint            ✓  
+│    [bnd]  BoundsConstraint            ✓  
+│    [eq]   TimeConsistencyConstraint   ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│  
+└─ Status
+     variables: 492   (369 bounded)
+     equality:  12807
+     inequality: 0
+     F (raw)       = 0.000000
+
+Hint: show_problem(qcp; detail=:full) for pulse plot + sparsity
+
+solving R_bend = 1e-3 (default)…
+constructing SplinePulseProblem [UnitaryTrajectory / CubicSplinePulse]
+QuantumControlProblem
+├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  BilinearIntegrator
+│  
+├─ System
+│    dim=2   drives=1
+│  
+├─ Trajectory
+│    N=41   T=9.956   Δt∈[0, Inf]
+│    Ũ⃗   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  ✓  state
+│    Δt  (1)  [0.0, Inf]                     ✓  timestep
+│    t   (1)                                 ·  state
+│    u   (1)  ±[1.0]                         ✓  control
+│    du  (1)                                 ·  control
+│  
+├─ Goal
+│    U_goal  (2×2)
+│  
+├─ Objective   total = 158  @ current x
+│    KnotPointObjective                w=1             99.99
+│    QuadraticRegularizer(:u)          w=1             0
+│    QuadraticRegularizer(:du)         w=1             0
+│    HermiteBendingEnergyRegularizer   w=1             58.02
+│    NullObjective                     w=1             0
+│  
+├─ Constraints   1/12 violated at x₀
+│    [dyn]  BilinearIntegrator          ✗  (‖c‖∞ = 0.1898)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│    [bnd]  BoundsConstraint            ✓  
+│    [bnd]  BoundsConstraint            ✓  
+│    [bnd]  BoundsConstraint            ✓  
+│    [bnd]  BoundsConstraint            ✓  
+│    [eq]   TimeConsistencyConstraint   ✓  (no eval)
+│    [eq]   EqualityConstraint          ✓  (no eval)
+│  
+└─ Status
+     variables: 492   (369 bounded)
+     equality:  12807
+     inequality: 0
+     F (raw)       = 0.000076
+
+Hint: show_problem(qcp; detail=:full) for pulse plot + sparsity
+
+
+RESULTS
+F_off      = 0.000076
+F_default  = 0.000009
+ΔF         = -0.000067  (gate: |ΔF| < 0.005)
+bend_off   = 4.497075e+05
+bend_def   = 8.089399e+04
+bend_ratio = 0.1799   (gate: < 1.0)
