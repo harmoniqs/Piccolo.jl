@@ -38,7 +38,7 @@ solve!(qcp_zoh; max_iter = 150)</code></pre><pre class="documenter-example-outpu
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/9hirU/src/problems.jl:66</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
 <span class="sgr1">QuantumControlProblem</span>
 ├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
 │
@@ -57,11 +57,11 @@ solve!(qcp_zoh; max_iter = 150)</code></pre><pre class="documenter-example-outpu
 ├─ <span class="sgr1">Goal</span>
 │    EmbeddedOperator on [2, 2], subspace dim 4
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 66.01  @ current x</span>
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 145  @ current x</span>
 │    KnotPointObjective           w=1             61.83
-│    QuadraticRegularizer(:u)     w=1             4.554e-06
-│    QuadraticRegularizer(:du)    w=1             3.549e-03
-│    QuadraticRegularizer(:ddu)   w=1             4.177
+│    QuadraticRegularizer(:u)     w=1             9.062e-05
+│    QuadraticRegularizer(:du)    w=1             0.07062
+│    QuadraticRegularizer(:ddu)   w=1             83.13
 │    NullObjective                w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/14 violated at x₀</span>
@@ -146,7 +146,7 @@ Number of Lagrangian Hessian evaluations             = 150
 Total seconds in IPOPT                               = 1436.035
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_zoh_57a874f.jld2</code></pre><pre><code class="language-julia hljs">F_zoh_piccolo = Piccolo.fidelity(qcp_zoh)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999999568450484</code></pre><h3 id="Linear-Spline"><a class="docs-heading-anchor" href="#Linear-Spline">Linear Spline</a><a id="Linear-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Spline" title="Permalink"></a></h3><p>Next we optimize a piecewise-linear control pulse, whose control parameters are the pulse values at the edges of each linear interval.</p><p>We use the results from the previous optimization to set up a warm start. <code>LinearSplinePulse</code> pulls the control parameters directly from <code>ZeroOrderPulse</code> to build a similar pulse shape (with the same duration, which has been optimized from the intial duration).</p><pre><code class="language-julia hljs">zoh_traj = get_trajectory(qcp_zoh)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_zoh_57a874f.jld2</code></pre><pre><code class="language-julia hljs">F_zoh_piccolo = Piccolo.fidelity(qcp_zoh)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.999999956845048</code></pre><h3 id="Linear-Spline"><a class="docs-heading-anchor" href="#Linear-Spline">Linear Spline</a><a id="Linear-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Spline" title="Permalink"></a></h3><p>Next we optimize a piecewise-linear control pulse, whose control parameters are the pulse values at the edges of each linear interval.</p><p>We use the results from the previous optimization to set up a warm start. <code>LinearSplinePulse</code> pulls the control parameters directly from <code>ZeroOrderPulse</code> to build a similar pulse shape (with the same duration, which has been optimized from the intial duration).</p><pre><code class="language-julia hljs">zoh_traj = get_trajectory(qcp_zoh)
 pulse_lin = LinearSplinePulse(zoh_traj)
 qtraj_lin = UnitaryTrajectory(sys, pulse_lin, U_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">UnitaryTrajectory
   system: 4-level CompositeQuantumSystem
@@ -172,7 +172,7 @@ solve!(qcp_lin; max_iter = 80)</code></pre><pre class="documenter-example-output
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/9hirU/src/problems.jl:66</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
 <span class="sgr1">QuantumControlProblem</span>
 ├─ UnitaryTrajectory  ·  LinearSplinePulse  ·  BilinearIntegrator, DerivativeIntegrator
 │
@@ -190,10 +190,10 @@ solve!(qcp_lin; max_iter = 80)</code></pre><pre class="documenter-example-output
 ├─ <span class="sgr1">Goal</span>
 │    EmbeddedOperator on [2, 2], subspace dim 4
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.02287  @ current x</span>
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.03058  @ current x</span>
 │    KnotPointObjective          w=1             0.02243
-│    QuadraticRegularizer(:u)    w=1             1.603e-05
-│    QuadraticRegularizer(:du)   w=1             4.227e-04
+│    QuadraticRegularizer(:u)    w=1             2.976e-04
+│    QuadraticRegularizer(:du)   w=1             7.849e-03
 │    NullObjective               w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/11 violated at x₀</span>
@@ -293,7 +293,7 @@ Number of Lagrangian Hessian evaluations             = 80
 Total seconds in IPOPT                               = 574.959
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_linear_spline_57a874f.jld2</code></pre><div class="admonition is-info" id="Number-of-Knot-Points-df16c30d72f871a9"><header class="admonition-header">Number of Knot Points<a class="admonition-anchor" href="#Number-of-Knot-Points-df16c30d72f871a9" title="Permalink"></a></header><div class="admonition-body"><p>The discretized dynamics constraints of the optimizer are not exact when the control pulses are not piecewise-constant. Consequently, the number of knot points may need to be increased, depending the degree of physical accuracy needed. If the discretized dynamics are not accurate, the optimizer may maximize the fidelity for the <em>discretized</em> dynamics, while the actual fidelity for the real, <em>continuous-time</em> dynamics is not as good.</p></div></div><pre><code class="language-julia hljs">F_lin_piccolo = Piccolo.fidelity(qcp_lin)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998080281476094</code></pre><h3 id="Cubic-Spline"><a class="docs-heading-anchor" href="#Cubic-Spline">Cubic Spline</a><a id="Cubic-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Cubic-Spline" title="Permalink"></a></h3><p>Next we optimize a cubic spline control pulse, whose control parameters are the pulse&#39;s value and the slope of the tangent line at several points in time.</p><p>We use the results from the previous optimization to set up a warm start. From the <code>LinearSplinePulse</code>, we use the knot values as our pulse values, and set the initial slope of the tangent line at those points to be zero.</p><pre><code class="language-julia hljs">lin_traj = get_trajectory(qcp_lin)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_linear_spline_57a874f.jld2</code></pre><div class="admonition is-info" id="Number-of-Knot-Points-df16c30d72f871a9"><header class="admonition-header">Number of Knot Points<a class="admonition-anchor" href="#Number-of-Knot-Points-df16c30d72f871a9" title="Permalink"></a></header><div class="admonition-body"><p>The discretized dynamics constraints of the optimizer are not exact when the control pulses are not piecewise-constant. Consequently, the number of knot points may need to be increased, depending the degree of physical accuracy needed. If the discretized dynamics are not accurate, the optimizer may maximize the fidelity for the <em>discretized</em> dynamics, while the actual fidelity for the real, <em>continuous-time</em> dynamics is not as good.</p></div></div><pre><code class="language-julia hljs">F_lin_piccolo = Piccolo.fidelity(qcp_lin)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.999808028147609</code></pre><h3 id="Cubic-Spline"><a class="docs-heading-anchor" href="#Cubic-Spline">Cubic Spline</a><a id="Cubic-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Cubic-Spline" title="Permalink"></a></h3><p>Next we optimize a cubic spline control pulse, whose control parameters are the pulse&#39;s value and the slope of the tangent line at several points in time.</p><p>We use the results from the previous optimization to set up a warm start. From the <code>LinearSplinePulse</code>, we use the knot values as our pulse values, and set the initial slope of the tangent line at those points to be zero.</p><pre><code class="language-julia hljs">lin_traj = get_trajectory(qcp_lin)
 pulse_cub = CubicSplinePulse(lin_traj[:u], zero(lin_traj[:u]), get_times(lin_traj))
 qtraj_cub = UnitaryTrajectory(sys, pulse_cub, U_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">UnitaryTrajectory
   system: 4-level CompositeQuantumSystem
@@ -320,7 +320,7 @@ solve!(qcp_cub; max_iter = 80)</code></pre><pre class="documenter-example-output
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/9hirU/src/problems.jl:66</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
 <span class="sgr1">QuantumControlProblem</span>
 ├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  BilinearIntegrator
 │
@@ -443,7 +443,7 @@ Number of Lagrangian Hessian evaluations             = 80
 Total seconds in IPOPT                               = 585.144
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_cubic_spline_57a874f.jld2</code></pre><pre><code class="language-julia hljs">F_cub_piccolo = Piccolo.fidelity(qcp_cub)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.999783918076159</code></pre><h3 id="Visualizing-the-Optimized-Pulses"><a class="docs-heading-anchor" href="#Visualizing-the-Optimized-Pulses">Visualizing the Optimized Pulses</a><a id="Visualizing-the-Optimized-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-the-Optimized-Pulses" title="Permalink"></a></h3><p>Finally, we visualize the optimized pulses side by side.</p><pre><code class="language-julia hljs">let
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from two_qubit_cubic_spline_57a874f.jld2</code></pre><pre><code class="language-julia hljs">F_cub_piccolo = Piccolo.fidelity(qcp_cub)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9997839181136507</code></pre><h3 id="Visualizing-the-Optimized-Pulses"><a class="docs-heading-anchor" href="#Visualizing-the-Optimized-Pulses">Visualizing the Optimized Pulses</a><a id="Visualizing-the-Optimized-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-the-Optimized-Pulses" title="Permalink"></a></h3><p>Finally, we visualize the optimized pulses side by side.</p><pre><code class="language-julia hljs">let
     optimized = [
         (&quot;ZeroOrderPulse&quot;, get_pulse(qcp_zoh.qtraj)),
         (&quot;LinearSplinePulse&quot;, get_pulse(qcp_lin.qtraj)),
@@ -495,9 +495,9 @@ F_zoh_qutip, F_lin_qutip, F_cub_qutip</code></pre><pre class="documenter-example
     (&quot;LinearSplinePulse&quot;, N_params, F_lin_piccolo, F_lin_qutip),
     (&quot;CubicSplinePulse&quot;, N_params, F_cub_piccolo, F_cub_qutip),
 ]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Tuple{String, Int64, Float64, Float64}}:
- (&quot;ZeroOrderPulse&quot;, 200, 0.9999999568450484, 0.9999999983058024)
- (&quot;LinearSplinePulse&quot;, 200, 0.9998080281476094, 0.9997600338359514)
- (&quot;CubicSplinePulse&quot;, 200, 0.999783918076159, 0.9997298942310923)</code></pre><p>We now summarize the results for each pulse type:</p><pre><code class="language-julia hljs">println(
+ (&quot;ZeroOrderPulse&quot;, 200, 0.999999956845048, 0.9999999983058024)
+ (&quot;LinearSplinePulse&quot;, 200, 0.999808028147609, 0.9997600338359514)
+ (&quot;CubicSplinePulse&quot;, 200, 0.9997839181136507, 0.9997298942310923)</code></pre><p>We now summarize the results for each pulse type:</p><pre><code class="language-julia hljs">println(
     @sprintf(
         &quot;%-18s %5s %11s %11s %10s&quot;,
         &quot;Pulse type&quot;,
@@ -554,7 +554,7 @@ let
     Legend(fig[1, length(rollouts)+1], entries, basis_labels)
     Label(fig[0, :], &quot;Population dynamics: evolution of |10⟩&quot;; font = :bold, fontsize = 18)
     fig
-end</code></pre><img src="71e5e12a.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 21 August 2026 06:29">Friday 21 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+end</code></pre><img src="71e5e12a.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 22 August 2026 11:41">Saturday 22 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./two_qubit_gate_validation.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/two_qubit_gate_validation.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
