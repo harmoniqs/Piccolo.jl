@@ -229,6 +229,8 @@ end
 # Variational Integrators
 # ----------------------------------------------------------------------------- #
 
+export VariationalKetIntegrator, VariationalUnitaryIntegrator
+
 function VariationalKetIntegrator(
     sys::VariationalQuantumSystem,
     traj::NamedTrajectory,
@@ -265,6 +267,76 @@ end
 # ----------------------------------------------------------------------------- #
 # Tests
 # ----------------------------------------------------------------------------- #
+
+@testitem "VariationalKetIntegrator / VariationalUnitaryIntegrator construct and integrate (DTO ≥ 0.10.1)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+
+    # Requires the multi-state BilinearIntegrator constructor restored in
+    # DirectTrajOpt 0.10.1 (harmoniqs/DirectTrajOpt.jl#139): these constructors
+    # pass a stacked names vector vcat(ψ̃, ψ̃_variations...) and had thrown
+    # MethodError on every call since the DTO c9fdeb7 refactor (issue #300).
+    # Zero callers existed, so nothing fired until the coverage campaign.
+    #
+    # NOTE: the analytic-Jacobian gates of test_integrator are deliberately
+    # NOT run here — the variational construction's ForwardDiff path disagrees
+    # with finite differences (duals dropped through var_G / expv). Tracked as
+    # #307; pin it there once fixed, not here.
+    pkgversion(DirectTrajOpt) >= v"0.10.1" || return  # no-op on the 0.9 line
+
+    H_drift = PAULIS[:Z] / 2
+    H_drives = [PAULIS[:X], PAULIS[:Y]]
+    H_vars = [PAULIS[:Z] / 2]  # drift-frequency uncertainty direction
+    sys = VariationalQuantumSystem(H_drift, H_drives, H_vars, [1.0, 1.0])
+
+    N = 5
+    ψ̃₀ = [1.0; 0.0; 0.0; 0.0]  # iso(|0⟩) = vcat(real, imag)
+
+    # Ket: state ψ̃ (4-dim) + one variational copy ψ̃_var (4-dim)
+    ψ̃data = zeros(4, N)
+    ψ̃data[:, 1] = ψ̃₀
+    traj = NamedTrajectory(
+        (ψ̃ = ψ̃data, ψ̃_var = zeros(4, N), u = zeros(2, N), Δt = fill(0.1, N));
+        controls = (:u, :Δt),
+        timestep = :Δt,
+        initial = (ψ̃ = ψ̃₀, ψ̃_var = zeros(4)),
+    )
+    B = VariationalKetIntegrator(sys, traj, :ψ̃, [:ψ̃_var], :u)
+    @test B isa BilinearIntegrator
+    @test B.x_names == [:ψ̃, :ψ̃_var]
+    @test B.x_dim == 8
+    @test B.dim == 8 * (N - 1)
+    δ = zeros(B.dim)
+    evaluate!(δ, B, traj)
+    @test norm(δ) > 0          # integrates without MethodError
+    @test all(isfinite, δ)
+
+    # The stacked dimension feeds get_nonlinear_constraints through x_names
+    prob = DirectTrajOptProblem(traj, QuadraticRegularizer(:u, traj, 1.0), [B])
+    @test length(Solvers.get_nonlinear_constraints(prob)) == B.dim
+
+    # Unitary: Ũ⃗ = vcat(real.(vec(U)), imag.(vec(U))) (8-dim for 2 levels)
+    # + one variational copy (8-dim). The generator is var_G(I ⊗ G, [I ⊗ G_var]).
+    U₀ = Matrix{Float64}(I(2))
+    Ũ⃗₀ = vcat(real.(vec(U₀)), imag.(vec(U₀)))
+    Ũdata = zeros(8, N)
+    Ũdata[:, 1] = Ũ⃗₀
+    traj_U = NamedTrajectory(
+        (Ũ⃗ = Ũdata, Ũ⃗_var = zeros(8, N), u = zeros(2, N), Δt = fill(0.1, N));
+        controls = (:u, :Δt),
+        timestep = :Δt,
+        initial = (Ũ⃗ = Ũ⃗₀, Ũ⃗_var = zeros(8)),
+    )
+    B_U = VariationalUnitaryIntegrator(sys, traj_U, :Ũ⃗, [:Ũ⃗_var], :u)
+    @test B_U isa BilinearIntegrator
+    @test B_U.x_names == [:Ũ⃗, :Ũ⃗_var]
+    @test B_U.x_dim == 16
+    δ_U = zeros(B_U.dim)
+    evaluate!(δ_U, B_U, traj_U)
+    @test norm(δ_U) > 0
+    @test all(isfinite, δ_U)
+end
 
 @testitem "BilinearIntegrator dispatch on UnitaryTrajectory" begin
     using DirectTrajOpt
