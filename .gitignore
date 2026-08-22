@@ -61,3 +61,4 @@ docs/utils.jl
 
 # cached_solve! artifact cache (per-commit .jld2 files)
 /data/
+ab_gate.log

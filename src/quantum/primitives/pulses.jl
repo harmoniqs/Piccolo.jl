@@ -517,6 +517,82 @@ Only available for CubicSplinePulse.
 get_knot_derivatives(p::CubicSplinePulse) = p.controls.du
 
 export get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
+export shape_metrics
+
+# ============================================================================ #
+# Shape metrics (#309) — the P-series quartet as public chassis
+# ============================================================================ #
+
+"""
+    shape_metrics(pulse; mesh::Int = 2^16) -> NamedTuple
+
+Fine-mesh shape metrics of a pulse, evaluated by finite differences on the
+spline (knot-span-safe: the evaluation grid is clamped strictly inside the
+knot span — evaluating a `CubicSplinePulse` exactly at the last knot is a
+known-broken path in this DataInterpolations version).
+
+Returns a NamedTuple with per-drive vectors:
+
+- `bend::Vector`    — per-drive ∫|u″|²dt. Bending energy is the quantity that
+  predicts lab-frame transfer at pinned model fidelity (internal calibration
+  studies: Spearman 0.79; the du-knot oscillation and |α|-band leakage
+  channels both ride it). **Only meaningful for C¹ families** (cubic);
+  for a linear spline the FD second difference diverges with mesh
+  refinement — compare within parameterization only.
+- `int_u2::Vector`  — per-drive ∫u²dt (the Bloch–Siegert proxy: the
+  accumulated BS phase ∝ ∫A²dt with A = 2u under the standard RWA convention).
+- `max_du::Vector`  — per-drive max|u′| (slew). Sampled on the mesh, so it
+  covers *intra-span* extrema — a cubic's derivative can peak between knots,
+  where knot-only slew differences under-report.
+- `crest::Vector`   — per-drive crest factor max|u| / RMS(u). NULL as a
+  transfer predictor — carried for hardware ACDR checks, never as a
+  selection rule.
+- `parameterization::Int` — spline order when derivable from the pulse type
+  (`LinearSplinePulse` → 1, `CubicSplinePulse` → 3), `0` if unknown.
+
+Plus `T::Float64` (pulse duration). Multichannel pulses return per-drive
+vectors; single-drive callers can take `bend[1]`. Cost: ~`mesh` evaluations
+of the spline (microseconds at 2^16) — cheap enough to run on every
+candidate of a calibration loop.
+"""
+function shape_metrics(pulse::AbstractPulse; mesh::Int = 2^16)
+    kt = collect(get_knot_times(pulse))
+    length(kt) > 1 || error("shape_metrics: single-knot pulse")
+    δ = (kt[end] - kt[1]) * 1e-12          # last-knot evaluate is broken
+    ts = range(kt[1], kt[end] - δ, length = mesh)
+    T = kt[end] - kt[1]
+    n_d = n_drives(pulse)
+    U = Matrix{Float64}(undef, mesh, n_d)
+    for (i, t) in enumerate(ts)
+        u = pulse(t)
+        for d = 1:n_d
+            U[i, d] = u[d]
+        end
+    end
+    bend = zeros(n_d)
+    int_u2 = zeros(n_d)
+    max_du = zeros(n_d)
+    crest = zeros(n_d)
+    for d = 1:n_d
+        us = view(U, :, d)
+        int_u2[d] = sum(abs2, us) * (T / (mesh - 1))
+        d1 = diff(us) ./ (T / (mesh - 1))
+        d2 = diff(d1) ./ (T / (mesh - 1))
+        bend[d] = sum(abs2, d2) * (T / (mesh - 1))
+        max_du[d] = maximum(abs.(d1))
+        rms = sqrt(int_u2[d] / T)
+        crest[d] = rms > 0 ? maximum(abs.(us)) / rms : 0.0
+    end
+    param = pulse isa LinearSplinePulse ? 1 : pulse isa CubicSplinePulse ? 3 : 0
+    return (
+        bend = bend,
+        int_u2 = int_u2,
+        max_du = max_du,
+        crest = crest,
+        T = T,
+        parameterization = param,
+    )
+end
 
 # ============================================================================ #
 # Conversion methods (analytic → spline pulses)
