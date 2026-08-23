@@ -9,7 +9,10 @@ using ...Quantum: extract_pulse
 using ...Quantum.Rollouts: rollout
 
 using ..QuantumControlProblems:
-    QuantumControlProblem, AbstractQuantumControlProblem, fidelity, stored_phases,
+    QuantumControlProblem,
+    AbstractQuantumControlProblem,
+    fidelity,
+    stored_phases,
     get_trajectory
 using ..QuantumControlProblems: rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
 # `sync_trajectory!` is imported for its docstring cross-reference, not called here:
