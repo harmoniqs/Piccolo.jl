@@ -9,7 +9,8 @@ using ...Quantum: extract_pulse
 using ...Quantum.Rollouts: rollout
 
 using ..QuantumControlProblems:
-    QuantumControlProblem, fidelity, stored_phases, get_trajectory
+    QuantumControlProblem, AbstractQuantumControlProblem, fidelity, stored_phases,
+    get_trajectory
 using ..QuantumControlProblems: rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
 # `sync_trajectory!` is imported for its docstring cross-reference, not called here:
 # Documenter resolves `@ref` against the enclosing module's scope, so a
@@ -29,7 +30,7 @@ export verify, VerificationReport
 # Returns `nothing` where no comparable definition is available (density, MultiDensity, sampling,
 # and free-phase cases needing a factorization we are not given): `nothing` means NOT COMPARABLE,
 # never "they agree". MultiKet IS covered, via its coherent-fidelity definition below.
-function _optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
+function _optimizer_side_fidelity(qcp::AbstractQuantumControlProblem, phases)
     # MultiKet is not a single-state case: its objective is a coherent sum across sub-states.
     qcp.qtraj isa MultiKetTrajectory &&
         return _multiket_optimizer_side_fidelity(qcp, phases)
@@ -79,7 +80,7 @@ _optimizer_side_fidelity(::AbstractQuantumTrajectory, _, _) = nothing
 
 # SamplingTrajectory: per-member collocation readback, weighted with the sampling weights.
 # Density / MultiDensity bases return `nothing` — no comparable definition.
-function _sampling_optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
+function _sampling_optimizer_side_fidelity(qcp::AbstractQuantumControlProblem, phases)
     sampling_qtraj = qcp.qtraj
     base = sampling_qtraj.base_trajectory
     traj = qcp.prob.trajectory
@@ -129,7 +130,7 @@ end
 #
 # This case is why `verify` can replace the hand-rolled optimizer-vs-rollout comparison in
 # `fluxonium-2q/scripts/probe/rollout_fidelity_check.jl`, which is a MultiKet problem.
-function _multiket_optimizer_side_fidelity(qcp::QuantumControlProblem, phases)
+function _multiket_optimizer_side_fidelity(qcp::AbstractQuantumControlProblem, phases)
     qtraj = qcp.qtraj
     traj = qcp.prob.trajectory
     names = state_names(qtraj)
@@ -277,7 +278,7 @@ r2 = verify(qcp; algorithm = MagnusAdapt4())
 ```
 """
 function verify(
-    qcp::QuantumControlProblem;
+    qcp::AbstractQuantumControlProblem;
     atol::Real = 1e-4,
     rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
     algorithm = nothing,

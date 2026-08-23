@@ -144,9 +144,9 @@ function sampling_state_objective(
 end
 
 function sampling_state_objective(
-    qtraj::DensityTrajectory,
+    qtraj::MultiKetTrajectory,
     traj::NamedTrajectory,
-    state_sym::Symbol,
+    state_syms::Vector{Symbol},
     Q::Float64,
 )
     # Per-member coherent ensemble objective — reuses the MultiKetTrajectory
@@ -374,31 +374,85 @@ function SamplingProblem(
     end
     snames = state_names(sampling_qtraj)
 
-    # 3. Build objective: weighted state objectives + shared regularization
+    # 2b. Preserve the base problem's control-derivative structure. A smooth base
+    #     problem carries :du, :ddu components, DerivativeIntegrators, and
+    #     regularizers on them; the sampling rebuild keeps that chain (shared
+    #     across members, like the control itself) so the robust problem is the
+    #     same problem as the base. The chain is detected by the `d`-prefix
+    #     naming convention of `add_control_derivatives` (:du, :ddu, …).
+    #     Components the sampling conversion already carries from the pulse data
+    #     (e.g. a CubicSplinePulse's :du Hermite tangents) are NOT re-added.
+    control_sym = drive_name(base_qtraj)
+    deriv_names = Symbol[]
+    while Symbol("d"^(length(deriv_names) + 1) * string(control_sym)) ∈ base_traj.names
+        push!(deriv_names, Symbol("d"^(length(deriv_names) + 1) * string(control_sym)))
+    end
+
+    n_existing = 0
+    while n_existing < length(deriv_names) && deriv_names[n_existing+1] ∈ new_traj.names
+        n_existing += 1
+    end
+
+    if 0 < n_existing < length(deriv_names)
+        error(
+            "SamplingProblem cannot preserve the base problem's derivative chain " *
+            "$(deriv_names): the sampling trajectory already carries " *
+            "$(deriv_names[1:n_existing]) from the pulse data, and partially " *
+            "extending a derivative chain is not supported. Rebuild the base " *
+            "problem with a matching chain, or open an issue.",
+        )
+    elseif n_existing == 0 && !isempty(deriv_names)
+        derivative_bounds = if all(haskey(base_traj.bounds, dn) for dn in deriv_names)
+            Tuple(base_traj.bounds[dn] for dn in deriv_names)
+        else
+            nothing
+        end
+        new_traj = add_control_derivatives(
+            new_traj,
+            length(deriv_names);
+            control_name = control_sym,
+            derivative_bounds = derivative_bounds,
+        )
+    end
+
+    # 3. Build objective: weighted per-member state objectives + shared regularization.
+    #    member_states is one Symbol per member for single-state bases, one
+    #    Vector{Symbol} per member for multi-state bases (multi-ket, multi-density).
+    member_states = sampling_member_states(sampling_qtraj)
     J_state = sum(
-        sampling_state_objective(base_qtraj, new_traj, name, w * Q) for
-        (name, w) in zip(snames, weights)
+        sampling_state_objective(base_qtraj, new_traj, names, w * Q) for
+        (names, w) in zip(member_states, weights)
     )
     J_reg = extract_regularization(direct_problem(qcp).objective, state_sym, new_traj)
     J_total = J_state + J_reg
 
-    # 4. Build integrators: dynamics for each system
-    #    Note: We don't carry over DerivativeIntegrators from the base problem
-    #    because they operate on :du, :ddu which don't exist in the sampling trajectory.
-    #    For now, SamplingProblem operates on the raw controls without derivative smoothing.
-    #    TODO: Consider adding an option to preserve smoothness constraints.
-
-    # Use BilinearIntegrator by default, or a custom integrator factory via the
-    # `integrator` kwarg (must accept (sampling_qtraj, N) and return integrator(s)).
-    if isnothing(integrator)
-        dynamics_integrators = BilinearIntegrator(sampling_qtraj, N)
-    else
-        dynamics_integrators = integrator(sampling_qtraj, N)
+    # 4. Build integrators: dynamics for each system (instance / per-slot vector /
+    #    factory — validated at construction), then the base problem's derivative
+    #    chain (u → du → ddu …), preserved from step 2b.
+    n_slots = sum(sampling_member_states(sampling_qtraj)) do ms
+        ms isa Symbol ? 1 : length(ms)
     end
+    all_integrators = _resolve_sampling_integrators(integrator, sampling_qtraj, N, n_slots)
 
-    all_integrators =
-        dynamics_integrators isa AbstractVector ? dynamics_integrators :
-        [dynamics_integrators]
+    # Replicate the base problem's derivative integrators exactly (smooth:
+    # u→du→ddu; bang-bang / linear spline: u→du; cubic spline: none — its :du
+    # Hermite tangents are free DOFs, not a constrained chain).
+    for base_int in direct_problem(qcp).integrators
+        base_int isa DerivativeIntegrator || continue
+        if base_int.x_name ∈ new_traj.names && base_int.ẋ_name ∈ new_traj.names
+            push!(
+                all_integrators,
+                DerivativeIntegrator(base_int.x_name, base_int.ẋ_name, new_traj),
+            )
+        else
+            error(
+                "SamplingProblem cannot preserve the base problem's " *
+                "DerivativeIntegrator ($(base_int.x_name) → $(base_int.ẋ_name)): " *
+                "those components do not exist in the sampling trajectory. " *
+                "Only control-derivative chains (:du, :ddu, …) are preserved.",
+            )
+        end
+    end
 
     # 5. Construct problem (TimeConsistencyConstraint auto-applied)
     constraints = AbstractConstraint[]
@@ -782,7 +836,9 @@ end
     @test sampling_prob isa SamplingProblem
     @test sampling_prob isa AbstractQuantumControlProblem
     @test inner(sampling_prob) isa QuantumControlProblem
-    @test length(sampling_prob.prob.integrators) == 2
+    # 2 factory-provided dynamics integrators + the 2 DerivativeIntegrators
+    # (u→du, du→ddu) preserved from the smooth base problem.
+    @test length(sampling_prob.prob.integrators) == 4
 
     solve!(sampling_prob; max_iter = 5, verbose = false, print_level = 1)
 end
