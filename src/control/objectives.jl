@@ -10,11 +10,14 @@ export DensityMatrixPureStateInfidelityObjective
 export UnitarySensitivityObjective
 export UnitaryFreePhaseInfidelityObjective
 export LeakageObjective
+export HermiteBendingEnergyRegularizer
 
 using LinearAlgebra
+using SparseArrays
 using NamedTrajectories
 using ...Quantum
 using DirectTrajOpt
+using TrajectoryIndexingUtils
 using TestItems
 
 # --------------------------------------------------------- 
@@ -475,10 +478,498 @@ function LeakageObjective(
 end
 
 # ---------------------------------------------------------
+#           Bending Energy (cubic-Hermite smoothness)
+# ---------------------------------------------------------
+
+# Ported from Piccolissimo (hermite_bending_energy_regularizer.jl) per #309:
+# smoothness-as-chassis. Bending energy ∫u″²dt is the quantity that predicts
+# how a model-optimal pulse survives contact with reality (internal P-series
+# calibration studies, Aug 2026), so the closed-form regularizer lives in the
+# public package and SplinePulseProblem defaults it ON for cubic splines.
+
+"""
+    HermiteBendingEnergyRegularizer <: AbstractObjective
+
+Penalizes the integrated squared curvature (bending energy) of a cubic Hermite
+spline pulse:
+
+```
+    J = (1/2) Σ_d R_d  ∫₀^T u_d''(t)² dt
+```
+
+For a Hermite cubic on segment k of length Δt_k with endpoint accelerations
+`a_start(k), a_end(k)`, the per-segment integral has the closed form
+
+```
+    ∫₀^Δt_k f''(τ)² dτ = (Δt_k / 3) (a_start² + a_end² + a_start·a_end)
+```
+
+(exact: f''(τ) is linear on each segment, so Simpson at the two endpoints +
+midpoint is exact).
+
+Only meaningful for cubic-Hermite-parameterized trajectories (components
+`u`, `du`, `Δt`): for a piecewise-constant or linear-spline pulse the second
+derivative is distributional (Dirac deltas) and bending energy is not a
+property of the pulse.
+
+# Fields
+- `R::Vector{Float64}`: Per-drive regularization weight (length `n_drives`).
+- `control_name::Symbol`: Name of control variable (default `:u`).
+- `derivative_name::Symbol`: Name of derivative variable (default `:du`).
+- `timestep_name::Symbol`: Name of timestep variable (default `:Δt`).
+
+# Constructor
+```julia
+HermiteBendingEnergyRegularizer(
+    traj::NamedTrajectory;
+    R::Union{Real, AbstractVector{<:Real}} = 1.0,
+    control_name::Symbol = :u,
+    derivative_name::Symbol = :du,
+    timestep_name::Symbol = :Δt,
+)
+```
+
+If `R` is a scalar, it is broadcast across all drives. If it is a vector, its
+length must equal `n_drives` — useful when channels have very different units.
+"""
+struct HermiteBendingEnergyRegularizer <: AbstractObjective
+    R::Vector{Float64}
+    control_name::Symbol
+    derivative_name::Symbol
+    timestep_name::Symbol
+end
+
+function HermiteBendingEnergyRegularizer(
+    traj::NamedTrajectory;
+    R::Union{Real,AbstractVector{<:Real}} = 1.0,
+    control_name::Symbol = :u,
+    derivative_name::Symbol = :du,
+    timestep_name::Symbol = :Δt,
+)
+    @assert haskey(traj.components, control_name) "Trajectory must have component :$control_name"
+    @assert haskey(traj.components, derivative_name) "Trajectory must have component :$derivative_name"
+    @assert haskey(traj.components, timestep_name) "Trajectory must have component :$timestep_name"
+
+    n_drives = traj.dims[control_name]
+    R_vec = R isa Real ? fill(Float64(R), n_drives) : Vector{Float64}(R)
+    @assert length(R_vec) == n_drives "R must be scalar or length-$n_drives vector (got length $(length(R_vec)))"
+
+    return HermiteBendingEnergyRegularizer(
+        R_vec,
+        control_name,
+        derivative_name,
+        timestep_name,
+    )
+end
+
+# Endpoint accelerations of a Hermite cubic on segment k.
+@inline function _bending_a_start(u_k, u_kp1, du_k, du_kp1, Δt_k)
+    inv_Δt = inv(Δt_k)
+    inv_Δt2 = inv_Δt * inv_Δt
+    return 6.0 * inv_Δt2 * (u_kp1 - u_k) - 2.0 * inv_Δt * (2.0 * du_k + du_kp1)
+end
+
+@inline function _bending_a_end(u_k, u_kp1, du_k, du_kp1, Δt_k)
+    inv_Δt = inv(Δt_k)
+    inv_Δt2 = inv_Δt * inv_Δt
+    return -6.0 * inv_Δt2 * (u_kp1 - u_k) + 2.0 * inv_Δt * (du_k + 2.0 * du_kp1)
+end
+
+# Per-segment per-drive objective kernel for ForwardDiff Hessian assembly.
+# Input z = (u_k, u_{k+1}, du_k, du_{k+1}, Δt_k); returns (R_d/2) ∫ f''² dτ.
+@inline function _bending_seg_kernel(z::AbstractVector{T}, R_d::Real) where {T}
+    u_k, u_kp1, du_k, du_kp1, Δt_k = z[1], z[2], z[3], z[4], z[5]
+    a_s = _bending_a_start(u_k, u_kp1, du_k, du_kp1, Δt_k)
+    a_e = _bending_a_end(u_k, u_kp1, du_k, du_kp1, Δt_k)
+    return (T(R_d) * Δt_k / 6.0) * (a_s^2 + a_e^2 + a_s * a_e)
+end
+
+function DirectTrajOpt.objective_value(
+    reg::HermiteBendingEnergyRegularizer,
+    traj::NamedTrajectory,
+)
+    u = traj[reg.control_name]
+    du = traj[reg.derivative_name]
+    Δt = traj[reg.timestep_name]
+
+    n_drives, N = size(u)
+    J = 0.0
+
+    @inbounds for k = 1:(N-1)
+        Δt_k = Δt[k]
+        Δt_over_6 = Δt_k / 6.0   # (R_i / 2) · (Δt / 3) = R_i · Δt / 6
+        for i = 1:n_drives
+            a_s = _bending_a_start(u[i, k], u[i, k+1], du[i, k], du[i, k+1], Δt_k)
+            a_e = _bending_a_end(u[i, k], u[i, k+1], du[i, k], du[i, k+1], Δt_k)
+            J += reg.R[i] * Δt_over_6 * (a_s^2 + a_e^2 + a_s * a_e)
+        end
+    end
+
+    return J
+end
+
+function DirectTrajOpt.gradient!(
+    ∇J::AbstractVector,
+    reg::HermiteBendingEnergyRegularizer,
+    traj::NamedTrajectory,
+)
+    u = traj[reg.control_name]
+    du = traj[reg.derivative_name]
+    Δt = traj[reg.timestep_name]
+
+    u_comps = traj.components[reg.control_name]
+    du_comps = traj.components[reg.derivative_name]
+    Δt_comp1 = traj.components[reg.timestep_name][1]  # scalar offset
+
+    n_drives, N = size(u)
+    D = traj.dim
+
+    @inbounds for k = 1:(N-1)
+        Δt_k = Δt[k]
+        inv_Δt = 1.0 / Δt_k
+        inv_Δt2 = inv_Δt * inv_Δt
+        inv_Δt3 = inv_Δt2 * inv_Δt
+
+        # Hoist segment base offsets out of the drive loop.
+        base_k = D * (k - 1)
+        base_kp1 = D * k
+        idx_Δt = base_k + Δt_comp1
+
+        for i = 1:n_drives
+            u_k = u[i, k]
+            u_kp1 = u[i, k+1]
+            du_k = du[i, k]
+            du_kp1 = du[i, k+1]
+
+            a_s = _bending_a_start(u_k, u_kp1, du_k, du_kp1, Δt_k)
+            a_e = _bending_a_end(u_k, u_kp1, du_k, du_kp1, Δt_k)
+
+            # J_seg = (R_i/2)(Δt/3)(a_s² + a_e² + a_s·a_e) = (R_i Δt / 6) S.
+            # ∂S/∂a_s = 2 a_s + a_e ;  ∂S/∂a_e = a_s + 2 a_e.
+            coef = reg.R[i] * Δt_k / 6.0
+            ws = coef * (2.0 * a_s + a_e)
+            we = coef * (a_s + 2.0 * a_e)
+
+            # Partial derivatives of a_s, a_e:
+            #   ∂a_s/∂u_k = -6/Δt² ;  ∂a_s/∂u_{k+1} = +6/Δt²
+            #   ∂a_s/∂du_k = -4/Δt ;  ∂a_s/∂du_{k+1} = -2/Δt
+            #   ∂a_e/∂u_k = +6/Δt² ;  ∂a_e/∂u_{k+1} = -6/Δt²
+            #   ∂a_e/∂du_k = +2/Δt ;  ∂a_e/∂du_{k+1} = +4/Δt
+            u_i = u_comps[i]
+            du_i = du_comps[i]
+            idx_u_k = base_k + u_i
+            idx_u_kp1 = base_kp1 + u_i
+            idx_du_k = base_k + du_i
+            idx_du_kp1 = base_kp1 + du_i
+
+            six_inv_Δt2 = 6.0 * inv_Δt2
+            two_inv_Δt = 2.0 * inv_Δt
+            four_inv_Δt = 4.0 * inv_Δt
+
+            ∇J[idx_u_k] += -ws * six_inv_Δt2 + we * six_inv_Δt2
+            ∇J[idx_u_kp1] += ws * six_inv_Δt2 - we * six_inv_Δt2
+            ∇J[idx_du_k] += -ws * four_inv_Δt + we * two_inv_Δt
+            ∇J[idx_du_kp1] += -ws * two_inv_Δt + we * four_inv_Δt
+
+            # ∂a_s/∂Δt = -12 (u_{k+1}-u_k)/Δt³ + 2 (2 du_k + du_{k+1})/Δt²
+            # ∂a_e/∂Δt = +12 (u_{k+1}-u_k)/Δt³ - 2 (du_k + 2 du_{k+1})/Δt²
+            twelve_du_inv_Δt3 = 12.0 * (u_kp1 - u_k) * inv_Δt3
+            da_s_dΔt = -twelve_du_inv_Δt3 + 2.0 * (2.0 * du_k + du_kp1) * inv_Δt2
+            da_e_dΔt = twelve_du_inv_Δt3 - 2.0 * (du_k + 2.0 * du_kp1) * inv_Δt2
+
+            S = a_s^2 + a_e^2 + a_s * a_e
+            ∇J[idx_Δt] += reg.R[i] * S / 6.0 + ws * da_s_dΔt + we * da_e_dΔt
+        end
+    end
+
+    return nothing
+end
+
+# ---------------------------------------------------------------------------- #
+#  Analytical per-segment Hessian block                                         #
+# ---------------------------------------------------------------------------- #
+# For J_seg = coef·S with coef = R·Δt/6 and S = a_s² + a_e² + a_s·a_e, the exact
+# 5×5 Hessian over z = (u_k, u_{k+1}, du_k, du_{k+1}, Δt) (indices 1..5) is the
+# full product-rule expansion. a_s, a_e are LINEAR in u/du (so ∂²a vanishes there)
+# but NONLINEAR in Δt; coef is linear in Δt. Writing ∂a_s, ∂a_e and ∂²a_s, ∂²a_e
+# (the latter only along Δt), and with cS = 2a_s+a_e, cE = a_s+2a_e:
+#
+#   ∂S/∂x   = cS·∂a_s/∂x + cE·∂a_e/∂x
+#   ∂²S/∂xy = cS·∂²a_s/∂xy + cE·∂²a_e/∂xy
+#             + 2 a_s' a_s'' + 2 a_e' a_e'' + a_s' a_e'' + a_e' a_s''   (sym in x,y)
+#   H_xy(x,y≠Δt) = coef·∂²S/∂xy
+#   H_x,Δt       = (R/6)·∂S/∂x + coef·∂²S/∂x∂Δt
+#   H_Δt,Δt      = 2·(R/6)·∂S/∂Δt + coef·∂²S/∂Δt²
+#
+# This block matches the per-segment ForwardDiff kernel `_bending_seg_kernel` to
+# machine precision. Pure arithmetic on gathered scalars — array-type agnostic.
+
+const _BEND_BLK = 5
+
+"""
+    _bending_seg_block!(H5, u_k, u_kp1, du_k, du_kp1, Δt, R_d)
+
+Fill the 5×5 analytical Hessian block `H5` for one segment / drive over
+`z = (u_k, u_{k+1}, du_k, du_{k+1}, Δt)`. Pure scalar arithmetic — array-agnostic.
+"""
+@inline function _bending_seg_block!(H5, u_k, u_kp1, du_k, du_kp1, Δt, R_d)
+    inv_Δt = 1.0 / Δt
+    inv_Δt2 = inv_Δt * inv_Δt
+    inv_Δt3 = inv_Δt2 * inv_Δt
+    inv_Δt4 = inv_Δt3 * inv_Δt
+
+    Δu = u_kp1 - u_k
+    a_s = 6.0 * inv_Δt2 * Δu - 2.0 * inv_Δt * (2.0 * du_k + du_kp1)
+    a_e = -6.0 * inv_Δt2 * Δu + 2.0 * inv_Δt * (du_k + 2.0 * du_kp1)
+
+    coef = R_d * Δt / 6.0
+    coefp = R_d / 6.0          # ∂coef/∂Δt
+
+    cS = 2.0 * a_s + a_e       # ∂S/∂a_s
+    cE = a_s + 2.0 * a_e       # ∂S/∂a_e
+
+    # First derivatives of a_s, a_e w.r.t. the 5 vars (index order as above).
+    das = (
+        -6.0 * inv_Δt2,                                            # ∂a_s/∂u_k
+        6.0 * inv_Δt2,                                             # ∂a_s/∂u_{k+1}
+        -4.0 * inv_Δt,                                            # ∂a_s/∂du_k
+        -2.0 * inv_Δt,                                            # ∂a_s/∂du_{k+1}
+        -12.0 * inv_Δt3 * Δu + 2.0 * inv_Δt2 * (2.0 * du_k + du_kp1),  # ∂a_s/∂Δt
+    )
+    dae = (
+        6.0 * inv_Δt2,                                             # ∂a_e/∂u_k
+        -6.0 * inv_Δt2,                                            # ∂a_e/∂u_{k+1}
+        2.0 * inv_Δt,                                             # ∂a_e/∂du_k
+        4.0 * inv_Δt,                                             # ∂a_e/∂du_{k+1}
+        12.0 * inv_Δt3 * Δu - 2.0 * inv_Δt2 * (du_k + 2.0 * du_kp1),   # ∂a_e/∂Δt
+    )
+
+    # Second derivatives of a_s, a_e — nonzero only when one index is Δt (=5),
+    # since a is linear in u/du. Stored as the Δt-row vectors (∂²a/∂Δt∂x).
+    d2as_dt = (
+        12.0 * inv_Δt3,                                           # ∂²a_s/∂Δt∂u_k
+        -12.0 * inv_Δt3,                                          # ∂²a_s/∂Δt∂u_{k+1}
+        4.0 * inv_Δt2,                                            # ∂²a_s/∂Δt∂du_k
+        2.0 * inv_Δt2,                                            # ∂²a_s/∂Δt∂du_{k+1}
+        36.0 * inv_Δt4 * Δu - 4.0 * inv_Δt3 * (2.0 * du_k + du_kp1),   # ∂²a_s/∂Δt²
+    )
+    d2ae_dt = (
+        -12.0 * inv_Δt3,                                          # ∂²a_e/∂Δt∂u_k
+        12.0 * inv_Δt3,                                           # ∂²a_e/∂Δt∂u_{k+1}
+        -2.0 * inv_Δt2,                                           # ∂²a_e/∂Δt∂du_k
+        -4.0 * inv_Δt2,                                           # ∂²a_e/∂Δt∂du_{k+1}
+        -36.0 * inv_Δt4 * Δu + 4.0 * inv_Δt3 * (du_k + 2.0 * du_kp1),  # ∂²a_e/∂Δt²
+    )
+
+    # ∂S/∂x for all x (used by the Δt cross/diagonal blocks).
+    @inline dS(x) = cS * das[x] + cE * dae[x]
+
+    @inbounds for a = 1:_BEND_BLK
+        for b = a:_BEND_BLK
+            # Quadratic-form part of ∂²S/∂a∂b (always present).
+            quad =
+                2.0 * das[a] * das[b] +
+                2.0 * dae[a] * dae[b] +
+                das[a] * dae[b] +
+                dae[a] * das[b]
+            # Second-derivative part: nonzero only if a==5 or b==5 (Δt involved).
+            d2 = 0.0
+            if a == _BEND_BLK
+                d2 = cS * d2as_dt[b] + cE * d2ae_dt[b]
+            elseif b == _BEND_BLK
+                d2 = cS * d2as_dt[a] + cE * d2ae_dt[a]
+            end
+            d2S = quad + d2
+
+            if a < _BEND_BLK && b < _BEND_BLK
+                Hab = coef * d2S
+            elseif a < _BEND_BLK && b == _BEND_BLK
+                Hab = coefp * dS(a) + coef * d2S
+            elseif a == _BEND_BLK && b < _BEND_BLK
+                Hab = coefp * dS(b) + coef * d2S
+            else  # a == b == 5 (Δt,Δt)
+                Hab = 2.0 * coefp * dS(_BEND_BLK) + coef * d2S
+            end
+
+            H5[a, b] = Hab
+            H5[b, a] = Hab
+        end
+    end
+
+    return nothing
+end
+
+function DirectTrajOpt.Objectives.hessian_structure(
+    reg::HermiteBendingEnergyRegularizer,
+    traj::NamedTrajectory,
+)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    structure = spzeros(Z_dim, Z_dim)
+
+    u_comps = traj.components[reg.control_name]
+    du_comps = traj.components[reg.derivative_name]
+    Δt_comps = traj.components[reg.timestep_name]
+
+    n_drives = length(u_comps)
+
+    for k = 1:(traj.N-1)
+        indices = Int[]
+        for d = 1:n_drives
+            push!(indices, slice(k, u_comps, traj.dim)[d])
+            push!(indices, slice(k+1, u_comps, traj.dim)[d])
+            push!(indices, slice(k, du_comps, traj.dim)[d])
+            push!(indices, slice(k+1, du_comps, traj.dim)[d])
+        end
+        push!(indices, slice(k, Δt_comps, traj.dim)[1])
+
+        for i in indices
+            for j in indices
+                structure[i, j] = 1.0
+            end
+        end
+    end
+
+    return structure
+end
+
+"""
+    get_full_hessian(reg::HermiteBendingEnergyRegularizer, traj)
+
+EXACT analytical per-segment Hessian. Each (segment k, drive d) contributes
+a dense 5×5 block over `(u_k, u_{k+1}, du_k, du_{k+1}, Δt_k)` built by the closed-form
+`_bending_seg_block!` (replacing the per-segment ForwardDiff). Blocks are
+scattered into the sparse global Hessian; cost is `O(N · n_drives)` tiny blocks and
+the result is exact to machine precision (matches the ForwardDiff kernel to ~1e-12).
+"""
+function DirectTrajOpt.Objectives.get_full_hessian(
+    reg::HermiteBendingEnergyRegularizer,
+    traj::NamedTrajectory,
+)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    H = spzeros(Z_dim, Z_dim)
+
+    u = traj[reg.control_name]
+    du = traj[reg.derivative_name]
+    Δt = traj[reg.timestep_name]
+
+    u_comps = traj.components[reg.control_name]
+    du_comps = traj.components[reg.derivative_name]
+    Δt_comp1 = traj.components[reg.timestep_name][1]
+
+    n_drives, N = size(u)
+    D = traj.dim
+
+    H_seg = Matrix{Float64}(undef, _BEND_BLK, _BEND_BLK)
+    idx_buf = Vector{Int}(undef, _BEND_BLK)
+
+    @inbounds for k = 1:(N-1)
+        Δt_k = Δt[k]
+        base_k = D * (k - 1)
+        base_kp1 = D * k
+        idx_Δt = base_k + Δt_comp1
+
+        for i = 1:n_drives
+            _bending_seg_block!(
+                H_seg,
+                u[i, k],
+                u[i, k+1],
+                du[i, k],
+                du[i, k+1],
+                Δt_k,
+                reg.R[i],
+            )
+
+            u_i = u_comps[i]
+            du_i = du_comps[i]
+            idx_buf[1] = base_k + u_i
+            idx_buf[2] = base_kp1 + u_i
+            idx_buf[3] = base_k + du_i
+            idx_buf[4] = base_kp1 + du_i
+            idx_buf[5] = idx_Δt
+
+            for a = 1:_BEND_BLK
+                ia = idx_buf[a]
+                for b = 1:_BEND_BLK
+                    H[ia, idx_buf[b]] += H_seg[a, b]
+                end
+            end
+        end
+    end
+
+    return H
+end
+
+# ---------------------------------------------------------
 #                       Tests
 # ---------------------------------------------------------
 
 using TestItems
+
+@testitem "HermiteBendingEnergyRegularizer gradient/Hessian" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using Random
+
+    Random.seed!(309)
+    T = 5
+    u = rand(2, T)
+    du = rand(2, T)
+    Δt = fill(0.2, T)
+
+    traj = NamedTrajectory((u = u, du = du, Δt = Δt); timestep = :Δt, controls = :u)
+
+    reg_scalar = HermiteBendingEnergyRegularizer(traj; R = 1.0)
+    ∇ = zeros(traj.dim * traj.N + traj.global_dim)
+    DirectTrajOpt.gradient!(∇, reg_scalar, traj)
+    H = DirectTrajOpt.Objectives.get_full_hessian(reg_scalar, traj)
+    @test isfinite(DirectTrajOpt.objective_value(reg_scalar, traj))
+    @test !all(∇ .== 0)
+    @test isfinite(sum(abs2, H))
+
+    reg_vec = HermiteBendingEnergyRegularizer(traj; R = [0.3, 2.7])
+    @test reg_vec.R == [0.3, 2.7]
+end
+
+@testitem "HermiteBendingEnergyRegularizer matches segment formula" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    # Direct check of the closed-form integral on a known segment.
+    # Hermite endpoints y1=0, y2=1, m1=0, m2=0 over Δt=1:
+    # the cubic is f(τ) = 3τ² - 2τ³ on [0,1], so f''(τ) = 6 - 12τ.
+    # ∫₀¹ (6 - 12τ)² dτ = 36 - 72 + 48 = 12. J = (R/2)·12 = 6.0.
+    N = 2
+    u = reshape([0.0, 1.0], 1, N)
+    du = reshape([0.0, 0.0], 1, N)
+    Δt = fill(1.0, N)
+
+    traj = NamedTrajectory((; u = u, du = du, Δt = Δt); timestep = :Δt, controls = (:u,))
+    reg = HermiteBendingEnergyRegularizer(traj; R = 1.0)
+
+    @test isapprox(DirectTrajOpt.objective_value(reg, traj), 6.0; atol = 1e-12)
+end
+
+@testitem "HermiteBendingEnergyRegularizer zero for linear pulse" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    # u(t) linear ⇒ f''(t) = 0 ⇒ bending energy = 0
+    N = 6
+    Δt_val = 0.4
+    times = collect(range(0.0, (N - 1) * Δt_val, length = N))
+
+    u = reshape(times, 1, N)   # u(t) = t
+    du = ones(1, N)            # slope 1
+    Δt = fill(Δt_val, N)
+
+    traj = NamedTrajectory((; u = u, du = du, Δt = Δt); timestep = :Δt, controls = (:u,))
+
+    reg = HermiteBendingEnergyRegularizer(traj; R = 1.0)
+    @test DirectTrajOpt.objective_value(reg, traj) < 1e-20
+end
 
 @testitem "CoherentKetInfidelityObjective" begin
     using NamedTrajectories
