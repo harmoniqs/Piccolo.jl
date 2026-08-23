@@ -20,6 +20,7 @@ Base.@kwdef struct SplinePulseParams <: AbstractTemplateParams
     R::Float64 = 1e-2
     R_u::Union{Nothing,Float64,Vector{Float64}} = nothing
     R_du::Union{Nothing,Float64,Vector{Float64}} = nothing
+    R_bend::Union{Nothing,Real,AbstractVector{<:Real}} = nothing
     du_bound::Float64 = Inf
     du_bounds::Union{Nothing,Vector{Float64}} = nothing
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing
@@ -137,7 +138,7 @@ problem will use, so build the trajectory first via `NamedTrajectory(qtraj, K)`,
 construct the regularizer against it, then hand it to the template:
 
 ```julia
-using Piccolissimo: HermiteBendingEnergyRegularizer
+using Piccolo: HermiteBendingEnergyRegularizer   # in Piccolo itself since #309
 
 qtraj = UnitaryTrajectory(sys, pulse, U_target)
 traj = NamedTrajectory(qtraj, K)
@@ -152,10 +153,12 @@ qcp = SplinePulseProblem(qtraj, K;
 solve!(qcp; max_iter = 500, eval_hessian = true)
 ```
 
-The bending-energy term is intentionally not built into the template because
-that would create a Piccolo → Piccolissimo dependency cycle (Piccolissimo
-already depends on Piccolo). Any `AbstractObjective` defined against the same
-trajectory variables can be injected this way.
+Historically the bending-energy term was not built into the template (it
+lived in Piccolissimo, and building it in would have created a dependency
+cycle); since #309 the regularizer lives in Piccolo itself and `R_bend`
+builds it in directly (default ON, 1e-3, for CubicSplinePulse). The
+`extra_objectives` injection path remains for any other
+`AbstractObjective` defined against the same trajectory variables.
 
 # Returns
 - `SplinePulseProblem` (= `QuantumControlProblem{SplinePulseTemplate, QT}`): Wrapper containing trajectory and optimization problem
@@ -199,6 +202,7 @@ function _spline_pulse_problem(
     R::Float64 = 1e-2,
     R_u::Union{Nothing,Float64,Vector{Float64}} = nothing,
     R_du::Union{Nothing,Float64,Vector{Float64}} = nothing,
+    R_bend::Union{Nothing,Real,AbstractVector{<:Real}} = nothing,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     extra_objectives::Vector{<:AbstractObjective} = AbstractObjective[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
@@ -222,6 +226,21 @@ function _spline_pulse_problem(
     is_cubic = qtraj.pulse isa CubicSplinePulse
     R_u_resolved = isnothing(R_u) ? (is_cubic ? 0.0 : R) : R_u
     R_du_resolved = isnothing(R_du) ? (is_cubic ? 0.0 : R) : R_du
+
+    # Bending energy (#309): default ON (1e-3) for cubic, undefined on C⁰ families.
+    if isnothing(R_bend)
+        R_bend_resolved = is_cubic ? 1e-3 : nothing
+    else
+        _bend_nonzero = R_bend isa Real ? !iszero(R_bend) : any(!iszero, R_bend)
+        if !is_cubic && _bend_nonzero
+            error(
+                "R_bend is only defined for CubicSplinePulse (bending energy ∫u″²dt " *
+                "requires a C¹ Hermite parameterization). For LinearSplinePulse the " *
+                "second derivative is distributional — use R_du/du_bound instead.",
+            )
+        end
+        R_bend_resolved = _bend_nonzero ? R_bend : nothing
+    end
 
     if _show_header(piccolo_options)
         pulse_type = _typename(qtraj.pulse)
@@ -398,6 +417,17 @@ function _spline_pulse_problem(
     J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
     J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
 
+    # Bending energy (#309): default smoothness term for cubic-Hermite pulses.
+    if !isnothing(R_bend_resolved)
+        J += HermiteBendingEnergyRegularizer(
+            traj;
+            R = R_bend_resolved,
+            control_name = control_sym,
+            derivative_name = du_sym,
+            timestep_name = traj.timestep,
+        )
+    end
+
     # Apply piccolo options
     J += _apply_piccolo_options(
         qtraj,
@@ -541,6 +571,7 @@ function _spline_pulse_problem(
     R::Float64 = 1e-2,
     R_u::Union{Nothing,Float64,Vector{Float64}} = nothing,
     R_du::Union{Nothing,Float64,Vector{Float64}} = nothing,
+    R_bend::Union{Nothing,Real,AbstractVector{<:Real}} = nothing,
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     extra_objectives::Vector{<:AbstractObjective} = AbstractObjective[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
@@ -567,6 +598,21 @@ function _spline_pulse_problem(
     is_cubic = qtraj.pulse isa CubicSplinePulse
     R_u_resolved = isnothing(R_u) ? (is_cubic ? 0.0 : R) : R_u
     R_du_resolved = isnothing(R_du) ? (is_cubic ? 0.0 : R) : R_du
+
+    # Bending energy (#309): default ON (1e-3) for cubic, undefined on C⁰ families.
+    if isnothing(R_bend)
+        R_bend_resolved = is_cubic ? 1e-3 : nothing
+    else
+        _bend_nonzero = R_bend isa Real ? !iszero(R_bend) : any(!iszero, R_bend)
+        if !is_cubic && _bend_nonzero
+            error(
+                "R_bend is only defined for CubicSplinePulse (bending energy ∫u″²dt " *
+                "requires a C¹ Hermite parameterization). For LinearSplinePulse the " *
+                "second derivative is distributional — use R_du/du_bound instead.",
+            )
+        end
+        R_bend_resolved = _bend_nonzero ? R_bend : nothing
+    end
 
     if _show_header(piccolo_options)
         pulse_type = _typename(qtraj.pulse)
@@ -769,6 +815,17 @@ function _spline_pulse_problem(
     # Add regularization for control and derivative
     J += QuadraticRegularizer(control_sym, traj, R_u_resolved)
     J += QuadraticRegularizer(du_sym, traj, R_du_resolved)
+
+    # Bending energy (#309): default smoothness term for cubic-Hermite pulses.
+    if !isnothing(R_bend_resolved)
+        J += HermiteBendingEnergyRegularizer(
+            traj;
+            R = R_bend_resolved,
+            control_name = control_sym,
+            derivative_name = du_sym,
+            timestep_name = traj.timestep,
+        )
+    end
 
     # Apply piccolo options for each state
     J += _apply_piccolo_options(
