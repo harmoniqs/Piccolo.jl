@@ -20,6 +20,7 @@ Base.@kwdef struct SplinePulseParams <: AbstractTemplateParams
     R::Float64 = 1e-2
     R_u::Union{Nothing,Float64,Vector{Float64}} = nothing
     R_du::Union{Nothing,Float64,Vector{Float64}} = nothing
+    R_bend::Union{Nothing,Real,AbstractVector{<:Real}} = nothing
     du_bound::Float64 = Inf
     du_bounds::Union{Nothing,Vector{Float64}} = nothing
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing
