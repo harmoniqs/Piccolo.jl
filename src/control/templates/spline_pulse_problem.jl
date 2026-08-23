@@ -28,6 +28,7 @@ Base.@kwdef struct SplinePulseParams <: AbstractTemplateParams
     initial_phases::Union{Nothing,Vector{Float64}} = nothing
     coherent::Bool = true
     integrator_type::Symbol = :spline
+    spline_interior_bound_constraints::Bool = false
     parallel_backend::Symbol = :manual
     global_names::Union{Nothing,Vector{Symbol}} = nothing
     global_bounds::Union{Nothing,AbstractDict} = nothing

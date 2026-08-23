@@ -212,7 +212,19 @@ function _verify_spec!(problem, spec::ProblemSpec, errs::Vector{SpecError})
             nothing
         end
         got = Control.template_params(base)
-        if want_params !== nothing && got != want_params
+        # Compare only the fields the spec can actually carry: per-template
+        # extras (`integrator_type`, `du_bounds`, …) live outside `TemplateBlock`
+        # by design ("best-effort, flagged as non-canonical" — see
+        # `_params_to_template_kwargs`), and `materialize` may legitimately set
+        # them beyond the spec (e.g. the SplinePulseProblem `:pwc` pulse-type
+        # guard). A retained-params disagreement on such a field is not a spec
+        # violation.
+        if want_params !== nothing &&
+           typeof(got) === typeof(want_params) &&
+           !isequal(
+               _spec_carried_params(got),
+               _spec_carried_params(want_params),
+           )
             push!(
                 errs,
                 SpecError(
@@ -240,6 +252,19 @@ function _params_diff(got, want)
         f in fieldnames(typeof(want)) if !isequal(getfield(got, f), getfield(want, f))
     ]
     return String["::type ($(nameof(typeof(got))) vs $(nameof(typeof(want))))"]
+end
+
+# The subset of a params struct's fields the spec can carry (the TemplateBlock
+# field set). Fields outside it are per-template extras the spec deliberately
+# does not round-trip.
+function _spec_carried_params(params::Control.AbstractTemplateParams)
+    return NamedTuple{filter(
+        f -> f in _TEMPLATE_BLOCK_FIELDS,
+        fieldnames(typeof(params)),
+    )}(
+        getfield(params, f) for
+        f in fieldnames(typeof(params)) if f in _TEMPLATE_BLOCK_FIELDS
+    )
 end
 
 # ---------------------------------------------------------------------------

@@ -89,6 +89,26 @@ A constructed problem retains its params (`template_params(qcp)`).
 """
 abstract type AbstractTemplateParams end
 
+"""
+    stored_phases(traj::NamedTrajectory) -> Union{Nothing,Vector{Float64}}
+
+Free-phase globals `φ_*` held by a trajectory, concatenated in sorted name order, or
+`nothing` when the trajectory carries none.
+
+Returns an **empty vector** — distinct from `nothing` — when `φ_*` components are declared but
+hold no data. That state is corrupt input rather than "no phases", and callers are expected
+to refuse it rather than silently fall back to the fixed-phase answer.
+"""
+function stored_phases(traj)
+    names = sort!([n for n in keys(traj.global_components) if startswith(string(n), "φ_")])
+    isempty(names) && return nothing
+    return reduce(
+        vcat,
+        (Vector{Float64}(traj.global_data[traj.global_components[n]]) for n in names);
+        init = Float64[],
+    )
+end
+
 @doc raw"""
     AbstractProblemSpec
 
@@ -659,7 +679,7 @@ When this is large, the optimizer's objective and `fidelity(qcp.qtraj)` describe
 waveforms** and only the rollout one is physical. Usual causes: a pulse/integrator mismatch, or
 a collocation grid too coarse for the dynamics.
 """
-function rollout_divergence(qcp::QuantumControlProblem)
+function rollout_divergence(qcp::AbstractQuantumControlProblem)
     pairs = _terminal_iso_states(qcp.qtraj)
     isnothing(pairs) && return nothing
 
@@ -682,7 +702,7 @@ function rollout_divergence(qcp::QuantumControlProblem)
 end
 
 function _warn_on_rollout_divergence(
-    qcp::QuantumControlProblem;
+    qcp::AbstractQuantumControlProblem;
     rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
 )
     ε = rollout_divergence(qcp)
