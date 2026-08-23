@@ -221,10 +221,7 @@ function _verify_spec!(problem, spec::ProblemSpec, errs::Vector{SpecError})
         # violation.
         if want_params !== nothing &&
            typeof(got) === typeof(want_params) &&
-           !isequal(
-               _spec_carried_params(got),
-               _spec_carried_params(want_params),
-           )
+           !isequal(_spec_carried_params(got), _spec_carried_params(want_params))
             push!(
                 errs,
                 SpecError(
@@ -258,10 +255,7 @@ end
 # field set). Fields outside it are per-template extras the spec deliberately
 # does not round-trip.
 function _spec_carried_params(params::Control.AbstractTemplateParams)
-    return NamedTuple{filter(
-        f -> f in _TEMPLATE_BLOCK_FIELDS,
-        fieldnames(typeof(params)),
-    )}(
+    return NamedTuple{filter(f -> f in _TEMPLATE_BLOCK_FIELDS, fieldnames(typeof(params)))}(
         getfield(params, f) for
         f in fieldnames(typeof(params)) if f in _TEMPLATE_BLOCK_FIELDS
     )
