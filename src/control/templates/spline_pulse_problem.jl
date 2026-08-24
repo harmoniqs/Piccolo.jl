@@ -109,6 +109,7 @@ Both pulse types always have `:du` components in the trajectory, simplifying int
 - `R::Float64=1e-2`: Weight on regularization terms (LinearSplinePulse only — see below)
 - `R_u::Union{Nothing, Float64, Vector{Float64}}=nothing`: Weight on control regularization. Pulse-type-dependent default — see below.
 - `R_du::Union{Nothing, Float64, Vector{Float64}}=nothing`: Weight on derivative regularization. Pulse-type-dependent default — see below.
+- `R_bend::Union{Nothing, Real, AbstractVector{<:Real}}=nothing`: Weight on bending-energy regularization ∫u″²dt (`HermiteBendingEnergyRegularizer`). **CubicSplinePulse defaults to `1e-3` (ON)** — a deliberately gentle weight; the fidelity objective stays dominant. Pass `R_bend = 0` to opt out. LinearSplinePulse: bend is undefined on C⁰ families — a nonzero value errors.
 - `constraints::Vector{<:AbstractConstraint}=AbstractConstraint[]`: Additional constraints
 - `extra_objectives::Vector{<:AbstractObjective}=AbstractObjective[]`: Additional objective terms to compose into the problem's total objective (e.g., `Piccolissimo.HermiteBendingEnergyRegularizer`). Each entry is summed into the objective before constructing the underlying `DirectTrajOptProblem`. Default empty: no extra terms.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
@@ -131,21 +132,26 @@ Pass `R_u` or `R_du` explicitly to override these defaults.
 
 ## Cubic-spline smoothness regularization
 
-For cubic-Hermite-spline smoothness regularization, pass
-`Piccolissimo.HermiteBendingEnergyRegularizer` via the `extra_objectives`
-kwarg. The regularizer is constructed from the *named trajectory* that the
-problem will use, so build the trajectory first via `NamedTrajectory(qtraj, K)`,
-construct the regularizer against it, then hand it to the template:
+Cubic-Hermite-spline smoothness regularization (bending energy, ∫u″²dt) is
+**built in and ON by default** for `CubicSplinePulse` via the `R_bend` kwarg
+(default `1e-3`; `R_bend = 0` opts out). The closed-form
+`HermiteBendingEnergyRegularizer` now lives in Piccolo itself (#309).
+
+The previous long-form — constructing the regularizer against the named
+trajectory and passing it via `extra_objectives` — still works and remains
+the right tool when you need per-drive weights or a custom weight the kwarg
+doesn't express:
 
 ```julia
 using Piccolo: HermiteBendingEnergyRegularizer   # in Piccolo itself since #309
 
 qtraj = UnitaryTrajectory(sys, pulse, U_target)
 traj = NamedTrajectory(qtraj, K)
-bending_reg = HermiteBendingEnergyRegularizer(traj; R = 0.01)
+bending_reg = HermiteBendingEnergyRegularizer(traj; R = [0.01, 0.2])
 
 qcp = SplinePulseProblem(qtraj, K;
     Q = 100.0,
+    R_bend = 0,                          # don't double-count with the kwarg
     extra_objectives = [bending_reg],
     free_phase = true,
     subsystem_levels = [2, 2],
@@ -202,7 +208,7 @@ function _spline_pulse_problem(
     R::Float64 = 1e-2,
     R_u::Union{Nothing,Float64,Vector{Float64}} = nothing,
     R_du::Union{Nothing,Float64,Vector{Float64}} = nothing,
-    R_bend::Union{Nothing,Real,AbstractVector{<:Real}} = nothing,
+    R_bend::Union{Nothing,Real,AbstractVector{<:Real}} = nothing,  # resolved per pulse type below
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     extra_objectives::Vector{<:AbstractObjective} = AbstractObjective[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
@@ -571,7 +577,7 @@ function _spline_pulse_problem(
     R::Float64 = 1e-2,
     R_u::Union{Nothing,Float64,Vector{Float64}} = nothing,
     R_du::Union{Nothing,Float64,Vector{Float64}} = nothing,
-    R_bend::Union{Nothing,Real,AbstractVector{<:Real}} = nothing,
+    R_bend::Union{Nothing,Real,AbstractVector{<:Real}} = nothing,  # resolved per pulse type below
     constraints::Vector{<:AbstractConstraint} = AbstractConstraint[],
     extra_objectives::Vector{<:AbstractObjective} = AbstractObjective[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
@@ -2139,4 +2145,155 @@ end
         piccolo_options = PiccoloOptions(display = :detailed),
     )
     @test qcp isa QuantumControlProblem
+end
+
+# ============================================================================= #
+# Bending-energy default tests (#309)
+# ============================================================================= #
+
+@testitem "SplinePulseProblem R_bend default ON for cubic, absent when opted out" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    amps = 0.1 * randn(1, N)
+    derivs = zeros(1, N)
+    pulse = CubicSplinePulse(amps, derivs, times)
+    U_goal = ComplexF64[0 1; 1 0]
+    qtraj = UnitaryTrajectory(sys, pulse, U_goal)
+
+    terms(qcp) =
+        let obj = qcp.prob.objective
+            obj isa DirectTrajOpt.CompositeObjective ? obj.objectives : [obj]
+        end
+
+    # Default: bending term present with R = [1e-3]
+    qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
+    bend_default = filter(x -> x isa HermiteBendingEnergyRegularizer, terms(qcp_default))
+    @test length(bend_default) == 1
+    @test bend_default[1].R == [1e-3]
+
+    # Opt-out: R_bend = 0 → no bending term
+    qcp_off = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, R_bend = 0)
+    bend_off = filter(x -> x isa HermiteBendingEnergyRegularizer, terms(qcp_off))
+    @test isempty(bend_off)
+
+    # Linear spline + explicit nonzero R_bend → error
+    lin_pulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    lin_qtraj = UnitaryTrajectory(sys, lin_pulse, U_goal)
+    err = try
+        SplinePulseProblem(lin_qtraj, N; Q = 100.0, R_bend = 0.5)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("CubicSplinePulse", err.msg)
+end
+
+@testitem "SplinePulseProblem MultiKet R_bend default ON for cubic" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    pulse = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
+    qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
+    terms_ = let obj = qcp.prob.objective
+        obj isa DirectTrajOpt.CompositeObjective ? obj.objectives : [obj]
+    end
+    bend = filter(x -> x isa HermiteBendingEnergyRegularizer, terms_)
+    @test length(bend) == 1
+    @test bend[1].R == [1e-3]
+end
+
+@testitem "bending closed form ≈ fine-mesh FD; grid-refinement invariance (#309)" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using Random
+
+    # One fixed continuous cubic pulse discretized at several knot counts:
+    # the closed-form bending energy must be a property of the PULSE, not the
+    # grid (Riemann property), and must agree with an independent fine-mesh
+    # finite-difference evaluation of the same Hermite spline.
+    Random.seed!(309)
+    f(t) = sin(2π * t) + 0.3 * cos(6π * t)   # smooth, fixed
+    df(t) = 2π * cos(2π * t) - 1.8π * sin(6π * t)
+    T = 1.0
+
+    closed_form_bend(N) = begin
+        times = collect(range(0.0, T, length = N))
+        u = reshape(f.(times), 1, N)
+        du = reshape(df.(times), 1, N)
+        Δt = fill(T / (N - 1), N)
+        traj = NamedTrajectory((u = u, du = du, Δt = Δt); timestep = :Δt, controls = :u)
+        reg = HermiteBendingEnergyRegularizer(traj; R = 1.0)
+        DirectTrajOpt.objective_value(reg, traj)
+    end
+
+    # J = (1/2)∫u″² — the regularizer's R=1 convention
+    # (J = (R/2)·∫f''² with R=1 → J = 0.5·∫f''²)
+    d2f(t) = -(2π)^2 * sin(2π * t) - 10.8π^2 * cos(6π * t)  # 0.3·(6π)² = 10.8π²
+    N_ref = 200_000
+    h = T / (N_ref - 1)
+    J_exact = 0.5 * h * sum(abs2, d2f.(collect(0:h:(T-h))))
+
+    Js = [closed_form_bend(N) for N in (51, 201, 801)]
+    rel_drift = maximum(Js) / minimum(Js) - 1.0
+    rel_err = abs(Js[2] - J_exact) / J_exact
+
+    @test rel_drift < 0.02   # grid-refinement invariance (Riemann property)
+    @test rel_err < 0.01     # closed form ≈ independent quadrature
+end
+
+@testitem "shape_metrics quartet sanity (#309)" begin
+    using Piccolo
+    using Random
+    Random.seed!(309)
+
+    times = collect(range(0.0, 1.0, length = 21))
+    amps = 0.1 * randn(2, 21)
+    derivs = zeros(2, 21)
+    pulse = CubicSplinePulse(amps, derivs, times)
+
+    m = shape_metrics(pulse)
+    @test length(m.bend) == 2
+    @test all(m.bend .> 0)
+    @test all(m.int_u2 .> 0)
+    @test all(m.max_du .> 0)
+    @test m.T ≈ 1.0
+    @test m.parameterization == 3
+
+    lin = LinearSplinePulse(0.1 * randn(2, 21), times)
+    ml = shape_metrics(lin)
+    @test ml.parameterization == 1
+
+    # bend on a C² trajectory: linear u with constant slope → ~0.
+    # (Construct via cubic knots that reproduce y = t exactly.)
+    lin_times = collect(range(0.0, 2.0, length = 6))
+    lin_u = reshape(collect(lin_times), 1, 6)
+    lin_du = ones(1, 6)
+    lin_pulse = CubicSplinePulse(lin_u, lin_du, lin_times)
+    m_c2 = shape_metrics(lin_pulse; mesh = 2^12)
+    @test m_c2.bend[1] < 1e-6
 end
