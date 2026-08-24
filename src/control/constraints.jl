@@ -508,7 +508,7 @@ end
     # Convert to minimum-time — this is the path the dispatch stub used to block
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.95, D = 50.0)
 
-    @test qcp_mintime isa QuantumControlProblem{<:DensityTrajectory}
+    @test qcp_mintime isa SmoothPulseProblem{<:DensityTrajectory}
 
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 100, verbose = false, print_level = 1)

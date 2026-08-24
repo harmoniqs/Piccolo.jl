@@ -40,7 +40,7 @@
 #
 # ```julia
 # MinimumTimeProblem(
-#     qcp::QuantumControlProblem;
+#     p::AbstractQuantumControlProblem;
 #     goal = nothing,
 #     final_fidelity = 0.99,
 #     D = 100.0,
@@ -52,7 +52,7 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `qcp` | `QuantumControlProblem` | required | Base problem to convert (must have `Δt_bounds`) |
+# | `p` | `AbstractQuantumControlProblem` | required | Base problem to convert (must have `Δt_bounds`) |
 # | `goal` | `AbstractPiccoloOperator` or `AbstractVector` | `nothing` | Optional new goal (uses base problem's goal if `nothing`) |
 # | `final_fidelity` | `Float64` | `0.99` | Minimum fidelity constraint |
 # | `D` | `Float64` | `100.0` | Weight on total time objective |

@@ -21,17 +21,20 @@ const _TREE_BLANK = "   "
 # One-line compact display (Base.show with no MIME)
 # ---------------------------------------------------------------------------- #
 
-function Base.show(io::IO, qcp::QuantumControlProblem)
+function Base.show(io::IO, qcp::AbstractQuantumControlProblem)
     ins = inspect(qcp)
     # QuantumControlProblem · KetTrajectory · CubicSplinePulse · 1793 vars · 1519 eq · F₀=0.378
-    parts = String["QuantumControlProblem", ins.traj_typename]
+    parts = String[string(nameof(typeof(qcp))), ins.traj_typename]
     ins.pulse_typename == "—" || push!(parts, ins.pulse_typename)
     push!(parts, "$(ins.n_vars) vars")
     ins.n_eq > 0 && push!(parts, "$(ins.n_eq) eq")
     ins.n_ineq > 0 && push!(parts, "$(ins.n_ineq) ineq")
     # Prefer phase-adjusted F if available (matches what the free-phase
     # constraint actually enforces); otherwise show raw F.
-    F_show = something(ins.F_with_phase, ins.F_current, nothing)
+    # NB: `something(a, b, nothing)` throws when both are nothing (`nothing` is not
+    # a value argument for `something`) — pick manually so a problem with no scalar
+    # fidelity (e.g. an ensemble/sampling problem) still renders.
+    F_show = isnothing(ins.F_with_phase) ? ins.F_current : ins.F_with_phase
     isnothing(F_show) || push!(parts, @sprintf("F=%.3f", F_show))
     print(io, join(parts, " · "))
 end
@@ -40,7 +43,7 @@ end
 # Multi-line rich display (MIME"text/plain") — :standard level
 # ---------------------------------------------------------------------------- #
 
-function Base.show(io::IO, ::MIME"text/plain", qcp::QuantumControlProblem)
+function Base.show(io::IO, ::MIME"text/plain", qcp::AbstractQuantumControlProblem)
     show_problem(io, qcp; detail = :standard)
 end
 
@@ -49,7 +52,7 @@ end
 # ---------------------------------------------------------------------------- #
 
 """
-    show_problem(io::IO, qcp::QuantumControlProblem; detail::Symbol = :standard)
+    show_problem(io::IO, qcp::AbstractQuantumControlProblem; detail::Symbol = :standard)
 
 Render the rich problem view to `io`. `detail` is one of:
 
@@ -58,14 +61,18 @@ Render the rich problem view to `io`. `detail` is one of:
 - `:full` — everything in `:standard` plus integrator-by-integrator detail,
   sparsity, and a terminal pulse plot.
 """
-function show_problem(io::IO, qcp::QuantumControlProblem; detail::Symbol = :standard)
+function show_problem(
+    io::IO,
+    qcp::AbstractQuantumControlProblem;
+    detail::Symbol = :standard,
+)
     detail in (:standard, :full) ||
         throw(ArgumentError("detail must be :standard or :full; got :$detail"))
     ins = inspect(qcp)
     _print_tree(io, ins, qcp, detail)
 end
 
-show_problem(qcp::QuantumControlProblem; detail::Symbol = :standard) =
+show_problem(qcp::AbstractQuantumControlProblem; detail::Symbol = :standard) =
     show_problem(stdout, qcp; detail = detail)
 
 # ---------------------------------------------------------------------------- #
@@ -74,7 +81,7 @@ show_problem(qcp::QuantumControlProblem; detail::Symbol = :standard) =
 
 function _print_tree(io::IO, ins::ProblemInspection, qcp, detail::Symbol)
     # Header
-    printstyled(io, "QuantumControlProblem\n"; bold = true)
+    printstyled(io, string(nameof(typeof(qcp))), "\n"; bold = true)
 
     # Top stem
     pulse_part = ins.pulse_typename == "—" ? "" : "  ·  $(ins.pulse_typename)"
