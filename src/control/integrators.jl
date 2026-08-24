@@ -858,5 +858,24 @@ end
     end
 end
 
+# ----------------------------------------------------------------------------- #
+# Exponential integrator family (moved from Piccolissimo — open-core slice 3a,
+# harmoniqs/Piccolissimo.jl#429; see docs/moved-file-review.md rows 1-9 + the
+# two sampling dispatch files that postdate the survey). The matrix-free
+# MultiKet hook (`matrix_free_jacobian_op`) stays proprietary: the function is
+# declared empty here, Piccolissimo's solvers define its methods.
+# ----------------------------------------------------------------------------- #
+
+include("integrators_exponential/_exponential_integrators.jl")
+using .ExponentialIntegrators
+export AbstractExponentialIntegrator
+export HermitianExponentialIntegrator
+export NonHermitianExponentialIntegrator
+export exp_eigen, exp_eigen!, exp_generator!
+export dk_divided_difference!, dk_apply!, dk_first_order_derivative!
+export DaleckiiKreinWorkspace, DK_DEGENERACY_RTOL
+export dk_second_divided_difference, dk_second_order_apply!,
+    dk_second_order_derivative!, dk_second_order_block!
+export DaleckiiKreinSecondOrderWorkspace
 
 end

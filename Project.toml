@@ -8,6 +8,7 @@ DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
 DirectTrajOpt = "c823fa1f-8872-4af5-b810-2b9b72bbbf56"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 ExponentialAction = "e24c0720-ea99-47e8-929e-571b494574d3"
+ExponentialUtilities = "d4d017d3-3776-5f7e-afef-a10c40355c18"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
@@ -49,6 +50,7 @@ DataInterpolations = "8.9"
 DirectTrajOpt = "0.9.5, 0.10"
 Distributions = "0.25"
 ExponentialAction = "0.2"
+ExponentialUtilities = "1"
 ForwardDiff = "1.3"
 JET = "0.9, 0.10, 0.11"
 JLD2 = "0.6"
@@ -84,6 +86,7 @@ julia = "1.10, 1.11, 1.12"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -92,4 +95,4 @@ Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "CairoMakie", "JET", "Logging", "QuantumToolbox", "Serialization", "Test"]
+test = ["Aqua", "BenchmarkTools", "CairoMakie", "JET", "Logging", "QuantumToolbox", "Serialization", "Test"]
