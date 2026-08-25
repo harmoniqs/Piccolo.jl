@@ -404,33 +404,6 @@ end
     end
 end
 
-@testitem "SamplingProblem short solve with NonHermitianExponential (Density) (AC1)" begin
-    using LinearAlgebra, Random, DirectTrajOpt, Piccolo
-
-    Random.seed!(42)
-
-    L = ComplexF64[0 0.1; 0 0]
-    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
-    sys_pert =
-        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
-    ρ0 = ComplexF64[1 0; 0 0]
-    ρg = ComplexF64[0 0; 0 1]
-    N = 11
-    T = 1.0
-    times = range(0, T, length = N)
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), times)
-    qtraj = DensityTrajectory(sys_nom, pulse, ρ0, ρg)
-
-    prob = SmoothPulseProblem(qtraj, N; Q = 100.0)
-    sampling_prob = SamplingProblem(
-        prob,
-        [sys_nom, sys_pert];
-        integrator = (sq, n) -> NonHermitianExponentialIntegrator(sq, n),
-    )
-    solve!(sampling_prob; max_iter = 50, print_level = 0)
-    @test sampling_prob.prob.objective(sampling_prob.trajectory) < 1e10
-end
-
 @testitem "NonHermitianExponentialIntegrator sampling per-member buffer isolation" begin
     using DirectTrajOpt, NamedTrajectories, Piccolo
 

@@ -871,6 +871,7 @@ using .ExponentialIntegrators
 export AbstractExponentialIntegrator
 export HermitianExponentialIntegrator
 export NonHermitianExponentialIntegrator
+export x_name, single_state_dim
 export exp_eigen, exp_eigen!, exp_generator!
 export dk_divided_difference!, dk_apply!, dk_first_order_derivative!
 export DaleckiiKreinWorkspace, DK_DEGENERACY_RTOL

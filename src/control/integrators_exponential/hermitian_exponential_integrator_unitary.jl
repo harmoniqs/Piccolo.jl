@@ -855,7 +855,7 @@ end
     # position, must match a finite difference of the forward residual.
     using DirectTrajOpt
     using Piccolo
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using NamedTrajectories
     using LinearAlgebra
     using Random
@@ -919,7 +919,10 @@ end
     integrator = HermitianExponentialIntegrator(qtraj, N)
 
     traj = NamedTrajectory(qtraj, N)
-    ∂F = Piccolissimo.get_jacobian_structure(integrator, traj)
+    ∂F = Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.get_jacobian_structure(
+        integrator,
+        traj,
+    )
 
     # Expected sparsity for UnitaryTrajectory with block-diagonal structure:
     # HermitianExponentialIntegrator uses jacobian_structure() which should exploit
@@ -987,7 +990,7 @@ end
 
 @testitem "HermitianExponentialIntegrator UnitaryTrajectory with NonlinearDrive" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using SparseArrays
     using LinearAlgebra
@@ -1023,7 +1026,7 @@ end
 @testitem "HermitianExponentialIntegrator UnitaryTrajectory with NonlinearDrive and global variables" begin
     using DirectTrajOpt
     using DirectTrajOpt: BoundsConstraint
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using SparseArrays
     using LinearAlgebra
@@ -1146,7 +1149,7 @@ end
 
 @testitem "Unitary DK Jacobian matches ForwardDiff witness — affine drive [#204 AC1]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1178,7 +1181,7 @@ end
 
 @testitem "Unitary DK Gauss-Newton Hessian cross-terms match ForwardDiff [#204 AC1]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1252,7 +1255,7 @@ end
 
 @testitem "Unitary DK exact-Hessian p-p blocks match ForwardDiff witness — affine [#204 AC1]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1346,7 +1349,7 @@ end
 
 @testitem "Unitary DK path is thread-safe: parallel == serial [#204 AC4]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1377,24 +1380,39 @@ end
     traj = NamedTrajectory(qtraj, N)
     traj.datavec .= randn(length(traj.datavec))
     traj.global_data .= randn(length(traj.global_data))
-    globals = Piccolissimo.extract_globals(ℰ, traj)
+    globals =
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.extract_globals(ℰ, traj)
     μ = randn(ℰ.dim)
 
     println("  [#204 AC4] Unitary running on $(Threads.nthreads()) thread(s)")
 
     Threads.@threads for k = 1:(N-1)
-        Piccolissimo.jacobian!(ℰ.∂ℰs[k], ℰ, traj[k], traj[k+1], k, globals)
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.jacobian!(
+            ℰ.∂ℰs[k],
+            ℰ,
+            traj[k],
+            traj[k+1],
+            k,
+            globals,
+        )
     end
     J_threaded = [copy(ℰ.∂ℰs[k]) for k = 1:(N-1)]
     for k = 1:(N-1)
-        Piccolissimo.jacobian!(ℰ.∂ℰs[k], ℰ, traj[k], traj[k+1], k, globals)
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.jacobian!(
+            ℰ.∂ℰs[k],
+            ℰ,
+            traj[k],
+            traj[k+1],
+            k,
+            globals,
+        )
     end
     J_serial = [copy(ℰ.∂ℰs[k]) for k = 1:(N-1)]
     @test all(J_threaded[k] == J_serial[k] for k = 1:(N-1))
 
     Threads.@threads for k = 1:(N-1)
         μₖ = μ[slice(k, ℰ.x_dim)]
-        Piccolissimo.hessian_of_lagrangian!(
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.hessian_of_lagrangian!(
             ℰ.μ∂²ℰs[k],
             ℰ,
             μₖ,
@@ -1407,7 +1425,7 @@ end
     H_threaded = [copy(ℰ.μ∂²ℰs[k]) for k = 1:(N-1)]
     for k = 1:(N-1)
         μₖ = μ[slice(k, ℰ.x_dim)]
-        Piccolissimo.hessian_of_lagrangian!(
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.hessian_of_lagrangian!(
             ℰ.μ∂²ℰs[k],
             ℰ,
             μₖ,
@@ -1426,7 +1444,7 @@ end
 
 @testitem "Unitary DK path matches FiniteDiff oracle [#204 AC1]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1470,7 +1488,7 @@ end
 
 @testitem "Unitary nonlinear drive falls back to ForwardDiff [#204 AC5]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using SparseArrays
     using NamedTrajectories

@@ -1092,7 +1092,10 @@ end
     integrator = HermitianExponentialIntegrator(qtraj, N)
 
     traj = NamedTrajectory(qtraj, N)
-    ∂F = Piccolissimo.get_jacobian_structure(integrator, traj)
+    ∂F = Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.get_jacobian_structure(
+        integrator,
+        traj,
+    )
 
     # Expected sparsity for MultiKetTrajectory with block-diagonal structure:
     # - Each ket evolves independently → n_kets blocks of (2ketdim × 2ketdim)
@@ -1157,7 +1160,7 @@ end
 
 @testitem "HermitianExponentialIntegrator MultiKetTrajectory with NonlinearDrive" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using SparseArrays
     using NamedTrajectories
@@ -1199,7 +1202,7 @@ end
 @testitem "HermitianExponentialIntegrator MultiKetTrajectory with NonlinearDrive and global variables" begin
     using DirectTrajOpt
     using DirectTrajOpt: BoundsConstraint
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using SparseArrays
     using LinearAlgebra
@@ -1330,7 +1333,7 @@ end
 
 @testitem "MultiKet DK Jacobian matches ForwardDiff witness — affine drive [#202 AC1]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1365,7 +1368,7 @@ end
 
 @testitem "MultiKet DK Gauss-Newton Hessian cross-terms match ForwardDiff [#202 AC2]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1439,7 +1442,7 @@ end
 
 @testitem "MultiKet DK path is thread-safe: parallel == serial [#202 AC3]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1467,7 +1470,8 @@ end
     traj = NamedTrajectory(qtraj, N)
     traj.datavec .= randn(length(traj.datavec))
     traj.global_data .= randn(length(traj.global_data))
-    globals = Piccolissimo.extract_globals(ℰ, traj)
+    globals =
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.extract_globals(ℰ, traj)
     μ = randn(ℰ.dim)
 
     println("  [#202 AC3] running on $(Threads.nthreads()) thread(s)")
@@ -1475,11 +1479,25 @@ end
     # Jacobian: threaded fill of the per-knot blocks vs a serial fill — a race on the
     # new per-thread DK scratch would corrupt some knots under Threads.nthreads() > 1.
     Threads.@threads for k = 1:(N-1)
-        Piccolissimo.jacobian!(ℰ.∂ℰs[k], ℰ, traj[k], traj[k+1], k, globals)
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.jacobian!(
+            ℰ.∂ℰs[k],
+            ℰ,
+            traj[k],
+            traj[k+1],
+            k,
+            globals,
+        )
     end
     J_threaded = [copy(ℰ.∂ℰs[k]) for k = 1:(N-1)]
     for k = 1:(N-1)
-        Piccolissimo.jacobian!(ℰ.∂ℰs[k], ℰ, traj[k], traj[k+1], k, globals)
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.jacobian!(
+            ℰ.∂ℰs[k],
+            ℰ,
+            traj[k],
+            traj[k+1],
+            k,
+            globals,
+        )
     end
     J_serial = [copy(ℰ.∂ℰs[k]) for k = 1:(N-1)]
     @test all(J_threaded[k] == J_serial[k] for k = 1:(N-1))
@@ -1487,7 +1505,7 @@ end
     # Hessian: same threaded-vs-serial check on the per-knot Hessian blocks.
     Threads.@threads for k = 1:(N-1)
         μₖ = μ[slice(k, ℰ.x_dim)]
-        Piccolissimo.hessian_of_lagrangian!(
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.hessian_of_lagrangian!(
             ℰ.μ∂²ℰs[k],
             ℰ,
             μₖ,
@@ -1500,7 +1518,7 @@ end
     H_threaded = [copy(ℰ.μ∂²ℰs[k]) for k = 1:(N-1)]
     for k = 1:(N-1)
         μₖ = μ[slice(k, ℰ.x_dim)]
-        Piccolissimo.hessian_of_lagrangian!(
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.hessian_of_lagrangian!(
             ℰ.μ∂²ℰs[k],
             ℰ,
             μₖ,
@@ -1520,7 +1538,7 @@ end
 
 @testitem "MultiKet DK path is correct vs FiniteDiff oracle [#202 AC4]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1546,7 +1564,7 @@ end
 
 @testitem "MultiKet nonlinear drive falls back to ForwardDiff [#202 AC5]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using SparseArrays
     using NamedTrajectories
@@ -1600,7 +1618,7 @@ end
 
 @testitem "MultiKet DK exact-Hessian p-p blocks match ForwardDiff witness — affine [#203 AC1]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1694,7 +1712,7 @@ end
 
 @testitem "MultiKet DK exact-Hessian handles the near-degenerate confluent limit [#203 AC1]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1758,7 +1776,7 @@ end
 
 @testitem "MultiKet DK exact-Hessian assembled block is symmetric [#203 AC2]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1790,14 +1808,15 @@ end
     traj = NamedTrajectory(qtraj, N)
     traj.datavec .= randn(length(traj.datavec))
     traj.global_data .= randn(length(traj.global_data))
-    globals = Piccolissimo.extract_globals(ℰ, traj)
+    globals =
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.extract_globals(ℰ, traj)
     μ = randn(ℰ.dim)
 
     # The per-knot CANONICAL block (before the eval-time triu extraction) is what the
     # canonical→trajectory index mapping expects to be symmetric to machine precision.
     for k = 1:(N-1)
         μₖ = μ[slice(k, ℰ.x_dim)]
-        Piccolissimo.hessian_of_lagrangian!(
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.hessian_of_lagrangian!(
             ℰ.μ∂²ℰs[k],
             ℰ,
             μₖ,
@@ -1813,7 +1832,7 @@ end
 
 @testitem "MultiKet DK exact-Hessian is thread-safe: parallel == serial [#203 AC3]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1846,7 +1865,8 @@ end
     traj = NamedTrajectory(qtraj, N)
     traj.datavec .= randn(length(traj.datavec))
     traj.global_data .= randn(length(traj.global_data))
-    globals = Piccolissimo.extract_globals(ℰ, traj)
+    globals =
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.extract_globals(ℰ, traj)
     μ = randn(ℰ.dim)
 
     println("  [#203 AC3] running on $(Threads.nthreads()) thread(s)")
@@ -1855,7 +1875,7 @@ end
     # under Threads.nthreads() > 1; assert threaded == serial on the exact-Hessian.
     Threads.@threads for k = 1:(N-1)
         μₖ = μ[slice(k, ℰ.x_dim)]
-        Piccolissimo.hessian_of_lagrangian!(
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.hessian_of_lagrangian!(
             ℰ.μ∂²ℰs[k],
             ℰ,
             μₖ,
@@ -1868,7 +1888,7 @@ end
     H_threaded = [copy(ℰ.μ∂²ℰs[k]) for k = 1:(N-1)]
     for k = 1:(N-1)
         μₖ = μ[slice(k, ℰ.x_dim)]
-        Piccolissimo.hessian_of_lagrangian!(
+        Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.hessian_of_lagrangian!(
             ℰ.μ∂²ℰs[k],
             ℰ,
             μₖ,
@@ -1887,7 +1907,7 @@ end
 
 @testitem "MultiKet DK exact-Hessian matches FiniteDiff oracle (no autodiff in path) [#203 AC4]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
@@ -1919,7 +1939,7 @@ end
 
 @testitem "MultiKet DK exact-Hessian solve reaches the ForwardDiff-path solution [#203 AC4]" begin
     using DirectTrajOpt
-    using Piccolissimo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
     using Piccolo
     using LinearAlgebra
     using Random
