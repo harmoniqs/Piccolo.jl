@@ -875,8 +875,8 @@ export x_name, single_state_dim
 export exp_eigen, exp_eigen!, exp_generator!
 export dk_divided_difference!, dk_apply!, dk_first_order_derivative!
 export DaleckiiKreinWorkspace, DK_DEGENERACY_RTOL
-export dk_second_divided_difference, dk_second_order_apply!,
-    dk_second_order_derivative!, dk_second_order_block!
+export dk_second_divided_difference,
+    dk_second_order_apply!, dk_second_order_derivative!, dk_second_order_block!
 export DaleckiiKreinSecondOrderWorkspace
 
 end
