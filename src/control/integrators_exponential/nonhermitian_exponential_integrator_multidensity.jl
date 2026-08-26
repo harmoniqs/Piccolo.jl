@@ -603,7 +603,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
     using Piccolo
-    using ..QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
 
     L = ComplexF64[0 0.1; 0 0]
     sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
@@ -647,7 +647,7 @@ end
     using NamedTrajectories
     using Piccolo
     using DirectTrajOpt
-    using ..QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
 
     # Nontrivial dissipator + NONZERO random controls so the initial trajectory's
     # constraint residual is nonzero (test_integrator's `!all(iszero.(f̂))` check
@@ -673,7 +673,7 @@ end
 @testitem "NonHermitianExponentialIntegrator{MultiDensityTrajectory} globals propagate" begin
     using LinearAlgebra, NamedTrajectories, Piccolo
     using SparseArrays
-    using ..QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
 
     # Use the typed-drive OpenQuantumSystem constructor so that
     # drive_bounds = length 2 dictates n_drives = 2 (the matrix-form

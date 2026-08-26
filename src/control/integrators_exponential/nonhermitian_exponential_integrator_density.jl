@@ -580,7 +580,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
     using Piccolo
-    using ..QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
 
     L = ComplexF64[0 0.1; 0 0]
     sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
@@ -614,7 +614,7 @@ end
     using NamedTrajectories
     using Piccolo
     using DirectTrajOpt
-    using ..QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
 
     # OpenQuantumSystem with ZERO dissipators → Lindbladian reduces to von Neumann
     # dynamics, matching Hermitian ket/unitary behavior modulo trace-preserving
@@ -636,7 +636,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
     using Piccolo
-    using ..QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
 
     γ = 0.5
     L = sqrt(γ) * PAULIS.Z  # pure dephasing on 1-qubit
@@ -660,7 +660,7 @@ end
     using NamedTrajectories
     using Piccolo
     using DirectTrajOpt
-    using ..QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
 
     # Use a nontrivial dissipator and NONZERO random controls so the initial
     # trajectory's constraint residual is nonzero (test_integrator's
@@ -692,7 +692,7 @@ end
 
 @testitem "NonHermitianExponentialIntegrator{DensityTrajectory} globals: drive + dissipator" begin
     using LinearAlgebra, NamedTrajectories, Piccolo
-    using ..QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
 
     # Two globals: θ (multiplies the X drive coefficient alongside u₁) and
     # γ (sets the Z-dissipator rate). active_controls selects slots in the

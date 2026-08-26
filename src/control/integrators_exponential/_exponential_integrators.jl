@@ -269,7 +269,7 @@ include("nonhermitian_exponential_integrator_sampling.jl")
 @testitem "exp_eigen! matches exp_eigen on random Hermitian matrix" begin
     using LinearAlgebra
     using Random
-    using ..QuantumIntegrators: exp_eigen, exp_eigen!
+    using Piccolo.Control.QuantumIntegrators: exp_eigen, exp_eigen!
 
     Random.seed!(42)
     n = 6
@@ -296,7 +296,7 @@ end
 
 @testitem "exp_eigen! respects Δt scaling" begin
     using LinearAlgebra
-    using ..QuantumIntegrators: exp_eigen, exp_eigen!
+    using Piccolo.Control.QuantumIntegrators: exp_eigen, exp_eigen!
 
     n = 4
     H = Hermitian(ComplexF64[
@@ -324,7 +324,7 @@ end
 @testitem "exp_eigen! zero allocations after warmup" begin
     using LinearAlgebra
     using BenchmarkTools
-    using ..QuantumIntegrators: exp_eigen!
+    using Piccolo.Control.QuantumIntegrators: exp_eigen!
 
     n = 4
     H = Hermitian(ComplexF64[
@@ -371,7 +371,7 @@ end
 @testitem "exp_generator! matches naive exp(Δt * G) on non-Hermitian real matrix" begin
     using LinearAlgebra
     using Random
-    using ..QuantumIntegrators: exp_generator!
+    using Piccolo.Control.QuantumIntegrators: exp_generator!
 
     Random.seed!(7)
     n = 8
@@ -393,7 +393,7 @@ end
 @testitem "exp_generator! allocations after warmup" begin
     using LinearAlgebra
     using BenchmarkTools
-    using ..QuantumIntegrators: exp_generator!
+    using Piccolo.Control.QuantumIntegrators: exp_generator!
 
     n = 8
     G = randn(Float64, n, n)

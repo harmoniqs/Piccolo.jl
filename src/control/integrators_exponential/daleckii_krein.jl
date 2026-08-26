@@ -464,7 +464,7 @@ end
 @testitem "DK divided-difference M matches naive elementwise reference (AC1)" begin
     using LinearAlgebra
     using Random
-    using ..QuantumIntegrators: dk_divided_difference!
+    using Piccolo.Control.QuantumIntegrators: dk_divided_difference!
 
     Random.seed!(42)
     for _ = 1:25
@@ -494,7 +494,7 @@ end
 
 @testitem "DK divided-difference is continuous through the degeneracy band (AC2)" begin
     using LinearAlgebra
-    using ..QuantumIntegrators: dk_divided_difference!, DK_DEGENERACY_RTOL
+    using Piccolo.Control.QuantumIntegrators: dk_divided_difference!, DK_DEGENERACY_RTOL
 
     Δt = 0.85
     λa = 1.234
@@ -541,7 +541,7 @@ end
 @testitem "DK first-order action matches central finite differences (AC3)" begin
     using LinearAlgebra
     using Random
-    using ..QuantumIntegrators: dk_divided_difference!, dk_apply!
+    using Piccolo.Control.QuantumIntegrators: dk_divided_difference!, dk_apply!
 
     Random.seed!(7)
     for _ = 1:12
@@ -579,7 +579,7 @@ end
     using ForwardDiff
     using ExponentialAction: expv
     using Piccolo: Isomorphisms
-    using ..QuantumIntegrators: dk_divided_difference!, dk_apply!
+    using Piccolo.Control.QuantumIntegrators: dk_divided_difference!, dk_apply!
 
     Random.seed!(11)
     for _ = 1:12
@@ -624,7 +624,7 @@ end
     using LinearAlgebra
     using Random
     using BenchmarkTools
-    using ..QuantumIntegrators:
+    using Piccolo.Control.QuantumIntegrators:
         dk_divided_difference!,
         dk_apply!,
         dk_first_order_derivative!,
@@ -664,7 +664,7 @@ end
 @testitem "DK second-order action matches central-FD of the first-order action (AC1)" begin
     using LinearAlgebra
     using Random
-    using ..QuantumIntegrators:
+    using Piccolo.Control.QuantumIntegrators:
         dk_first_order_derivative!,
         dk_second_order_derivative!,
         DaleckiiKreinWorkspace,
@@ -719,7 +719,8 @@ end
     using ForwardDiff
     using ExponentialAction: expv
     using Piccolo: Isomorphisms
-    using ..QuantumIntegrators: dk_second_order_block!, DaleckiiKreinSecondOrderWorkspace
+    using Piccolo.Control.QuantumIntegrators:
+        dk_second_order_block!, DaleckiiKreinSecondOrderWorkspace
 
     Random.seed!(2002)
     for _ = 1:8
@@ -768,7 +769,7 @@ end
     using ForwardDiff
     using ExponentialAction: expv
     using Piccolo: Isomorphisms
-    using ..QuantumIntegrators:
+    using Piccolo.Control.QuantumIntegrators:
         dk_first_order_derivative!,
         dk_second_order_derivative!,
         dk_second_order_block!,
@@ -836,7 +837,8 @@ end
 
 @testitem "DK second divided difference is finite and continuous through confluence (AC3)" begin
     using LinearAlgebra
-    using ..QuantumIntegrators: dk_second_divided_difference, DK_DEGENERACY_RTOL
+    using Piccolo.Control.QuantumIntegrators:
+        dk_second_divided_difference, DK_DEGENERACY_RTOL
 
     Δt = 0.85
     λ0 = 1.234
@@ -882,7 +884,7 @@ end
 @testitem "DK second-order block is symmetric to machine precision (AC4)" begin
     using LinearAlgebra
     using Random
-    using ..QuantumIntegrators:
+    using Piccolo.Control.QuantumIntegrators:
         dk_second_order_apply!, dk_second_order_block!, DaleckiiKreinSecondOrderWorkspace
 
     Random.seed!(2004)
@@ -919,7 +921,7 @@ end
     using LinearAlgebra
     using Random
     using BenchmarkTools
-    using ..QuantumIntegrators:
+    using Piccolo.Control.QuantumIntegrators:
         dk_second_order_apply!,
         dk_second_order_derivative!,
         DaleckiiKreinSecondOrderWorkspace
