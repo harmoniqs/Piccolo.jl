@@ -45,6 +45,7 @@ PiccoloQuantumToolboxExt = ["QuantumToolbox", "Makie"]
 
 [compat]
 Aqua = "0.8"
+BenchmarkTools = "1"
 CairoMakie = "0.15"
 DataInterpolations = "8.9"
 DirectTrajOpt = "0.9.5, 0.10"
