@@ -256,7 +256,6 @@ end
     expG_buf = ℰ.expG_bufs[tid]
 
     # Compute propagator ONCE for all kets
-    Gₖ = ℰ.G(uₖ)
     copyto!(H_buf, ℰ.H(uₖ))
     exp_eigen!(expG_buf, H_buf, V_buf, λ_buf, cis_diag_buf, tmp_buf, work_buf, Δtₖ)
     expGₖ = expG_buf
