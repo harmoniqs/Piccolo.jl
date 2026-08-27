@@ -215,9 +215,9 @@ end
     width = length(Ũ⃗ₖ) ÷ (2 * ketdim)
     Ũₖ = reshape(Ũ⃗ₖ, 2 * ketdim, width)
     δₖ_mat = reshape(δₖ, 2 * ketdim, width)
-    @inbounds for j in 1:width, i in 1:(2 * ketdim)
+    @inbounds for j = 1:width, i = 1:(2*ketdim)
         s = 0.0
-        @simd for l in 1:(2 * ketdim)
+        @simd for l = 1:(2*ketdim)
             s += expGₖ[i, l] * Ũₖ[l, j]
         end
         δₖ_mat[i, j] = -s
