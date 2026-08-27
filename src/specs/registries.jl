@@ -3,6 +3,8 @@ module SpecRegistries
 using ..SpecStructs
 using ...Quantum          # QuantumSystemTemplates, Gates, etc.
 using ...Control          # ProblemTemplates: SmoothPulseProblem, ...
+using ...Control.QuantumIntegrators.ExponentialIntegrators:
+    HermitianExponentialIntegrator, NonHermitianExponentialIntegrator
 using ...Control: Control
 
 export RegistryEntry,
@@ -210,8 +212,24 @@ function register_all!()
     # declaration change moves the registry (and therefore the emitted schema) with
     # it. Piccolissimo's own declarations land in the same dict when it loads.
     register_templates_from_declarations!()
-    # integrators — bilinear is Piccolo's; exponential/spline are Piccolissimo's (Task 14)
+    # integrators — bilinear (Piccolo's own) plus the exponential family moved
+    # in from Piccolissimo (open-core slice 3a, Piccolissimo#429); :spline stays
+    # Piccolissimo's until slice 3b.
     register_integrator!(:bilinear, RegistryEntry(; factory = _bilinear_integrator_factory))  # sentinel: template default path
+    register_integrator!(
+        :hermitian_exponential,
+        RegistryEntry(;
+            factory = (sqtraj, N; alg = nothing) ->
+                HermitianExponentialIntegrator(sqtraj, N),
+        ),
+    )
+    register_integrator!(
+        :nonhermitian_exponential,
+        RegistryEntry(;
+            factory = (sqtraj, N; alg = nothing) ->
+                NonHermitianExponentialIntegrator(sqtraj, N),
+        ),
+    )
     # wrappers
     register_wrapper!(:sampling, RegistryEntry(; factory = SamplingProblem))
     # objective terms available in Piccolo (Piccolissimo adds hermite_* in Task 14)
