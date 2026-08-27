@@ -980,6 +980,62 @@ end
     # building a fresh matrix each call; same limitation as Task 4 on the ket forward
     # path. Observed: ~4176 B post-refactor (~6176 B pre-refactor). Threshold mirrors
     # Task 4 (< 8192) pending a follow-on H-buffer refactor.
+
+    # TEMPORARY-DIAGNOSTIC (slice 3a CI triage): per-step attribution + env facts.
+    println(
+        "[alloc-diag] VERSION=",
+        VERSION,
+        " CPU_THREADS=",
+        Sys.CPU_THREADS,
+        " JULIA_NTHREADS=",
+        Threads.nthreads(),
+        " tid=",
+        Threads.threadid(),
+    )
+    println("[alloc-diag] BLAS=", BLAS.get_config())
+    let
+        _bec =
+            Piccolo.Control.QuantumIntegrators.ExponentialIntegrators.build_extended_control
+        uₖ = _bec(z1[ℰ.u_name], nothing)
+        tid = Threads.threadid()
+        H_buf = ℰ.H_bufs[tid]
+        V_buf = ℰ.V_bufs[tid]
+        λ_buf = ℰ.λ_bufs[tid]
+        cis_diag_buf = ℰ.cis_diag_bufs[tid]
+        tmp_buf = ℰ.tmp_bufs[tid]
+        work_buf = ℰ.work_bufs[tid]
+        expG_buf = ℰ.expG_bufs[tid]
+        Δtₖ = z1.timestep
+        m(f) = (f(); minimum(@allocated(f()) for _ = 1:64))
+        println("[alloc-diag] z_x_access=", m(() -> z1[x_name(ℰ)]))
+        println("[alloc-diag] ext_control=", m(() -> _bec(z1[ℰ.u_name], nothing)))
+        println("[alloc-diag] H(u)=", m(() -> ℰ.H(uₖ)))
+        println(
+            "[alloc-diag] exp_eigen!=",
+            m(
+                () -> exp_eigen!(
+                    expG_buf,
+                    H_buf,
+                    V_buf,
+                    λ_buf,
+                    cis_diag_buf,
+                    tmp_buf,
+                    work_buf,
+                    Δtₖ,
+                ),
+            ),
+        )
+        ketdim = ℰ.ketdim
+        Ũ⃗ₖ = z1[x_name(ℰ)]
+        Ũₖ = reshape(Ũ⃗ₖ, 2*ketdim, ketdim)
+        δₖ_mat = reshape(δ, 2*ketdim, ketdim)
+        println("[alloc-diag] gemm=", m(() -> mul!(δₖ_mat, expG_buf, Ũₖ, -1.0, 0.0)))
+        println(
+            "[alloc-diag] full_call_min_of_16=",
+            minimum(@allocated(ℰ(δ, z1, z2, 1)) for _ = 1:16),
+        )
+    end
+
     allocs = @ballocated $ℰ($δ, $z1, $z2, 1)
     @test allocs < 8192
 end
