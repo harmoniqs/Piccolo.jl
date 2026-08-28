@@ -70,6 +70,24 @@ This package is registered! To install enter the Julia REPL, type `]` to enter p
 pkg> add Piccolo
 ```
 
+### Performance guidance
+
+The open stack solves direct-collocation problems with **dense assembled** gradients —
+`BilinearIntegrator` for zero-order holds (spline constraints via `DerivativeIntegrator`) —
+with **Ipopt** as the default NLP solver and **MadNLP** as an alternative. Dense paths are
+fine for small-to-medium problems; on stiff or large ones keep timesteps short and verify
+rollouts independently.
+
+The **matrix-free / Altissimo surface** — NewtonCG solves driven by JVP/VJP/HVP products
+that never form ∂Φ, the `matrix_free` flag on `HermitianExponentialIntegrator`, the
+spline/Magnus and GPU integrator family, and the opt-in exact inequality HVP — lives in the
+**proprietary Piccolissimo stack**, not in this repository (see
+[docs.harmoniqs.co](https://docs.harmoniqs.co) for that surface).
+
+**2.0 migration:** the `subsystem_levels` kwarg was removed from `SmoothPulseProblem`;
+free-phase now derives levels from the goal — wrap gate targets in
+`EmbeddedOperator(gate, sys)`.
+
 <!--## Star History-->
 
 <!--[![Star History Chart](https://api.star-history.com/svg?repos=harmoniqs/piccolo.jl,harmoniqs/namedtrajectories.jl,harmoniqs/directtrajopt.jl&type=Date)](https://www.star-history.com/#harmoniqs/piccolo.jl&harmoniqs/namedtrajectories.jl&harmoniqs/directtrajopt.jl&Date)-->
