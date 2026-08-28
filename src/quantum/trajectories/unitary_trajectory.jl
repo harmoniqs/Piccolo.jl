@@ -345,31 +345,61 @@ end
     @test fidelity(qtraj) > 1.0 - 1e-10
 end
 
-@testitem "Fidelity consistent: MagnusAdapt4 vs MagnusGL4(fine)" begin
+@testitem "MagnusAdapt4 converges onto the GL4(fine) propagator (discriminating, #172)" begin
+    # Resolution of #172 / PR #103: the previous consistency test compared
+    # goal-fidelities for an exact-X fixture, where BOTH integrators saturate at
+    # machine epsilon — nothing could be discriminated. The invalid assumption
+    # was that goal-fidelity is a sensitive convergence metric AND that a finer
+    # grid means a more accurate fixed-step Magnus solve. Neither holds: with a
+    # generic propagator (non-commuting drift + random PWC pulse) and relative
+    # propagator distance to a converged reference, the fixed-step GL4 turns out
+    # to be grid-exact for PWC controls, and the adaptive integrator's residual
+    # is tolerance-driven — the ordering the old test assumed is inverted.
     using LinearAlgebra
     using OrdinaryDiffEqLinear: MagnusGL4, MagnusAdapt4
+    using Random
 
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
-    T = π / 2
-    pulse = ZeroOrderPulse(ones(2, 2), [0.0, T])
+    Random.seed!(172)
+    sys = QuantumSystem(1.7 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    T = 1.0
+    pulse = ZeroOrderPulse(randn(2, 4), range(0, T, length = 4))
     X_gate = ComplexF64[0 1; 1 0]
 
-    fid_adapt = fidelity(
-        UnitaryTrajectory(
-            sys,
-            pulse,
-            X_gate;
-            algorithm = MagnusAdapt4(),
-            abstol = 1e-10,
-            reltol = 1e-10,
-        ),
-    )
+    # Converged reference: fixed-step GL4 on a very fine grid.
+    qtraj_ref =
+        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 10001)
+    U_ref = qtraj_ref.solution.u[end]
 
-    fid_gl4_fine = fidelity(
-        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 10001),
-    )
+    # Integrators under comparison (same fixture, different discretizations).
+    U_adapt = UnitaryTrajectory(
+        sys,
+        pulse,
+        X_gate;
+        algorithm = MagnusAdapt4(),
+        abstol = 1e-10,
+        reltol = 1e-10,
+    ).solution.u[end]
+    U_coarse =
+        UnitaryTrajectory(sys, pulse, X_gate; algorithm = MagnusGL4(), n_save = 11).solution.u[end]
 
-    @test fid_adapt ≈ fid_gl4_fine atol = 1e-6
+    d(U) = norm(U - U_ref) / norm(U_ref)
+
+    # Measured (seeded): d_coarse = 5.4e-13, d_adapt = 4.0e-6.
+    #
+    # 1. PWC-grid exactness: for piecewise-constant controls each sub-step sees a
+    #    constant Hamiltonian — the Magnus commutators vanish and the fixed-step
+    #    GL4 exponential is exact up to roundoff on ANY grid. Coarseness costs
+    #    nothing; `n_save` is cost, not accuracy. This is the oracle property the
+    #    dense-Magnus parity manifests (slice 3b) can exploit.
+    @test d(U_coarse) < 1e-10
+    #
+    # 2. The adaptive integrator's error is governed by its tolerance, not grid
+    #    density — and is NOT the tighter of the two here. Asserted with an
+    #    explicit margin (25×) plus the inversion itself, so a future change to
+    #    either integrator's stepping that silently breaks this picture fails
+    #    loudly instead of passing vacuously.
+    @test d(U_adapt) < 1e-4
+    @test d(U_adapt) > 100 * d(U_coarse)
 end
 
 @testitem "convenience UnitaryTrajectory ctor is rng-reproducible" begin
