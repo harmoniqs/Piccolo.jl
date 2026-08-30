@@ -62,7 +62,6 @@
         "Tsit5Alg" => () -> Tsit5Alg(adaptive = true, tol = 1e-12),
         "MagnusGL4Alg" => () -> MagnusGL4Alg(),
         "MagnusAdapt4Alg" => () -> MagnusAdapt4Alg(tol = 1e-12),
-        "Rodas5PAlg" => () -> Rodas5PAlg(),
     )
 
     # Rollout THROUGH a cell: the call operator computes δ = xₖ₊₁ - f(xₖ), so

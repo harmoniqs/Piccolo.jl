@@ -16,6 +16,10 @@
 #
 # The MF (matrix-free) population for this slice is frozen on the
 # Piccolissimo side: test/parity_manifests/slice_3b_mf.toml.
+#
+# Stiff (Rodas5P/Rosenbrock) rows deferred — follows in a dedicated slice gated
+# on upstream ExponentialUtilities/LinearSolve-5 compat (director decision
+# 2026-08-30).
 # ============================================================================ #
 
 [[rows]]
@@ -67,9 +71,3 @@ algorithm = "Tsit5Alg"
 spline = "CubicSpline"
 oracle = "gl4_pwc"
 
-[[rows]]
-name = "ket-rodas5p-linear"
-trajectory = "ket"
-algorithm = "Rodas5PAlg"
-spline = "LinearSpline"
-oracle = "gl4_pwc"

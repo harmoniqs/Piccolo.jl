@@ -764,14 +764,6 @@ end
 # slice #344.
 # ============================================================================ #
 
-block_shape(𝒮::SplineIntegrator{<:MultiKetTrajectory}) =
-    MatrixFreeBlockShape(length(𝒮.x_names), length(𝒮.x_names))
-
-generator_action(𝒮::SplineIntegrator{<:MultiKetTrajectory}) = OneSidedAction(𝒮.alg_data)
-
-iso_packing(::SplineIntegrator{<:MultiKetTrajectory}) = BlockedRealImagPacking()
-
-matrix_free_driver(::SplineIntegrator{<:MultiKetTrajectory}) = HostTaskDriver()
 
 # ============================================================================ #
 # Jacobian structure for MultiKetTrajectory

@@ -48,10 +48,8 @@ using OrdinaryDiffEqTsit5
 # (and `solve!` by DirectTrajOpt too), so bring them in under explicit names
 # rather than leaving the bare bindings ambiguous.
 using OrdinaryDiffEqTsit5: init as ode_init, solve! as ode_solve!, reinit! as ode_reinit!
-using OrdinaryDiffEqRosenbrock: Rodas5P
 using SciMLBase: ODEProblem, solve, remake
 using OrdinaryDiffEqLinear: MagnusGL4, MagnusAdapt4
-using ADTypes: AutoFiniteDiff
 using LinearAlgebra
 using SparseArrays
 using NamedTrajectories
@@ -140,6 +138,23 @@ Piccolissimo. Serves both ChebyshevAlg and the Magnus spline cell on
 KetTrajectory.
 """
 function _chebyshev_forward! end
+
+"""
+    _stiff_rodas5p_solve(prob, tol::Float64; saveat = nothing, save_everystep = true)
+
+Hook for the STIFF forward/sensitivity solves of the `Rodas5PAlg` cells.
+Declared empty here (slice 3b, director de-scope 2026-08-30: the Rosenbrock
+hard dep is resolver-unsatisfiable against ExponentialUtilities 1.35.1 —
+ExponentialUtilities 1.35.1 needs LinearSolve 5.x, every Rosenbrock version
+caps LinearSolve below it). `Rodas5PAlg`/`Rodas5PData` — the dataless tag and
+the parametric workspace container — stay in Piccolo exactly like
+`ChebyshevData`; the CONCRETE `Rodas5P` solver and its construction live in
+Piccolissimo, which attaches this method. The method is
+`solve(prob, Rodas5P(autodiff = AutoFiniteDiff()); abstol = tol, reltol = tol,
+saveat = saveat, save_everystep = save_everystep)` — byte-identical to the
+pre-split call sites.
+"""
+function _stiff_rodas5p_solve end
 
 """
     matrix_free_layout(𝒮, traj) -> SplineMatrixFreeLayout

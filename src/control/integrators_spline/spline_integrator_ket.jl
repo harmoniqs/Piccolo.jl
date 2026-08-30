@@ -595,15 +595,12 @@ end
             copyto!(𝒮.prop_results[k].Φ_vec, vec(Φₖ_complex))
             fₖ_complex = Φₖ_complex * ψₖ
         elseif 𝒮.alg isa Rodas5PAlg
+            # Slice 3b de-scope (director, 2026-08-30): the concrete Rodas5P
+            # solve is proprietary — this hook is attached by Piccolissimo
+            # (`_stiff_rodas5p_solve`), byte-identical to the pre-split call.
             data = 𝒮.alg_data::Rodas5PData
             prob = remake(data.Φ_probs[k], u0 = ψₖ, p = pₖ)
-            fₖ_complex = solve(
-                prob,
-                Rodas5P(autodiff = AutoFiniteDiff());
-                abstol = 𝒮.tol,
-                reltol = 𝒮.tol,
-                saveat = 1.0,
-            ).u[end]
+            fₖ_complex = _stiff_rodas5p_solve(prob, 𝒮.tol; saveat = 1.0).u[end]
         else
             data = 𝒮.alg_data::Tsit5Data
             prob = remake(data.Φ_probs[k], u0 = ψₖ, p = pₖ)

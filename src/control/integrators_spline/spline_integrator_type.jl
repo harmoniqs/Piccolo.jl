@@ -4487,13 +4487,9 @@ then extracts the results into `𝒮.prop_results[k]`.
 
     sens_prob = remake(𝒮.sens_probs[k], p = pₖ)
     sol = if 𝒮.alg isa Rodas5PAlg
-        solve(
-            sens_prob,
-            Rodas5P(autodiff = AutoFiniteDiff());
-            abstol = 𝒮.tol,
-            reltol = 𝒮.tol,
-            save_everystep = false,
-        )
+        # Slice 3b de-scope (director, 2026-08-30): concrete stiff solve via the
+        # Piccolissimo-attached hook (byte-identical to the pre-split call).
+        _stiff_rodas5p_solve(sens_prob, 𝒮.tol; save_everystep = false)
     else
         solve(sens_prob, Tsit5(); abstol = 𝒮.tol, reltol = 𝒮.tol, save_everystep = false)
     end
