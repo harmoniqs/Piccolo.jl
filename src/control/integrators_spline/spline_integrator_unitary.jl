@@ -16,13 +16,6 @@
 # that nothing derives the width from the component count.
 # ============================================================================ #
 
-block_shape(𝒮::SplineIntegrator{<:UnitaryTrajectory}) = MatrixFreeBlockShape(𝒮.ketdim, 1)
-
-generator_action(𝒮::SplineIntegrator{<:UnitaryTrajectory}) = OneSidedAction(𝒮.alg_data)
-
-iso_packing(::SplineIntegrator{<:UnitaryTrajectory}) = BlockedRealImagPacking()
-
-matrix_free_driver(::SplineIntegrator{<:UnitaryTrajectory}) = HostTaskDriver()
 
 # ============================================================================ #
 # Constructor for UnitaryTrajectory
