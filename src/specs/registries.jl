@@ -213,9 +213,17 @@ function register_all!()
     # it. Piccolissimo's own declarations land in the same dict when it loads.
     register_templates_from_declarations!()
     # integrators — bilinear (Piccolo's own) plus the exponential family moved
-    # in from Piccolissimo (open-core slice 3a, Piccolissimo#429); :spline stays
-    # Piccolissimo's until slice 3b.
+    # in from Piccolissimo (open-core slice 3a, Piccolissimo#429); :spline now
+    # registers here too — the SplineIntegrator struct + dense cells moved in
+    # slice 3b (Piccolissimo#430). The matrix-free cells stay proprietary; the
+    # factory closure below is Piccolissimo-free (dense construction only).
     register_integrator!(:bilinear, RegistryEntry(; factory = _bilinear_integrator_factory))  # sentinel: template default path
+    register_integrator!(
+        :spline,
+        RegistryEntry(;
+            factory = (sqtraj, N; alg = nothing) -> SplineIntegrator(sqtraj, N),
+        ),
+    )
     register_integrator!(
         :hermitian_exponential,
         RegistryEntry(;

@@ -41,6 +41,13 @@ include("operators/lifted_operators.jl")
 
 # Systems
 include("systems/_quantum_systems.jl")
+# Shared operator seam (slice 3b, #430): abstract dynamics-operator layer +
+# MatrixOperator bridge moved from Piccolissimo — the dense spline cells and
+# the interval-coefficient kernel build on them; structured operators extend
+# them from Piccolissimo.
+include("operators/abstract_dynamics_operator.jl")
+include("operators/matrix_operator.jl")
+
 @reexport using .QuantumSystems
 
 # Encodings (depend on gates; used by embedded operators)

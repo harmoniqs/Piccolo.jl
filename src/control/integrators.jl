@@ -867,6 +867,29 @@ end
 # ----------------------------------------------------------------------------- #
 
 include("integrators_exponential/_exponential_integrators.jl")
+
+# ----------------------------------------------------------------------------- #
+# SplineIntegrator struct + dense cells + shared interval-coefficient kernel
+# (open-core slice 3b, harmoniqs/Piccolissimo.jl#430). The matrix-free
+# cells/kernels, MF layout machinery and GPU variant stay in Piccolissimo as
+# method extensions on the shared types below.
+# ----------------------------------------------------------------------------- #
+
+include("integrators_spline/_spline_integrators.jl")
+using .SplineIntegrators
+export AbstractSplineIntegrator
+export SplineIntegrator
+export du_name, ddu_name
+export build_sensitivity_ode, build_sensitivity_problems, extract_sensitivity_solution!
+export PropagatorResult, get_propagator, get_sensitivities, get_sensitivities_flat
+export IntegrationAlgorithm, Tsit5Alg, MagnusGL4Alg, MagnusAdapt4Alg
+export Tsit5Data, MagnusGL4Data, MagnusAdapt4Data
+export ChebyshevAlg
+export refresh_sensitivities!
+export SplineType, LinearSpline, CubicSpline
+export SplineIntervalCoeffs, interval_coeff!, interval_coeff_dir!, interval_vjp_scatter!
+export interval_hvp_scatter!
+export LindbladDuhamelTape, DensityLindbladData, compact_iso_hs_weights
 using .ExponentialIntegrators
 export AbstractExponentialIntegrator
 export HermitianExponentialIntegrator
