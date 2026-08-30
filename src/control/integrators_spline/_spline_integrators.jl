@@ -153,6 +153,15 @@ pattern).
 """
 function matrix_free_layout end
 
+"""
+    _multiket_directional_hvp_probs(𝒮) -> Union{Nothing,Vector{ODEProblem}}
+
+Hook probed by the moved dense MultiKet `eval_hessian_of_lagrangian`: whether
+this cell carries matrix-free directional HVP problems. Declared empty here;
+the concrete method stays proprietary in Piccolissimo (the #205/#335 MF seam).
+"""
+function _multiket_directional_hvp_probs end
+
 include("spline_types.jl")
 include("propagator_result.jl")
 include("algorithms.jl")

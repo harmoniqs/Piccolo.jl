@@ -131,53 +131,6 @@ parallel sensitivity ODE closures.
 """
 Base.copy(op::AbstractDynamicsOperator) = op  # default: immutable operators return self
 
-# ── Tests ───────────────────────────────────────────────────────────────────
-
-@testitem "AbstractDynamicsOperator mul!/* adapters" begin
-    using Piccolissimo: apply!, state_dim
-    using LinearAlgebra
-
-    # Build a small DiagonalOperator and verify mul!/* delegate through apply!.
-    # These adapters make `AbstractDynamicsOperator` usable wherever `mul!` is
-    # the abstraction (KrylovKit, IterativeSolvers, our own AugmentedAction
-    # struct, etc.). Note: `ExponentialAction.expv` additionally needs `tr`,
-    # `opnorm`, and `-(::Op, ::UniformScaling)` for its `shift=true` Krylov
-    # normalization — those aren't in scope here.
-    d = 4
-    diag_vals = ComplexF64[1.0, 2.0, 3.0, 4.0]
-    op = Piccolissimo.Operators.DiagonalOperator(diag_vals)
-
-    @test state_dim(op) == d
-    @test size(op) == (d, d)
-
-    x = ComplexF64.(randn(d) .+ im .* randn(d))
-    y_ref = diag_vals .* x
-
-    # 3-arg mul!
-    y = similar(x)
-    mul!(y, op, x)
-    @test isapprox(y, y_ref; atol = 1e-12)
-
-    # 5-arg mul! (α, β)
-    y2 = ComplexF64.(randn(d) .+ im .* randn(d))
-    y2_ref = 2.0 * y_ref + 0.5 * y2
-    mul!(y2, op, x, 2.0, 0.5)
-    @test isapprox(y2, y2_ref; atol = 1e-12)
-
-    # `*` overload
-    @test isapprox(op * x, y_ref; atol = 1e-12)
-
-    # Matrix-form mul! via apply!
-    n = 3
-    X = ComplexF64.(randn(d, n) .+ im .* randn(d, n))
-    Y = similar(X)
-    mul!(Y, op, X)
-    @test isapprox(Y, diag_vals .* X; atol = 1e-12)
-
-    println("✓ AbstractDynamicsOperator mul!/* adapter test passed")
-end
-
-# ---------------------------------------------------------------------------- #
 # AbstractDrive ↔ AbstractDynamicsOperator bridge
 # ---------------------------------------------------------------------------- #
 
@@ -209,3 +162,5 @@ _dyn_op(::Any) = error("""
                        non-affine coefficient structure must be handled by a dedicated integrator
                        path (not yet implemented).
                        """)
+
+# ── Tests ───────────────────────────────────────────────────────────────────

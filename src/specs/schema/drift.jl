@@ -37,7 +37,11 @@ end
     wrapk = _enum(p.wrappers.items.properties.kind.enum)
     solb = _enum(p.solver.properties.backend.enum)
     strat = _enum(p.solver.properties.strategy.enum)
-    @test isempty(intersect(intk, ["exponential", "spline", "magnus_gl4", "magnus_adapt4"]))
+    # Slice 3b (#430): `spline` moved into Piccolo's own registry
+    # (register_all!), so it is a PUBLIC integrator kind now — dropped from the
+    # private-exclusion list exactly like `exponential`'s family in 3a. Only
+    # the private Piccolissimo ODE-alg names stay excluded.
+    @test isempty(intersect(intk, ["magnus_gl4", "magnus_adapt4"]))
     @test isempty(filter(x -> startswith(x, "hermite"), objk))
     @test !("robust" in wrapk)
     @test !("altissimo" in solb)

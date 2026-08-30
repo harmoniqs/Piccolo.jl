@@ -1,4 +1,4 @@
-export SplineIntegrator, x_name, single_state_dim, canonical_hessian_knot_dim
+export SplineIntegrator, canonical_hessian_knot_dim
 export SplineType, LinearSpline, CubicSpline
 export IntegrationAlgorithm, Tsit5Alg, MagnusGL4Alg, MagnusAdapt4Alg
 export Tsit5Data, MagnusGL4Data, MagnusAdapt4Data
