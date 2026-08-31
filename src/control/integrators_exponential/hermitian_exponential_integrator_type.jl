@@ -505,6 +505,13 @@ function get_hessian_of_lagrangian_structure(
     ℰ::AbstractExponentialIntegrator,
     traj::NamedTrajectory,
 )
+    # Derived-Δt dynamics (Piccolo.jl#321): packed coordinates + the warp
+    # column under a warp; historical structure otherwise. (Hermitian cells
+    # only — the warp twin is Hermitian-specific.)
+    ℰ isa HermitianExponentialIntegrator &&
+        traj.warp !== nothing &&
+        return _get_hessian_of_lagrangian_structure_warped(ℰ, traj)
+
     N = traj.N
     global_dim = traj.global_dim
     z_dim = traj.dim
