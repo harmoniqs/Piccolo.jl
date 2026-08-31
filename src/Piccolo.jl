@@ -11,6 +11,13 @@ using Reexport
 include("quantum/_quantum.jl")
 @reexport using .Quantum
 
+# Same collision one level up (#323): NT >= 0.9.3 exports `duration` via
+# TimeWarp and NT is reexported above, so `duration` was ambiguous in this
+# namespace and unbound at top level (`using Piccolo; duration` →
+# UndefVarError). Bind explicitly from the defining module so `using Piccolo`
+# keeps exposing the Quantum.Pulses `duration` in every environment.
+using .Quantum.Pulses: duration
+
 # Optimal control: objectives, constraints, problem templates
 include("control/_control.jl")
 @reexport using .Control

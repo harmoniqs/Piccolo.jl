@@ -77,6 +77,9 @@ end
 @testitem "extract_pulse with ZeroOrderPulse - UnitaryTrajectory" begin
     using LinearAlgebra
     using NamedTrajectories
+    # Explicit bind: NT >= 0.9.3 also exports `duration` (TimeWarp), so the bare
+    # name does not resolve in this dual-using namespace (#323).
+    using Piccolo.Quantum.Pulses: duration
 
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 

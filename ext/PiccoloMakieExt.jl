@@ -7,7 +7,12 @@ using TestItems
 
 using DirectTrajOpt: AbstractIntermediateCallback
 using NamedTrajectories: update!
-using Piccolo: AbstractQuantumTrajectory, extract_pulse, plot_pulse
+using Piccolo: AbstractQuantumTrajectory, duration, extract_pulse, plot_pulse
+
+# `duration` bound explicitly from Piccolo: with NamedTrajectories >= 0.9.3
+# co-resolved (`using NamedTrajectories` above), TimeWarp also exports
+# `duration` and the bare name does not resolve here (#323). Piccolo.duration
+# is the Quantum.Pulses function — the binding every NT version provides.
 
 # Animation implementations - extend Piccolo stubs.
 # Docstrings live on the stubs in `src/visualizations/animations.jl`.

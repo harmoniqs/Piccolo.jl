@@ -6,6 +6,12 @@ using Makie
 using NamedTrajectories
 using LinearAlgebra
 
+# `duration` bound explicitly from Piccolo: with NamedTrajectories >= 0.9.3
+# co-resolved (`using NamedTrajectories` above), TimeWarp also exports
+# `duration` and the bare name does not resolve here (#323). Piccolo.duration
+# is the Quantum.Pulses function — the binding every NT version provides.
+using Piccolo: duration
+
 using TestItems
 
 # `animate_bloch`, `animate_wigner`, `plot_bloch!`, and `plot_wigner!` extend Piccolo
