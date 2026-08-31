@@ -890,6 +890,26 @@ export SplineType, LinearSpline, CubicSpline
 export SplineIntervalCoeffs, interval_coeff!, interval_coeff_dir!, interval_vjp_scatter!
 export interval_hvp_scatter!
 export LindbladDuhamelTape, DensityLindbladData, compact_iso_hs_weights
+# The submodule's second export block (Piccolo #326): rollout helpers + the
+# sensitivity-kick family — moved in 3b but missed by the seam, leaving
+# downstream `using Piccolo` callers (Piccolissimo's benchmark/correctness
+# suite) with UndefVarError on names the package ships.
+export gauss_legendre_01,
+    compute_sensitivity_kick_first_order,
+    compute_sensitivity_kick_exact,
+    KnotPointPropagationData,
+    setup_knot_point_propagation,
+    ket_vjp,
+    ket_jvp,
+    unitary_rollout_trajectory
+export ChebyshevData,
+    Rodas5PAlg,
+    Rodas5PData,
+    SplineIntegrators,
+    build_multiket_hvp_cache,
+    canonical_hessian_knot_dim,
+    expl_discretization_error,
+    suggest_n_sub
 using .ExponentialIntegrators
 export AbstractExponentialIntegrator
 export HermitianExponentialIntegrator
