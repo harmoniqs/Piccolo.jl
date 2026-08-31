@@ -346,7 +346,6 @@ end
 
 for (name, _, fd, fq) in results
     @assert fd ≥ 0.999 "$name: fidelity $fd below 0.999 target"
-    # Fresh-solve tolerance; see the note below the table.
     @assert abs(fd - fq) ≤ 2e-4 "$name: |F_Piccolo - F_QuTiP| = $(abs(fd - fq)) exceeds 2e-4"
 end
 println("All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to ≤ 1e-4.")
