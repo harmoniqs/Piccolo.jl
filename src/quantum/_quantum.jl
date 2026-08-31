@@ -31,6 +31,13 @@ include("primitives/isomorphisms.jl")
 include("primitives/pulses.jl")
 @reexport using .Pulses
 
+# `duration` must resolve to the Pulses function in this namespace: with
+# NamedTrajectories >= 0.9.3 co-resolved (`using NamedTrajectories` above),
+# TimeWarp also exports `duration`, which left the name ambiguous here —
+# UndefVarError at `Quantum.duration` and at downstream `import ..Quantum:
+# duration` sites (#323). Bind explicitly from the defining module.
+using .Pulses: duration
+
 # Object utils (depends on gates)
 include("object_utils.jl")
 @reexport using .QuantumObjectUtils
