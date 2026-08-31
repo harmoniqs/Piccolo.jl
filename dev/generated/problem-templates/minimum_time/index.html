@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>MinimumTimeProblem · Piccolo.jl</title><meta name="title" content="MinimumTimeProblem · Piccolo.jl"/><meta property="og:title" content="MinimumTimeProblem · Piccolo.jl"/><meta property="twitter:title" content="MinimumTimeProblem · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/minimum_time/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/minimum_time/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/minimum_time/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../../"><img class="docs-light-only" src="../../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li><a class="tocitem" href="../../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li><li><a class="tocitem" href="../../two_qubit_gate_validation/">Two-Qubit Gate Validation</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../bang_bang_pulse/">BangBangPulseProblem</a></li><li><a class="tocitem" href="../spline_pulse/">SplinePulseProblem</a></li><li class="is-active"><a class="tocitem" href>MinimumTimeProblem</a><ul class="internal"><li><a class="tocitem" href="#When-to-Use"><span>When to Use</span></a></li><li><a class="tocitem" href="#Key-Design:-Composition-Pattern"><span>Key Design: Composition Pattern</span></a></li><li><a class="tocitem" href="#Prerequisites"><span>Prerequisites</span></a></li><li><a class="tocitem" href="#Constructor"><span>Constructor</span></a></li><li><a class="tocitem" href="#Parameter-Reference"><span>Parameter Reference</span></a></li><li><a class="tocitem" href="#Optimization-Problem"><span>Optimization Problem</span></a></li><li><a class="tocitem" href="#Examples"><span>Examples</span></a></li><li><a class="tocitem" href="#Fidelity-Constraints-by-Trajectory-Type"><span>Fidelity Constraints by Trajectory Type</span></a></li><li><a class="tocitem" href="#Tips"><span>Tips</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../../systems/">Overview</a></li><li><a class="tocitem" href="../../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li><a class="tocitem" href="../../guides/saving_loading/">Saving and Loading Pulses</a></li><li><a class="tocitem" href="../../guides/leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../../guides/global_variables/">Global Variables</a></li><li><a class="tocitem" href="../../guides/visualization/">Visualization</a></li><li><a class="tocitem" href="../../guides/wigner_bosonic_qubits/">Wigner Bosonic Qubits</a></li><li><a class="tocitem" href="../../guides/custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Problem Templates</a></li><li class="is-active"><a href>MinimumTimeProblem</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>MinimumTimeProblem</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/problem-templates/minimum_time.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="minimum-time"><a class="docs-heading-anchor" href="#minimum-time">MinimumTimeProblem</a><a id="minimum-time-1"></a><a class="docs-heading-anchor-permalink" href="#minimum-time" title="Permalink"></a></h1><p><code>MinimumTimeProblem</code> converts an existing optimization problem into a time-optimal control problem. It minimizes the total gate duration while maintaining a minimum fidelity constraint.</p><h2 id="When-to-Use"><a class="docs-heading-anchor" href="#When-to-Use">When to Use</a><a id="When-to-Use-1"></a><a class="docs-heading-anchor-permalink" href="#When-to-Use" title="Permalink"></a></h2><p>Use <code>MinimumTimeProblem</code> when:</p><ul><li>You have a working solution and want to minimize its duration</li><li>You need the fastest possible gate that achieves a target fidelity</li><li>You&#39;re exploring the fidelity-time trade-off</li></ul><h2 id="Key-Design:-Composition-Pattern"><a class="docs-heading-anchor" href="#Key-Design:-Composition-Pattern">Key Design: Composition Pattern</a><a id="Key-Design:-Composition-Pattern-1"></a><a class="docs-heading-anchor-permalink" href="#Key-Design:-Composition-Pattern" title="Permalink"></a></h2><p><code>MinimumTimeProblem</code> <strong>wraps</strong> an existing <code>QuantumControlProblem</code>. It does not create a problem directly from a trajectory:</p><pre><code class="language-julia hljs"># This does NOT work
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>MinimumTimeProblem · Piccolo.jl</title><meta name="title" content="MinimumTimeProblem · Piccolo.jl"/><meta property="og:title" content="MinimumTimeProblem · Piccolo.jl"/><meta property="twitter:title" content="MinimumTimeProblem · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/minimum_time/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/minimum_time/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/minimum_time/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../../"><img class="docs-light-only" src="../../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li><a class="tocitem" href="../../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li><li><a class="tocitem" href="../../two_qubit_gate_validation/">Two-Qubit Gate Validation</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../bang_bang_pulse/">BangBangPulseProblem</a></li><li><a class="tocitem" href="../spline_pulse/">SplinePulseProblem</a></li><li class="is-active"><a class="tocitem" href>MinimumTimeProblem</a><ul class="internal"><li><a class="tocitem" href="#When-to-Use"><span>When to Use</span></a></li><li><a class="tocitem" href="#Key-Design:-Composition-Pattern"><span>Key Design: Composition Pattern</span></a></li><li><a class="tocitem" href="#Prerequisites"><span>Prerequisites</span></a></li><li><a class="tocitem" href="#Constructor"><span>Constructor</span></a></li><li><a class="tocitem" href="#Parameter-Reference"><span>Parameter Reference</span></a></li><li><a class="tocitem" href="#Optimization-Problem"><span>Optimization Problem</span></a></li><li><a class="tocitem" href="#Examples"><span>Examples</span></a></li><li><a class="tocitem" href="#Fidelity-Constraints-by-Trajectory-Type"><span>Fidelity Constraints by Trajectory Type</span></a></li><li><a class="tocitem" href="#Tips"><span>Tips</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../../systems/">Overview</a></li><li><a class="tocitem" href="../../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li><a class="tocitem" href="../../guides/saving_loading/">Saving and Loading Pulses</a></li><li><a class="tocitem" href="../../guides/leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../../guides/global_variables/">Global Variables</a></li><li><a class="tocitem" href="../../guides/visualization/">Visualization</a></li><li><a class="tocitem" href="../../guides/wigner_bosonic_qubits/">Wigner Bosonic Qubits</a></li><li><a class="tocitem" href="../../guides/custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Problem Templates</a></li><li class="is-active"><a href>MinimumTimeProblem</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>MinimumTimeProblem</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/problem-templates/minimum_time.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="minimum-time"><a class="docs-heading-anchor" href="#minimum-time">MinimumTimeProblem</a><a id="minimum-time-1"></a><a class="docs-heading-anchor-permalink" href="#minimum-time" title="Permalink"></a></h1><p><code>MinimumTimeProblem</code> converts an existing optimization problem into a time-optimal control problem. It minimizes the total gate duration while maintaining a minimum fidelity constraint.</p><h2 id="When-to-Use"><a class="docs-heading-anchor" href="#When-to-Use">When to Use</a><a id="When-to-Use-1"></a><a class="docs-heading-anchor-permalink" href="#When-to-Use" title="Permalink"></a></h2><p>Use <code>MinimumTimeProblem</code> when:</p><ul><li>You have a working solution and want to minimize its duration</li><li>You need the fastest possible gate that achieves a target fidelity</li><li>You&#39;re exploring the fidelity-time trade-off</li></ul><h2 id="Key-Design:-Composition-Pattern"><a class="docs-heading-anchor" href="#Key-Design:-Composition-Pattern">Key Design: Composition Pattern</a><a id="Key-Design:-Composition-Pattern-1"></a><a class="docs-heading-anchor-permalink" href="#Key-Design:-Composition-Pattern" title="Permalink"></a></h2><p><code>MinimumTimeProblem</code> <strong>wraps</strong> an existing <code>QuantumControlProblem</code>. It does not create a problem directly from a trajectory:</p><pre><code class="language-julia hljs"># This does NOT work
 qcp_mintime = MinimumTimeProblem(qtraj)  # Error!
 
 # This works
@@ -31,10 +31,10 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0, Δt_bounds = (0.05, 0.5))
 solve!(qcp_base; max_iter = 100)
 
-get_duration(get_trajectory(qcp_base))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">23.40737814001422</code></pre><pre><code class="language-julia hljs">fidelity(qcp_base)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999403535049575</code></pre><h3 id="Step-2:-Minimize-Time"><a class="docs-heading-anchor" href="#Step-2:-Minimize-Time">Step 2: Minimize Time</a><a id="Step-2:-Minimize-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Minimize-Time" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
+get_duration(get_trajectory(qcp_base))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">20.50208661835545</code></pre><pre><code class="language-julia hljs">fidelity(qcp_base)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999984915764806</code></pre><h3 id="Step-2:-Minimize-Time"><a class="docs-heading-anchor" href="#Step-2:-Minimize-Time">Step 2: Minimize Time</a><a id="Step-2:-Minimize-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Minimize-Time" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
 solve!(qcp_mintime; max_iter = 100)
 
-get_duration(get_trajectory(qcp_mintime))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">13.507103487802157</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9900010557899727</code></pre><h3 id="Exploring-Fidelity-Time-Trade-off"><a class="docs-heading-anchor" href="#Exploring-Fidelity-Time-Trade-off">Exploring Fidelity-Time Trade-off</a><a id="Exploring-Fidelity-Time-Trade-off-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-Fidelity-Time-Trade-off" title="Permalink"></a></h3><pre><code class="language-julia hljs">results = []
+get_duration(get_trajectory(qcp_mintime))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11.694590630850143</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9900087741274388</code></pre><h3 id="Exploring-Fidelity-Time-Trade-off"><a class="docs-heading-anchor" href="#Exploring-Fidelity-Time-Trade-off">Exploring Fidelity-Time Trade-off</a><a id="Exploring-Fidelity-Time-Trade-off-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-Fidelity-Time-Trade-off" title="Permalink"></a></h3><pre><code class="language-julia hljs">results = []
 for target_fidelity in [0.999, 0.99, 0.95, 0.90]
     qcp_mt = MinimumTimeProblem(qcp_base; final_fidelity = target_fidelity)
     solve!(
@@ -66,7 +66,7 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=23.407   Δt∈[0.05, 0.5]
+│    N=100   T=20.502   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -77,18 +77,18 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2341  @ current x</span>
-│    KnotPointObjective           w=1             1.649e-07
-│    QuadraticRegularizer(:u)     w=1             1.255e-03
-│    QuadraticRegularizer(:du)    w=1             2.977e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.518e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
+│    KnotPointObjective           w=1             1.742e-04
+│    QuadraticRegularizer(:u)     w=1             9.506e-04
+│    QuadraticRegularizer(:du)    w=1             2.700e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2341
+│    MinimumTimeObjective         w=1             2050
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 8.071e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.174e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.019e-05)
+│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -99,13 +99,13 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 │    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
 │    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
-│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 1.000e-03)
+│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.983e-04)
 │
 └─ <span class="sgr1">Status</span>
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990001</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990009</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -119,7 +119,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=23.407   Δt∈[0.05, 0.5]
+│    N=100   T=20.502   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -130,18 +130,18 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2341  @ current x</span>
-│    KnotPointObjective           w=1             1.649e-07
-│    QuadraticRegularizer(:u)     w=1             1.255e-03
-│    QuadraticRegularizer(:du)    w=1             2.977e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.518e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
+│    KnotPointObjective           w=1             1.742e-04
+│    QuadraticRegularizer(:u)     w=1             9.506e-04
+│    QuadraticRegularizer(:du)    w=1             2.700e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2341
+│    MinimumTimeObjective         w=1             2050
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 8.071e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.174e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.019e-05)
+│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -152,13 +152,13 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
 │    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
-│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 1.000e-02)
+│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.998e-03)
 │
 └─ <span class="sgr1">Status</span>
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999003</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999028</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -172,7 +172,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=23.407   Δt∈[0.05, 0.5]
+│    N=100   T=20.502   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -183,18 +183,18 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2341  @ current x</span>
-│    KnotPointObjective           w=1             1.649e-07
-│    QuadraticRegularizer(:u)     w=1             1.255e-03
-│    QuadraticRegularizer(:du)    w=1             2.977e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.518e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
+│    KnotPointObjective           w=1             1.742e-04
+│    QuadraticRegularizer(:u)     w=1             9.506e-04
+│    QuadraticRegularizer(:du)    w=1             2.700e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2341
+│    MinimumTimeObjective         w=1             2050
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 8.071e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.174e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.019e-05)
+│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -211,7 +211,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990001</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990009</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -225,7 +225,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=23.407   Δt∈[0.05, 0.5]
+│    N=100   T=20.502   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -236,18 +236,18 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2341  @ current x</span>
-│    KnotPointObjective           w=1             1.649e-07
-│    QuadraticRegularizer(:u)     w=1             1.255e-03
-│    QuadraticRegularizer(:du)    w=1             2.977e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.518e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
+│    KnotPointObjective           w=1             1.742e-04
+│    QuadraticRegularizer(:u)     w=1             9.506e-04
+│    QuadraticRegularizer(:du)    w=1             2.700e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2341
+│    MinimumTimeObjective         w=1             2050
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 8.071e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.174e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.019e-05)
+│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -264,16 +264,16 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.950005</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.950074</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
 Fidelity-Time Trade-off
 ──────────────────────────────────────────────────
-  Target: 0.999  │  Duration: 13.582  │  Achieved: 0.9990
-  Target: 0.990  │  Duration: 13.507  │  Achieved: 0.9900
-  Target: 0.950  │  Duration: 13.375  │  Achieved: 0.9500
-  Target: 0.900  │  Duration: 13.280  │  Achieved: 0.9000</code></pre><h3 id="With-Robust-Optimization"><a class="docs-heading-anchor" href="#With-Robust-Optimization">With Robust Optimization</a><a id="With-Robust-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Robust-Optimization" title="Permalink"></a></h3><p>Chain with <code>SamplingProblem</code> for robust time-optimal control:</p><pre><code class="language-julia hljs"># Base problem
+  Target: 0.999  │  Duration: 12.061  │  Achieved: 0.9990
+  Target: 0.990  │  Duration: 11.695  │  Achieved: 0.9900
+  Target: 0.950  │  Duration: 11.586  │  Achieved: 0.9501
+  Target: 0.900  │  Duration: 11.749  │  Achieved: 0.9003</code></pre><h3 id="With-Robust-Optimization"><a class="docs-heading-anchor" href="#With-Robust-Optimization">With Robust Optimization</a><a id="With-Robust-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Robust-Optimization" title="Permalink"></a></h3><p>Chain with <code>SamplingProblem</code> for robust time-optimal control:</p><pre><code class="language-julia hljs"># Base problem
 qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
 solve!(qcp_base; max_iter=100)
 
@@ -303,7 +303,7 @@ solve!(qcp_y; max_iter = 100)</code></pre><pre class="documenter-example-output"
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=23.407   Δt∈[0.05, 0.5]
+│    N=100   T=20.502   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -314,18 +314,18 @@ solve!(qcp_y; max_iter = 100)</code></pre><pre class="documenter-example-output"
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2341  @ current x</span>
-│    KnotPointObjective           w=1             1.649e-07
-│    QuadraticRegularizer(:u)     w=1             1.255e-03
-│    QuadraticRegularizer(:du)    w=1             2.977e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.518e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
+│    KnotPointObjective           w=1             1.742e-04
+│    QuadraticRegularizer(:u)     w=1             9.506e-04
+│    QuadraticRegularizer(:du)    w=1             2.700e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2341
+│    MinimumTimeObjective         w=1             2050
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 8.071e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.174e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.019e-05)
+│    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -342,13 +342,13 @@ solve!(qcp_y; max_iter = 100)</code></pre><pre class="documenter-example-output"
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.001946</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.013595</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
 
-Number of nonzeros in equality constraint Jacobian...:    38354
+Number of nonzeros in equality constraint Jacobian...:    38156
 Number of nonzeros in inequality constraint Jacobian.:        8
 Number of nonzeros in Lagrangian Hessian.............:    38584
 
@@ -356,60 +356,48 @@ Total number of variables............................:     1587
                      variables with only lower bounds:        0
                 variables with lower and upper bounds:     1288
                      variables with only upper bounds:        0
-Total number of equality constraints.................:     1386
+Total number of equality constraints.................:     1287
 Total number of inequality constraints...............:        1
         inequality constraints with only lower bounds:        0
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:        1
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  2.3427311e+03 9.90e-01 2.06e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  2.3426916e+03 9.90e-01 9.67e+01  -2.1 1.00e+00   2.0 9.89e-01 9.90e-03h  1
-   2  2.3426899e+03 9.90e-01 9.87e+05  -1.5 9.90e-01   1.5 1.00e+00 1.00e-04h  1
-   3  2.3424570e+03 9.90e-01 1.06e+06   0.5 1.25e+03   1.0 9.90e-05 7.97e-06f  5
-   4  2.3415879e+03 9.87e-01 2.66e+04   0.3 4.78e+01   1.5 3.77e-02 8.38e-04f  3
+   0  2.0522117e+03 9.90e-01 2.51e+01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  2.0520222e+03 9.90e-01 1.09e+02  -0.8 1.00e+00   2.0 9.80e-01 9.90e-03h  1
+   2  2.0519238e+03 9.90e-01 5.89e+05   0.3 1.02e+01   1.5 5.39e-01 1.03e-04h  1
+   3  2.0255804e+03 9.05e-01 5.90e+05   2.0 1.93e+02   1.0 3.33e-03 1.49e-03f  2
+   4  2.0128442e+03 8.65e-01 3.79e+03   2.0 1.75e+01   0.6 9.69e-01 4.01e-02f  1
 ⋮
-  96  1.3148900e+03 2.52e-04 1.91e+01  -1.2 6.77e+00  -0.5 9.12e-02 6.15e-02f  1
-  97  1.3139283e+03 1.77e-04 1.28e+01  -2.1 5.15e-01  -0.1 3.87e-01 3.27e-01f  1
-  98  1.3130489e+03 1.94e-04 1.50e+01  -3.2 2.43e+00  -0.6 2.16e-01 1.47e-01f  1
-  99  1.3125146e+03 1.44e-04 1.82e+01  -2.1 5.80e-01  -0.1 7.26e-01 3.17e-01f  1
+  96  1.2642137e+03 2.95e-03 9.44e+00  -2.8 1.22e-01   1.0 1.00e+00 2.46e-01f  1
+  97  1.2601860e+03 7.36e-03 6.81e+00  -1.8 8.05e-01   0.5 3.90e-01 1.48e-01f  1
+  98  1.2564318e+03 5.85e-03 1.49e+01  -2.5 1.94e-01   0.9 1.00e+00 3.31e-01f  1
+  99  1.2502264e+03 2.58e-02 1.28e+01  -2.9 1.33e+00   0.4 4.41e-01 1.86e-01f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  1.3122809e+03 1.88e-04 1.40e+01  -1.8 3.24e+00  -0.6 4.13e-02 1.07e-01f  1
+ 100  1.2498197e+03 2.50e-02 2.75e+01  -3.3 1.22e-01   0.9 1.00e+00 3.37e-02f  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.3122729258977306e+03    1.3122808704679110e+03
-Dual infeasibility......:   1.3950796387793389e+01    1.3950880846657691e+01
-Constraint violation....:   1.8762592720325544e-04    1.8762592720325544e-04
+Objective...............:   1.2498018729339233e+03    1.2498196625871249e+03
+Dual infeasibility......:   2.7506024520724008e+01    2.7506416040890343e+01
+Constraint violation....:   2.4972971753735973e-02    2.4972971753735973e-02
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.1712033424529774e-02    1.1712104329803867e-02
-Overall NLP error.......:   1.3950796387793389e+01    1.3950880846657691e+01
+Complementarity.........:   1.3370775662185154e-02    1.3370965981520736e-02
+Overall NLP error.......:   2.7506024520724008e+01    2.7506416040890343e+01
 
 
-Number of objective function evaluations             = 117
+Number of objective function evaluations             = 103
 Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 117
-Number of inequality constraint evaluations          = 117
+Number of equality constraint evaluations            = 103
+Number of inequality constraint evaluations          = 103
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 101
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 20.777
+Total seconds in IPOPT                               = 18.562
 
 EXIT: Maximum Number of Iterations Exceeded.
-    initializing optimizer...
-        applying constraint: timesteps all equal constraint
-        applying constraint: initial value of Ũ⃗
-        applying constraint: initial value of u
-        applying constraint: final value of u
-        applying constraint: bounds on Ũ⃗
-        applying constraint: bounds on u
-        applying constraint: bounds on Δt
-        applying constraint: bounds on du
-        applying constraint: bounds on ddu
-        applying constraint: time consistency constraint (t_{k+1} = t_k + Δt_k)
-        applying constraint: initial time t₁ = 0
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Loaded cached trajectory from mintime_y_gate_573ffb2.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Sunday 30 August 2026 14:01">Sunday 30 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to mintime_y_gate_cfc6b0a.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Monday 31 August 2026 23:14">Monday 31 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./minimum_time.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/minimum_time.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
