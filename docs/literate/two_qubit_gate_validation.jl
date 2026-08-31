@@ -346,14 +346,17 @@ end
 
 for (name, _, fd, fq) in results
     @assert fd ≥ 0.999 "$name: fidelity $fd below 0.999 target"
-    # 2e-4, not 1e-4: the committed solve caches are gone (they shipped pre-3b
-    # NamedTrajectories struct layouts and broke every docs build — #466's
-    # class), so this example now solves fresh per build. The fresh pulse lands
-    # within ~1e-4 of QuTiP on CI hardware, occasionally a hair over; the
-    # tolerance stays far below anything that would indicate real disagreement.
+    # Fresh-solve tolerance; see the note below the table.
     @assert abs(fd - fq) ≤ 2e-4 "$name: |F_Piccolo - F_QuTiP| = $(abs(fd - fq)) exceeds 2e-4"
 end
 println("All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to ≤ 1e-4.")
+
+# A note on the tolerance: it is `2e-4`, not the `1e-4` the cached builds used.
+# The committed solve caches shipped pre-3b NamedTrajectories struct layouts and
+# broke every docs build, so the example now solves fresh per build — and a
+# fresh two-qubit solve lands within ~1e-4 of QuTiP on CI hardware, occasionally
+# a hair over. The tolerance stays far below anything that would indicate real
+# disagreement between the optimizer's fidelity and an independent rollout.
 
 # We see that all pulses synthesize the CNOT gate with ``\geq 99.9`` %
 # fidelity, and that the reported fidelity agrees with the rollout fidelity
