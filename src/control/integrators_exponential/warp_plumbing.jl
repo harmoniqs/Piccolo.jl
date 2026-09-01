@@ -91,7 +91,7 @@ end
     _warp_chain(traj)
 
 Exact chain rule `∂Δtₖ/∂θⱼ` for the trajectory's warp as an `(N-1) × n_params`
-matrix — [`NamedTrajectories.ddeltats_dparams`](@ref), the NT#161 API: the
+matrix — `NamedTrajectories.ddeltats_dparams`, the NT#161 API: the
 EXACT rational lattice weights `1/(N-1)` for `GlobalScale` (its override — no
 floating subtraction), the generic ForwardDiff pass through `with_params`
 (the Dual rebuild AD seam) for any other warp.
@@ -148,7 +148,7 @@ end
 
 Warp-path Jacobian of the defects. Per knot the preallocated `∂ℰs[k]` is filled
 by the cell's own `jacobian!` (unchanged — the derived Δtₖ is read from the
-trajectory rows, which [`sync_timesteps!`](@ref) re-derives from the warp), and
+trajectory rows, which `sync_timesteps!` re-derives from the warp), and
 the per-knot block is scattered into PACKED coordinates with the derived-Δt
 column replaced by the EXACT warp column:
 
