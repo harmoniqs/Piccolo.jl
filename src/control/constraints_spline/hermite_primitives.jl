@@ -369,12 +369,13 @@ end
 
 @testitem "Hermite primitives: one definition, endpoints, and the two accelerations" begin
 
-    hermite_basis_functions,
-    hermite_derivative_basis,
-    evaluate_hermite_spline,
-    evaluate_hermite_derivative,
-    hermite_accel_start,
-    hermite_accel_end
+    using Piccolo:
+        evaluate_hermite_derivative,
+        evaluate_hermite_spline,
+        hermite_accel_end,
+        hermite_accel_start,
+        hermite_basis_functions,
+        hermite_derivative_basis
     using ForwardDiff
     using Random
 

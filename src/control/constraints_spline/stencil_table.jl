@@ -622,14 +622,15 @@ _routable_stencil(t::ConstraintStencilTable) =
 
 @testitem "ConstraintStencilTable: structure, ± pairing, cached assembly" begin
 
-    ConstraintStencilTable,
-    stencil_structure,
-    stencil_fill_values!,
-    stencil_assemble!,
-    stencil_expand_rows!,
-    stencil_coeff_range,
-    stencil_functional_rows,
-    stencil_n_entries
+    using Piccolo:
+        ConstraintStencilTable,
+        stencil_assemble!,
+        stencil_coeff_range,
+        stencil_expand_rows!,
+        stencil_fill_values!,
+        stencil_functional_rows,
+        stencil_n_entries,
+        stencil_structure
     using SparseArrays
 
     # Two functionals; each read by a `+`/`−` row pair — the double-sided shape.
@@ -751,12 +752,13 @@ end
 
 @testitem "#332 stencil kernels: JVP/VJP match the assembled action, adjoint identity, ± reassociation" begin
 
-    ConstraintStencilTable,
-    stencil_assemble!,
-    stencil_jvp!,
-    stencil_vjp!,
-    stencil_refresh_token,
-    stencil_touch!
+    using Piccolo:
+        ConstraintStencilTable,
+        stencil_assemble!,
+        stencil_jvp!,
+        stencil_refresh_token,
+        stencil_touch!,
+        stencil_vjp!
     using LinearAlgebra
     using Random
 
@@ -840,11 +842,12 @@ end
 @testitem "#332 gradient trait: derived from the declared table, unbounded width refused" begin
     using Piccolo
 
-    ConstraintStencilTable,
-    constraint_stencil_table,
-    refresh_constraint_coefficients!,
-    supports_matrix_free_constraint_gradient,
-    UNBOUNDED_STENCIL_WIDTH
+    using Piccolo:
+        ConstraintStencilTable,
+        UNBOUNDED_STENCIL_WIDTH,
+        constraint_stencil_table,
+        refresh_constraint_coefficients!,
+        supports_matrix_free_constraint_gradient
 
     fcols = [[1, 2], [2, 3]]
     bounded = ConstraintStencilTable(fcols, [1, -1, 2, -2], zeros(4), 5; stencil_width = 1)
@@ -969,7 +972,10 @@ end
 
 @testitem "#458 HVP trait: declared per family, default false; weight contraction" begin
 
-    ConstraintStencilTable, stencil_functional_weight, supports_matrix_free_constraint_hvp
+    using Piccolo:
+        ConstraintStencilTable,
+        stencil_functional_weight,
+        supports_matrix_free_constraint_hvp
 
     # The default is false and is stated on Any: a ForwardDiff-backed constraint (or any
     # type at all) never carries an HVP capability into the backend.

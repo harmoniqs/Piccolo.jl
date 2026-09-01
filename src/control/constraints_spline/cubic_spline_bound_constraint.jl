@@ -824,14 +824,11 @@ end
 @testitem "#331 AC1/AC2/AC5: ported residual matches the reference; Jacobian matches forward-mode AD" begin
     using NamedTrajectories
 
-    CubicSplineBoundConstraint,
-    evaluate!,
-    jacobian!,
-    jacobian_structure,
-    eval_jacobian,
-    get_full_jacobian,
-    _csb_reference_evaluate!,
-    _csb_reference_jacobian
+    using Piccolo: CubicSplineBoundConstraint, eval_jacobian
+    using DirectTrajOpt.CommonInterface: evaluate!, jacobian_structure
+    using DirectTrajOpt.Constraints: get_full_jacobian, jacobian!
+    using Piccolo.Control.QuantumConstraints.SplineConstraints:
+        _csb_reference_evaluate!, _csb_reference_jacobian
     using ForwardDiff
     using SparseArrays
     using LinearAlgebra
@@ -966,7 +963,9 @@ end
 @testitem "#331 AC3: residual and Jacobian allocation are invariant to knot count" begin
     using NamedTrajectories
 
-    CubicSplineBoundConstraint, evaluate!, jacobian!, eval_jacobian
+    using Piccolo: CubicSplineBoundConstraint, eval_jacobian
+    using DirectTrajOpt.CommonInterface: evaluate!
+    using DirectTrajOpt.Constraints: jacobian!
     using Random
 
     # KNOT-FLATNESS, not zero allocation. The interface hands the constraint a trajectory
@@ -1025,12 +1024,13 @@ end
 @testitem "#331 AC6: declared stencil width of one, and the declared structure it implies" begin
     using NamedTrajectories
 
-    CubicSplineBoundConstraint,
-    eval_jacobian,
-    stencil_width,
-    stencil_coeff_range,
-    stencil_functional_rows,
-    hermite_value_gradient
+    using Piccolo:
+        CubicSplineBoundConstraint,
+        eval_jacobian,
+        hermite_value_gradient,
+        stencil_coeff_range,
+        stencil_functional_rows,
+        stencil_width
     using Random
 
     Random.seed!(0x331AC06)
@@ -1126,10 +1126,11 @@ end
 @testitem "#458 CSB exact inequality HVP: FD parity of the weighted residual Hessian" begin
     using NamedTrajectories
 
-    CubicSplineBoundConstraint,
-    constraint_stencil_hvp!,
-    supports_matrix_free_constraint_hvp,
-    evaluate!
+    using Piccolo:
+        CubicSplineBoundConstraint,
+        constraint_stencil_hvp!,
+        supports_matrix_free_constraint_hvp
+    using DirectTrajOpt.CommonInterface: evaluate!
     using ForwardDiff
     using LinearAlgebra
     using Random

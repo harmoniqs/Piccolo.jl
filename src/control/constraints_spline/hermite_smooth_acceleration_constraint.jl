@@ -1080,12 +1080,10 @@ end
 @testitem "#330 AC1/AC2: ported residual matches the reference; Jacobian matches forward-mode AD" begin
     using NamedTrajectories
 
-    HermiteSmoothAccelerationConstraint,
-    evaluate!,
-    jacobian!,
-    jacobian_structure,
-    eval_jacobian,
-    _reference_evaluate!
+    using Piccolo: HermiteSmoothAccelerationConstraint, eval_jacobian
+    using DirectTrajOpt.CommonInterface: evaluate!, jacobian_structure
+    using DirectTrajOpt.Constraints: jacobian!
+    using Piccolo.Control.QuantumConstraints.SplineConstraints: _reference_evaluate!
     using ForwardDiff
     using SparseArrays
     using LinearAlgebra
@@ -1243,7 +1241,9 @@ end
 @testitem "#330 AC3: residual and Jacobian allocation are invariant to knot count" begin
     using NamedTrajectories
 
-    HermiteSmoothAccelerationConstraint, evaluate!, jacobian!, eval_jacobian
+    using Piccolo: HermiteSmoothAccelerationConstraint, eval_jacobian
+    using DirectTrajOpt.CommonInterface: evaluate!
+    using DirectTrajOpt.Constraints: jacobian!
     using Random
 
     # KNOT-FLATNESS, not zero allocation. The interface hands the constraint a
@@ -1520,10 +1520,11 @@ supports_matrix_free_constraint_hvp(::HermiteSmoothAccelerationConstraint) = tru
 @testitem "#458 HSA exact inequality HVP: FD parity of the weighted residual Hessian" begin
     using NamedTrajectories
 
-    HermiteSmoothAccelerationConstraint,
-    constraint_stencil_hvp!,
-    supports_matrix_free_constraint_hvp,
-    evaluate!
+    using Piccolo:
+        HermiteSmoothAccelerationConstraint,
+        constraint_stencil_hvp!,
+        supports_matrix_free_constraint_hvp
+    using DirectTrajOpt.CommonInterface: evaluate!
     using ForwardDiff
     using LinearAlgebra
     using Random
@@ -1629,7 +1630,7 @@ end
 @testitem "#458 HSA inequality HVP: allocation is invariant to knot count" begin
     using NamedTrajectories
 
-    HermiteSmoothAccelerationConstraint, constraint_stencil_hvp!
+    using Piccolo: HermiteSmoothAccelerationConstraint, constraint_stencil_hvp!
     using Random
 
     function measure(N)
