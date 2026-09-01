@@ -458,32 +458,30 @@ function _spline_pulse_problem(
         end
     end
 
-    # Spline interior bounds (H10) — CubicSplinePulse can exceed knot bounds in interior
+    # Spline interior bounds (H10) — CubicSplinePulse can exceed knot bounds in interior.
+    # Slice 3c (#431): CubicSplineBoundConstraint lives in Piccolo
+    # (Control.QuantumConstraints.SplineConstraints) — a hard import; the old
+    # isdefined(Piccolissimo, ...) soft-dependency sniff is gone.
     if spline_interior_bound_constraints
         if qtraj.pulse isa CubicSplinePulse
-            if isdefined(Main, :Piccolissimo) &&
-               isdefined(Piccolissimo, :CubicSplineBoundConstraint)
-                for (drive_idx, (lb, ub)) in enumerate(sys.drive_bounds)
-                    if isfinite(lb) && isfinite(ub)
-                        push!(
-                            constraints,
-                            Piccolissimo.CubicSplineBoundConstraint(
-                                traj,
-                                control_sym,
-                                lb,
-                                ub;
-                                n_interior_points = n_interior_bound_points,
-                            ),
-                        )
-                    end
-                end
-                if _show_details(piccolo_options)
-                    println(
-                        "    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)",
+            for (drive_idx, (lb, ub)) in enumerate(sys.drive_bounds)
+                if isfinite(lb) && isfinite(ub)
+                    push!(
+                        constraints,
+                        CubicSplineBoundConstraint(
+                            traj,
+                            control_sym,
+                            lb,
+                            ub;
+                            n_interior_points = n_interior_bound_points,
+                        ),
                     )
                 end
-            else
-                @warn "spline_interior_bound_constraints=true requires Piccolissimo.jl for CubicSplineBoundConstraint. Load Piccolissimo (using Piccolissimo) or set spline_interior_bound_constraints=false. Interior violation at cat α=2 was 28% (3.20 vs 2.5)."
+            end
+            if _show_details(piccolo_options)
+                println(
+                    "    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)",
+                )
             end
         else
             @warn "spline_interior_bound_constraints=true only for CubicSplinePulse (LinearSplinePulse interior is linear, knot bounds suffice)."
@@ -856,32 +854,30 @@ function _spline_pulse_problem(
         end
     end
 
-    # Spline interior bounds (H10) — CubicSplinePulse can exceed knot bounds in interior
+    # Spline interior bounds (H10) — CubicSplinePulse can exceed knot bounds in interior.
+    # Slice 3c (#431): CubicSplineBoundConstraint lives in Piccolo
+    # (Control.QuantumConstraints.SplineConstraints) — a hard import; the old
+    # isdefined(Piccolissimo, ...) soft-dependency sniff is gone.
     if spline_interior_bound_constraints
         if qtraj.pulse isa CubicSplinePulse
-            if isdefined(Main, :Piccolissimo) &&
-               isdefined(Piccolissimo, :CubicSplineBoundConstraint)
-                for (drive_idx, (lb, ub)) in enumerate(sys.drive_bounds)
-                    if isfinite(lb) && isfinite(ub)
-                        push!(
-                            constraints,
-                            Piccolissimo.CubicSplineBoundConstraint(
-                                traj,
-                                control_sym,
-                                lb,
-                                ub;
-                                n_interior_points = n_interior_bound_points,
-                            ),
-                        )
-                    end
-                end
-                if _show_details(piccolo_options)
-                    println(
-                        "    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)",
+            for (drive_idx, (lb, ub)) in enumerate(sys.drive_bounds)
+                if isfinite(lb) && isfinite(ub)
+                    push!(
+                        constraints,
+                        CubicSplineBoundConstraint(
+                            traj,
+                            control_sym,
+                            lb,
+                            ub;
+                            n_interior_points = n_interior_bound_points,
+                        ),
                     )
                 end
-            else
-                @warn "spline_interior_bound_constraints=true requires Piccolissimo.jl for CubicSplineBoundConstraint. Load Piccolissimo (using Piccolissimo) or set spline_interior_bound_constraints=false. Interior violation at cat α=2 was 28% (3.20 vs 2.5)."
+            end
+            if _show_details(piccolo_options)
+                println(
+                    "    added CubicSplineBoundConstraint (n=$(n_interior_bound_points) per segment, H10)",
+                )
             end
         else
             @warn "spline_interior_bound_constraints=true only for CubicSplinePulse (LinearSplinePulse interior is linear, knot bounds suffice)."
@@ -1999,15 +1995,29 @@ end
     cub = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
     lin1 = LinearSplinePulse(0.1 * randn(1, N), times)
 
-    # spline_interior_bound_constraints without Piccolissimo loaded: warns and
-    # constructs (the Piccolissimo-present side needs the package; this env
-    # covers the fallback side only).
-    @test_logs (:warn, r"requires Piccolissimo") match_mode = :any SplinePulseProblem(
-        UnitaryTrajectory(sys1, cub, U_goal),
+    # spline_interior_bound_constraints binds via Piccolo's own
+    # SplineConstraints submodule (open-core slice 3c, #431): a HARD import,
+    # no private-package sniff. Piccolissimo is not — and cannot be — a
+    # dependency of this package, so this test env IS the
+    # no-private-package proof (AC 2): the constraint must land and no
+    # fallback warning may fire.
+    bounded_sys = QuantumSystem(0.01 * σz, [σx], [(-1.0, 1.0)])
+    qcp_bounded = SplinePulseProblem(
+        UnitaryTrajectory(bounded_sys, cub, U_goal),
         N;
         integrator_type = :pwc,
         spline_interior_bound_constraints = true,
     )
+    @test any(c -> c isa CubicSplineBoundConstraint, qcp_bounded.prob.constraints)
+    # ...and silently (no fallback warning) for the multi-ket method too.
+    mk_cub_bounded = MultiKetTrajectory(bounded_sys, cub, [ψ0, ψ1], [ψ1, ψ0])
+    qcp_bounded_mk = SplinePulseProblem(
+        mk_cub_bounded,
+        N;
+        integrator_type = :pwc,
+        spline_interior_bound_constraints = true,
+    )
+    @test any(c -> c isa CubicSplineBoundConstraint, qcp_bounded_mk.prob.constraints)
 
     # LinearSplinePulse: knot bounds suffice; the kwarg warns and is inert
     @test_logs (:warn, r"only for CubicSplinePulse") match_mode = :any SplinePulseProblem(
@@ -2016,14 +2026,6 @@ end
         spline_interior_bound_constraints = true,
     )
 
-    # multi-ket method: both warnings, cubic via the acknowledged :pwc backend
-    mk_cub = MultiKetTrajectory(sys1, cub, [ψ0, ψ1], [ψ1, ψ0])
-    @test_logs (:warn, r"requires Piccolissimo") match_mode = :any SplinePulseProblem(
-        mk_cub,
-        N;
-        integrator_type = :pwc,
-        spline_interior_bound_constraints = true,
-    )
     mk_lin = MultiKetTrajectory(sys1, lin1, [ψ0, ψ1], [ψ1, ψ0])
     @test_logs (:warn, r"only for CubicSplinePulse") match_mode = :any SplinePulseProblem(
         mk_lin,
