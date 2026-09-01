@@ -449,6 +449,10 @@ function get_jacobian_structure(
     ℰ::HermitianExponentialIntegrator{MultiKetTrajectory},
     traj::NamedTrajectory,
 )
+    # Derived-Δt dynamics (Piccolo.jl#321): packed two-knot windows + the warp
+    # column under a warp; historical structure otherwise.
+    traj.warp !== nothing && return _get_jacobian_structure_warped(ℰ, traj)
+
     N = traj.N
     x_dim = ℰ.x_dim  # Total constraint dim per knot point (all kets)
     z_dim = traj.dim
@@ -501,6 +505,10 @@ end
     ℰ::HermitianExponentialIntegrator{MultiKetTrajectory},
     traj::NamedTrajectory,
 )
+    # Under a time warp the timestep rows are derived: re-derive them from the
+    # warp so Δtₖ = deltats(warp)[k] is what the defect consumes (no-op warp-free).
+    traj.warp !== nothing && sync_timesteps!(traj)
+
     # Extract globals once (constant across knot points)
     globals = extract_globals(ℰ, traj)
 
@@ -522,6 +530,14 @@ end
     # fall through to the retained sparse path (out of scope for the op, #205). The
     # default `matrix_free=false` keeps the assembled sparse Jacobian for the
     # Ipopt/MadNLP KKT-factorization path that shares this method.
+    # Derived-Δt dynamics (Piccolo.jl#321): with a warp the packed Jacobian
+    # drops the derived timestep column and gains the EXACT warp-parameter
+    # column (∂cₖ/∂θⱼ = wₖⱼ · ∂cₖ/∂Δtₖ). No warp → historical body, bit-unchanged.
+    # NOTE: the warp check precedes the matrix-free opt-in — the matrix-free op
+    # carries no warp column (out of scope here), so a warped trajectory always
+    # gets the assembled packed Jacobian.
+    traj.warp !== nothing && return _eval_jacobian_warped(ℰ, traj)
+
     if ℰ.matrix_free && !isnothing(ℰ.H_dirs)
         return matrix_free_jacobian_op(ℰ, traj)
     end
@@ -574,6 +590,11 @@ end
     traj::NamedTrajectory,
     μ::AbstractVector,
 )
+    # Derived-Δt dynamics (Piccolo.jl#321): with a warp the canonical Δt
+    # row/column maps onto the warp-parameter column through the exact chain
+    # rule. No warp → historical body, bit-unchanged.
+    traj.warp !== nothing && return _eval_hessian_of_lagrangian_warped(ℰ, traj, μ)
+
     N = traj.N
     x_dim = ℰ.x_dim
     u_dim = ℰ.u_dim
@@ -641,6 +662,10 @@ function get_hessian_of_lagrangian_structure(
     ℰ::HermitianExponentialIntegrator{MultiKetTrajectory},
     traj::NamedTrajectory,
 )
+    # Derived-Δt dynamics (Piccolo.jl#321): packed coordinates + the warp
+    # column under a warp; historical structure otherwise.
+    traj.warp !== nothing && return _get_hessian_of_lagrangian_structure_warped(ℰ, traj)
+
     N = traj.N
     x_dim = ℰ.x_dim
     u_dim = ℰ.u_dim
@@ -1975,4 +2000,149 @@ end
     println("  [#203 AC4] avg fidelity: analytic=$fid_dk  ForwardDiff=$fid_fd")
     @test fid_dk > 0.99
     @test isapprox(fid_dk, fid_fd; atol = 1e-2)
+end
+
+# ============================================================================ #
+# Phase 1b (Piccolo.jl#321): the defect warp column under a time warp
+# (NamedTrajectories#161) — MultiKetTrajectory cell (shared propagator, one
+# derived Δt per knot feeding every ket's defect). Exact chain entries
+# ∂cₖ/∂θⱼ = (∂Δtₖ/∂θⱼ)·∂cₖ/∂Δtₖ with ∂cₖ/∂Δtₖ = −G(uₖ)·ψ̃ₖ₊₁ on the satisfied
+# defect, plus packed FD parity.
+# ============================================================================ #
+
+@testitem "HermitianExponentialIntegrator{MultiKet} defect warp column: exact entries + FD parity" begin
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators:
+        _hermitian_exp_multiket, exp_eigen
+    using DirectTrajOpt
+    using NamedTrajectories
+    using TrajectoryIndexingUtils: slice
+    using Random
+    using LinearAlgebra
+    using SparseArrays
+    using Test
+
+    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    N = 6
+    T0 = 1.7
+    Random.seed!(20260831)
+    ψ̃₁ = randn(4, N)
+    ψ̃₂ = randn(4, N)
+    u = 0.3 .* randn(2, N)
+
+    mk_traj(ψ̃₁, ψ̃₂) = NamedTrajectory(
+        (ψ̃₁ = ψ̃₁, ψ̃₂ = ψ̃₂, u = u, Δt = fill(T0 / (N - 1), 1, N));  # Δt derived
+        controls = (:u,),
+        timestep = :Δt,
+        warp = GlobalScale(T0),
+    )
+    traj = mk_traj(ψ̃₁, ψ̃₂)
+    ℰ = _hermitian_exp_multiket(sys, [:ψ̃₁, :ψ̃₂], :u, traj, Symbol[])
+
+    x_dim = ℰ.x_dim                      # 8 (two iso kets of 4)
+    wₖ = 1 / (N - 1)
+    T_col = (traj.dim - traj.dims[:Δt]) * traj.N + traj.global_dim + 1
+
+    # evaluate! reads the DERIVED rows (synced from the warp)
+    δ = zeros(x_dim * (N - 1))
+    evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
+    for k = 1:(N-1)
+        Φₖ = exp_eigen((T0 / (N - 1)) .* sys.H(u[:, k], 0.0))
+        @test δ[((k-1)*x_dim) .+ (1:4)] ≈ ψ̃₁[:, k+1] - Φₖ * ψ̃₁[:, k]
+        @test δ[((k-1)*x_dim) .+ (5:8)] ≈ ψ̃₂[:, k+1] - Φₖ * ψ̃₂[:, k]
+    end
+
+    # Jacobian: packed size + EXACT warp column (both kets share the chain)
+    ∂F = eval_jacobian(ℰ, traj)
+    @test size(∂F) == (x_dim * (N - 1), length(vec(traj)))
+    for k = 1:(N-1)
+        Gₖ = sys.G(u[:, k], 0.0)
+        Φₖ = exp_eigen((T0 / (N - 1)) .* sys.H(u[:, k], 0.0))
+        dcdΔt₁ = -Gₖ * Φₖ * ψ̃₁[:, k]
+        dcdΔt₂ = -Gₖ * Φₖ * ψ̃₂[:, k]
+        @test ∂F[((k-1)*x_dim) .+ (1:4), T_col] ≈ wₖ .* dcdΔt₁
+        @test ∂F[((k-1)*x_dim) .+ (5:8), T_col] ≈ wₖ .* dcdΔt₂
+    end
+
+    # satisfied defect: ∂cₖ/∂Δtₖ = −G(uₖ)·ψ̃ₖ₊₁ exactly (per ket)
+    ψ̃₁sat = copy(ψ̃₁)
+    ψ̃₂sat = copy(ψ̃₂)
+    for k = 1:(N-1)
+        Φₖ = exp_eigen((T0 / (N - 1)) .* sys.H(u[:, k], 0.0))
+        ψ̃₁sat[:, k+1] = Φₖ * ψ̃₁sat[:, k]
+        ψ̃₂sat[:, k+1] = Φₖ * ψ̃₂sat[:, k]
+    end
+    traj_sat = mk_traj(ψ̃₁sat, ψ̃₂sat)
+    ℰ_sat = _hermitian_exp_multiket(sys, [:ψ̃₁, :ψ̃₂], :u, traj_sat, Symbol[])
+    ∂F_sat = eval_jacobian(ℰ_sat, traj_sat)
+    for k = 1:(N-1)
+        @test ∂F_sat[((k-1)*x_dim) .+ (1:4), T_col] ≈
+              -wₖ .* (sys.G(u[:, k], 0.0) * ψ̃₁sat[:, k+1])
+        @test ∂F_sat[((k-1)*x_dim) .+ (5:8), T_col] ≈
+              -wₖ .* (sys.G(u[:, k], 0.0) * ψ̃₂sat[:, k+1])
+    end
+
+    # FD parity of the full Jacobian over the PACKED vector (perturbs T too)
+    function fd_jac(f, z0; h = 1e-6)
+        f0 = f(z0)
+        J = zeros(length(f0), length(z0))
+        for j in eachindex(z0)
+            e = zeros(length(z0))
+            e[j] = h
+            J[:, j] = (f(z0 .+ e) .- f(z0 .- e)) ./ (2h)
+        end
+        return J
+    end
+    f̂ = Z⃗ -> begin
+        unpack!(traj, Z⃗)
+        δ = zeros(x_dim * (N - 1))
+        evaluate!(δ, ℰ, traj)
+        return δ
+    end
+    z0 = collect(vec(traj))
+    ∂F_fd = fd_jac(f̂, z0)
+    @test all(isapprox.(∂F, ∂F_fd; atol = 1e-5, rtol = 1e-5))
+
+    # FD parity of the Hessian of the Lagrangian (exact mode)
+    μ = 0.3 .* collect(1.0:(x_dim*(N-1)))
+    H = eval_hessian_of_lagrangian(ℰ, traj, μ)
+    @test size(H) == (length(vec(traj)), length(vec(traj)))
+    function fd_hess(g, z0; h = 1e-4)
+        n = length(z0)
+        g0 = g(z0)
+        Hm = zeros(n, n)
+        for i = 1:n
+            ei = zeros(n)
+            ei[i] = h
+            Hm[i, i] = (g(z0 .+ ei) - 2g0 + g(z0 .- ei)) / h^2
+            for j = (i+1):n
+                ej = zeros(n)
+                ej[j] = h
+                Hm[i, j] =
+                    Hm[j, i] =
+                        (
+                            g(z0 .+ ei .+ ej) - g(z0 .+ ei .- ej) - g(z0 .- ei .+ ej) +
+                            g(z0 .- ei .- ej)
+                        ) / (4h^2)
+            end
+        end
+        return Hm
+    end
+    ĥ = Z⃗ -> begin
+        unpack!(traj, Z⃗)
+        δ = zeros(x_dim * (N - 1))
+        evaluate!(δ, ℰ, traj)
+        return μ'δ
+    end
+    H_fd = fd_hess(ĥ, z0)
+    @test all(isapprox.(H, triu(H_fd); atol = 2e-3, rtol = 2e-3))
+
+    # structures declare the warp column in packed coordinates
+    S = get_jacobian_structure(ℰ, traj)
+    @test size(S) == (x_dim * (N - 1), length(vec(traj)))
+    @test !iszero(S[slice(1, x_dim), T_col])
+    HS = get_hessian_of_lagrangian_structure(ℰ, traj)
+    @test size(HS) == (length(vec(traj)), length(vec(traj)))
+    @test any(!iszero, HS[T_col, :])
 end

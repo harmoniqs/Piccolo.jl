@@ -257,6 +257,7 @@ end
 
 include("daleckii_krein.jl")
 include("hermitian_exponential_integrator_type.jl")
+include("warp_plumbing.jl")   # derived-Δt (time-warp) scaffolding — Piccolo.jl#321
 include("hermitian_exponential_integrator_unitary.jl")
 include("hermitian_exponential_integrator_ket.jl")
 include("hermitian_exponential_integrator_multiket.jl")
