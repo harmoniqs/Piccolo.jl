@@ -131,12 +131,12 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 50
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.4539488461591576e-02    2.4539488461591576e-02
-Dual infeasibility......:   4.1151446629217096e-02    4.1151446629217096e-02
-Constraint violation....:   4.5503037554572856e-07    4.5503037554572856e-07
+Objective...............:   2.4539488460541117e-02    2.4539488460541117e-02
+Dual infeasibility......:   4.1151446630548705e-02    4.1151446630548705e-02
+Constraint violation....:   4.5503037510163935e-07    4.5503037510163935e-07
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0020364905250771e-04    1.0020364905250771e-04
-Overall NLP error.......:   4.1151446629217096e-02    4.1151446629217096e-02
+Complementarity.........:   1.0020364905243287e-04    1.0020364905243287e-04
+Overall NLP error.......:   4.1151446630548705e-02    4.1151446630548705e-02
 
 
 Number of objective function evaluations             = 71
@@ -146,11 +146,11 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 51
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 50
-Total seconds in IPOPT                               = 426.780
+Total seconds in IPOPT                               = 389.622
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to multilevel_transmon_cfc6b0a.jld2</code></pre><p>After optimization, we can check the fidelity in the subspace:</p><pre><code class="language-julia hljs">fid = fidelity(qcp)
-println(&quot;Fidelity: &quot;, fid)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.9999471434081353</code></pre><h2 id="Leakage-suppression"><a class="docs-heading-anchor" href="#Leakage-suppression">Leakage suppression</a><a id="Leakage-suppression-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppression" title="Permalink"></a></h2><p>As can be seen from multilevel systems, there can be substantial leakage into higher energy levels during the evolution. To mitigate this, Piccolo provides options to add leakage suppression via the <code>PiccoloOptions</code> type.</p><p>To implement leakage suppression, pass <code>leakage_constraint=true</code> and configure the leakage parameters:</p><pre><code class="language-julia hljs"># create a leakage suppression problem
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to multilevel_transmon_70f1de6.jld2</code></pre><p>After optimization, we can check the fidelity in the subspace:</p><pre><code class="language-julia hljs">fid = fidelity(qcp)
+println(&quot;Fidelity: &quot;, fid)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.999947143408116</code></pre><h2 id="Leakage-suppression"><a class="docs-heading-anchor" href="#Leakage-suppression">Leakage suppression</a><a id="Leakage-suppression-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppression" title="Permalink"></a></h2><p>As can be seen from multilevel systems, there can be substantial leakage into higher energy levels during the evolution. To mitigate this, Piccolo provides options to add leakage suppression via the <code>PiccoloOptions</code> type.</p><p>To implement leakage suppression, pass <code>leakage_constraint=true</code> and configure the leakage parameters:</p><pre><code class="language-julia hljs"># create a leakage suppression problem
 qcp_leakage = SmoothPulseProblem(
     qtraj,
     N;
@@ -204,7 +204,7 @@ solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-ou
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/14 violated at x₀</span>
 │    [dyn]  BilinearIntegrator               <span class="sgr31">✗</span>  (‖c‖∞ = 0.1481)
-│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.388e-17)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
 │    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 5.551e-17)
 │    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -228,7 +228,7 @@ solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-ou
 
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
 <span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.149  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.152  (tolerance 0.005)
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
 <span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
@@ -267,22 +267,22 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    3  1.1190457e+00 3.37e-01 1.57e+02  -2.5 4.06e+00    -  5.68e-02 2.68e-02h  1
    4  1.7231300e+00 3.29e-01 1.53e+02  -0.5 1.08e+01    -  4.52e-02 2.41e-02f  1
 ⋮
-  46  2.7790758e+01 1.84e-01 4.65e+04   1.0 6.65e+00   1.4 3.81e-02 3.14e-02h  1
-  47  2.8298998e+01 1.78e-01 1.86e+05   1.5 5.06e-01   3.6 2.46e-01 3.06e-02h  1
-  48  2.8503921e+01 1.76e-01 1.86e+05   1.8 4.38e+00   3.1 8.53e-03 9.02e-03f  1
-  49  2.8969313e+01 1.72e-01 1.74e+05  -4.0 1.32e+00   3.5 2.16e-02 2.63e-02h  1
+  46  1.8037780e+01 1.93e-01 1.46e+05  -0.1 1.63e+00   4.1 7.56e-03 1.78e-02h  1
+  47  1.8844961e+01 1.88e-01 1.17e+06   1.8 3.72e+00   3.6 2.38e-01 2.51e-02f  1
+  48  2.6104909e+01 1.80e-01 1.26e+06   2.9 5.94e+00   3.1 8.19e-02 4.45e-02f  1
+  49  2.7587929e+01 1.73e-01 1.21e+06   2.0 4.92e+00    -  1.00e-01 4.06e-02h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  50  2.9580123e+01 1.65e-01 3.90e+05   1.2 1.59e+00   4.0 2.08e-01 3.89e-02h  1
+  50  2.8279771e+01 1.70e-01 1.19e+06   2.3 1.09e+01   2.6 4.22e-02 1.59e-02h  1
 
 Number of Iterations....: 50
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.9580123489719167e+01    2.9580123489719167e+01
-Dual infeasibility......:   3.9007997582033987e+05    3.9007997582033987e+05
-Constraint violation....:   1.6511620811332511e-01    1.6511620811332511e-01
+Objective...............:   2.8279770900582690e+01    2.8279770900582690e+01
+Dual infeasibility......:   1.1855530141427475e+06    1.1855530141427475e+06
+Constraint violation....:   1.6989142869884499e-01    1.6989142869884499e-01
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   4.2181117074389526e+01    4.2181117074389526e+01
-Overall NLP error.......:   2.3469979761556664e+04    3.9007997582033987e+05
+Complementarity.........:   1.7107826668472788e+02    1.7107826668472788e+02
+Overall NLP error.......:   1.4915764711824384e+04    1.1855530141427475e+06
 
 
 Number of objective function evaluations             = 51
@@ -292,11 +292,11 @@ Number of inequality constraint evaluations          = 51
 Number of equality constraint Jacobian evaluations   = 51
 Number of inequality constraint Jacobian evaluations = 51
 Number of Lagrangian Hessian evaluations             = 50
-Total seconds in IPOPT                               = 390.818
+Total seconds in IPOPT                               = 364.855
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to multilevel_transmon_leakage_cfc6b0a.jld2</code></pre><p>The leakage suppression adds:</p><ul><li>An L1-norm cost on populating leakage levels (drives populations toward zero)</li><li>A constraint that keeps leakage below the specified threshold</li></ul><pre><code class="language-julia hljs">fid_leakage = fidelity(qcp_leakage)
-println(&quot;Fidelity with leakage suppression: &quot;, fid_leakage)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity with leakage suppression: 0.5566288765508771</code></pre><h2 id="Visualizing-Results"><a class="docs-heading-anchor" href="#Visualizing-Results">Visualizing Results</a><a id="Visualizing-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-Results" title="Permalink"></a></h2><p>Piccolo provides plotting utilities to visualize the unitary evolution. First, without leakage suppression:</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp); fig_size = (900, 700))</code></pre><img src="ff68029a.png" alt="Example block output"/><p>And with leakage suppression — you should see the population staying mostly within the computational subspace (first two levels):</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))</code></pre><img src="9222655b.png" alt="Example block output"/><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>This tutorial demonstrated:</p><ol><li>Using <code>TransmonSystem</code> to create a realistic multilevel transmon system</li><li>Using <code>EmbeddedOperator</code> to define gates on a subspace</li><li>Creating <code>UnitaryTrajectory</code> with <code>ZeroOrderPulse</code></li><li>Using <code>SmoothPulseProblem</code> to set up the optimization</li><li>Adding leakage suppression via <code>PiccoloOptions</code></li></ol><p>For more details on:</p><ul><li>Problem templates: See <a href="../problem-templates/smooth_pulse/#smooth-pulse">SmoothPulseProblem</a></li><li>Leakage suppression: See <a href="../guides/leakage_suppression/#leakage-suppression">Leakage Suppression</a></li><li>Quantum systems: See <a href="../systems/transmons/#transmon-systems">Transmon Qubits</a></li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../first_gate/">« Your First Gate</a><a class="docs-footer-nextpage" href="../state_transfer/">State Transfer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Monday 31 August 2026 23:14">Monday 31 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to multilevel_transmon_leakage_70f1de6.jld2</code></pre><p>The leakage suppression adds:</p><ul><li>An L1-norm cost on populating leakage levels (drives populations toward zero)</li><li>A constraint that keeps leakage below the specified threshold</li></ul><pre><code class="language-julia hljs">fid_leakage = fidelity(qcp_leakage)
+println(&quot;Fidelity with leakage suppression: &quot;, fid_leakage)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity with leakage suppression: 0.5782378619364749</code></pre><h2 id="Visualizing-Results"><a class="docs-heading-anchor" href="#Visualizing-Results">Visualizing Results</a><a id="Visualizing-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-Results" title="Permalink"></a></h2><p>Piccolo provides plotting utilities to visualize the unitary evolution. First, without leakage suppression:</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp); fig_size = (900, 700))</code></pre><img src="ff68029a.png" alt="Example block output"/><p>And with leakage suppression — you should see the population staying mostly within the computational subspace (first two levels):</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))</code></pre><img src="a5141047.png" alt="Example block output"/><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>This tutorial demonstrated:</p><ol><li>Using <code>TransmonSystem</code> to create a realistic multilevel transmon system</li><li>Using <code>EmbeddedOperator</code> to define gates on a subspace</li><li>Creating <code>UnitaryTrajectory</code> with <code>ZeroOrderPulse</code></li><li>Using <code>SmoothPulseProblem</code> to set up the optimization</li><li>Adding leakage suppression via <code>PiccoloOptions</code></li></ol><p>For more details on:</p><ul><li>Problem templates: See <a href="../problem-templates/smooth_pulse/#smooth-pulse">SmoothPulseProblem</a></li><li>Leakage suppression: See <a href="../guides/leakage_suppression/#leakage-suppression">Leakage Suppression</a></li><li>Quantum systems: See <a href="../systems/transmons/#transmon-systems">Transmon Qubits</a></li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../first_gate/">« Your First Gate</a><a class="docs-footer-nextpage" href="../state_transfer/">State Transfer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 06:58">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./multilevel_transmon.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/multilevel_transmon.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

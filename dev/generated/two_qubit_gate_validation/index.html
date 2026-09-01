@@ -121,12 +121,12 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 150
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.8259581301547871e-03    2.8259581301547871e-03
-Dual infeasibility......:   6.5267555919106007e-05    6.5267555919106007e-05
-Constraint violation....:   6.1999302566895231e-10    6.1999302566895231e-10
+Objective...............:   2.8259581302546794e-03    2.8259581302546794e-03
+Dual infeasibility......:   6.5267555929768268e-05    6.5267555929768268e-05
+Constraint violation....:   6.1999301873005841e-10    6.1999301873005841e-10
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000000000000e-04    1.0000000000000000e-04
-Overall NLP error.......:   6.5267555919106007e-05    6.5267555919106007e-05
+Complementarity.........:   1.0000000000000002e-04    1.0000000000000002e-04
+Overall NLP error.......:   6.5267555929768268e-05    6.5267555929768268e-05
 
 
 Number of objective function evaluations             = 315
@@ -136,15 +136,15 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 152
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 150
-Total seconds in IPOPT                               = 1053.231
+Total seconds in IPOPT                               = 996.138
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to two_qubit_zoh_cfc6b0a.jld2</code></pre><pre><code class="language-julia hljs">F_zoh_piccolo = Piccolo.fidelity(qcp_zoh)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999999355130262</code></pre><h3 id="Linear-Spline"><a class="docs-heading-anchor" href="#Linear-Spline">Linear Spline</a><a id="Linear-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Spline" title="Permalink"></a></h3><p>Next we optimize a piecewise-linear control pulse, whose control parameters are the pulse values at the edges of each linear interval.</p><p>We use the results from the previous optimization to set up a warm start. <code>LinearSplinePulse</code> pulls the control parameters directly from <code>ZeroOrderPulse</code> to build a similar pulse shape (with the same duration, which has been optimized from the intial duration).</p><pre><code class="language-julia hljs">zoh_traj = get_trajectory(qcp_zoh)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to two_qubit_zoh_70f1de6.jld2</code></pre><pre><code class="language-julia hljs">F_zoh_piccolo = Piccolo.fidelity(qcp_zoh)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999999355130339</code></pre><h3 id="Linear-Spline"><a class="docs-heading-anchor" href="#Linear-Spline">Linear Spline</a><a id="Linear-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Spline" title="Permalink"></a></h3><p>Next we optimize a piecewise-linear control pulse, whose control parameters are the pulse values at the edges of each linear interval.</p><p>We use the results from the previous optimization to set up a warm start. <code>LinearSplinePulse</code> pulls the control parameters directly from <code>ZeroOrderPulse</code> to build a similar pulse shape (with the same duration, which has been optimized from the intial duration).</p><pre><code class="language-julia hljs">zoh_traj = get_trajectory(qcp_zoh)
 pulse_lin = LinearSplinePulse(zoh_traj)
 qtraj_lin = UnitaryTrajectory(sys, pulse_lin, U_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">UnitaryTrajectory
   system: 4-level CompositeQuantumSystem
   drives: LinearSplinePulse with 4 drives
-  duration: 11.939904239987598</code></pre><p>We now perform the optimization.</p><pre><code class="language-julia hljs">N_timesteps_lin = N_params
+  duration: 11.939904239996128</code></pre><p>We now perform the optimization.</p><pre><code class="language-julia hljs">N_timesteps_lin = N_params
 qcp_lin = SplinePulseProblem(
     qtraj_lin,
     N_timesteps_lin;
@@ -191,7 +191,7 @@ solve!(qcp_lin; max_iter = 80)</code></pre><pre class="documenter-example-output
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/11 violated at x₀</span>
 │    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 5.885e-03)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.735e-18)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 4.337e-19)
 │    [ineq] AllEqualConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -252,7 +252,7 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    4  2.3668365e-02 1.10e-07 1.34e-02  -4.0 1.89e-03   0.9 1.00e+00 1.00e+00h  1
 ⋮
   76  5.9018262e-03 6.17e-07 7.07e+01  -5.6 1.35e-02  -1.0 1.00e+00 1.00e+00h  1
-  77  5.9013290e-03 2.06e-11 3.43e-03  -5.6 7.74e-05   1.2 1.00e+00 1.00e+00h  1
+  77  5.9013289e-03 2.06e-11 3.43e-03  -5.6 7.74e-05   1.2 1.00e+00 1.00e+00h  1
   78  5.8989528e-03 1.93e-10 1.38e-03  -5.6 2.37e-04   0.8 1.00e+00 1.00e+00h  1
   79  5.8919572e-03 1.73e-09 1.38e-03  -5.6 7.10e-04   0.3 1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
@@ -261,12 +261,12 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 80
 
                                    (scaled)                 (unscaled)
-Objective...............:   5.8718964089740080e-03    5.8718964089740080e-03
-Dual infeasibility......:   1.3682200760595921e-03    1.3682200760595921e-03
-Constraint violation....:   1.5346195647580885e-08    1.5346195647580885e-08
+Objective...............:   5.8718963576900535e-03    5.8718963576900535e-03
+Dual infeasibility......:   1.3682200710283844e-03    1.3682200710283844e-03
+Constraint violation....:   1.5346195203491675e-08    1.5346195203491675e-08
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   2.7801442456143100e-06    2.7801442456143100e-06
-Overall NLP error.......:   1.3682200760595921e-03    1.3682200760595921e-03
+Complementarity.........:   2.7801442455919424e-06    2.7801442455919424e-06
+Overall NLP error.......:   1.3682200710283844e-03    1.3682200710283844e-03
 
 
 Number of objective function evaluations             = 116
@@ -276,15 +276,15 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 81
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 80
-Total seconds in IPOPT                               = 425.854
+Total seconds in IPOPT                               = 387.766
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to two_qubit_linear_spline_cfc6b0a.jld2</code></pre><div class="admonition is-info" id="Number-of-Knot-Points-df16c30d72f871a9"><header class="admonition-header">Number of Knot Points<a class="admonition-anchor" href="#Number-of-Knot-Points-df16c30d72f871a9" title="Permalink"></a></header><div class="admonition-body"><p>The discretized dynamics constraints of the optimizer are not exact when the control pulses are not piecewise-constant. Consequently, the number of knot points may need to be increased, depending the degree of physical accuracy needed. If the discretized dynamics are not accurate, the optimizer may maximize the fidelity for the <em>discretized</em> dynamics, while the actual fidelity for the real, <em>continuous-time</em> dynamics is not as good.</p></div></div><pre><code class="language-julia hljs">F_lin_piccolo = Piccolo.fidelity(qcp_lin)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9997088195097112</code></pre><h3 id="Cubic-Spline"><a class="docs-heading-anchor" href="#Cubic-Spline">Cubic Spline</a><a id="Cubic-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Cubic-Spline" title="Permalink"></a></h3><p>Next we optimize a cubic spline control pulse, whose control parameters are the pulse&#39;s value and the slope of the tangent line at several points in time.</p><p>We use the results from the previous optimization to set up a warm start. From the <code>LinearSplinePulse</code>, we use the knot values as our pulse values, and set the initial slope of the tangent line at those points to be zero.</p><pre><code class="language-julia hljs">lin_traj = get_trajectory(qcp_lin)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to two_qubit_linear_spline_70f1de6.jld2</code></pre><div class="admonition is-info" id="Number-of-Knot-Points-df16c30d72f871a9"><header class="admonition-header">Number of Knot Points<a class="admonition-anchor" href="#Number-of-Knot-Points-df16c30d72f871a9" title="Permalink"></a></header><div class="admonition-body"><p>The discretized dynamics constraints of the optimizer are not exact when the control pulses are not piecewise-constant. Consequently, the number of knot points may need to be increased, depending the degree of physical accuracy needed. If the discretized dynamics are not accurate, the optimizer may maximize the fidelity for the <em>discretized</em> dynamics, while the actual fidelity for the real, <em>continuous-time</em> dynamics is not as good.</p></div></div><pre><code class="language-julia hljs">F_lin_piccolo = Piccolo.fidelity(qcp_lin)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9997088195096201</code></pre><h3 id="Cubic-Spline"><a class="docs-heading-anchor" href="#Cubic-Spline">Cubic Spline</a><a id="Cubic-Spline-1"></a><a class="docs-heading-anchor-permalink" href="#Cubic-Spline" title="Permalink"></a></h3><p>Next we optimize a cubic spline control pulse, whose control parameters are the pulse&#39;s value and the slope of the tangent line at several points in time.</p><p>We use the results from the previous optimization to set up a warm start. From the <code>LinearSplinePulse</code>, we use the knot values as our pulse values, and set the initial slope of the tangent line at those points to be zero.</p><pre><code class="language-julia hljs">lin_traj = get_trajectory(qcp_lin)
 pulse_cub = CubicSplinePulse(lin_traj[:u], zero(lin_traj[:u]), get_times(lin_traj))
 qtraj_cub = UnitaryTrajectory(sys, pulse_cub, U_goal)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">UnitaryTrajectory
   system: 4-level CompositeQuantumSystem
   drives: CubicSplinePulse with 4 drives
-  duration: 12.14213688445394</code></pre><p>We now perform the optimization, again noting that the number of knot points may need to be adjusted for greater physical accuracy.</p><pre><code class="language-julia hljs">N_timesteps_cub = N_params
+  duration: 12.142136884542154</code></pre><p>We now perform the optimization, again noting that the number of knot points may need to be adjusted for greater physical accuracy.</p><pre><code class="language-julia hljs">N_timesteps_cub = N_params
 qcp_cub = SplinePulseProblem(
     qtraj_cub,
     N_timesteps_cub;
@@ -390,27 +390,27 @@ Total number of inequality constraints...............:        0
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    0  2.1160660e-01 1.23e-02 2.61e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  5.4147975e-02 1.23e-04 5.92e-01  -4.0 7.16e-01    -  9.24e-01 9.90e-01h  1
-   2  2.6774736e-02 9.76e-06 7.07e+01  -2.8 1.04e-01    -  1.00e+00 9.90e-01h  1
+   1  5.4147968e-02 1.23e-04 5.92e-01  -4.0 7.16e-01    -  9.24e-01 9.90e-01h  1
+   2  2.6774735e-02 9.76e-06 7.07e+01  -2.8 1.04e-01    -  1.00e+00 9.90e-01h  1
    3  1.5223839e-02 3.04e-05 7.07e+01  -3.2 1.06e-01  -2.0 1.00e+00 1.00e+00h  1
    4  1.5617041e-02 5.47e-09 3.63e-02  -4.0 3.34e-04   2.0 1.00e+00 1.00e+00h  1
 ⋮
   76  9.3310152e-03 6.19e-05 8.38e-03  -5.1 6.96e-02  -1.5 1.00e+00 1.00e+00h  1
   77  7.2145961e-03 1.73e-04 7.07e+01  -5.1 8.35e-02  -2.0 1.00e+00 1.00e+00h  1
   78  7.4164047e-03 1.53e-04 7.98e+03  -4.0 8.57e-02  -2.5 1.00e+00 1.25e-01h  4
-  79  6.6975924e-03 4.47e-05 7.07e+01  -4.0 2.41e-02  -2.0 1.00e+00 1.00e+00h  1
+  79  6.6975925e-03 4.47e-05 7.07e+01  -4.0 2.41e-02  -2.0 1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  80  6.4161133e-03 9.07e-05 5.42e+00  -4.0 2.65e-02  -1.6 1.00e+00 1.00e+00H  1
+  80  6.4161146e-03 9.07e-05 5.42e+00  -4.0 2.65e-02  -1.6 1.00e+00 1.00e+00H  1
 
 Number of Iterations....: 80
 
                                    (scaled)                 (unscaled)
-Objective...............:   6.4161133158813959e-03    6.4161133158813959e-03
-Dual infeasibility......:   5.4247594067988034e+00    5.4247594067988034e+00
-Constraint violation....:   9.0692513593337853e-05    9.0692513593337853e-05
+Objective...............:   6.4161145666259255e-03    6.4161145666259255e-03
+Dual infeasibility......:   5.4247594263225309e+00    5.4247594263225309e+00
+Constraint violation....:   9.0692511222845162e-05    9.0692511222845162e-05
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0002523865138655e-04    1.0002523865138655e-04
-Overall NLP error.......:   5.4247594067988034e+00    5.4247594067988034e+00
+Complementarity.........:   1.0002523865278016e-04    1.0002523865278016e-04
+Overall NLP error.......:   5.4247594263225309e+00    5.4247594263225309e+00
 
 
 Number of objective function evaluations             = 185
@@ -420,10 +420,10 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 81
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 80
-Total seconds in IPOPT                               = 409.984
+Total seconds in IPOPT                               = 359.925
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to two_qubit_cubic_spline_cfc6b0a.jld2</code></pre><pre><code class="language-julia hljs">F_cub_piccolo = Piccolo.fidelity(qcp_cub)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9995915820425177</code></pre><h3 id="Visualizing-the-Optimized-Pulses"><a class="docs-heading-anchor" href="#Visualizing-the-Optimized-Pulses">Visualizing the Optimized Pulses</a><a id="Visualizing-the-Optimized-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-the-Optimized-Pulses" title="Permalink"></a></h3><p>Finally, we visualize the optimized pulses side by side.</p><pre><code class="language-julia hljs">let
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to two_qubit_cubic_spline_70f1de6.jld2</code></pre><pre><code class="language-julia hljs">F_cub_piccolo = Piccolo.fidelity(qcp_cub)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9995915820521883</code></pre><h3 id="Visualizing-the-Optimized-Pulses"><a class="docs-heading-anchor" href="#Visualizing-the-Optimized-Pulses">Visualizing the Optimized Pulses</a><a id="Visualizing-the-Optimized-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-the-Optimized-Pulses" title="Permalink"></a></h3><p>Finally, we visualize the optimized pulses side by side.</p><pre><code class="language-julia hljs">let
     optimized = [
         (&quot;ZeroOrderPulse&quot;, get_pulse(qcp_zoh.qtraj)),
         (&quot;LinearSplinePulse&quot;, get_pulse(qcp_lin.qtraj)),
@@ -448,7 +448,7 @@ EXIT: Maximum Number of Iterations Exceeded.
     Legend(fig[1, length(optimized)+1], entries, [&quot;Drive $i&quot; for i = 1:sys.n_drives])
     Label(fig[0, :], &quot;Optimized Pulses&quot;; font = :bold, fontsize = 18)
     fig
-end</code></pre><img src="0d1b4a7f.png" alt="Example block output"/><h2 id="Step-4:-Validate-Pulses"><a class="docs-heading-anchor" href="#Step-4:-Validate-Pulses">Step 4: Validate Pulses</a><a id="Step-4:-Validate-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Step-4:-Validate-Pulses" title="Permalink"></a></h2><p>Because the discretized dynamics used by the optimizer are not exact for the <code>LinearSplinePulse</code> and <code>CubicSplinePulse</code>,  it is important to validate that the reported fidelities are accurate. We can do this using <a href="https://github.com/qutip/QuantumToolbox.jl">QuantumToolbox.jl</a>.</p><h3 id="Helper-Functions"><a class="docs-heading-anchor" href="#Helper-Functions">Helper Functions</a><a id="Helper-Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Helper-Functions" title="Permalink"></a></h3><p>Piccolo ships a <code>rollout_with_qutip(system, pulse, ψ0)</code> helper in its <code>PiccoloQuantumToolboxExt</code> extension, which loads once both <code>QuantumToolbox</code> and a Makie backend are in scope. Given a system, a pulse, and an initial condition, it allows us to compute solution to the system of ODEs (Schrodinger&#39;s equation or the Linlad master equation).</p><p>The following function uses <code>rollout_with_qutip</code> to roll out each initial condition from the computational basis states and collect them into the columns of <code>U_impl</code> (and stores the solutions for later plotting).</p><pre><code class="language-julia hljs">function unitary_from_qutip(sys, pulse, U_goal; n_save = 200)
+end</code></pre><img src="06c50175.png" alt="Example block output"/><h2 id="Step-4:-Validate-Pulses"><a class="docs-heading-anchor" href="#Step-4:-Validate-Pulses">Step 4: Validate Pulses</a><a id="Step-4:-Validate-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Step-4:-Validate-Pulses" title="Permalink"></a></h2><p>Because the discretized dynamics used by the optimizer are not exact for the <code>LinearSplinePulse</code> and <code>CubicSplinePulse</code>,  it is important to validate that the reported fidelities are accurate. We can do this using <a href="https://github.com/qutip/QuantumToolbox.jl">QuantumToolbox.jl</a>.</p><h3 id="Helper-Functions"><a class="docs-heading-anchor" href="#Helper-Functions">Helper Functions</a><a id="Helper-Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Helper-Functions" title="Permalink"></a></h3><p>Piccolo ships a <code>rollout_with_qutip(system, pulse, ψ0)</code> helper in its <code>PiccoloQuantumToolboxExt</code> extension, which loads once both <code>QuantumToolbox</code> and a Makie backend are in scope. Given a system, a pulse, and an initial condition, it allows us to compute solution to the system of ODEs (Schrodinger&#39;s equation or the Linlad master equation).</p><p>The following function uses <code>rollout_with_qutip</code> to roll out each initial condition from the computational basis states and collect them into the columns of <code>U_impl</code> (and stores the solutions for later plotting).</p><pre><code class="language-julia hljs">function unitary_from_qutip(sys, pulse, U_goal; n_save = 200)
     subspace = U_goal.subspace
     d = length(subspace)
     U_impl = zeros(ComplexF64, d, d)
@@ -470,14 +470,14 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 F_lin_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_lin.qtraj), U_goal)
 F_cub_qutip = gate_fidelity_qutip(sys, get_pulse(qcp_cub.qtraj), U_goal)
 
-F_zoh_qutip, F_lin_qutip, F_cub_qutip</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.999999969322455, 0.9996360214479052, 0.9994894772278691)</code></pre><p>We collect the fidelities into a comparison table to confirm that all three parameterizations reach the target and agree with QuantumToolbox.</p><pre><code class="language-julia hljs">results = [
+F_zoh_qutip, F_lin_qutip, F_cub_qutip</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.99999996906472, 0.9996360214477918, 0.9994894772298548)</code></pre><p>We collect the fidelities into a comparison table to confirm that all three parameterizations reach the target and agree with QuantumToolbox.</p><pre><code class="language-julia hljs">results = [
     (&quot;ZeroOrderPulse&quot;, N_params, F_zoh_piccolo, F_zoh_qutip),
     (&quot;LinearSplinePulse&quot;, N_params, F_lin_piccolo, F_lin_qutip),
     (&quot;CubicSplinePulse&quot;, N_params, F_cub_piccolo, F_cub_qutip),
 ]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Tuple{String, Int64, Float64, Float64}}:
- (&quot;ZeroOrderPulse&quot;, 200, 0.9999999355130262, 0.999999969322455)
- (&quot;LinearSplinePulse&quot;, 200, 0.9997088195097112, 0.9996360214479052)
- (&quot;CubicSplinePulse&quot;, 200, 0.9995915820425177, 0.9994894772278691)</code></pre><p>We now summarize the results for each pulse type:</p><pre><code class="language-julia hljs">println(
+ (&quot;ZeroOrderPulse&quot;, 200, 0.9999999355130339, 0.99999996906472)
+ (&quot;LinearSplinePulse&quot;, 200, 0.9997088195096201, 0.9996360214477918)
+ (&quot;CubicSplinePulse&quot;, 200, 0.9995915820521883, 0.9994894772298548)</code></pre><p>We now summarize the results for each pulse type:</p><pre><code class="language-julia hljs">println(
     @sprintf(
         &quot;%-18s %5s %11s %11s %10s&quot;,
         &quot;Pulse type&quot;,
@@ -496,7 +496,7 @@ for (name, _, fd, fq) in results
     @assert abs(fd - fq) ≤ 2e-4 &quot;$name: |F_Piccolo - F_QuTiP| = $(abs(fd - fq)) exceeds 2e-4&quot;
 end
 println(&quot;All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to ≤ 1e-4.&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Pulse type             N   F Piccolo     F QuTiP      pic−q
-ZeroOrderPulse       200   0.9999999   1.0000000  -3.38e-08
+ZeroOrderPulse       200   0.9999999   1.0000000  -3.36e-08
 LinearSplinePulse    200   0.9997088   0.9996360   7.28e-05
 CubicSplinePulse     200   0.9995916   0.9994895   1.02e-04
 All parameterizations reach ≥ 0.999 and agree with QuantumToolbox to ≤ 1e-4.</code></pre><p>A note on the tolerance: it is <code>2e-4</code>, not the <code>1e-4</code> the cached builds used. The committed solve caches shipped pre-3b NamedTrajectories struct layouts and broke every docs build, so the example now solves fresh per build — and a fresh two-qubit solve lands within ~1e-4 of QuTiP on CI hardware, occasionally a hair over. The tolerance stays far below anything that would indicate real disagreement between the optimizer&#39;s fidelity and an independent rollout.</p><p>We see that all pulses synthesize the CNOT gate with <span>$\geq 99.9$</span> % fidelity, and that the reported fidelity agrees with the rollout fidelity computed with QuantumToolbox. The fidelities reported by Piccolo for <code>ZeroOrderPulse</code> match the rollout fidelities reported by QuantumToolbox more closely than for any of the other pulses types. This is because the discretized dynamics used in the optimization are exact for <code>ZeroOrderPulse</code>.</p><h2 id="Step-5:-Visualizing-Population-Dynamics"><a class="docs-heading-anchor" href="#Step-5:-Visualizing-Population-Dynamics">Step 5: Visualizing Population Dynamics</a><a id="Step-5:-Visualizing-Population-Dynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Step-5:-Visualizing-Population-Dynamics" title="Permalink"></a></h2><p>Finally, we visualize the population dynamics for each pulse type, side by side. The CNOT gate flips the target qubit when the control qubit is excited: <span>$|10\rangle \to |11\rangle$</span>. We plot the evolution of the computational-state populations starting from the initial condition <span>$|10\rangle$</span>, using QuantumToolbox&#39;s rollout of the dynamics.</p><pre><code class="language-julia hljs">basis_labels = [&quot;|00⟩&quot;, &quot;|01⟩&quot;, &quot;|10⟩&quot;, &quot;|11⟩&quot;]
@@ -534,7 +534,7 @@ let
     Legend(fig[1, length(rollouts)+1], entries, basis_labels)
     Label(fig[0, :], &quot;Population dynamics: evolution of |10⟩&quot;; font = :bold, fontsize = 18)
     fig
-end</code></pre><img src="b96a8f58.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Monday 31 August 2026 23:14">Monday 31 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+end</code></pre><img src="e5ca4069.png" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../robust_control/">« Robust Control</a><a class="docs-footer-nextpage" href="../../problem-templates/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 06:58">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./two_qubit_gate_validation.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/two_qubit_gate_validation.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
