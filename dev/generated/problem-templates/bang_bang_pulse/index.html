@@ -112,12 +112,12 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 200
 
                                    (scaled)                 (unscaled)
-Objective...............:   3.2212223454086026e+00    3.2212223454086026e+00
-Dual infeasibility......:   4.0389939281763555e-03    4.0389939281763555e-03
-Constraint violation....:   6.7516026469316426e-06    6.7516026469316426e-06
+Objective...............:   3.2212223454130253e+00    3.2212223454130253e+00
+Dual infeasibility......:   4.0389939326105620e-03    4.0389939326105620e-03
+Constraint violation....:   6.7516026510949789e-06    6.7516026510949789e-06
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000000000002e-04    1.0000000000000002e-04
-Overall NLP error.......:   4.0389939281763555e-03    4.0389939281763555e-03
+Complementarity.........:   1.0000000000000000e-04    1.0000000000000000e-04
+Overall NLP error.......:   4.0389939326105620e-03    4.0389939326105620e-03
 
 
 Number of objective function evaluations             = 201
@@ -127,10 +127,10 @@ Number of inequality constraint evaluations          = 201
 Number of equality constraint Jacobian evaluations   = 201
 Number of inequality constraint Jacobian evaluations = 201
 Number of Lagrangian Hessian evaluations             = 200
-Total seconds in IPOPT                               = 52.765
+Total seconds in IPOPT                               = 46.301
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_basic_402854d.jld2</code></pre><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998639230267418</code></pre><h2 id="Visualize-unitary-populations"><a class="docs-heading-anchor" href="#Visualize-unitary-populations">Visualize unitary populations</a><a id="Visualize-unitary-populations-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-unitary-populations" title="Permalink"></a></h2><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_basic_47b6d72.jld2</code></pre><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998639230267955</code></pre><h2 id="Visualize-unitary-populations"><a class="docs-heading-anchor" href="#Visualize-unitary-populations">Visualize unitary populations</a><a id="Visualize-unitary-populations-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-unitary-populations" title="Permalink"></a></h2><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
 fig = plot_unitary_populations(traj)</code></pre><img src="ccc043c5.png" alt="Example block output"/><h2 id="Minimum-Time"><a class="docs-heading-anchor" href="#Minimum-Time">Minimum Time</a><a id="Minimum-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Minimum-Time" title="Permalink"></a></h2><pre><code class="language-julia hljs">qcp_min = MinimumTimeProblem(qcp, final_fidelity = 0.99)
 solve!(qcp_min; max_iter = 300)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing MinimumTimeProblem [from UnitaryTrajectory]
     final fidelity ≥ 0.99
@@ -187,7 +187,7 @@ solve!(qcp_min; max_iter = 300)</code></pre><pre class="documenter-example-outpu
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
 
 Number of nonzeros in equality constraint Jacobian...:    31846
-Number of nonzeros in inequality constraint Jacobian.:      808
+Number of nonzeros in inequality constraint Jacobian.:      804
 Number of nonzeros in Lagrangian Hessian.............:    38584
 
 Total number of variables............................:     1587
@@ -207,37 +207,37 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    3  1.0542641e+03 1.36e-02 9.54e+00  -2.4 4.17e-01   1.0 3.49e-01 6.13e-01f  1
    4  1.0433471e+03 1.32e-02 9.87e+01  -0.5 2.49e+00   0.6 3.72e-01 1.15e-01f  1
 ⋮
- 296  1.2138582e+02 8.29e-08 9.91e-02  -4.0 1.06e-01  -2.4 1.00e+00 1.00e+00h  1
- 297  1.2138576e+02 1.06e-08 3.72e-02  -4.0 3.98e-02  -2.0 1.00e+00 1.00e+00h  1
- 298  1.2138558e+02 3.18e-07 1.11e-01  -4.0 1.19e-01  -2.4 1.00e+00 1.00e+00h  1
- 299  1.2138550e+02 1.27e-08 4.18e-02  -4.0 4.47e-02  -2.0 1.00e+00 1.00e+00h  1
+ 296  1.2147790e+02 4.22e-09 1.71e-02  -4.0 1.84e-02  -1.5 1.00e+00 1.00e+00h  1
+ 297  1.2147779e+02 3.04e-08 5.12e-02  -4.0 5.50e-02  -2.0 1.00e+00 1.00e+00h  1
+ 298  1.2147774e+02 4.66e-09 1.92e-02  -4.0 2.06e-02  -1.5 1.00e+00 1.00e+00h  1
+ 299  1.2147761e+02 3.81e-08 5.76e-02  -4.0 6.18e-02  -2.0 1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 300  1.2138547e+02 2.01e-09 1.57e-02  -4.0 1.68e-02  -1.6 1.00e+00 1.00e+00h  1
+ 300  1.2147756e+02 5.30e-09 2.16e-02  -4.0 2.32e-02  -1.6 1.00e+00 1.00e+00h  1
 
 Number of Iterations....: 300
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.1406199979474823e+02    1.2138547473656905e+02
-Dual infeasibility......:   1.5677582757084568e-02    1.6684179035217832e-02
-Constraint violation....:   2.0127902677913312e-09    2.0127902677913312e-09
+Objective...............:   1.1414852903747210e+02    1.2147755968355688e+02
+Dual infeasibility......:   2.1592427390161813e-02    2.2978792710856448e-02
+Constraint violation....:   5.3023079260583472e-09    5.3023079260583472e-09
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000013082723e-04    1.0642060906682723e-04
-Overall NLP error.......:   1.5677582757084568e-02    1.6684179035217832e-02
+Complementarity.........:   1.0000000024190093e-04    1.0642060918501560e-04
+Overall NLP error.......:   2.1592427390161813e-02    2.2978792710856448e-02
 
 
-Number of objective function evaluations             = 303
+Number of objective function evaluations             = 307
 Number of objective gradient evaluations             = 301
-Number of equality constraint evaluations            = 303
-Number of inequality constraint evaluations          = 303
+Number of equality constraint evaluations            = 307
+Number of inequality constraint evaluations          = 307
 Number of equality constraint Jacobian evaluations   = 301
 Number of inequality constraint Jacobian evaluations = 301
 Number of Lagrangian Hessian evaluations             = 300
-Total seconds in IPOPT                               = 52.255
+Total seconds in IPOPT                               = 42.326
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_min_time_402854d.jld2</code></pre><pre><code class="language-julia hljs">before = get_duration(traj)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_min_time_47b6d72.jld2</code></pre><pre><code class="language-julia hljs">before = get_duration(traj)
 after = duration(get_pulse(qcp_min.qtraj))
-before - after</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9.440983641593835</code></pre><pre><code class="language-julia hljs">fig = plot_unitary_populations(get_trajectory(qcp_min))</code></pre><img src="7101f098.png" alt="Example block output"/><h3 id="Tuning-the-L1-Weight"><a class="docs-heading-anchor" href="#Tuning-the-L1-Weight">Tuning the L1 Weight</a><a id="Tuning-the-L1-Weight-1"></a><a class="docs-heading-anchor-permalink" href="#Tuning-the-L1-Weight" title="Permalink"></a></h3><p>The <code>R_du</code> parameter controls how aggressively switches are penalized. Higher values produce fewer switches (more bang-bang):</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
+before - after</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9.440061267244896</code></pre><pre><code class="language-julia hljs">fig = plot_unitary_populations(get_trajectory(qcp_min))</code></pre><img src="1ef4c03d.png" alt="Example block output"/><h3 id="Tuning-the-L1-Weight"><a class="docs-heading-anchor" href="#Tuning-the-L1-Weight">Tuning the L1 Weight</a><a id="Tuning-the-L1-Weight-1"></a><a class="docs-heading-anchor-permalink" href="#Tuning-the-L1-Weight" title="Permalink"></a></h3><p>The <code>R_du</code> parameter controls how aggressively switches are penalized. Higher values produce fewer switches (more bang-bang):</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
     qtraj,
     N;
     Q = 100.0,
@@ -249,7 +249,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    dim=2   drives=2
 │  
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=1.144   Δt∈[0, Inf]
+│    N=100   T=1.145   Δt∈[0, Inf]
 │    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t     (1)                                 <span class="sgr90">·</span>  state
@@ -261,14 +261,14 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    U_goal  (2×2)
 │  
 ├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 9.001  @ current x</span>
-│    KnotPointObjective         w=1             0.9998
+│    KnotPointObjective         w=1             1
 │    QuadraticRegularizer(:u)   w=1             0
 │    LinearRegularizer(:s_du)   w=1             8.001
 │    NullObjective              w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 6.410e-03)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.220e-16)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 6.423e-03)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.388e-17)
 │    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -285,7 +285,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
      variables: 1600   (1000 bounded)
      equality:  98015
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990002</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989999</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 </code></pre><h3 id="With-Derivative-Bounds"><a class="docs-heading-anchor" href="#With-Derivative-Bounds">With Derivative Bounds</a><a id="With-Derivative-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#With-Derivative-Bounds" title="Permalink"></a></h3><p>Constrain the maximum control jump size:</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
@@ -301,7 +301,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    dim=2   drives=2
 │  
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=1.144   Δt∈[0, Inf]
+│    N=100   T=1.145   Δt∈[0, Inf]
 │    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t     (1)                                 <span class="sgr90">·</span>  state
@@ -313,14 +313,14 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    U_goal  (2×2)
 │  
 ├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.8  @ current x</span>
-│    KnotPointObjective         w=1             0.9998
+│    KnotPointObjective         w=1             1
 │    QuadraticRegularizer(:u)   w=1             0
 │    LinearRegularizer(:s_du)   w=1             0.8001
 │    NullObjective              w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 6.410e-03)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.220e-16)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 6.423e-03)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.388e-17)
 │    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -337,7 +337,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
      variables: 1600   (1200 bounded)
      equality:  98015
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990002</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989999</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 </code></pre><h3 id="Per-Drive-Regularization"><a class="docs-heading-anchor" href="#Per-Drive-Regularization">Per-Drive Regularization</a><a id="Per-Drive-Regularization-1"></a><a class="docs-heading-anchor-permalink" href="#Per-Drive-Regularization" title="Permalink"></a></h3><p>Apply different L1 weights to different control channels:</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
@@ -353,7 +353,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    dim=2   drives=2
 │  
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=1.144   Δt∈[0, Inf]
+│    N=100   T=1.145   Δt∈[0, Inf]
 │    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t     (1)                                 <span class="sgr90">·</span>  state
@@ -365,14 +365,14 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    U_goal  (2×2)
 │  
 ├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 6.306  @ current x</span>
-│    KnotPointObjective         w=1             0.9998
-│    QuadraticRegularizer(:u)   w=1             6.213e-03
+│    KnotPointObjective         w=1             1
+│    QuadraticRegularizer(:u)   w=1             6.219e-03
 │    LinearRegularizer(:s_du)   w=1             5.3
 │    NullObjective              w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 6.410e-03)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.220e-16)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 6.423e-03)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.388e-17)
 │    [ineq] L1SlackConstraint           <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -389,7 +389,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
      variables: 1600   (1000 bounded)
      equality:  98015
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990002</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989999</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 </code></pre><h3 id="State-Transfer"><a class="docs-heading-anchor" href="#State-Transfer">State Transfer</a><a id="State-Transfer-1"></a><a class="docs-heading-anchor-permalink" href="#State-Transfer" title="Permalink"></a></h3><pre><code class="language-julia hljs">ψ_init = ComplexF64[1, 0]  ## |0⟩
@@ -453,7 +453,7 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
      variables: 1200   (600 bounded)
      equality:  58811
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.006836</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.006835</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -474,28 +474,28 @@ Total number of inequality constraints...............:      400
         inequality constraints with only upper bounds:      400
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  1.1977270e+02 9.17e-02 1.59e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  1.1969496e+02 9.52e-04 8.42e+00  -1.2 8.39e-02   2.0 9.64e-01 1.00e+00f  1
-   2  1.1546325e+02 3.72e-03 3.93e+00  -1.3 1.18e-01   1.5 9.98e-01 1.00e+00f  1
-   3  1.1242755e+02 1.15e-03 4.97e+00  -2.0 5.59e-02   1.9 1.00e+00 1.00e+00f  1
-   4  1.0302033e+02 1.82e-02 3.77e+01  -1.3 9.88e-01   1.5 1.00e+00 1.82e-01f  1
+   0  1.1977285e+02 9.17e-02 1.59e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.1969500e+02 9.52e-04 8.42e+00  -1.2 8.39e-02   2.0 9.64e-01 1.00e+00f  1
+   2  1.1546341e+02 3.72e-03 3.93e+00  -1.3 1.18e-01   1.5 9.98e-01 1.00e+00f  1
+   3  1.1242780e+02 1.15e-03 4.97e+00  -2.0 5.59e-02   1.9 1.00e+00 1.00e+00f  1
+   4  1.0302175e+02 1.82e-02 3.77e+01  -1.3 9.88e-01   1.5 1.00e+00 1.82e-01f  1
 ⋮
-  96  3.3168927e+00 1.42e-04 1.90e-01  -4.0 2.43e-02   0.0 1.00e+00 1.00e+00h  1
-  97  3.2908923e+00 6.20e-04 3.18e+01  -4.0 8.17e-02  -0.5 1.00e+00 8.11e-01h  1
-  98  3.2913303e+00 1.47e-04 5.23e+02  -4.0 2.76e-02  -0.0 4.44e-01 1.00e+00h  1
-  99  3.2683594e+00 9.94e-04 1.30e-01  -4.0 8.67e-02  -0.5 1.00e+00 1.00e+00h  1
+  96  3.3335963e+00 2.11e-04 3.98e+02  -4.0 2.18e-02   0.0 1.00e+00 1.00e+00h  1
+  97  3.3221254e+00 1.10e-03 3.45e+02  -4.0 8.22e-02  -0.5 1.00e+00 8.65e-01f  1
+  98  3.3569232e+00 1.52e-04 4.76e+01  -4.0 1.86e-03   2.7 1.00e+00 8.62e-01h  1
+  99  3.3638603e+00 2.64e-06 4.41e-01  -3.7 2.76e-03   2.2 1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  3.2685527e+00 1.23e-04 4.17e-02  -4.0 3.24e-02  -0.1 1.00e+00 1.00e+00h  1
+ 100  3.3418309e+00 9.27e-06 2.55e-01  -4.0 4.80e-03   1.7 1.00e+00 1.00e+00f  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   3.2685527139633148e+00    3.2685527139633148e+00
-Dual infeasibility......:   4.1732478500997594e-02    4.1732478500997594e-02
-Constraint violation....:   1.2328377413389768e-04    1.2328377413389768e-04
+Objective...............:   3.3418308879609984e+00    3.3418308879609984e+00
+Dual infeasibility......:   2.5542706827012407e-01    2.5542706827012407e-01
+Constraint violation....:   9.2700960961922263e-06    9.2700960961922263e-06
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.3574378513122077e-04    1.3574378513122077e-04
-Overall NLP error.......:   4.1732478500997594e-02    4.1732478500997594e-02
+Complementarity.........:   1.1723941818696506e-04    1.1723941818696506e-04
+Overall NLP error.......:   2.5542706827012407e-01    2.5542706827012407e-01
 
 
 Number of objective function evaluations             = 102
@@ -505,10 +505,10 @@ Number of inequality constraint evaluations          = 102
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 101
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 22.022
+Total seconds in IPOPT                               = 21.050
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_state_transfer_402854d.jld2</code></pre><h3 id="Multiple-State-Transfers"><a class="docs-heading-anchor" href="#Multiple-State-Transfers">Multiple State Transfers</a><a id="Multiple-State-Transfers-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-State-Transfers" title="Permalink"></a></h3><p>Use <code>MultiKetTrajectory</code> for gates defined by state mappings:</p><pre><code class="language-julia hljs">ψ0, ψ1 = ComplexF64[1, 0], ComplexF64[0, 1]
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_state_transfer_47b6d72.jld2</code></pre><h3 id="Multiple-State-Transfers"><a class="docs-heading-anchor" href="#Multiple-State-Transfers">Multiple State Transfers</a><a id="Multiple-State-Transfers-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-State-Transfers" title="Permalink"></a></h3><p>Use <code>MultiKetTrajectory</code> for gates defined by state mappings:</p><pre><code class="language-julia hljs">ψ0, ψ1 = ComplexF64[1, 0], ComplexF64[0, 1]
 
 # X gate: |0⟩ → |1⟩ and |1⟩ → |0⟩
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
@@ -610,12 +610,12 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   3.2017461667125926e+00    3.2017461667125926e+00
-Dual infeasibility......:   5.7632137881671978e-03    5.7632137881671978e-03
-Constraint violation....:   7.2466719564234783e-06    7.2466719564234783e-06
+Objective...............:   3.2017461667118341e+00    3.2017461667118341e+00
+Dual infeasibility......:   5.7632137882338823e-03    5.7632137882338823e-03
+Constraint violation....:   7.2466719557087722e-06    7.2466719557087722e-06
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
 Complementarity.........:   1.0000000000000003e-04    1.0000000000000003e-04
-Overall NLP error.......:   5.7632137881671978e-03    5.7632137881671978e-03
+Overall NLP error.......:   5.7632137882338823e-03    5.7632137882338823e-03
 
 
 Number of objective function evaluations             = 101
@@ -625,10 +625,10 @@ Number of inequality constraint evaluations          = 101
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 101
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 36.200
+Total seconds in IPOPT                               = 32.996
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_multi_ket_402854d.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>BangBangPulseProblem</code> internally:</p><ol><li><p><strong>Adds 1 derivative variable</strong>: Creates <code>:du</code> (first derivative) alongside controls <code>:u</code> (compared to 2 in <code>SmoothPulseProblem</code>)</p></li><li><p><strong>Adds slack variables</strong>: Creates <code>:s_du</code> (non-negative, same dimension as <code>:du</code>), initialized at <code>|du|</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic (L2) regularization on <code>u</code> with weight <code>R_u</code></li><li>Linear (L1) regularization on <code>s_du</code> with weight <code>R_du</code></li></ul></li><li><p><strong>Applies constraints</strong>: <code>L1SlackConstraint</code> enforces <code>|du| ≤ s_du</code>, and <code>du_bound</code> as hard constraints</p></li></ol><p>At optimality the slacks satisfy <code>s = |du|</code>, so the linear cost on <code>s</code> equals the exact L1 norm of <code>du</code>.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For smooth (L2-regularized) controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../smooth_pulse/">« SmoothPulseProblem</a><a class="docs-footer-nextpage" href="../spline_pulse/">SplinePulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 14:49">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_multi_ket_47b6d72.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>BangBangPulseProblem</code> internally:</p><ol><li><p><strong>Adds 1 derivative variable</strong>: Creates <code>:du</code> (first derivative) alongside controls <code>:u</code> (compared to 2 in <code>SmoothPulseProblem</code>)</p></li><li><p><strong>Adds slack variables</strong>: Creates <code>:s_du</code> (non-negative, same dimension as <code>:du</code>), initialized at <code>|du|</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic (L2) regularization on <code>u</code> with weight <code>R_u</code></li><li>Linear (L1) regularization on <code>s_du</code> with weight <code>R_du</code></li></ul></li><li><p><strong>Applies constraints</strong>: <code>L1SlackConstraint</code> enforces <code>|du| ≤ s_du</code>, and <code>du_bound</code> as hard constraints</p></li></ol><p>At optimality the slacks satisfy <code>s = |du|</code>, so the linear cost on <code>s</code> equals the exact L1 norm of <code>du</code>.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For smooth (L2-regularized) controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../smooth_pulse/">« SmoothPulseProblem</a><a class="docs-footer-nextpage" href="../spline_pulse/">SplinePulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 18:01">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./bang_bang_pulse.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/bang_bang_pulse.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

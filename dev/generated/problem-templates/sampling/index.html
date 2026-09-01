@@ -121,22 +121,22 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    3  9.8090519e+01 4.37e+00 4.35e+02   0.1 2.68e+00   1.9 9.80e-01 2.80e-02f  1
    4  9.1900991e+01 1.14e+00 4.74e+02   0.6 2.95e+00   1.5 8.04e-01 7.46e-01f  1
 ⋮
-  96  4.5866087e-03 3.18e-05 1.39e-03  -3.9 3.32e-02  -2.7 1.00e+00 1.00e+00h  1
-  97  4.5936582e-03 3.41e-04 4.34e-02  -3.9 8.82e-02  -3.2 1.00e+00 1.00e+00h  1
-  98  4.5937946e-03 5.21e-05 1.15e-02  -3.9 3.35e-02  -2.7 1.00e+00 1.00e+00h  1
-  99  4.6178655e-03 1.59e-03 5.81e+00  -3.9 3.86e-01  -3.2 1.00e+00 2.50e-01h  3
+  96  4.5865243e-03 3.17e-05 1.35e-03  -3.9 3.32e-02  -2.7 1.00e+00 1.00e+00h  1
+  97  4.5934354e-03 3.40e-04 4.28e-02  -3.9 8.82e-02  -3.2 1.00e+00 1.00e+00h  1
+  98  4.5935395e-03 5.07e-05 1.12e-02  -3.9 3.35e-02  -2.7 1.00e+00 1.00e+00h  1
+  99  4.6078313e-03 1.11e-03 4.77e+00  -3.9 3.35e-01  -3.2 1.00e+00 2.50e-01h  3
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  4.5907035e-03 2.94e-05 8.29e-04  -3.9 9.44e-03  -1.9 1.00e+00 1.00e+00h  1
+ 100  4.5870552e-03 9.10e-06 5.95e-04  -3.9 6.67e-03  -1.9 1.00e+00 1.00e+00h  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   4.5907034569943181e-03    4.5907034569943181e-03
-Dual infeasibility......:   8.2915018859513383e-04    8.2915018859513383e-04
-Constraint violation....:   2.9374877705545810e-05    2.9374877705545810e-05
+Objective...............:   4.5870551977538155e-03    4.5870551977538155e-03
+Dual infeasibility......:   5.9460883943963374e-04    5.9460883943963374e-04
+Constraint violation....:   9.0979121798173690e-06    9.0979121798173690e-06
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.1579529095989353e-04    1.1579529095989353e-04
-Overall NLP error.......:   8.2915018859513383e-04    8.2915018859513383e-04
+Complementarity.........:   1.1554038097396847e-04    1.1554038097396847e-04
+Overall NLP error.......:   5.9460883943963374e-04    5.9460883943963374e-04
 
 
 Number of objective function evaluations             = 116
@@ -146,10 +146,10 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 24.662
+Total seconds in IPOPT                               = 22.083
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_base_402854d.jld2
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_base_47b6d72.jld2
 constructing SamplingProblem
     systems: 3
 <span class="sgr1">SamplingProblem</span>
@@ -159,7 +159,7 @@ constructing SamplingProblem
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=12.121   Δt∈[0, Inf]
+│    N=100   T=12.119   Δt∈[0, Inf]
 │    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
@@ -172,20 +172,20 @@ constructing SamplingProblem
 ├─ <span class="sgr1">Goal</span>
 │    sampled ensemble (n=3)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.2729  @ current x</span>
-│    KnotPointObjective           w=1             6.328e-05
-│    KnotPointObjective           w=1             6.328e-05
-│    KnotPointObjective           w=1             6.328e-05
-│    QuadraticRegularizer(:u)     w=1             1.595e-03
-│    QuadraticRegularizer(:du)    w=1             4.026e-03
-│    QuadraticRegularizer(:ddu)   w=1             0.2671
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.2707  @ current x</span>
+│    KnotPointObjective           w=1             6.357e-05
+│    KnotPointObjective           w=1             6.357e-05
+│    KnotPointObjective           w=1             6.357e-05
+│    QuadraticRegularizer(:u)     w=1             1.590e-03
+│    QuadraticRegularizer(:du)    w=1             4.029e-03
+│    QuadraticRegularizer(:ddu)   w=1             0.2649
 │    NullObjective                w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 3.951e-03)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 5.291e-03)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 4.500e-03)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 0)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 4.039e-03)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 5.379e-03)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 4.549e-03)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 4.337e-19)
 │    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 0)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -224,41 +224,41 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  6.0093744e+00 1.09e+00 9.93e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  7.2400795e+00 7.94e-02 2.20e+00  -1.7 9.98e-01    -  7.21e-01 9.28e-01h  1
-   2  5.4335893e+00 6.69e-03 6.58e+00  -2.2 2.62e-01    -  8.93e-01 1.00e+00f  1
-   3  4.8932956e+00 5.46e-03 2.65e+00  -2.4 1.05e-01   0.0 1.00e+00 1.00e+00h  1
-   4  3.4145905e+00 1.81e-02 2.50e+00  -2.1 1.74e-01  -0.5 1.00e+00 1.00e+00f  1
+   0  6.0095098e+00 1.09e+00 9.93e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  7.2287463e+00 8.20e-02 2.19e+00  -1.7 9.99e-01    -  7.21e-01 9.25e-01h  1
+   2  5.4389019e+00 6.78e-03 6.58e+00  -2.2 2.58e-01    -  8.93e-01 1.00e+00f  1
+   3  4.9414751e+00 6.02e-03 3.90e+00  -2.3 1.19e-01   0.0 1.00e+00 9.19e-01h  1
+   4  3.5289628e+00 1.69e-02 2.59e+00  -2.1 1.67e-01  -0.5 1.00e+00 1.00e+00f  1
 ⋮
-  96  2.4013113e-02 3.20e-06 1.43e-03  -4.0 4.44e-03  -1.9 1.00e+00 1.00e+00h  1
-  97  2.3997551e-02 3.10e-05 1.53e-02  -4.0 1.31e-02  -2.4 1.00e+00 1.00e+00h  1
-  98  2.3999356e-02 3.67e-06 1.72e-03  -4.0 4.80e-03  -2.0 1.00e+00 1.00e+00h  1
-  99  2.3981600e-02 3.78e-05 1.91e-02  -4.0 1.44e-02  -2.5 1.00e+00 1.00e+00h  1
+  96  2.4378497e-02 5.92e-06 1.15e+00  -4.1 8.26e-03  -1.9 1.00e+00 1.25e-01h  4
+  97  2.4378797e-02 5.84e-06 1.16e+00  -4.1 2.28e-02  -2.4 1.00e+00 1.56e-02h  7
+  98  2.4387073e-02 5.44e-06 9.96e-01  -4.1 9.19e-03  -2.0 1.00e+00 1.25e-01h  4
+  99  2.4387038e-02 5.38e-06 1.01e+00  -4.1 2.52e-02  -2.5 1.00e+00 1.56e-02h  7
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  2.3986474e-02 4.09e-06 2.00e-03  -4.0 5.17e-03  -2.0 1.00e+00 1.00e+00h  1
+ 100  2.4390073e-02 5.18e-06 9.23e-01  -4.1 1.02e-02  -2.0 1.00e+00 6.25e-02h  5
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.3986473686853658e-02    2.3986473686853658e-02
-Dual infeasibility......:   1.9965412083971694e-03    1.9965412083971694e-03
-Constraint violation....:   4.0932477060051653e-06    4.0932477060051653e-06
+Objective...............:   2.4390073153647947e-02    2.4390073153647947e-02
+Dual infeasibility......:   9.2308097489024865e-01    9.2308097489024865e-01
+Constraint violation....:   5.1794478858613324e-06    5.1794478858613324e-06
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000000000000e-04    1.0000000000000000e-04
-Overall NLP error.......:   1.9965412083971694e-03    1.9965412083971694e-03
+Complementarity.........:   8.4307143501960671e-05    8.4307143501960671e-05
+Overall NLP error.......:   9.2308097489024865e-01    9.2308097489024865e-01
 
 
-Number of objective function evaluations             = 101
+Number of objective function evaluations             = 328
 Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 101
+Number of equality constraint evaluations            = 328
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 242.733
+Total seconds in IPOPT                               = 203.573
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_robust_402854d.jld2</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_robust_47b6d72.jld2</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
     qcp_base,
     [sys_nominal, sys_high, sys_low];
     weights = [2.0, 1.0, 1.0],  ## Nominal weighted 2x
@@ -272,7 +272,7 @@ solve!(qcp_weighted; max_iter = 100)</code></pre><pre class="documenter-example-
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=12.197   Δt∈[0, Inf]
+│    N=100   T=12.022   Δt∈[0, Inf]
 │    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
@@ -285,21 +285,21 @@ solve!(qcp_weighted; max_iter = 100)</code></pre><pre class="documenter-example-
 ├─ <span class="sgr1">Goal</span>
 │    sampled ensemble (n=3)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.9277  @ current x</span>
-│    KnotPointObjective           w=1             8.214e-03
-│    KnotPointObjective           w=1             4.107e-03
-│    KnotPointObjective           w=1             4.107e-03
-│    QuadraticRegularizer(:u)     w=1             6.988e-03
-│    QuadraticRegularizer(:du)    w=1             0.01033
-│    QuadraticRegularizer(:ddu)   w=1             0.894
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.5989  @ current x</span>
+│    KnotPointObjective           w=1             7.717e-03
+│    KnotPointObjective           w=1             3.859e-03
+│    KnotPointObjective           w=1             3.859e-03
+│    QuadraticRegularizer(:u)     w=1             7.390e-03
+│    QuadraticRegularizer(:du)    w=1             8.290e-03
+│    QuadraticRegularizer(:ddu)   w=1             0.5678
 │    NullObjective                w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01094)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01107)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01082)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 0)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.735e-18)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01212)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01142)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01282)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 6.939e-18)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -337,41 +337,41 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  8.0169623e+00 1.78e+00 9.98e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  6.5214220e+00 3.09e-01 4.46e+01  -1.1 1.64e+00    -  4.89e-01 9.55e-01f  1
-   2  6.0311500e+00 2.90e-01 7.10e+01  -2.4 2.10e-01   0.0 6.96e-01 6.25e-02h  1
-   3  2.2647282e+00 1.04e-01 2.74e+01  -1.6 1.94e-01   0.4 7.45e-01 6.30e-01f  1
-   4  1.4681122e-01 1.24e-03 1.60e+00  -2.1 6.08e-02   0.9 9.99e-01 1.00e+00h  1
+   0  8.0184091e+00 9.77e-01 9.98e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  5.0359523e+00 2.67e-01 8.56e+00  -1.3 7.59e-01    -  6.08e-01 7.28e-01f  1
+   2  4.2790349e+00 2.28e-01 1.00e+01  -4.0 2.05e-01    -  5.73e-01 1.45e-01h  1
+   3  4.1612949e-01 2.00e-02 9.92e+00  -2.1 1.56e-01   0.0 7.35e-01 1.00e+00f  1
+   4  1.4500311e-01 1.37e-03 4.59e-01  -2.3 7.88e-02  -0.5 9.56e-01 1.00e+00h  1
 ⋮
-  96  3.4387784e-02 4.34e-05 2.81e-01  -3.7 1.21e-02  -0.9 1.00e+00 1.00e+00h  1
-  97  3.4566842e-02 4.33e-05 3.28e+01  -3.7 3.32e-02  -1.3 1.00e+00 1.25e-01h  4
-  98  4.5543987e-02 3.72e-05 5.34e+00  -3.7 1.21e-02  -0.9 7.95e-01 1.00e+00H  1
-  99  4.2644993e-02 6.50e-06 1.02e-01  -3.7 4.67e-03  -0.5 1.00e+00 1.00e+00h  1
+  96  2.8840537e-02 6.53e-05 1.35e-01  -4.1 1.46e-02  -2.8 1.00e+00 3.12e-02h  6
+  97  2.8865797e-02 1.66e-05 1.62e-03  -4.1 6.79e-03  -2.4 1.00e+00 1.00e+00h  1
+  98  2.8874278e-02 1.22e-04 1.26e-02  -4.1 1.96e-02  -2.9 1.00e+00 1.00e+00h  1
+  99  2.8990211e-02 8.91e-06 1.31e-03  -4.1 6.29e-03  -2.5 1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  4.2912181e-02 6.51e-06 5.20e-03  -3.7 1.16e-02  -1.0 1.00e+00 1.00e+00H  1
+ 100  2.8892409e-02 2.11e-04 1.26e-02  -4.1 2.59e-02  -2.9 1.00e+00 1.00e+00h  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.1456531156384243e-02    4.2912181119088379e-02
-Dual infeasibility......:   5.1968402351093429e-03    1.0393467042300710e-02
-Constraint violation....:   6.5139657918766858e-06    6.5139657918766858e-06
+Objective...............:   1.4446483130092606e-02    2.8892408833588616e-02
+Dual infeasibility......:   1.2571821373830044e-02    2.5143157656061094e-02
+Constraint violation....:   2.1149971676832913e-04    2.1149971676832913e-04
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.8551562791302832e-04    3.7102363692448836e-04
-Overall NLP error.......:   5.1968402351093429e-03    1.0393467042300710e-02
+Complementarity.........:   8.0000472058989303e-05    1.5999785724967548e-04
+Overall NLP error.......:   1.2571821373830044e-02    2.5143157656061094e-02
 
 
-Number of objective function evaluations             = 160
-Number of objective gradient evaluations             = 99
-Number of equality constraint evaluations            = 160
+Number of objective function evaluations             = 194
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 194
 Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 102
+Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 244.003
+Total seconds in IPOPT                               = 174.841
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_weighted_402854d.jld2</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_weighted_47b6d72.jld2</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
 systems = [QuantumSystem(s * H_drift, H_drives, [1.0, 1.0]) for s in scales]
 
 qcp_dense = SamplingProblem(qcp_base, systems)
@@ -384,7 +384,7 @@ solve!(qcp_dense; max_iter = 100)</code></pre><pre class="documenter-example-out
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=13.017   Δt∈[0, Inf]
+│    N=100   T=12.119   Δt∈[0, Inf]
 │    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
@@ -397,21 +397,21 @@ solve!(qcp_dense; max_iter = 100)</code></pre><pre class="documenter-example-out
 ├─ <span class="sgr1">Goal</span>
 │    sampled ensemble (n=3)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.955  @ current x</span>
-│    KnotPointObjective           w=1             3.147e-03
-│    KnotPointObjective           w=1             3.147e-03
-│    KnotPointObjective           w=1             3.147e-03
-│    QuadraticRegularizer(:u)     w=1             9.853e-03
-│    QuadraticRegularizer(:du)    w=1             0.02071
-│    QuadraticRegularizer(:ddu)   w=1             1.915
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.976  @ current x</span>
+│    KnotPointObjective           w=1             1.974e-03
+│    KnotPointObjective           w=1             1.974e-03
+│    KnotPointObjective           w=1             1.974e-03
+│    QuadraticRegularizer(:u)     w=1             8.605e-03
+│    QuadraticRegularizer(:du)    w=1             0.01075
+│    QuadraticRegularizer(:ddu)   w=1             0.9507
 │    NullObjective                w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.0194)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.0178)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01802)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 6.939e-18)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 5.551e-17)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01787)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01669)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.0155)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
+│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -449,41 +449,41 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  6.0440583e+00 4.05e+00 9.96e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  6.1600102e+00 1.25e+00 2.93e+01  -1.1 3.94e+00    -  4.46e-01 6.91e-01f  1
-   2  5.6833912e-01 1.23e-01 2.34e+01  -1.8 9.37e-01    -  5.25e-01 9.01e-01f  1
-   3  1.1999693e+00 6.99e-03 5.78e+00  -1.6 1.34e-01   0.0 9.80e-01 1.00e+00h  1
-   4  2.4498596e-01 3.25e-05 2.32e-01  -3.0 8.33e-03   0.4 1.00e+00 1.00e+00f  1
+   0  6.0369631e+00 1.21e+00 9.96e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  4.5917700e+00 4.26e-01 9.02e+00  -1.3 1.07e+00    -  5.68e-01 6.52e-01f  1
+   2  9.7101377e-01 7.73e-02 1.13e+01  -2.2 4.33e-01    -  4.87e-01 8.24e-01f  1
+   3  4.7846939e-01 3.82e-02 5.21e+00  -4.0 2.28e-01    -  5.27e-01 5.10e-01h  1
+   4  2.0108767e-01 3.26e-04 2.34e-01  -2.5 3.06e-02   0.0 9.97e-01 1.00e+00h  1
 ⋮
-  96  6.1139908e-02 7.75e-05 1.74e-02  -4.1 1.03e-02  -1.9 1.00e+00 1.00e+00h  1
-  97  6.1293135e-02 9.75e-04 7.11e-02  -4.0 3.69e-02  -2.4 1.00e+00 1.00e+00h  1
-  98  5.8695811e-02 3.46e-03 2.38e+00  -4.1 5.74e-01  -2.0 4.55e-01 1.35e-01h  1
-  99  5.8604445e-02 7.97e-05 2.56e-02  -4.1 1.12e-02  -0.6 1.00e+00 1.00e+00h  1
+  96  5.7303345e-02 1.81e-04 3.30e-02  -4.0 1.75e-02  -2.4 1.00e+00 1.00e+00h  1
+  97  5.7299403e-02 2.50e-05 4.07e-03  -4.0 6.16e-03  -1.9 1.00e+00 1.00e+00h  1
+  98  5.7231007e-02 5.33e-06 8.13e-04  -4.0 2.75e-03  -1.5 1.00e+00 1.00e+00h  1
+  99  5.7182730e-02 3.91e-05 6.50e-03  -4.0 7.80e-03  -2.0 1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  6.1051589e-02 8.11e-06 1.52e-03  -4.0 3.93e-03  -1.1 1.00e+00 1.00e+00h  1
+ 100  5.7166733e-02 5.82e-06 9.13e-04  -4.0 2.96e-03  -1.6 1.00e+00 1.00e+00h  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   6.1051589281423985e-02    6.1051589281423985e-02
-Dual infeasibility......:   1.5151183213973267e-03    1.5151183213973267e-03
-Constraint violation....:   8.1101262937553764e-06    8.1101262937553764e-06
+Objective...............:   5.7166733251571920e-02    5.7166733251571920e-02
+Dual infeasibility......:   9.1326929932768837e-04    9.1326929932768837e-04
+Constraint violation....:   5.8154762420103978e-06    5.8154762420103978e-06
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0106394258057810e-04    1.0106394258057810e-04
-Overall NLP error.......:   1.5151183213973267e-03    1.5151183213973267e-03
+Complementarity.........:   1.0000000000000002e-04    1.0000000000000002e-04
+Overall NLP error.......:   9.1326929932768837e-04    9.1326929932768837e-04
 
 
-Number of objective function evaluations             = 118
+Number of objective function evaluations             = 105
 Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 118
+Number of equality constraint evaluations            = 105
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 245.913
+Total seconds in IPOPT                               = 176.809
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_dense_402854d.jld2</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_dense_47b6d72.jld2</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
 qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
 solve!(qcp_base; max_iter=100)
 
@@ -505,7 +505,7 @@ for (s, sys) in zip(eval_scales, eval_systems)
     qtraj_eval = UnitaryTrajectory(sys, optimized_pulse, GATES[:X])
     fid = fidelity(qtraj_eval)
     println(&quot;Scale $s: Fidelity = $fid&quot;)
-end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 14:49">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 18:01">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./sampling.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/sampling.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
