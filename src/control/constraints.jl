@@ -784,4 +784,63 @@ end
     @test all(g .≈ -1/9)
 end
 
+# ─────────────────────────────────────────────────────────────────────────── #
+# Spline-shape constraint family (open-core slice 3c, #431).                  #
+#                                                                             #
+# Moved from Piccolissimo (moved-file manifest rows 20–25, plus the shared     #
+# Hermite primitives and the ADR-0010 stencil table/kernels the family owns). #
+# The submodule carries its own export surface; the re-export block appended   #
+# at the GREEN step is the top-level seam, kept complete by the drift guard    #
+# in test/test_spline_reexport_seam.jl.                                        #
+# ─────────────────────────────────────────────────────────────────────────── #
+
+include("constraints_spline/_spline_constraints.jl")
+using .SplineConstraints
+
+# The submodule name itself rides the seam (the SplineIntegrators convention):
+# Piccolissimo's seam and the drift guard reach the module through this export.
+export SplineConstraints
+
+# ── Top-level re-export seam (slice 3c, #431) ────────────────────────────── #
+# EVERY family-owned name the submodule exports resolves at Piccolo top level;
+# the drift guard in test/test_spline_reexport_seam.jl fails if this block and
+# the submodule's export surface drift apart (#326's lesson, applied upfront).
+# CommonInterface-owned functions (evaluate!, jacobian!, ...) are deliberately
+# NOT re-exported here: interface functions come from CommonInterface, which
+# `using Piccolo` already reaches through the DirectTrajOpt re-export.
+export OptimizedNonlinearKnotPointConstraint, NonlinearSegmentConstraint
+export CubicSplineExtremaConstraint,
+    CubicSplineSufficientBoundConstraint, CubicSplineSlopeConstraint
+export CubicSplineBoundConstraint, HermiteSmoothAccelerationConstraint
+export ConstraintStencilTable
+export stencil_structure,
+    stencil_fill_values!,
+    stencil_assemble!,
+    stencil_scatter_functional!,
+    stencil_expand_rows!,
+    stencil_coeff_range,
+    stencil_functional_rows,
+    stencil_n_entries,
+    stencil_width
+export stencil_refresh_token,
+    stencil_touch!,
+    stencil_jvp!,
+    stencil_vjp!,
+    constraint_stencil_table,
+    refresh_constraint_coefficients!,
+    supports_matrix_free_constraint_gradient,
+    UNBOUNDED_STENCIL_WIDTH
+export supports_matrix_free_constraint_hvp,
+    constraint_stencil_hvp!, stencil_functional_weight
+export hermite_basis_functions,
+    hermite_derivative_basis,
+    evaluate_hermite_spline,
+    evaluate_hermite_derivative,
+    hermite_value_gradient,
+    hermite_accel_start,
+    hermite_accel_end,
+    hermite_accel_start_gradient,
+    hermite_accel_end_gradient,
+    hermite_accel_jump_gradient
+
 end
