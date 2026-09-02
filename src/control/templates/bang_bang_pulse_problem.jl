@@ -65,7 +65,7 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 - `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
-- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator.
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, globals-aware).
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
@@ -222,7 +222,9 @@ function _bang_bang_pulse_problem(
                 "  qcp = BangBangPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        default_int = BilinearIntegrator(qtraj, N)
+        # #334: the quantum default is the native exact-PWC integrator — analytic
+        # Daleckii–Krein derivatives, global-variables-aware (#328 warp column).
+        default_int = HermitianExponentialIntegrator(qtraj, N)
         if default_int isa AbstractVector
             dynamics_integrators = AbstractIntegrator[default_int...]
         else
@@ -428,7 +430,7 @@ function _bang_bang_pulse_problem(
                 "  qcp = BangBangPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        dynamics_integrators = BilinearIntegrator(qtraj, N)
+        dynamics_integrators = HermitianExponentialIntegrator(qtraj, N)
     elseif integrator isa AbstractIntegrator
         dynamics_integrators = AbstractIntegrator[integrator]
     else
