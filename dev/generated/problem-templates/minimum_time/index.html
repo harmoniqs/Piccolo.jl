@@ -31,10 +31,10 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0, Δt_bounds = (0.05, 0.5))
 solve!(qcp_base; max_iter = 100)
 
-get_duration(get_trajectory(qcp_base))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">20.50208661835545</code></pre><pre><code class="language-julia hljs">fidelity(qcp_base)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999984915764806</code></pre><h3 id="Step-2:-Minimize-Time"><a class="docs-heading-anchor" href="#Step-2:-Minimize-Time">Step 2: Minimize Time</a><a id="Step-2:-Minimize-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Minimize-Time" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
+get_duration(get_trajectory(qcp_base))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">20.502086617940293</code></pre><pre><code class="language-julia hljs">fidelity(qcp_base)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999984915691515</code></pre><h3 id="Step-2:-Minimize-Time"><a class="docs-heading-anchor" href="#Step-2:-Minimize-Time">Step 2: Minimize Time</a><a id="Step-2:-Minimize-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Minimize-Time" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
 solve!(qcp_mintime; max_iter = 100)
 
-get_duration(get_trajectory(qcp_mintime))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11.694590630850143</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9900087741274388</code></pre><h3 id="Exploring-Fidelity-Time-Trade-off"><a class="docs-heading-anchor" href="#Exploring-Fidelity-Time-Trade-off">Exploring Fidelity-Time Trade-off</a><a id="Exploring-Fidelity-Time-Trade-off-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-Fidelity-Time-Trade-off" title="Permalink"></a></h3><pre><code class="language-julia hljs">results = []
+get_duration(get_trajectory(qcp_mintime))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11.619484150626716</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.989950390321337</code></pre><h3 id="Exploring-Fidelity-Time-Trade-off"><a class="docs-heading-anchor" href="#Exploring-Fidelity-Time-Trade-off">Exploring Fidelity-Time Trade-off</a><a id="Exploring-Fidelity-Time-Trade-off-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-Fidelity-Time-Trade-off" title="Permalink"></a></h3><pre><code class="language-julia hljs">results = []
 for target_fidelity in [0.999, 0.99, 0.95, 0.90]
     qcp_mt = MinimumTimeProblem(qcp_base; final_fidelity = target_fidelity)
     solve!(
@@ -105,10 +105,28 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990009</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989950</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.00573  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
+<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
+<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. Pair a spline pulse with
+<span class="sgr33"><span class="sgr1">│ </span></span>    `Piccolissimo.SplineIntegrator`.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:711</span>
 constructing MinimumTimeProblem [from UnitaryTrajectory]
     final fidelity ≥ 0.99
     min-time weight D = 100.0
@@ -158,7 +176,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999028</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999061</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -211,7 +229,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990009</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989950</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -264,16 +282,16 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.950074</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.949907</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
 Fidelity-Time Trade-off
 ──────────────────────────────────────────────────
-  Target: 0.999  │  Duration: 12.061  │  Achieved: 0.9990
-  Target: 0.990  │  Duration: 11.695  │  Achieved: 0.9900
-  Target: 0.950  │  Duration: 11.586  │  Achieved: 0.9501
-  Target: 0.900  │  Duration: 11.749  │  Achieved: 0.9003</code></pre><h3 id="With-Robust-Optimization"><a class="docs-heading-anchor" href="#With-Robust-Optimization">With Robust Optimization</a><a id="With-Robust-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Robust-Optimization" title="Permalink"></a></h3><p>Chain with <code>SamplingProblem</code> for robust time-optimal control:</p><pre><code class="language-julia hljs"># Base problem
+  Target: 0.999  │  Duration: 12.066  │  Achieved: 0.9991
+  Target: 0.990  │  Duration: 11.619  │  Achieved: 0.9900
+  Target: 0.950  │  Duration: 11.638  │  Achieved: 0.9499
+  Target: 0.900  │  Duration: 11.744  │  Achieved: 0.9006</code></pre><h3 id="With-Robust-Optimization"><a class="docs-heading-anchor" href="#With-Robust-Optimization">With Robust Optimization</a><a id="With-Robust-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Robust-Optimization" title="Permalink"></a></h3><p>Chain with <code>SamplingProblem</code> for robust time-optimal control:</p><pre><code class="language-julia hljs"># Base problem
 qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
 solve!(qcp_base; max_iter=100)
 
@@ -342,7 +360,7 @@ solve!(qcp_y; max_iter = 100)</code></pre><pre class="documenter-example-output"
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.013595</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.013754</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -369,22 +387,22 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    3  2.0255804e+03 9.05e-01 5.90e+05   2.0 1.93e+02   1.0 3.33e-03 1.49e-03f  2
    4  2.0128442e+03 8.65e-01 3.79e+03   2.0 1.75e+01   0.6 9.69e-01 4.01e-02f  1
 ⋮
-  96  1.2642137e+03 2.95e-03 9.44e+00  -2.8 1.22e-01   1.0 1.00e+00 2.46e-01f  1
-  97  1.2601860e+03 7.36e-03 6.81e+00  -1.8 8.05e-01   0.5 3.90e-01 1.48e-01f  1
-  98  1.2564318e+03 5.85e-03 1.49e+01  -2.5 1.94e-01   0.9 1.00e+00 3.31e-01f  1
-  99  1.2502264e+03 2.58e-02 1.28e+01  -2.9 1.33e+00   0.4 4.41e-01 1.86e-01f  1
+  96  1.2642138e+03 2.95e-03 9.44e+00  -2.8 1.22e-01   1.0 1.00e+00 2.46e-01f  1
+  97  1.2601865e+03 7.35e-03 6.81e+00  -1.8 8.05e-01   0.5 3.90e-01 1.48e-01f  1
+  98  1.2564350e+03 5.85e-03 1.49e+01  -2.5 1.94e-01   0.9 1.00e+00 3.31e-01f  1
+  99  1.2502279e+03 2.58e-02 1.28e+01  -2.9 1.33e+00   0.4 4.41e-01 1.86e-01f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  1.2498197e+03 2.50e-02 2.75e+01  -3.3 1.22e-01   0.9 1.00e+00 3.37e-02f  1
+ 100  1.2498211e+03 2.50e-02 2.75e+01  -3.3 1.22e-01   0.9 1.00e+00 3.37e-02f  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.2498018729339233e+03    1.2498196625871249e+03
-Dual infeasibility......:   2.7506024520724008e+01    2.7506416040890343e+01
-Constraint violation....:   2.4972971753735973e-02    2.4972971753735973e-02
+Objective...............:   1.2498033573150899e+03    1.2498211469894238e+03
+Dual infeasibility......:   2.7511288841501070e+01    2.7511680436599715e+01
+Constraint violation....:   2.4982706566357149e-02    2.4982706566357149e-02
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.3370775662185154e-02    1.3370965981520736e-02
-Overall NLP error.......:   2.7506024520724008e+01    2.7506416040890343e+01
+Complementarity.........:   1.3371305265704372e-02    1.3371495592578359e-02
+Overall NLP error.......:   2.7511288841501070e+01    2.7511680436599715e+01
 
 
 Number of objective function evaluations             = 103
@@ -394,10 +412,10 @@ Number of inequality constraint evaluations          = 103
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 101
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 24.649
+Total seconds in IPOPT                               = 14.643
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to mintime_y_gate_47b6d72.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 18:01">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to mintime_y_gate_0f29a19.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Wednesday 2 September 2026 01:40">Wednesday 2 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./minimum_time.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/minimum_time.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

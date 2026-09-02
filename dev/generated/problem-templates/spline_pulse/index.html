@@ -124,26 +124,26 @@ Total number of inequality constraints...............:        0
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    0  9.8296581e+01 3.27e-02 4.64e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
    1  9.6603906e+01 1.93e-03 4.76e+00  -1.2 5.05e-02   2.0 9.96e-01 1.00e+00h  1
-   2  8.2538063e+01 1.91e-02 1.17e+02  -1.5 3.80e-01   1.5 8.66e-01 1.00e+00F  1
-   3  7.1072087e+01 2.12e-03 3.58e+01  -2.2 1.10e-01   1.9 1.00e+00 1.00e+00f  1
-   4  6.7605266e+01 3.66e-04 1.12e+01  -3.3 4.29e-02   2.4 1.00e+00 1.00e+00f  1
+   2  8.2538064e+01 1.91e-02 1.17e+02  -1.5 3.80e-01   1.5 8.66e-01 1.00e+00F  1
+   3  7.1072088e+01 2.12e-03 3.58e+01  -2.2 1.10e-01   1.9 1.00e+00 1.00e+00f  1
+   4  6.7605267e+01 3.66e-04 1.12e+01  -3.3 4.29e-02   2.4 1.00e+00 1.00e+00f  1
 ⋮
-  96  6.2994508e-01 1.73e-04 2.57e+02  -4.0 1.95e-02   1.0 1.00e+00 1.00e+00f  1
-  97  4.9259022e+02 3.41e-05 2.59e+09  -4.0 7.01e-03   1.4 1.00e+00 9.25e-01h  1
-  98  4.1630286e+02 2.20e-10 4.02e+10  -4.1 2.20e-05  15.3 1.00e+00 1.00e+00h  1
-  99  3.6694106e+02 7.33e-15 9.78e+07  -4.1 1.61e-07  14.8 1.00e+00 1.00e+00f  1
+  96  6.2994401e-01 1.73e-04 2.57e+02  -4.0 1.95e-02   1.0 1.00e+00 1.00e+00f  1
+  97  4.9269711e+02 3.40e-05 2.59e+09  -4.0 7.01e-03   1.4 1.00e+00 9.25e-01h  1
+  98  4.1664008e+02 2.20e-10 4.01e+10  -4.1 2.20e-05  15.3 1.00e+00 1.00e+00h  1
+  99  3.6712760e+02 7.33e-15 9.80e+07  -4.1 1.61e-07  14.8 1.00e+00 1.00e+00f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  2.6353481e+02 3.79e-14 8.12e+07  -4.1 3.97e-07  14.3 1.00e+00 1.00e+00f  1
+ 100  2.6348281e+02 3.80e-14 8.13e+07  -4.1 3.98e-07  14.3 1.00e+00 1.00e+00f  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.6353480777707244e+02    2.6353480777707244e+02
-Dual infeasibility......:   8.1213412785250053e+07    8.1213412785250053e+07
-Constraint violation....:   3.7858605139717838e-14    3.7858605139717838e-14
+Objective...............:   2.6348281398070617e+02    2.6348281398070617e+02
+Dual infeasibility......:   8.1304319307086334e+07    8.1304319307086334e+07
+Constraint violation....:   3.7969627442180354e-14    3.7969627442180354e-14
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   7.9960222178797387e-05    7.9960222178797387e-05
-Overall NLP error.......:   4.6612434121131650e+04    8.1213412785250053e+07
+Complementarity.........:   7.9960295338496701e-05    7.9960295338496701e-05
+Overall NLP error.......:   4.6743242398553644e+04    8.1304319307086334e+07
 
 
 Number of objective function evaluations             = 119
@@ -153,14 +153,14 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 16.353
+Total seconds in IPOPT                               = 11.665
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to spline_pulse_basic_47b6d72.jld2</code></pre><div class="admonition is-warning" id="The-default-integrator-is-piecewise-constant-—-check-the-divergence-e1677c6701de74f7"><header class="admonition-header">The default integrator is piecewise constant — check the divergence<a class="admonition-anchor" href="#The-default-integrator-is-piecewise-constant-—-check-the-divergence-e1677c6701de74f7" title="Permalink"></a></header><div class="admonition-body"><p>Every solve on this page uses the <strong>PWC</strong> integrator (<code>integrator_type = :pwc</code>), <code>BilinearIntegrator</code>: it models the drive as <strong>piecewise constant on each interval</strong>. That is not what a spline pulse is, so the optimizer is minimizing against a different waveform than the one your pulse actually produces. For a <code>CubicSplinePulse</code> it is worse still — the Hermite tangents (<code>:du</code>) get no gradient at all, so they simply sit at their initial values and are then integrated for real by the re-rollout. Constructing a cubic-spline problem without declaring the integrator choice is an <strong>error</strong> as of #275 — this page declares <code>:pwc</code> explicitly so you can see exactly what you are getting.</p><p>This is easy to <em>see</em> rather than take on faith. <code>rollout_divergence</code> compares the optimizer&#39;s collocation solution against an ODE re-rollout of the same pulse at the final time, and <code>sync_trajectory!</code> warns automatically when the two part company:</p></div></div><pre><code class="language-julia hljs">rollout_divergence(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.3132542743406853</code></pre><p>Reference points, so you can judge the number above: a <em>correctly</em> paired spline-pulse-plus-spline-integrator problem measures <code>3.5e-7 … 6.4e-4</code>, while a spline pulse under a piecewise-constant integrator measures <code>5.9e-2 … 1.9e-1</code> — roughly a 90× gap, which is why <code>ROLLOUT_DIVERGENCE_RTOL[]</code> defaults to <code>5e-3</code>. Refining the grid does <strong>not</strong> help; the divergence <em>grows</em> with <code>N</code>, because a finer collocation grid gives the optimizer more room to exploit the model.</p><p><code>verify</code> says the same thing in fidelity terms — what the optimizer believes, versus what the pulse achieves:</p><pre><code class="language-julia hljs">verify(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">VerificationReport (FAIL)
-  F_rollout   (physical): 0.9015322178982392
-  F_optimizer           : 0.9999103583176885
-  ΔF          (atol 0.0001): 0.09837814041944926
-  divergence  (rtol 0.005): 0.3132542743406853
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to spline_pulse_basic_0f29a19.jld2</code></pre><div class="admonition is-warning" id="The-default-integrator-is-piecewise-constant-—-check-the-divergence-e1677c6701de74f7"><header class="admonition-header">The default integrator is piecewise constant — check the divergence<a class="admonition-anchor" href="#The-default-integrator-is-piecewise-constant-—-check-the-divergence-e1677c6701de74f7" title="Permalink"></a></header><div class="admonition-body"><p>Every solve on this page uses the <strong>PWC</strong> integrator (<code>integrator_type = :pwc</code>), <code>BilinearIntegrator</code>: it models the drive as <strong>piecewise constant on each interval</strong>. That is not what a spline pulse is, so the optimizer is minimizing against a different waveform than the one your pulse actually produces. For a <code>CubicSplinePulse</code> it is worse still — the Hermite tangents (<code>:du</code>) get no gradient at all, so they simply sit at their initial values and are then integrated for real by the re-rollout. Constructing a cubic-spline problem without declaring the integrator choice is an <strong>error</strong> as of #275 — this page declares <code>:pwc</code> explicitly so you can see exactly what you are getting.</p><p>This is easy to <em>see</em> rather than take on faith. <code>rollout_divergence</code> compares the optimizer&#39;s collocation solution against an ODE re-rollout of the same pulse at the final time, and <code>sync_trajectory!</code> warns automatically when the two part company:</p></div></div><pre><code class="language-julia hljs">rollout_divergence(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.31325483011810984</code></pre><p>Reference points, so you can judge the number above: a <em>correctly</em> paired spline-pulse-plus-spline-integrator problem measures <code>3.5e-7 … 6.4e-4</code>, while a spline pulse under a piecewise-constant integrator measures <code>5.9e-2 … 1.9e-1</code> — roughly a 90× gap, which is why <code>ROLLOUT_DIVERGENCE_RTOL[]</code> defaults to <code>5e-3</code>. Refining the grid does <strong>not</strong> help; the divergence <em>grows</em> with <code>N</code>, because a finer collocation grid gives the optimizer more room to exploit the model.</p><p><code>verify</code> says the same thing in fidelity terms — what the optimizer believes, versus what the pulse achieves:</p><pre><code class="language-julia hljs">verify(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">VerificationReport (FAIL)
+  F_rollout   (physical): 0.9015319088339426
+  F_optimizer           : 0.9999103596949248
+  ΔF          (atol 0.0001): 0.09837845086098218
+  divergence  (rtol 0.005): 0.31325483011810984
   phases                : none</code></pre><p><strong>This example is itself affected, and not subtly.</strong> At the time of writing it reports <code>F_optimizer ≈ 0.999998</code> against <code>F_rollout ≈ 0.77</code> — the optimizer is confident to six digits about a pulse that misses by roughly 0.23 in absolute fidelity. The <code>F_optimizer</code> figure is the one you would have read off this page before the divergence check existed. Prefer <code>F_rollout</code>.</p><div class="admonition is-info" id="Getting-a-matched-integrator-253440fd256b9640"><header class="admonition-header">Getting a matched integrator<a class="admonition-anchor" href="#Getting-a-matched-integrator-253440fd256b9640" title="Permalink"></a></header><div class="admonition-body"><p>Piccolo ships no spline integrator, so this page cannot demonstrate the correct pairing — <code>SplineIntegrator</code> lives in Piccolissimo, which is not a dependency of these docs. Pass it explicitly:</p><pre><code class="language-julia hljs">using Piccolissimo: SplineIntegrator, MagnusGL4Alg
 integrator = SplineIntegrator(qtraj, N; alg = MagnusGL4Alg(n_steps = 50))
 qcp = SplinePulseProblem(qtraj, N; integrator = integrator, Q = 100.0)</code></pre><p>Without it, treat the fidelity reported by any example on this page as an artifact of the PWC model rather than a property of the pulse, and always prefer <code>verify(qcp).F_rollout</code>.</p></div></div><h3 id="Warm-Starting-from-Previous-Solution"><a class="docs-heading-anchor" href="#Warm-Starting-from-Previous-Solution">Warm-Starting from Previous Solution</a><a id="Warm-Starting-from-Previous-Solution-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-Previous-Solution" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Load previously optimized pulse
@@ -234,7 +234,7 @@ solve!(qcp_resampled; max_iter = 100)</code></pre><pre class="documenter-example
 
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
 <span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.163  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.164  (tolerance 0.005)
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
 <span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
@@ -267,41 +267,41 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  1.0335698e+01 2.03e-02 1.38e+01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  5.6101315e+00 4.10e-03 1.14e+02  -1.0 9.91e-02   2.0 9.99e-01 1.00e+00f  1
-   2  5.1163735e+00 8.34e-05 2.56e+01  -2.3 2.11e-02   2.4 1.00e+00 1.00e+00f  1
-   3  3.7709776e+00 4.98e-04 1.07e+01  -3.0 5.14e-02   1.9 1.00e+00 1.00e+00f  1
-   4  2.4141332e+01 1.80e-05 9.14e+03  -3.9 5.93e-02   1.5 9.54e-01 1.00e+00H  1
+   0  1.0335719e+01 2.03e-02 1.38e+01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  5.6101422e+00 4.10e-03 1.14e+02  -1.0 9.91e-02   2.0 9.99e-01 1.00e+00f  1
+   2  5.1163718e+00 8.34e-05 2.56e+01  -2.3 2.11e-02   2.4 1.00e+00 1.00e+00f  1
+   3  3.7709613e+00 4.98e-04 1.07e+01  -3.0 5.14e-02   1.9 1.00e+00 1.00e+00f  1
+   4  2.4110465e+01 1.80e-05 9.13e+03  -3.9 5.93e-02   1.5 9.54e-01 1.00e+00H  1
 ⋮
-  96  1.5823034e-01 5.31e-10 1.25e+03  -4.0 4.20e-05   4.9 1.00e+00 1.00e+00f  1
-  97  1.5814611e-01 4.59e-12 2.81e+01  -4.0 3.64e-06   4.4 1.00e+00 1.00e+00f  1
-  98  1.5814571e-01 1.20e-11 9.00e-01  -4.0 6.22e-06   4.0 1.00e+00 1.00e+00h  1
-  99  1.5814398e-01 5.97e-11 1.39e-01  -4.1 1.40e-05   3.5 1.00e+00 1.00e+00h  1
+  96  1.5452384e-01 1.00e-05 5.72e+01  -4.0 1.96e-02   0.0 1.00e+00 1.00e+00h  1
+  97  4.6060931e+02 4.24e-06 2.90e+08  -4.0 9.41e-03   0.4 1.00e+00 6.41e-01h  1
+  98  3.6303835e+02 9.43e-12 8.60e+08  -4.1 4.39e-06  14.3 1.00e+00 1.00e+00f  1
+  99  9.2849061e+01 4.67e-13 4.68e+07  -4.1 8.51e-07  13.8 1.00e+00 1.00e+00f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  1.5814104e-01 7.38e-10 5.93e-01  -4.0 4.89e-05   3.0 1.00e+00 1.00e+00h  1
+ 100  2.1239822e-01 2.38e-13 4.31e+07  -4.1 7.52e-07  13.3 1.00e+00 1.00e+00f  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.5814103684975142e-01    1.5814103684975142e-01
-Dual infeasibility......:   5.9319609111744631e-01    5.9319609111744631e-01
-Constraint violation....:   7.3846848080982852e-10    7.3846848080982852e-10
+Objective...............:   2.1239821880854096e-01    2.1239821880854096e-01
+Dual infeasibility......:   4.3079907277897313e+07    4.3079907277897313e+07
+Constraint violation....:   2.3764323842101476e-13    2.3764323842101476e-13
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0113532955155004e-04    1.0113532955155004e-04
-Overall NLP error.......:   5.9319609111744631e-01    5.9319609111744631e-01
+Complementarity.........:   7.9962074632111476e-05    7.9962074632111476e-05
+Overall NLP error.......:   9.6289344847854245e+03    4.3079907277897313e+07
 
 
-Number of objective function evaluations             = 108
+Number of objective function evaluations             = 110
 Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 108
+Number of equality constraint evaluations            = 110
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 14.522
+Total seconds in IPOPT                               = 9.041
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to spline_pulse_resampled_47b6d72.jld2</code></pre><h3 id="Linear-vs-Cubic-Splines"><a class="docs-heading-anchor" href="#Linear-vs-Cubic-Splines">Linear vs Cubic Splines</a><a id="Linear-vs-Cubic-Splines-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-vs-Cubic-Splines" title="Permalink"></a></h3><p><strong>Linear Splines</strong>: The derivative <code>:du</code> represents the slope between knots. A <code>DerivativeIntegrator</code> constraint enforces <code>du[k] = (u[k+1] - u[k]) / Δt</code>.</p><pre><code class="language-julia hljs">pulse_linear = LinearSplinePulse(controls, times)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to spline_pulse_resampled_0f29a19.jld2</code></pre><h3 id="Linear-vs-Cubic-Splines"><a class="docs-heading-anchor" href="#Linear-vs-Cubic-Splines">Linear vs Cubic Splines</a><a id="Linear-vs-Cubic-Splines-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-vs-Cubic-Splines" title="Permalink"></a></h3><p><strong>Linear Splines</strong>: The derivative <code>:du</code> represents the slope between knots. A <code>DerivativeIntegrator</code> constraint enforces <code>du[k] = (u[k+1] - u[k]) / Δt</code>.</p><pre><code class="language-julia hljs">pulse_linear = LinearSplinePulse(controls, times)
 qtraj_linear = UnitaryTrajectory(sys, pulse_linear, GATES[:X])
 qcp_linear = SplinePulseProblem(qtraj_linear)
 # du is constrained to be consistent with u</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">QuantumControlProblem</span>
@@ -406,7 +406,7 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
 │    dim=2   drives=2
 │  
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=10.354   Δt∈[0, Inf]
+│    N=100   T=10.359   Δt∈[0, Inf]
 │    Ũ⃗   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt  (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t   (1)                                 <span class="sgr90">·</span>  state
@@ -416,15 +416,15 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │  
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2.831  @ current x</span>
-│    KnotPointObjective                w=1             2.673
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2.933  @ current x</span>
+│    KnotPointObjective                w=1             2.721
 │    QuadraticRegularizer(:u)          w=1             0
 │    QuadraticRegularizer(:du)         w=1             0
-│    HermiteBendingEnergyRegularizer   w=1             0.1578
+│    HermiteBendingEnergyRegularizer   w=1             0.2121
 │    NullObjective                     w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/12 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.03606)
+│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.03601)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -441,10 +441,10 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
      variables: 1400   (1200 bounded)
      equality:  78415
      inequality: 0
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.973271</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.972787</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
-</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bang_bang_pulse/">« BangBangPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Tuesday 1 September 2026 18:01">Tuesday 1 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bang_bang_pulse/">« BangBangPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Wednesday 2 September 2026 01:40">Wednesday 2 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./spline_pulse.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/spline_pulse.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
