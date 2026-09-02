@@ -72,6 +72,10 @@ include("operators/direct_sums.jl")
 include("system_utils.jl")
 @reexport using .QuantumSystemUtils
 
+# Frames (depends on systems, operators, object utils)
+include("frames/_frames.jl")
+@reexport using .Frames
+
 # Dynamics
 include("dynamics.jl")
 @reexport using .Rollouts
