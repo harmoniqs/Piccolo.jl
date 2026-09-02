@@ -146,10 +146,10 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 13.304
+Total seconds in IPOPT                               = 17.720
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_base_0f29a19.jld2
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_base_aebfab3.jld2
 constructing SamplingProblem
     systems: 3
 <span class="sgr1">SamplingProblem</span>
@@ -255,10 +255,10 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 114.999
+Total seconds in IPOPT                               = 147.734
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_robust_0f29a19.jld2</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_robust_aebfab3.jld2</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
     qcp_base,
     [sys_nominal, sys_high, sys_low];
     weights = [2.0, 1.0, 1.0],  ## Nominal weighted 2x
@@ -368,10 +368,10 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 102
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 120.359
+Total seconds in IPOPT                               = 144.185
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_weighted_0f29a19.jld2</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_weighted_aebfab3.jld2</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
 systems = [QuantumSystem(s * H_drift, H_drives, [1.0, 1.0]) for s in scales]
 
 qcp_dense = SamplingProblem(qcp_base, systems)
@@ -480,10 +480,10 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 129.957
+Total seconds in IPOPT                               = 144.858
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_dense_0f29a19.jld2</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_dense_aebfab3.jld2</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
 qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
 solve!(qcp_base; max_iter=100)
 
@@ -505,7 +505,7 @@ for (s, sys) in zip(eval_scales, eval_systems)
     qtraj_eval = UnitaryTrajectory(sys, optimized_pulse, GATES[:X])
     fid = fidelity(qtraj_eval)
     println(&quot;Scale $s: Fidelity = $fid&quot;)
-end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Wednesday 2 September 2026 01:40">Wednesday 2 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.18.0 on <span class="colophon-date" title="Wednesday 2 September 2026 05:00">Wednesday 2 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./sampling.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/sampling.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
