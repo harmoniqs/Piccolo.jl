@@ -25,6 +25,74 @@ using WGLMakie
 
 **Important**: CairoMakie cannot handle `:inline` animations. Use `:record` mode or switch to GLMakie.
 
+## AI-agent quick start
+
+Use this section when generating Piccolo visualization code for users. Prefer the high-level helpers below before writing manual Makie code.
+
+```julia
+using Piccolo
+using CairoMakie          # static figures, docs, CI-friendly scripts
+# using GLMakie           # interactive local windows / :inline animations
+# using WGLMakie          # notebooks / browser output
+```
+
+Load `QuantumToolbox` only for Bloch-sphere and Wigner plotting helpers:
+
+```julia
+using QuantumToolbox
+```
+
+Common solved-problem workflow:
+
+```julia
+qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2, ddu_bound=1.0)
+solve!(qcp)
+
+traj = get_trajectory(qcp)
+fig = plot_pulse(qcp; bounds=true, components=[:du, :ddu])
+fig = plot_unitary_populations(traj)
+```
+
+For ket-state transfer problems, use state population helpers:
+
+```julia
+traj = get_trajectory(qcp)
+fig = plot_state_populations(traj)
+```
+
+For Bloch and Wigner visualizations:
+
+```julia
+using QuantumToolbox
+fig = plot_bloch(traj; index=traj.N)
+fig = plot_wigner(traj, traj.N; xvec=-3:0.1:3, yvec=-3:0.1:3)
+```
+
+When plotting a physical pulse, do **not** use `plot(traj, [:u])` as the default. That plots optimization variables at knot points. Use `plot_pulse(qcp)` to reconstruct and draw the actual pulse waveform for the pulse type.
+
+For manual Makie plots from a `NamedTrajectory`, derive control times from trajectory timesteps:
+
+```julia
+traj = get_trajectory(qcp)
+plot_times = cumsum([0; get_timesteps(traj)])[1:end-1]
+lines!(ax, plot_times, traj[:u][1, :])
+```
+
+If a uniform visual time grid is important, construct the problem with equal timesteps:
+
+```julia
+opts = PiccoloOptions(timesteps_all_equal=true, display=:silent)
+qcp = SmoothPulseProblem(qtraj, N; piccolo_options=opts)
+```
+
+Export figures with Makie `save`:
+
+```julia
+save("controls.png", fig)  # raster
+save("controls.pdf", fig)  # vector
+save("controls.svg", fig)  # vector
+```
+
 ## Core Visualization Functions
 
 ### 0. plot_pulse / plot_pulse_IQ / plot_pulse_phases
