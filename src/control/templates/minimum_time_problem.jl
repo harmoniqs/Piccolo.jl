@@ -1,7 +1,7 @@
 export MinimumTimeProblem
 
 @doc raw"""
-    MinimumTimeProblem(qcp::QuantumControlProblem; kwargs...)
+    MinimumTimeProblem(p::AbstractQuantumControlProblem; kwargs...)
 
 Convert an existing quantum control problem to minimum-time optimization.
 
@@ -15,10 +15,11 @@ This ensures the problem starts from a good initialization and maintains solutio
 through the final fidelity constraint.
 
 # Type Dispatch
-Automatically handles different quantum trajectory types through the type parameter:
-- `QuantumControlProblem{UnitaryTrajectory}` → Uses `FinalUnitaryFidelityConstraint`
-- `QuantumControlProblem{KetTrajectory}` → Uses `FinalKetFidelityConstraint`
-- `QuantumControlProblem{DensityTrajectory}` → Uses `FinalDensityFidelityConstraint`
+Automatically handles different quantum trajectory types through the trajectory type
+parameter (`QuantumControlProblem{Template, QT}` — template first, trajectory second):
+- `QuantumControlProblem{<:AbstractProblemTemplate, <:UnitaryTrajectory}` → Uses `FinalUnitaryFidelityConstraint`
+- `QuantumControlProblem{<:AbstractProblemTemplate, <:KetTrajectory}` → Uses `FinalKetFidelityConstraint`
+- `QuantumControlProblem{<:AbstractProblemTemplate, <:DensityTrajectory}` → Uses `FinalDensityFidelityConstraint`
 
 The optimization problem is:
 
@@ -35,7 +36,7 @@ J_{\text{original}}(\vec{\tilde{q}}, u) + D \sum_t \Delta t_t \\
 where q represents the quantum state (unitary, ket, or density matrix).
 
 # Arguments
-- `qcp::QuantumControlProblem`: Existing quantum control problem to convert
+- `p::AbstractQuantumControlProblem`: Existing problem to convert. A wrapper (e.g. a `SamplingProblem`) is returned as the SAME wrapper type around the same inner problem — the wrap history is preserved. A tagged problem keeps its template tag and retained params: min-time is a recipe over the composition axes, not a wrapper.
 
 # Keyword Arguments
 - `final_fidelity::Float64=0.99`: Minimum fidelity constraint at final time
@@ -61,8 +62,8 @@ qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity=0.99, D=100.0)
 solve!(qcp_mintime; max_iter=100)
 
 # Compare durations
-duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
-duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+duration_before = get_duration(get_trajectory(qcp_smooth))
+duration_after = get_duration(get_trajectory(qcp_mintime))
 @assert duration_after <= duration_before
 
 # Nested transformations also work
@@ -82,24 +83,62 @@ qcp_mintime = MinimumTimeProblem(qcp_smooth; goal=U_goal_new, final_fidelity=0.9
 ```
 """
 function MinimumTimeProblem(
-    qcp::QuantumControlProblem{QT};
+    p::AbstractQuantumControlProblem;
     goal::Union{Nothing,AbstractPiccoloOperator,AbstractVector} = nothing,
     final_fidelity::Float64 = 0.99,
     D::Float64 = 100.0,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
     piccolo_options::PiccoloOptions = PiccoloOptions(),
-) where {QT<:AbstractQuantumTrajectory}
+)
+    qtraj_for_constraint, new_prob = _min_time_parts(
+        p;
+        goal = goal,
+        final_fidelity = final_fidelity,
+        D = D,
+        Δt_bounds = Δt_bounds,
+        subsystem_levels = subsystem_levels,
+        piccolo_options = piccolo_options,
+    )
+    # `with_problem` preserves what identifies the problem: the template tag and
+    # its retained params for a tagged problem, the whole wrapper nesting for a
+    # wrapper (`MinimumTimeProblem(::SamplingProblem)` returns a `SamplingProblem`).
+    #
+    # Note min-time deliberately does NOT introduce a wrapper *type*: it is a recipe
+    # over the composition axes (a time objective + a final-fidelity constraint on
+    # the same flat NLP), so its result must be type-identical to what `materialize`
+    # produces for the hand-factored spec form (`goal_treatment = "both"` +
+    # `free_dt` + a `time` objective). A `MinimumTimeProblem{...}` type would make
+    # two spellings of one NLP — with the same `structure_hash` — different Julia
+    # types, breaking the "same structure_hash ⇒ same concrete type" invariant the
+    # precompile workload and warm-worker routing rest on.
+    return _maybe_display(with_problem(p, qtraj_for_constraint, new_prob), piccolo_options)
+end
+
+# The min-time recipe itself, shared by the tagged-problem and wrapper methods:
+# copy the trajectory, add ∑Δt to the objective, add the per-trajectory-kind final
+# fidelity constraint. Returns `(qtraj_for_constraint, new_prob)`.
+function _min_time_parts(
+    p::AbstractQuantumControlProblem;
+    goal::Union{Nothing,AbstractPiccoloOperator,AbstractVector} = nothing,
+    final_fidelity::Float64 = 0.99,
+    D::Float64 = 100.0,
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
+    piccolo_options::PiccoloOptions = PiccoloOptions(),
+)
+    base_prob = direct_problem(p)
+    base_qtraj = quantum_trajectory(p)
 
     if _show_header(piccolo_options)
-        println("constructing MinimumTimeProblem [from $(_typename(QT))]")
+        println("constructing MinimumTimeProblem [from $(_typename(base_qtraj))]")
         println("    final fidelity ≥ $(final_fidelity)")
         println("    min-time weight D = $(D)")
     end
 
     # Copy trajectory and constraints from original problem
-    traj = deepcopy(qcp.prob.trajectory)
-    constraints = deepcopy(qcp.prob.constraints)
+    traj = deepcopy(base_prob.trajectory)
+    constraints = deepcopy(base_prob.constraints)
 
     # Optionally update Δt bounds (e.g., widen for min-time after tight fidelity solve)
     if !isnothing(Δt_bounds) && haskey(traj.bounds, :Δt)
@@ -107,17 +146,12 @@ function MinimumTimeProblem(
     end
 
     # Add minimum-time objective to existing objective
-    J = qcp.prob.objective + MinimumTimeObjective(traj, D = D)
+    J = base_prob.objective + MinimumTimeObjective(traj, D = D)
 
     # Use updated goal if provided, otherwise use original
-    qtraj_for_constraint = if isnothing(goal)
-        qcp.qtraj
-    else
-        # Create new quantum trajectory with updated goal
-        _update_goal(qcp.qtraj, goal)
-    end
+    qtraj_for_constraint = isnothing(goal) ? base_qtraj : _update_goal(base_qtraj, goal)
 
-    # Add final fidelity constraint - dispatches on QT type parameter!
+    # Add final fidelity constraint - dispatches on the quantum trajectory type!
     fidelity_constraint = _final_fidelity_constraint(
         qtraj_for_constraint,
         final_fidelity,
@@ -133,13 +167,8 @@ function MinimumTimeProblem(
     end
 
     # Create new optimization problem with same integrators
-    new_prob = DirectTrajOptProblem(traj, J, qcp.prob.integrators, constraints)
-
-    # Return new QuantumControlProblem with potentially updated qtraj
-    return _maybe_display(
-        QuantumControlProblem(qtraj_for_constraint, new_prob),
-        piccolo_options,
-    )
+    new_prob = DirectTrajOptProblem(traj, J, base_prob.integrators, constraints)
+    return qtraj_for_constraint, new_prob
 end
 
 # ============================================================================= #
@@ -328,13 +357,13 @@ end
     qcp_smooth = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
 
     solve!(qcp_smooth; max_iter = 50, verbose = false, print_level = 1)
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time problem
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.95, D = 100.0)
 
     @test qcp_mintime isa QuantumControlProblem
-    @test qcp_mintime isa QuantumControlProblem{<:UnitaryTrajectory}
+    @test qcp_mintime isa SmoothPulseProblem{<:UnitaryTrajectory}
     @test haskey(get_trajectory(qcp_mintime).components, :du)
     @test haskey(get_trajectory(qcp_mintime).components, :ddu)
 
@@ -344,7 +373,7 @@ end
 
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 50, verbose = false, print_level = 1)
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
 
     # Duration should decrease (or stay same if already optimal)
     @test duration_after <= duration_before
@@ -370,7 +399,7 @@ end
     # Convert to minimum-time
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.90, D = 50.0)
 
-    @test qcp_mintime isa QuantumControlProblem{<:KetTrajectory}
+    @test qcp_mintime isa SmoothPulseProblem{<:KetTrajectory}
     @test haskey(get_trajectory(qcp_mintime).components, :du)
 
     # Test problem solve
@@ -416,7 +445,7 @@ end
     qtraj_u = UnitaryTrajectory(sys, pulse_u, GATES[:H])
     qcp_u = SmoothPulseProblem(qtraj_u, N)
     qcp_mintime_u = MinimumTimeProblem(qcp_u)
-    @test qcp_mintime_u isa QuantumControlProblem{<:UnitaryTrajectory}
+    @test qcp_mintime_u isa SmoothPulseProblem{<:UnitaryTrajectory}
 
     # Ket
     ψ_init = ComplexF64[1.0, 0.0]
@@ -425,7 +454,7 @@ end
     qtraj_k = KetTrajectory(sys, pulse_k, ψ_init, ψ_goal)
     qcp_k = SmoothPulseProblem(qtraj_k, N)
     qcp_mintime_k = MinimumTimeProblem(qcp_k)
-    @test qcp_mintime_k isa QuantumControlProblem{<:KetTrajectory}
+    @test qcp_mintime_k isa SmoothPulseProblem{<:KetTrajectory}
 end
 
 @testitem "MinimumTimeProblem with SamplingTrajectory" begin
@@ -452,12 +481,14 @@ end
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
     solve!(sampling_prob; max_iter = 50, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(sampling_prob)))
+    duration_before = get_duration(get_trajectory(sampling_prob))
 
     # Convert to minimum-time
     mintime_prob = MinimumTimeProblem(sampling_prob; final_fidelity = 0.90, D = 50.0)
 
-    @test mintime_prob isa QuantumControlProblem{<:SamplingTrajectory}
+    @test mintime_prob isa SamplingProblem
+    @test inner(mintime_prob) isa SmoothPulseProblem
+    @test quantum_trajectory(mintime_prob) isa SamplingTrajectory
     @test mintime_prob.qtraj isa SamplingTrajectory
 
     # Should have fidelity constraints for each sample
@@ -466,7 +497,7 @@ end
     # Solve minimum-time
     solve!(mintime_prob; max_iter = 20, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(mintime_prob)))
+    duration_after = get_duration(get_trajectory(mintime_prob))
     @test duration_after <= duration_before * 1.2  # Allow small tolerance
 end
 
@@ -494,7 +525,9 @@ end
     # Convert to minimum-time
     mintime_prob = MinimumTimeProblem(sampling_prob; final_fidelity = 0.85, D = 30.0)
 
-    @test mintime_prob isa QuantumControlProblem{<:SamplingTrajectory}
+    @test mintime_prob isa SamplingProblem
+    @test inner(mintime_prob) isa SmoothPulseProblem
+    @test quantum_trajectory(mintime_prob) isa SamplingTrajectory
 
     # Solve
     solve!(mintime_prob; max_iter = 15, verbose = false, print_level = 1)
@@ -531,12 +564,12 @@ end
         SmoothPulseProblem(ensemble_qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
     solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time problem
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.90, D = 50.0)
 
-    @test qcp_mintime isa QuantumControlProblem{<:MultiKetTrajectory}
+    @test qcp_mintime isa SmoothPulseProblem{<:MultiKetTrajectory}
     @test qcp_mintime.qtraj isa MultiKetTrajectory
 
     # Should have fidelity constraints for each ensemble member
@@ -545,7 +578,7 @@ end
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
 
     # Min-time objective should reduce or hold the duration. Allow 20% margin
     # for the trade-off between min-time penalty and fidelity-constraint slack
@@ -596,17 +629,17 @@ end
 
     solve!(qcp_smooth; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.85, D = 50.0)
 
-    @test qcp_mintime isa QuantumControlProblem{<:UnitaryTrajectory}
+    @test qcp_mintime isa SmoothPulseProblem{<:UnitaryTrajectory}
 
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
 end
 
@@ -642,17 +675,17 @@ end
 
     solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.85, D = 50.0)
 
-    @test qcp_mintime isa QuantumControlProblem{<:KetTrajectory}
+    @test qcp_mintime isa SmoothPulseProblem{<:KetTrajectory}
 
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
 end
 
@@ -692,17 +725,17 @@ end
 
     solve!(qcp_smooth; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(qcp_smooth)))
+    duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time
     qcp_mintime = MinimumTimeProblem(qcp_smooth; final_fidelity = 0.80, D = 50.0)
 
-    @test qcp_mintime isa QuantumControlProblem{<:MultiKetTrajectory}
+    @test qcp_mintime isa SmoothPulseProblem{<:MultiKetTrajectory}
 
     # Solve minimum-time problem
     solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(qcp_mintime)))
+    duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
 end
 
@@ -735,24 +768,28 @@ end
     # Create sampling problem
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
 
-    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob isa SamplingProblem
+    @test sampling_prob isa AbstractQuantumControlProblem
+    @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:UnitaryTrajectory}
 
     # Solve sampling problem first. max_iter raised to 200 so duration_before
     # reflects the true converged duration, not an arbitrary mid-solve point.
     solve!(sampling_prob; max_iter = 200, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(sampling_prob)))
+    duration_before = get_duration(get_trajectory(sampling_prob))
 
     # Convert to minimum-time
     sampling_mintime = MinimumTimeProblem(sampling_prob; final_fidelity = 0.60, D = 50.0)
 
-    @test sampling_mintime isa QuantumControlProblem{<:SamplingTrajectory}
+    @test sampling_mintime isa SamplingProblem
+    @test inner(sampling_mintime) isa SmoothPulseProblem
+    @test quantum_trajectory(sampling_mintime) isa SamplingTrajectory
 
     # Solve minimum-time problem
     solve!(sampling_mintime; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(sampling_mintime)))
+    duration_after = get_duration(get_trajectory(sampling_mintime))
     # Loosened from 1.5x to 2.0x: the minimum-time/fidelity-constraint trade-off
     # for a time-dependent Hamiltonian samping over multiple sys instances has
     # genuine slack — the contract is "min-time stays comparable", not strict.
@@ -790,23 +827,27 @@ end
     # Create sampling problem
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 50.0)
 
-    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob isa SamplingProblem
+    @test sampling_prob isa AbstractQuantumControlProblem
+    @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:KetTrajectory}
 
     # Solve sampling problem first
     solve!(sampling_prob; max_iter = 100, verbose = false, print_level = 1)
 
-    duration_before = sum(get_timesteps(get_trajectory(sampling_prob)))
+    duration_before = get_duration(get_trajectory(sampling_prob))
 
     # Convert to minimum-time
     sampling_mintime = MinimumTimeProblem(sampling_prob; final_fidelity = 0.60, D = 50.0)
 
-    @test sampling_mintime isa QuantumControlProblem{<:SamplingTrajectory}
+    @test sampling_mintime isa SamplingProblem
+    @test inner(sampling_mintime) isa SmoothPulseProblem
+    @test quantum_trajectory(sampling_mintime) isa SamplingTrajectory
 
     # Solve minimum-time problem
     solve!(sampling_mintime; max_iter = 30, verbose = false, print_level = 1)
 
-    duration_after = sum(get_timesteps(get_trajectory(sampling_mintime)))
+    duration_after = get_duration(get_trajectory(sampling_mintime))
     @test duration_after <= duration_before * 1.2
 end
 

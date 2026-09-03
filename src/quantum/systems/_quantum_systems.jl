@@ -229,4 +229,50 @@ include("open_quantum_systems.jl")
 include("variational_quantum_systems.jl")
 include("composite_quantum_systems.jl")
 
+
+@testitem "coverage: get_drive_terms fallback + show + system-built pulses" begin
+    using Piccolo
+    using LinearAlgebra
+
+    sys = QuantumSystem(
+        0.1 * PAULIS[:Z],
+        [PAULIS[:X], PAULIS[:Y]],
+        [(-1.0, 1.0), (-1.0, 1.0)],
+    )
+
+    # get_drive_terms: typed drives present
+    terms = get_drive_terms(sys)
+    @test length(terms) == 2
+    @test all(t -> t isa AbstractDrive, terms)
+
+    # show: the generic AbstractQuantumSystem printer
+    s = sprint(show, sys)
+    @test occursin("QuantumSystem", s)
+    @test occursin("levels = 2", s)
+    @test occursin("n_drives = 2", s)
+
+    # a function-based system without typed drives → the empty fallback
+    sys_fn = QuantumSystem((u, t) -> 0.1 * PAULIS[:Z] + u[1] * PAULIS[:X], [1.0])
+    @test get_drive_terms(sys_fn) == AbstractDrive[]
+
+    # system-built pulses: the three convenience constructors
+    T = 5.0
+    zo = ZeroOrderPulse(sys, T; n_samples = 11)
+    @test zo isa ZeroOrderPulse
+    @test zo.n_drives == 2
+
+    ls = LinearSplinePulse(sys, T; n_samples = 11)
+    @test ls isa LinearSplinePulse
+    @test ls.n_drives == 2
+
+    cs = CubicSplinePulse(sys, T; n_samples = 11)
+    @test cs isa CubicSplinePulse
+    @test cs.n_drives == 2
+
+    # sampled controls respect the drive bounds (via evaluation at a knot)
+    mid = zo(T / 2)
+    @test all(>=(-1.0), mid) && all(<=(1.0), mid)
+    @test length(mid) == 2
+end
+
 end

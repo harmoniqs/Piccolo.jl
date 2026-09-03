@@ -1,4 +1,45 @@
-export BangBangPulseProblem
+# ----------------------------------------------------------------------------- #
+# Template declaration
+# ----------------------------------------------------------------------------- #
+
+@doc raw"""
+    BangBangPulseParams <: AbstractTemplateParams
+
+The typed keyword surface of [`BangBangPulseProblem`](@ref). Note the absence of
+`R_ddu`/`ddu_bound` (bang-bang regularizes only the first derivative, with an L1
+slack) and of `state_leakage_indices` — per-template keyword truth, enforced as a
+struct-field check.
+"""
+Base.@kwdef struct BangBangPulseParams <: AbstractTemplateParams
+    Q::Float64 = 100.0
+    R::Float64 = 1e-2
+    R_u::Union{Float64,Vector{Float64}} = 0.0
+    R_du::Union{Float64,Vector{Float64}} = R
+    du_bound::Float64 = Inf
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing
+    free_phase::Bool = false
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing
+    coherent::Bool = true
+    global_names::Union{Nothing,Vector{Symbol}} = nothing
+    global_bounds::Union{Nothing,AbstractDict} = nothing
+    calibration_targets::Vector{Symbol} = Symbol[]
+end
+
+@problem_template BangBangPulseTemplate begin
+    julia_name = BangBangPulseProblem
+    pulse = ZeroOrderPulse
+    trajectories = (UnitaryTrajectory, KetTrajectory, MultiKetTrajectory, DensityTrajectory)
+    pulse_kinds = (:zero_order,)
+    trajectory_kinds = (:unitary, :ket)
+    ket_free_phase = true
+    params = BangBangPulseParams
+    passthrough = (:integrator, :constraints, :piccolo_options)
+    builder = _bang_bang_pulse_problem
+    requires_N = true
+    hint = """For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
+      qcp = SplinePulseProblem(qtraj, N; ...)"""
+end
 
 @doc raw"""
     BangBangPulseProblem(qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}, N::Int; kwargs...)
@@ -21,7 +62,7 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 
 # Arguments
 - `qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}`: Quantum trajectory with piecewise constant pulse
-- `N::Int`: Number of timesteps for discretization
+- `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator.
@@ -53,8 +94,11 @@ solve!(qcp; max_iter=200)
 ```
 
 See also: [`SmoothPulseProblem`](@ref) for smooth (L2-regularized) controls.
-"""
-function BangBangPulseProblem(
+""" BangBangPulseProblem
+
+# The construction logic the generated constructor delegates to. Returns the
+# untagged problem; `@problem_template`'s constructor stamps on the tag + params.
+function _bang_bang_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
@@ -247,7 +291,7 @@ of ket state transfers with piecewise constant controls.
 
 See the single-trajectory method for full documentation of keyword arguments.
 """
-function BangBangPulseProblem(
+function _bang_bang_pulse_problem(
     qtraj::MultiKetTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
@@ -343,7 +387,14 @@ function BangBangPulseProblem(
 
     # Build objective: weighted sum of infidelities for each state
     J = if free_phase && !isnothing(goals_fn)
-        CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj_bb; Q = Q)
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            snames,
+            θ_names,
+            traj_bb;
+            Q = Q,
+            weights = weights,
+        )
     else
         _ensemble_ket_objective(qtraj, traj_bb, snames, weights, goals, Q; coherent = coherent)
     end
@@ -412,32 +463,8 @@ function BangBangPulseProblem(
     return _maybe_display(QuantumControlProblem(qtraj, prob), piccolo_options)
 end
 
-# ============================================================================= #
-# Fallback Error Method
-# ============================================================================= #
-
-"""
-    BangBangPulseProblem(qtraj::AbstractQuantumTrajectory, N::Int; kwargs...)
-
-Fallback method that provides helpful error for non-ZeroOrderPulse types.
-"""
-function BangBangPulseProblem(
-    qtraj::AbstractQuantumTrajectory{P},
-    N::Int;
-    kwargs...,
-) where {P<:AbstractPulse}
-    pulse_type = P
-    error(
-        """
-  BangBangPulseProblem is only for piecewise constant pulses (ZeroOrderPulse).
-
-  You provided a trajectory with pulse type: $(pulse_type)
-
-  For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
-      qcp = SplinePulseProblem(qtraj, N; ...)
-  """,
-    )
-end
+# The wrong-pulse fallback ("use SplinePulseProblem instead") is now *generated*
+# by `@problem_template` from the declaration's `hint`.
 
 # ============================================================================= #
 # Tests
@@ -626,6 +653,42 @@ end
         free_phase = true,
         subsystem_levels = [2],
     )
+
+    # The free-phase branch must honor trajectory weights (issue #263).
+    #
+    # The default-integrator guard above rejects free_phase, because coupling the
+    # phase globals into the dynamics needs an integrator Piccolo does not ship
+    # (HermitianExponentialIntegrator lives downstream in Piccolissimo). Passing
+    # an explicit integrator bypasses that guard, which is enough to reach and
+    # exercise the objective-construction branch this test is about. The
+    # resulting problem is NOT a physically valid free-phase problem — its
+    # dynamics ignore θ — so this asserts objective wiring only, never a solve.
+    ψp = ComplexF64[1.0, 1.0] / √2
+    ψm = ComplexF64[1.0, -1.0] / √2
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_det =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse_det = ZeroOrderPulse(u_det, collect(range(0.0, T, length = N)))
+
+    function free_phase_objective_value(ws)
+        qt = MultiKetTrajectory(sys, pulse_det, [ψ0, ψ1, ψp], [ψ1, ψ0, ψm]; weights = ws)
+        p = BangBangPulseProblem(
+            qt,
+            N;
+            Q = 100.0,
+            R_du = 1e-1,
+            free_phase = true,
+            subsystem_levels = [2],
+            integrator = BilinearIntegrator(qt, N),
+        )
+        objective_value(p.prob.objective, p.prob.trajectory)
+    end
+
+    @test free_phase_objective_value([0.8, 0.1, 0.1]) !=
+          free_phase_objective_value([0.1, 0.1, 0.8])
+    @test free_phase_objective_value(fill(1 / 3, 3)) ===
+          free_phase_objective_value(fill(1.0, 3))
 end
 
 @testitem "BangBangPulseProblem free_phase requires EmbeddedOperator for unitary" begin

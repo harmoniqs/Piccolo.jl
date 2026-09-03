@@ -61,3 +61,7 @@ docs/utils.jl
 
 # cached_solve! artifact cache (per-commit .jld2 files)
 /data/
+ab_gate.log
+
+# doc caches are build products (fresh solves per build; committed caches break on struct-layout changes — see #466/#326 docs failures)
+docs/data/*.jld2

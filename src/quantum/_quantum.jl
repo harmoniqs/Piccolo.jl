@@ -31,6 +31,13 @@ include("primitives/isomorphisms.jl")
 include("primitives/pulses.jl")
 @reexport using .Pulses
 
+# `duration` must resolve to the Pulses function in this namespace: with
+# NamedTrajectories >= 0.9.3 co-resolved (`using NamedTrajectories` above),
+# TimeWarp also exports `duration`, which left the name ambiguous here —
+# UndefVarError at `Quantum.duration` and at downstream `import ..Quantum:
+# duration` sites (#323). Bind explicitly from the defining module.
+using .Pulses: duration
+
 # Object utils (depends on gates)
 include("object_utils.jl")
 @reexport using .QuantumObjectUtils
@@ -41,6 +48,13 @@ include("operators/lifted_operators.jl")
 
 # Systems
 include("systems/_quantum_systems.jl")
+# Shared operator seam (slice 3b, #430): abstract dynamics-operator layer +
+# MatrixOperator bridge moved from Piccolissimo — the dense spline cells and
+# the interval-coefficient kernel build on them; structured operators extend
+# them from Piccolissimo.
+include("operators/abstract_dynamics_operator.jl")
+include("operators/matrix_operator.jl")
+
 @reexport using .QuantumSystems
 
 # Encodings (depend on gates; used by embedded operators)
