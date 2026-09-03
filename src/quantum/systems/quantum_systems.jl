@@ -47,13 +47,21 @@ sys = QuantumSystem([H_z, H_x => t -> cos(ω*t)], [H_y], [1.0])
 
 See also [`OpenQuantumSystem`](@ref), [`VariationalQuantumSystem`](@ref).
 """
-struct QuantumSystem{F1<:Function,F2<:Function,PT<:NamedTuple,DT,HD} <:
-       AbstractQuantumSystem
+struct QuantumSystem{
+    F1<:Function,
+    F2<:Function,
+    PT<:NamedTuple,
+    DT,
+    HD,
+    DD<:AbstractVector{<:AbstractDrive},
+} <: AbstractQuantumSystem
     H::F1
     G::F2
     H_drift::HD
     drift_terms::DT
-    H_drives::Vector{AbstractDrive}
+    H_drives::DD   # parametric — preserves caller's concrete eltype (e.g. Vector{LinearDrive}
+    # or Vector{Union{LinearDrive,NonlinearDrive}}), avoiding dynamic dispatch
+    # on drive_coeff / drive_coeff_jac in per-substep RHS hot loops.
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
@@ -220,8 +228,10 @@ function QuantumSystem(
 
     levels = size(H_drift, 1)
 
-    # Build LinearDrive objects from H_drives matrices
-    linear_drives = AbstractDrive[LinearDrive(H_drives[i], i) for i = 1:n_drives]
+    # Build LinearDrive objects from H_drives matrices.
+    # Use concrete eltype LinearDrive (not AbstractDrive) for type-stable
+    # iteration in per-substep RHS loops.
+    linear_drives = [LinearDrive(H_drives[i], i) for i = 1:n_drives]
 
     return QuantumSystem(
         H,
@@ -430,12 +440,16 @@ function QuantumSystem(
                 sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
     end
 
+    # Type-stability fix: preserve the caller's concrete eltype on `drives`
+    # instead of widening to AbstractDrive. The struct's `DD` type parameter
+    # captures it. Callers can pass Vector{LinearDrive}, Vector{NonlinearDrive},
+    # or Vector{Union{LinearDrive,NonlinearDrive}} for fully type-stable iteration.
     return QuantumSystem(
         H_fn,
         G_fn,
         H_drift,
         [DriftTerm(H_drift)],
-        collect(AbstractDrive, drives),
+        drives,
         drive_bounds,
         n_drives,
         levels,
@@ -515,17 +529,20 @@ function QuantumSystem(
         @assert is_hermitian(H_drift_sum) "Drift Hamiltonian is not Hermitian"
     end
 
-    # Normalize drives — track linear index separately for LinearDrive(index)
-    drives = AbstractDrive[]
+    # Normalize drives. Use a separate accumulator name so the final `drives`
+    # binding is assigned exactly once — otherwise downstream closures (H_fn,
+    # G_fn → Padé Ĝ at src/control/integrators.jl) box `drives` as Core.Box
+    # and lose type info on the per-substep dispatch path (~8% / +5 allocs).
+    drives_acc = AbstractDrive[]
     linear_idx = 1
     for d_input in H_drives_input
         if d_input isa Pair{<:AbstractDrive,<:Function}
-            push!(drives, ModulatedDrive(d_input.first, d_input.second))
+            push!(drives_acc, ModulatedDrive(d_input.first, d_input.second))
         elseif d_input isa AbstractDrive
-            push!(drives, d_input)
+            push!(drives_acc, d_input)
         elseif d_input isa Pair{<:AbstractMatrix,<:Function}
             push!(
-                drives,
+                drives_acc,
                 ModulatedDrive(
                     LinearDrive(sparse(ComplexF64.(d_input.first)), linear_idx),
                     d_input.second,
@@ -534,10 +551,12 @@ function QuantumSystem(
             linear_idx += 1
         else
             # Plain matrix
-            push!(drives, LinearDrive(sparse(ComplexF64.(d_input)), linear_idx))
+            push!(drives_acc, LinearDrive(sparse(ComplexF64.(d_input)), linear_idx))
             linear_idx += 1
         end
     end
+    # Narrow eltype — fresh `drives` binding, assigned exactly once.
+    drives = identity.(drives_acc)
 
     # Check drive operators are Hermitian
     if hermitian
@@ -987,6 +1006,18 @@ end
     H_y = sparse(ComplexF64[0 -im; im 0])
     omega = 2.0
 
+    # Modulated drift with NO drives: the isempty(drives) branch builds
+    # H/G purely from modulated drift terms.
+    sys0 = QuantumSystem(H_z => t -> cos(omega * t), AbstractDrive[], Float64[])
+    @test sys0 isa QuantumSystem
+    @test sys0.n_drives == 0
+    @test sys0.levels == 2
+    @test sys0.time_dependent
+    @test sys0.H([1.0], 0.0) ≈ H_z
+    @test sys0.H([1.0], π / omega) ≈ -H_z
+    # G matches the isomorphism of the same drift-only Hamiltonian
+    @test sys0.G((), 0.3) ≈ Piccolo.Isomorphisms.G(H_z * cos(omega * 0.3))
+
     # Modulated drive: H_x => t -> cos(omega*t)
     sys1 = QuantumSystem(H_z, [H_x => t -> cos(omega * t), H_y], [1.0, 1.0])
     @test sys1.n_drives == 2
@@ -1026,4 +1057,105 @@ end
     @test sys2.H(u, 0.0) ≈ H_z * cos(0.0) + 1.0 * H_x
     t_test = 0.3
     @test sys2.H(u, t_test) ≈ H_z * cos(omega * t_test) + 1.0 * H_x
+end
+
+@testitem "QuantumSystem typed-drives no-drift constructor" begin
+    using Piccolo
+    using SparseArrays
+
+    H_x = sparse(ComplexF64[0 1; 1 0])
+    H_y = sparse(ComplexF64[0 -im; im 0])
+
+    # QuantumSystem(drives, bounds): zero drift inferred from the first drive
+    sys = QuantumSystem([LinearDrive(H_x, 1), LinearDrive(H_y, 2)], [1.0, 1.0])
+    @test sys isa QuantumSystem
+    @test get_drift(sys) == zeros(ComplexF64, 2, 2)
+    @test sys.n_drives == 2
+    @test sys.levels == 2
+    u = [0.4, -0.6]
+    @test sys.H(u, 0.0) ≈ 0.4 * H_x - 0.6 * H_y
+
+    # Scalar/tuple bounds both accepted
+    sys_t = QuantumSystem([LinearDrive(H_x, 1)], [(-0.5, 0.5)])
+    @test sys_t.drive_bounds == [(-0.5, 0.5)]
+    @test sys_t.n_drives == 1
+
+    # Empty drive vector is rejected
+    @test_throws AssertionError QuantumSystem(LinearDrive[], [1.0])
+end
+
+@testitem "QuantumSystem structured (non-matrix) drift operator" begin
+    using Piccolo
+    using SparseArrays
+    using LinearAlgebra
+
+    # A Piccolissimo-style structured drift operator: not an AbstractMatrix,
+    # but convertible via Base.Matrix and sized via Base.size.
+    struct DiagOp
+        d::Vector{ComplexF64}
+    end
+    Base.Matrix(op::DiagOp) = diagm(op.d)
+    Base.size(op::DiagOp) = (length(op.d), length(op.d))
+    Base.size(op::DiagOp, d::Integer) = 1 <= d <= 2 ? length(op.d) : 1
+
+    H_drift_op = DiagOp(ComplexF64[0.0, 1.0, 2.0])
+    σx_3 = sparse(ComplexF64[0 1 0; 1 0 1; 0 1 0] / sqrt(2))
+    drives = [LinearDrive(σx_3, 1)]
+
+    sys = QuantumSystem(H_drift_op, drives, [1.0])
+    @test sys isa QuantumSystem
+    # The structured operator is stored as-is (not sparsified away)
+    @test sys.H_drift === H_drift_op
+    @test sys.levels == 3
+    @test sys.n_drives == 1
+    @test get_drift(sys) ≈ Matrix(H_drift_op)
+
+    # H(u, t) closure materializes from the operator
+    u = [0.25]
+    @test sys.H(u, 0.0) ≈ Matrix(H_drift_op) + 0.25 * σx_3
+
+    # G(u, t) is the isomorphic generator of the same Hamiltonian
+    @test sys.G(u, 0.0) ≈ Piccolo.Isomorphisms.G(Matrix(H_drift_op) + 0.25 * σx_3)
+
+    # LinearDrive index outside the control dimension is rejected
+    @test_throws AssertionError QuantumSystem(H_drift_op, [LinearDrive(σx_3, 2)], [1.0])
+
+    # NonlinearDrive Jacobian validation runs against n_drives + globals
+    nd_bad = NonlinearDrive(σx_3, u -> u[1]^2, (u, j) -> 3u[1])
+    @test_throws AssertionError QuantumSystem(H_drift_op, [nd_bad], [1.0])
+
+    # No drives: H/G are the drift alone
+    sys0 = QuantumSystem(H_drift_op, AbstractDrive[], Float64[])
+    @test sys0.n_drives == 0
+    @test sys0.H(rand(0), 0.7) ≈ Matrix(H_drift_op)
+    @test sys0.G(rand(0), 0.7) ≈ Piccolo.Isomorphisms.G(Matrix(H_drift_op))
+end
+
+@testitem "QuantumSystem function-constructor bound and hermiticity branches" begin
+    using Piccolo
+    using LinearAlgebra
+
+    # Asymmetric tuple bounds: the Hermiticity probe evaluates at the
+    # interval midpoint (b[1] + b[2]) / 2, not at 0.0.
+    H_mid = (u, t) -> PAULIS.Z + u[1] * PAULIS.X
+    sys = QuantumSystem(H_mid, [(-0.5, 1.5)])
+    @test sys.drive_bounds == [(-0.5, 1.5)]
+    @test sys.n_drives == 1
+
+    # Non-Hermitian at the probe point but hermitian=false opts out
+    H_nh = (u, t) -> PAULIS.Z + u[1] * (PAULIS.X + im * PAULIS.Y)
+    sys_nh = QuantumSystem(H_nh, [1.0]; hermitian = false)
+    @test sys_nh.hermitian == false
+    @test sys_nh.levels == 2
+
+    # The same non-Hermitian Hamiltonian fails the default check. Asymmetric
+    # bounds are required: the control probe evaluates at the midpoint
+    # (lo + hi) / 2, which is nonzero here.
+    @test_throws AssertionError QuantumSystem(H_nh, [(-0.5, 1.5)])
+
+    # global_params are float-converted (Ints become Float64)
+    sys_gp = QuantumSystem((u, t) -> u[1] * PAULIS.X, [1.0]; global_params = (δ = 1, Ω = 2))
+    @test sys_gp.global_params isa NamedTuple
+    @test all(v -> v isa Float64, values(sys_gp.global_params))
+    @test sys_gp.global_params == (δ = 1.0, Ω = 2.0)
 end

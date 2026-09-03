@@ -16,7 +16,7 @@
 #
 # ## Key Design: Composition Pattern
 #
-# `SamplingProblem` **wraps** an existing `QuantumControlProblem` and extends it with multiple system variants:
+# `SamplingProblem` is a parametric **wrapper type** around an existing problem, extending it with multiple system variants. The wrap history lives in the type: `SamplingProblem{SmoothPulseProblem{...}}` is a sampled smooth problem.
 #
 # ```julia
 # # Create base problem
@@ -37,7 +37,7 @@
 #
 # ```julia
 # SamplingProblem(
-#     qcp::QuantumControlProblem,
+#     qcp::AbstractQuantumControlProblem,
 #     systems::Vector{<:AbstractQuantumSystem};
 #     weights = fill(1.0, length(systems)),
 #     Q = 100.0,
@@ -49,7 +49,7 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `qcp` | `QuantumControlProblem` | required | Base problem providing trajectory structure |
+# | `qcp` | `AbstractQuantumControlProblem` | required | Base problem providing trajectory structure |
 # | `systems` | `Vector{AbstractQuantumSystem}` | required | System variants to optimize over |
 # | `weights` | `Vector{Float64}` | `fill(1.0, length(systems))` | Relative importance of each system |
 # | `Q` | `Float64` | `100.0` | Infidelity weight (applied to all systems) |

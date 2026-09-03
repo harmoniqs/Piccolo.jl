@@ -40,7 +40,7 @@
 #
 # ```julia
 # MinimumTimeProblem(
-#     qcp::QuantumControlProblem;
+#     p::AbstractQuantumControlProblem;
 #     goal = nothing,
 #     final_fidelity = 0.99,
 #     D = 100.0,
@@ -52,7 +52,7 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `qcp` | `QuantumControlProblem` | required | Base problem to convert (must have `Δt_bounds`) |
+# | `p` | `AbstractQuantumControlProblem` | required | Base problem to convert (must have `Δt_bounds`) |
 # | `goal` | `AbstractPiccoloOperator` or `AbstractVector` | `nothing` | Optional new goal (uses base problem's goal if `nothing`) |
 # | `final_fidelity` | `Float64` | `0.99` | Minimum fidelity constraint |
 # | `D` | `Float64` | `100.0` | Weight on total time objective |
@@ -92,7 +92,7 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0, Δt_bounds = (0.05, 0.5))
 cached_solve!(qcp_base, "mintime_base"; max_iter = 100)
 
-sum(get_timesteps(get_trajectory(qcp_base)))
+get_duration(get_trajectory(qcp_base))
 
 #-
 
@@ -103,7 +103,7 @@ fidelity(qcp_base)
 qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
 cached_solve!(qcp_mintime, "mintime_optimal"; max_iter = 100)
 
-sum(get_timesteps(get_trajectory(qcp_mintime)))
+get_duration(get_trajectory(qcp_mintime))
 
 #-
 
@@ -121,7 +121,7 @@ for target_fidelity in [0.999, 0.99, 0.95, 0.90]
         verbose = false,
         print_level = 1,
     )
-    dur = sum(get_timesteps(get_trajectory(qcp_mt)))
+    dur = get_duration(get_trajectory(qcp_mt))
     push!(results, (target = target_fidelity, duration = dur, achieved = fidelity(qcp_mt)))
 end
 

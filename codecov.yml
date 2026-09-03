@@ -1,0 +1,46 @@
+# Codecov configuration.
+#
+# Without this file codecov applies its defaults, which put the `patch` target at
+# `auto` — the diff must be covered at least as well as the base commit's project
+# coverage. That is a reasonable default, but it counts every line in the diff,
+# including files the test suite is never supposed to execute.
+#
+# `ignore` below is for exactly that: standalone developer-tooling scripts that
+# are invoked by hand (or by a regeneration step), not library code reached from
+# any code path a user or a test takes. They are ~90 lines of file I/O whose
+# *behaviour* is already gated by tests:
+#
+#   schema/regenerate.jl        rewrites problemspec.oss.schema.json.
+#                               Guarded by schema/drift.jl, which asserts the
+#                               checked-in file equals `emit_schema()` today.
+#   schema/emit_hash_fixtures.jl  rewrites hash_fixtures/*.hashes.json.
+#                               Guarded by schema/hash_drift.jl, which asserts the
+#                               checked-in sidecars equal recomputed digests.
+#
+# So the guarantee each script exists to provide IS tested; only the argv/print
+# plumbing is excluded. Testing the scripts themselves would mean either letting a
+# test write into the repo or refactoring a 24-line wrapper for injectable output
+# paths — coverage theatre, not a better-tested package.
+#
+# Deliberately NOT done here: lowering the patch target. The remaining diff is
+# library code and should be held to the project's own bar.
+
+ignore:
+  - "src/specs/schema/regenerate.jl"
+  - "src/specs/schema/emit_hash_fixtures.jl"
+
+coverage:
+  status:
+    patch:
+      default:
+        target: auto
+        threshold: 1%   # tolerate sub-1pp noise between runs, nothing more
+    project:
+      default:
+        target: auto
+        threshold: 1%
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
