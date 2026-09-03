@@ -219,7 +219,7 @@ function RadialMSGateSystem(;
         return H
     end
 
-    return QuantumSystem(H_time_dep, drive_bounds; time_dependent = true)
+    return OpenQuantumSystem(H_time_dep, drive_bounds; time_dependent = true)
 end
 
 # *************************************************************************** #
@@ -416,7 +416,7 @@ function RadialMSGateSystemWithPhase(;
         drive_bounds[2j] = phase_bounds[j]
     end
 
-    return QuantumSystem(H_time_dep, drive_bounds; time_dependent = true)
+    return OpenQuantumSystem(H_time_dep, drive_bounds; time_dependent = true)
 end
 
 # *************************************************************************** #

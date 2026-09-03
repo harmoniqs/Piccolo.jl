@@ -52,22 +52,22 @@ H_drift = PAULIS[:Z]                    # ωq/2 σz
 H_drives = [PAULIS[:X], PAULIS[:Y]]     # Controllable terms
 drive_bounds = [1.0, 1.0]               # Maximum amplitude for each drive
 
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 
 # ### Constructor Variants
 #
 # ```julia
 # # Full specification (linear drives)
-# sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+# sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 #
 # # No drift (pure control)
-# sys = QuantumSystem(H_drives, drive_bounds)
+# sys = OpenQuantumSystem(H_drives, drive_bounds)
 #
 # # No drives (free evolution)
-# sys = QuantumSystem(H_drift)
+# sys = OpenQuantumSystem(H_drift)
 #
 # # Typed drives (supports nonlinear coefficients)
-# sys = QuantumSystem(H_drift, drives, drive_bounds)
+# sys = OpenQuantumSystem(H_drift, drives, drive_bounds)
 # ```
 #
 # ## Drive Bounds
@@ -75,7 +75,7 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 # Drive bounds set the box constraints ``u_{\min} \leq u_i \leq u_{\max}``
 # for each channel:
 ## Vector: per-drive bounds
-sys_vector = QuantumSystem(H_drift, H_drives, [0.5, 1.0])
+sys_vector = OpenQuantumSystem(H_drift, H_drives, [0.5, 1.0])
 
 # ## Accessing System Properties
 
@@ -95,7 +95,7 @@ H_d
 # When the Hamiltonian contains terms whose coefficient is a nonlinear function of
 # the controls — for example ``|\alpha|^2`` terms in a displaced frame or products
 # of control amplitudes — you can use **typed drive terms** via the
-# `QuantumSystem(H_drift, drives, drive_bounds)` constructor.
+# `OpenQuantumSystem(H_drift, drives, drive_bounds)` constructor.
 #
 # ### Drive Types
 #
@@ -170,7 +170,7 @@ drives = AbstractDrive[
     NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2),   ## (u₁² + u₂²) σz
 ]
 
-sys_nl = QuantumSystem(drives, [1.0, 1.0])
+sys_nl = OpenQuantumSystem(drives, [1.0, 1.0])
 
 # The resulting system works with all the same trajectories and problem templates:
 
@@ -201,11 +201,11 @@ get_drives(sys_nl)
 
 # ### Backward Compatibility
 #
-# The standard matrix-based constructor `QuantumSystem(H_drift, H_drives, bounds)`
+# The standard matrix-based constructor `OpenQuantumSystem(H_drift, H_drives, bounds)`
 # still works exactly as before — it automatically creates `LinearDrive` objects
 # internally:
 
-sys_linear = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+sys_linear = OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
 sys_linear.drives  ## auto-populated LinearDrives
 
 # ## Modulated Drives
@@ -243,20 +243,20 @@ omega = 2π * 0.1  # modulation frequency (GHz)
 
 ## Modulated drive channel: H_x oscillates at ω
 sys_mod =
-    QuantumSystem(PAULIS[:Z], [PAULIS[:X] => t -> cos(omega * t), PAULIS[:Y]], [1.0, 1.0])
+    OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X] => t -> cos(omega * t), PAULIS[:Y]], [1.0, 1.0])
 sys_mod.time_dependent
 
 #-
 
 ## Modulated drift: time-varying drift term
 sys_mod_drift =
-    QuantumSystem(PAULIS[:Z] => t -> cos(omega * t), [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    OpenQuantumSystem(PAULIS[:Z] => t -> cos(omega * t), [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
 sys_mod_drift.time_dependent
 
 #-
 
 ## Mixed: static + modulated drift terms as a vector
-sys_mixed = QuantumSystem(
+sys_mixed = OpenQuantumSystem(
     [PAULIS[:Z], 0.05 * PAULIS[:X] => t -> cos(omega * t)],
     [PAULIS[:Y]],
     [1.0],
@@ -272,7 +272,7 @@ length(sys_mixed.drift_terms)
 # `NonlinearDrive` can also be modulated using the same `Pair` syntax:
 
 nd_mod = NonlinearDrive(PAULIS[:Z], u -> u[1]^2 + u[2]^2)
-sys_nl_mod = QuantumSystem(PAULIS[:Z], [nd_mod => t -> cos(omega * t)], [1.0, 1.0])
+sys_nl_mod = OpenQuantumSystem(PAULIS[:Z], [nd_mod => t -> cos(omega * t)], [1.0, 1.0])
 sys_nl_mod.H_drives[1]
 
 # Or wrap explicitly: `ModulatedDrive(nd_mod, t -> cos(omega * t))`.
@@ -294,7 +294,7 @@ sys_nl_mod.H_drives[1]
 omega_q_lab = 5.0   # qubit frequency (GHz)
 omega_d_lab = 5.0   # drive frequency, on resonance
 
-sys_lab = QuantumSystem(
+sys_lab = OpenQuantumSystem(
     (omega_q_lab / 2) * PAULIS[:Z],
     [PAULIS[:X] => t -> cos(omega_d_lab * t)],
     [0.5],
@@ -362,8 +362,8 @@ sys_lab.time_dependent
 # tensor product ``\mathcal{H} = \mathcal{H}_1 \otimes \mathcal{H}_2``:
 #
 # ```julia
-# sys1 = QuantumSystem(H1_drift, H1_drives, bounds1)
-# sys2 = QuantumSystem(H2_drift, H2_drives, bounds2)
+# sys1 = OpenQuantumSystem(H1_drift, H1_drives, bounds1)
+# sys2 = OpenQuantumSystem(H2_drift, H2_drives, bounds2)
 # H_coupling = J * kron(PAULIS[:Z], PAULIS[:Z])
 #
 # composite_sys = CompositeQuantumSystem([sys1, sys2], H_coupling)

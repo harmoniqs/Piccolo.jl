@@ -740,7 +740,7 @@ end
     using Piccolo.Quantum.Pulses: duration
 
     # Simple 2-level system
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create trajectory with zero controls
     T = 1.0
@@ -781,7 +781,7 @@ end
     H_drive2 = zeros(ComplexF64, 3, 3)
     H_drive1[1, 2] = H_drive1[2, 1] = 1.0
     H_drive2[2, 3] = H_drive2[3, 2] = 1.0
-    system = QuantumSystem(H_drift, [H_drive1, H_drive2], [1.0, 1.0])
+    system = OpenQuantumSystem(H_drift, [H_drive1, H_drive2], [1.0, 1.0])
 
     # Create trajectory
     T = 1.0
@@ -804,7 +804,7 @@ end
     using Piccolo.Quantum.Pulses: duration
 
     # Simple 2-level system
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create trajectory
     T = 1.0
@@ -831,7 +831,7 @@ end
     using NamedTrajectories
 
     # Simple 2-level system
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create trajectory with multiple states
     T = 1.0
@@ -906,7 +906,7 @@ end
     using NamedTrajectories
 
     # System setup
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create trajectory
     T = 1.0
@@ -926,7 +926,7 @@ end
     using NamedTrajectories
 
     # System setup
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create pulse with custom name
     T = 1.0
@@ -950,7 +950,7 @@ end
     using NamedTrajectories
 
     # System setup
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create trajectory
     T = 1.0
@@ -978,7 +978,7 @@ end
     using NamedTrajectories
 
     # System setup
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create trajectory
     T = 1.0
@@ -1032,7 +1032,7 @@ end
 
     # Create a system with global parameters
     H_drives = [PAULIS[:X], PAULIS[:Y]]
-    sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params = (δ = 0.5, Ω = 1.0))
+    sys = OpenQuantumSystem(H_drives, [1.0, 1.0]; global_params = (δ = 0.5, Ω = 1.0))
 
     # Create trajectory
     pulse = ZeroOrderPulse([0.5 0.3; 0.5 0.3], [0.0, 1.0])
@@ -1062,7 +1062,7 @@ end
     @test traj_ket.global_data[traj_ket.global_components.δ][1] == 0.5
 
     # Test with system without global_params
-    sys_no_globals = QuantumSystem(H_drives, [1.0, 1.0])
+    sys_no_globals = OpenQuantumSystem(H_drives, [1.0, 1.0])
     qtraj_no_g = UnitaryTrajectory(sys_no_globals, pulse, U_goal)
     traj_no_g = NamedTrajectory(qtraj_no_g, 5)
     # Should work without error, just no global components
@@ -1074,7 +1074,7 @@ end
     using Piccolo
     using Piccolo.Quantum.QuantumTrajectories: _sample_times
 
-    sys = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
+    sys = OpenQuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
 
     # ── _sample_times(traj, nothing): spline → native knots; zero-order → error ──
     times = collect(range(0.0, 1.0; length = 11))
@@ -1099,7 +1099,7 @@ end
     @test traj_b.bounds[:Δt] == ([0.05], [0.15])
 
     # ── auto-populated global_data from system.global_params (ket conversion) ──
-    sys_g = QuantumSystem(
+    sys_g = OpenQuantumSystem(
         0.1 * PAULIS[:Z],
         [PAULIS[:X]],
         [(-1.0, 1.0)];

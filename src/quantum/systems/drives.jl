@@ -38,7 +38,7 @@ abstract type AbstractDrive end
 
 Standard linear drive: coefficient is `u[index]`.
 
-This is the default representation when constructing `QuantumSystem(H_drift, H_drives, bounds)`.
+This is the default representation when constructing `OpenQuantumSystem(H_drift, H_drives, bounds)`.
 
 # Fields
 - `H::H`: The Hermitian drive operator (matrix or `AbstractDynamicsOperator`)
@@ -877,7 +877,7 @@ end
     Random.seed!(42)
     baseline2 = rand(5)
     Random.seed!(42)
-    QuantumSystem(H_drift, drives, bounds; global_params = (g1 = 0.5,))
+    OpenQuantumSystem(H_drift, drives, bounds; global_params = (g1 = 0.5,))
     @test rand(5) == baseline2
 
     # 3. Same again but with no globals — verifies the no-globals path is
@@ -885,7 +885,7 @@ end
     Random.seed!(42)
     baseline3 = rand(5)
     Random.seed!(42)
-    QuantumSystem(H_drift, drives, bounds)
+    OpenQuantumSystem(H_drift, drives, bounds)
     @test rand(5) == baseline3
 end
 
@@ -1139,7 +1139,7 @@ end
     # End-to-end: coupling_drive inside a QuantumSystem
     σz = sparse([1.0+0im 0.0+0im; 0.0+0im -1.0+0im])
     drives = AbstractDrive[LinearDrive(σz, 1), coupling_drive(H, 1, 2; strength = 0.5)]
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), drives, [(-1.0, 1.0), (-1.0, 1.0)])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), drives, [(-1.0, 1.0), (-1.0, 1.0)])
     u = [0.3, -0.8]
     @test sys.H(u, 0.0) ≈ 0.3 * σz + 0.5 * 0.3 * (-0.8) * H
 end

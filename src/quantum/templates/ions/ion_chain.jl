@@ -171,7 +171,7 @@ function IonChainSystem(;
         H_drives = [2π * H for H in H_drives]
     end
 
-    return QuantumSystem(H_drift, H_drives, drive_bounds)
+    return OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 end
 
 @doc raw"""

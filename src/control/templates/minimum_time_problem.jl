@@ -49,7 +49,7 @@ where q represents the quantum state (unitary, ket, or density matrix).
 # Examples
 ```julia
 # Standard workflow
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 pulse = ZeroOrderPulse(0.1 * randn(n_drives, N), collect(range(0.0, T, length=N)))
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
@@ -343,15 +343,16 @@ end
 # Tests
 # ============================================================================= #
 
-@testitem "MinimumTimeProblem from SmoothPulseProblem (Unitary)" begin
+@testitem "MinimumTimeProblem from SmoothPulseProblem (Unitary)" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
+    using Piccolo
     using NamedTrajectories
 
     T = 1.0
     N = 50
 
     # Create and solve smooth pulse problem
-    sys = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
     qcp_smooth = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
@@ -379,14 +380,14 @@ end
     @test duration_after <= duration_before
 end
 
-@testitem "MinimumTimeProblem from SmoothPulseProblem (Ket)" begin
+@testitem "MinimumTimeProblem from SmoothPulseProblem (Ket)" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
 
     T = 1.0
     N = 50
 
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
@@ -406,13 +407,13 @@ end
     solve!(qcp_mintime; max_iter = 10, print_level = 1, verbose = false)
 end
 
-@testitem "MinimumTimeProblem with updated goal" begin
+@testitem "MinimumTimeProblem with updated goal" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
 
     T = 1.0
     N = 50
 
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
 
@@ -431,14 +432,14 @@ end
     @test qcp_mintime.qtraj.goal === GATES[:X]  # Goal should be updated
 end
 
-@testitem "MinimumTimeProblem type dispatch" begin
+@testitem "MinimumTimeProblem type dispatch" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
 
     T = 1.0
     N = 50
 
     # Test that type parameter is correct for different trajectory types
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     # Unitary
     pulse_u = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
@@ -457,7 +458,7 @@ end
     @test qcp_mintime_k isa SmoothPulseProblem{<:KetTrajectory}
 end
 
-@testitem "MinimumTimeProblem with SamplingTrajectory" begin
+@testitem "MinimumTimeProblem with SamplingTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
 
@@ -465,8 +466,8 @@ end
     N = 50
 
     # Robust minimum-time gate optimization
-    sys_nominal = QuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
-    sys_perturbed = QuantumSystem(0.11 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_nominal = OpenQuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = OpenQuantumSystem(0.11 * GATES[:Z], [GATES[:X]], [1.0])
 
     # Deterministic small smooth init — keeps the smooth and min-time solves
     # in comparable basins so the duration_after vs duration_before assertion
@@ -501,15 +502,15 @@ end
     @test duration_after <= duration_before * 1.2  # Allow small tolerance
 end
 
-@testitem "MinimumTimeProblem with SamplingTrajectory (Ket)" begin
+@testitem "MinimumTimeProblem with SamplingTrajectory (Ket)" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
 
     T = 1.0
     N = 50
 
     # Robust minimum-time state transfer
-    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
-    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_nominal = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_perturbed = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -533,7 +534,7 @@ end
     solve!(mintime_prob; max_iter = 15, verbose = false, print_level = 1)
 end
 
-@testitem "MinimumTimeProblem with MultiKetTrajectory" begin
+@testitem "MinimumTimeProblem with MultiKetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
@@ -542,7 +543,7 @@ end
     N = 50
 
     # Multi-state minimum-time optimization (X gate via state transfer)
-    sys = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     # Create ensemble of ket states for X gate
     ψ0 = ComplexF64[1.0, 0.0]
@@ -555,7 +556,7 @@ end
         0.1 *
         vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
-    ensemble_qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    ensemble_qtraj = MultiDensityTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     # Create and solve smooth pulse problem. max_iter raised so the base solve
     # has actually converged before being handed to MinimumTimeProblem — the
@@ -598,7 +599,7 @@ end
     end
 end
 
-@testitem "MinimumTimeProblem with time-dependent UnitaryTrajectory" begin
+@testitem "MinimumTimeProblem with time-dependent UnitaryTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
@@ -609,7 +610,7 @@ end
 
     T = 5.0
     N = 50
-    sys = QuantumSystem(H, [1.0, 1.0])
+    sys = OpenQuantumSystem(H, [1.0, 1.0])
 
     # Deterministic small smooth init — keeps the smooth and min-time solves
     # in comparable basins so the duration_after vs duration_before assertion
@@ -643,7 +644,7 @@ end
     @test duration_after <= duration_before * 1.2
 end
 
-@testitem "MinimumTimeProblem with time-dependent KetTrajectory" begin
+@testitem "MinimumTimeProblem with time-dependent KetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
@@ -654,7 +655,7 @@ end
 
     T = 5.0
     N = 50
-    sys = QuantumSystem(H, [1.0])
+    sys = OpenQuantumSystem(H, [1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -689,7 +690,7 @@ end
     @test duration_after <= duration_before * 1.2
 end
 
-@testitem "MinimumTimeProblem with time-dependent MultiKetTrajectory" begin
+@testitem "MinimumTimeProblem with time-dependent MultiKetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
@@ -700,7 +701,7 @@ end
 
     T = 5.0
     N = 50
-    sys = QuantumSystem(H, [1.0, 1.0])
+    sys = OpenQuantumSystem(H, [1.0, 1.0])
 
     # Create ensemble: |0⟩ → |1⟩ and |1⟩ → |0⟩
     ψ0 = ComplexF64[1.0, 0.0]
@@ -714,7 +715,7 @@ end
         0.1 *
         vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
-    qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qtraj = MultiDensityTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
     # Create and solve smooth pulse problem
     qcp_smooth = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3, Δt_bounds = (0.01, 0.5))
@@ -752,8 +753,8 @@ end
 
     T = 1.0
     N = 50
-    sys_nominal = QuantumSystem(H1, [1.0])
-    sys_perturbed = QuantumSystem(H2, [1.0])
+    sys_nominal = OpenQuantumSystem(H1, [1.0])
+    sys_perturbed = OpenQuantumSystem(H2, [1.0])
 
     U_goal = GATES[:X]
     # Deterministic small smooth init (cos at trajectory frequency) keeps
@@ -796,7 +797,7 @@ end
     @test duration_after <= duration_before * 2.0
 end
 
-@testitem "MinimumTimeProblem with time-dependent SamplingTrajectory (Ket)" begin
+@testitem "MinimumTimeProblem with time-dependent SamplingTrajectory (Ket)" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
@@ -808,8 +809,8 @@ end
 
     T = 1.0
     N = 50
-    sys_nominal = QuantumSystem(H1, [1.0])
-    sys_perturbed = QuantumSystem(H2, [1.0])
+    sys_nominal = OpenQuantumSystem(H1, [1.0])
+    sys_perturbed = OpenQuantumSystem(H2, [1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -851,7 +852,7 @@ end
     @test duration_after <= duration_before * 1.2
 end
 
-@testitem "MinimumTimeProblem detects free-phase variables" begin
+@testitem "MinimumTimeProblem detects free-phase variables" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -859,7 +860,7 @@ end
     # Create a system with an EmbeddedOperator goal and free-phase variables
     H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    sys = OpenQuantumSystem(H_drift_3, [H_drive_3], [1.0])
 
     T = 10.0
     N = 51

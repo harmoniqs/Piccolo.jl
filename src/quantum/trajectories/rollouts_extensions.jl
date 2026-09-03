@@ -1262,7 +1262,7 @@ end
 
     # A superposition goal is required for the rotation to be observable: a single basis-state
     # goal only picks up a global phase, which abs2 discards.
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
     N, T = 11, 1.0
     times = collect(range(0, T, length = N))
     pulse = LinearSplinePulse(fill(0.4, 1, N), times)
@@ -1308,7 +1308,7 @@ end
     using OrdinaryDiffEqLinear: MagnusGL4
     using OrdinaryDiffEqTsit5: Tsit5
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     X_gate = ComplexF64[0 1; 1 0]
 
     # Create trajectory with initial pulse (1 drive × 2 knot points)
@@ -1350,7 +1350,7 @@ end
     using LinearAlgebra
     using OrdinaryDiffEqLinear: MagnusGL4
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
 
@@ -1383,7 +1383,7 @@ end
 @testitem "rollout preserves MultiKetTrajectory solution structure" begin
     using LinearAlgebra
 
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     psi0 = ComplexF64[1.0, 0.0]
     psi1 = ComplexF64[0.0, 1.0]
 
@@ -1409,7 +1409,7 @@ end
 @testitem "rollout - MultiKetTrajectory" begin
     using LinearAlgebra
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
 
@@ -1484,7 +1484,7 @@ end
     # 2-level system embedded in 3 levels
     H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    sys = OpenQuantumSystem(H_drift_3, [H_drive_3], [1.0])
 
     σx = ComplexF64[0 1; 1 0]
     subspace = [1, 2]
@@ -1505,7 +1505,7 @@ end
 
     H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    sys = OpenQuantumSystem(H_drift_3, [H_drive_3], [1.0])
 
     σx = ComplexF64[0 1; 1 0]
     subspace = [1, 2]
@@ -1529,7 +1529,7 @@ end
 @testitem "fidelity with plain matrix goal and subspace" begin
     using LinearAlgebra
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     X_gate = ComplexF64[0 1; 1 0]
 
     pulse = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
@@ -1592,7 +1592,7 @@ end
     using LinearAlgebra
 
     # Plain matrix goal: `phases` cannot be applied — the kwarg must warn, not silently apply.
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     X_gate = ComplexF64[0 1; 1 0]
     pulse = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
     qtraj = UnitaryTrajectory(sys, pulse, X_gate)
@@ -1607,7 +1607,7 @@ end
     # EmbeddedOperator goal with an explicit `subspace`: same warning, standard fidelity path.
     H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys3 = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    sys3 = OpenQuantumSystem(H_drift_3, [H_drive_3], [1.0])
     U_goal = EmbeddedOperator(X_gate, [1, 2], [3])
     qt3 = UnitaryTrajectory(sys3, pulse, U_goal)
 
@@ -1625,7 +1625,7 @@ end
     # Zero drift and zero controls: the states never move, so the phased coherent
     # fidelity is hand-computable. With goals == initials only the |01⟩ goal picks up
     # a phase, so F = |(1 + e^{-iθ₂})/2|² = cos²(θ₂/2) — independent of θ₁.
-    sys = QuantumSystem(zeros(ComplexF64, 4, 4), [kron(PAULIS[:X], PAULIS[:I])], [1.0])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 4, 4), [kron(PAULIS[:X], PAULIS[:I])], [1.0])
     ψa = ComplexF64[1, 0, 0, 0]
     ψb = ComplexF64[0, 1, 0, 0]
     pulse = ZeroOrderPulse(zeros(1, 2), [0.0, 1.0])
@@ -1645,8 +1645,8 @@ end
 @testitem "Rollouts._update_system! swaps the system across trajectory types" begin
     using LinearAlgebra
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
-    sys2 = QuantumSystem(0.9 * PAULIS.Z, [PAULIS.X], [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys2 = OpenQuantumSystem(0.9 * PAULIS.Z, [PAULIS.X], [1.0])
     pulse = ZeroOrderPulse([0.5 0.5], [0.0, 1.0])
 
     qtraj_u = UnitaryTrajectory(sys, pulse, GATES[:X])

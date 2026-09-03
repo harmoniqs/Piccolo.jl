@@ -234,7 +234,7 @@ include("composite_quantum_systems.jl")
     using Piccolo
     using LinearAlgebra
 
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         0.1 * PAULIS[:Z],
         [PAULIS[:X], PAULIS[:Y]],
         [(-1.0, 1.0), (-1.0, 1.0)],
@@ -252,7 +252,7 @@ include("composite_quantum_systems.jl")
     @test occursin("n_drives = 2", s)
 
     # a function-based system without typed drives → the empty fallback
-    sys_fn = QuantumSystem((u, t) -> 0.1 * PAULIS[:Z] + u[1] * PAULIS[:X], [1.0])
+    sys_fn = OpenQuantumSystem((u, t) -> 0.1 * PAULIS[:Z] + u[1] * PAULIS[:X], [1.0])
     @test get_drive_terms(sys_fn) == AbstractDrive[]
 
     # system-built pulses: the three convenience constructors

@@ -86,7 +86,7 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 
 # Examples
 ```julia
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 pulse = ZeroOrderPulse(0.1 * randn(n_drives, N), collect(range(0.0, T, length=N)))
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 qcp = BangBangPulseProblem(qtraj, N; Q=100.0, R_du=1e-1)
@@ -474,11 +474,12 @@ end
 
 @testitem "BangBangPulseProblem with UnitaryTrajectory" tags = [:experimental] begin
     using DirectTrajOpt
+    using Piccolo
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     U_goal = GATES[:H]
 
     pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
@@ -509,13 +510,13 @@ end
     end
 end
 
-@testitem "BangBangPulseProblem with KetTrajectory" begin
+@testitem "BangBangPulseProblem with KetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
 
@@ -538,12 +539,12 @@ end
     @test fid > 0.9
 end
 
-@testitem "BangBangPulseProblem rejects spline pulses" begin
+@testitem "BangBangPulseProblem rejects spline pulses" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     U_goal = GATES[:X]
 
     times = collect(range(0.0, T, length = N))
@@ -559,7 +560,7 @@ end
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -604,7 +605,7 @@ end
     end
 end
 
-@testitem "BangBangPulseProblem with UnitaryTrajectory and free_phase=true" begin
+@testitem "BangBangPulseProblem with UnitaryTrajectory and free_phase=true" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -616,7 +617,7 @@ end
     σx = ComplexF64[0 1; 1 0]
     H_drift = Diagonal(ComplexF64[0, 0, 1.0])
     H_drive = ComplexF64[0 1 0; 1 0 0; 0 0 0]
-    sys = QuantumSystem(H_drift, [H_drive], [1.0])
+    sys = OpenQuantumSystem(H_drift, [H_drive], [1.0])
 
     subspace = get_subspace_indices([1, 2], 3)
     U_goal = EmbeddedOperator(σx, subspace, [3])
@@ -632,14 +633,14 @@ end
     )
 end
 
-@testitem "BangBangPulseProblem with MultiKetTrajectory and free_phase=true" begin
+@testitem "BangBangPulseProblem with MultiKetTrajectory and free_phase=true" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -693,12 +694,12 @@ end
           free_phase_objective_value(fill(1.0, 3))
 end
 
-@testitem "BangBangPulseProblem free_phase requires EmbeddedOperator for unitary" begin
+@testitem "BangBangPulseProblem free_phase requires EmbeddedOperator for unitary" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     U_goal = GATES[:X]
@@ -706,12 +707,12 @@ end
     @test_throws AssertionError BangBangPulseProblem(qtraj, N; free_phase = true)
 end
 
-@testitem "BangBangPulseProblem MultiKet free_phase requires subsystem_levels" begin
+@testitem "BangBangPulseProblem MultiKet free_phase requires subsystem_levels" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]

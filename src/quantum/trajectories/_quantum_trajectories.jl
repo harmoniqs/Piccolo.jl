@@ -74,8 +74,8 @@ end
     using OrdinaryDiffEqTsit5: Tsit5
     using Piccolo.Quantum.QuantumSystems: default_algorithm
 
-    sys_h = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
-    sys_nh = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)]; hermitian = false)
+    sys_h = OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
+    sys_nh = OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)]; hermitian = false)
 
     csys_h = CompositeQuantumSystem(
         zeros(ComplexF64, 4, 4),

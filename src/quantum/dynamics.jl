@@ -187,7 +187,7 @@ function _reconstruct_system(sys::QuantumSystem, new_global_params::NamedTuple)
     # Always use the inner constructor to preserve the exact H/G closure types.
     # H/G closures do not capture global_params directly (they are appended to u
     # by the integrator), so reusing sys.H and sys.G is always correct.
-    return QuantumSystem(
+    return OpenQuantumSystem(
         sys.H,
         sys.G,
         sys.H_drift,
@@ -763,7 +763,7 @@ SII.is_observed(sys::PiccoloRolloutSystem, sym) = false
     using OrdinaryDiffEqTsit5
 
     T, Δt = 1.0, 0.1
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     ψ0 = ComplexF64[1, 0]
     u = t -> [t; 0.0]
     times = 0:Δt:T
@@ -788,7 +788,7 @@ end
     using OrdinaryDiffEqLinear
 
     T, Δt = 1.0, 0.1
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     u = t -> [t; 0.0]
     times = 0:Δt:T
     rollout = UnitaryOperatorODEProblem(sys, u, times)
@@ -812,7 +812,7 @@ end
     using OrdinaryDiffEqTsit5
 
     T, Δt = 1.0, 0.1
-    csys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    csys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     a = ComplexF64[0 1; 0 0]
     sys = OpenQuantumSystem(csys, dissipation_operators = [1e-3 * a])
     u = t -> [t; 0.0]
@@ -842,7 +842,7 @@ end
     using OrdinaryDiffEqLinear
 
     T, Δt = 1.0, 0.1
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     osys = OpenQuantumSystem(sys)
 
     u = t -> [t; 0.0]
@@ -874,7 +874,7 @@ end
     using OrdinaryDiffEqLinear
 
     T, Δt = 1.0, 0.01
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     osys = OpenQuantumSystem(sys)
     times = 0:Δt:T
     n_times = length(times)
@@ -951,7 +951,7 @@ end
 
     T = 1.0
     Δt = 0.1
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     times = 0:Δt:T
     n_times = length(times)
     ψ0 = ComplexF64[1, 0]
@@ -998,7 +998,7 @@ end
 
     # Setup
     T = 1.0
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     X_gate = ComplexF64[0 1; 1 0]
 
     # Method 1: Fast fidelity from quantum trajectory (O(1))
@@ -1036,7 +1036,7 @@ end
 
     # Setup
     T = 1.0
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     X_gate = ComplexF64[0 1; 1 0]
 
     # Create initial trajectory
@@ -1066,7 +1066,7 @@ end
     # Create a system with global parameters
     H_drives = [PAULIS[:X], PAULIS[:Y]]
     global_params = (δ = 0.5, Ω = 1.0)
-    sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
+    sys = OpenQuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
 
     # Create a unitary trajectory (2 drives × 2 knot points)
     pulse = ZeroOrderPulse([0.5 0.3; 0.5 0.3], [0.0, 1.0])
@@ -1181,7 +1181,7 @@ end
     # Create a system with global parameters
     H_drives = [PAULIS[:X], PAULIS[:Y]]
     global_params = (δ = 0.5, Ω = 1.0)
-    sys = QuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
+    sys = OpenQuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
     pulse = ZeroOrderPulse([0.5 0.3; 0.5 0.3], [0.0, 1.0])
     U_goal = PAULIS[:X]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
@@ -1202,7 +1202,7 @@ end
     using SciMLBase: EnsembleProblem, solve, remake
     using OrdinaryDiffEqLinear: MagnusAdapt4
 
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
 
     psi0 = ComplexF64[1.0, 0.0]
     psi1 = ComplexF64[0.0, 1.0]
@@ -1251,7 +1251,7 @@ end
     N = 30
     T = 1.0
 
-    sys = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     psi0 = ComplexF64[1.0, 0.0]
     psi1 = ComplexF64[0.0, 1.0]
 
@@ -1321,7 +1321,7 @@ end
     using LinearAlgebra
 
     T, Δt = 1.0, 0.1
-    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
     u = t -> [t; 0.0]
     times = 0:Δt:T
 
@@ -1359,7 +1359,7 @@ end
     # Function-based system carrying a global: the rollout closures must
     # append the global values to the control vector before calling H.
     Hfn = (u, t) -> u[2] * GATES[:Z] + u[1] * GATES[:X]
-    sys = QuantumSystem(Hfn, [1.0]; global_params = (δ = 0.25,))
+    sys = OpenQuantumSystem(Hfn, [1.0]; global_params = (δ = 0.25,))
 
     T, Δt = 1.0, 0.1
     times = 0:Δt:T
@@ -1404,7 +1404,7 @@ end
 
     T = 1.0
     N = 10
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -1467,7 +1467,7 @@ end
 
     T = 1.0
     N = 10
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     U_goal = GATES[:X]
 
     traj = NamedTrajectory(

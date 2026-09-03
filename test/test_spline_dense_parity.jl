@@ -54,7 +54,7 @@
     times = collect(range(0.0, T, length = N))
     n_ctrl = 2
 
-    sys = QuantumSystem(1.7 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(1.7 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
 

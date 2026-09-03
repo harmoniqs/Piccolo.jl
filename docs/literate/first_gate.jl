@@ -48,7 +48,7 @@ H_drives = [PAULIS[:X], PAULIS[:Y]]
 drive_bounds = [1.0, 1.0]
 
 ## Create the system
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 
 # Let's check what we created:
 

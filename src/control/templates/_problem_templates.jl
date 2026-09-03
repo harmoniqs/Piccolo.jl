@@ -431,7 +431,7 @@ function apply_calibration_targets!(
     end
 end
 
-@testitem "add_global_bounds_constraints! helper function" begin
+@testitem "add_global_bounds_constraints! helper function" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using .ProblemTemplates: add_global_bounds_constraints!
@@ -488,7 +488,7 @@ end
     @test length(constraints6) == 1
 end
 
-@testitem "apply_calibration_targets! pins globals at nominal" begin
+@testitem "apply_calibration_targets! pins globals at nominal" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using Piccolo.Control.ProblemTemplates:
@@ -554,7 +554,7 @@ end
     @test length(eq_c) == 1 && eq_c[1].values ≈ [0.3]
 end
 
-@testitem "apply_piccolo_options! throws ArgumentError for missing leakage indices" begin
+@testitem "apply_piccolo_options! throws ArgumentError for missing leakage indices" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using .ProblemTemplates: apply_piccolo_options!
@@ -579,7 +579,7 @@ end
     )
 end
 
-@testitem "bound_state=true preserves state bounds" begin
+@testitem "bound_state=true preserves state bounds" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
 
@@ -605,7 +605,7 @@ end
     @test isempty(bc)
 end
 
-@testitem "bound_state=false widens state bounds to ±Inf" begin
+@testitem "bound_state=false widens state bounds to ±Inf" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
 
@@ -632,7 +632,7 @@ end
     @test all(abs.(traj.bounds[:u][1]) .< Inf)
 end
 
-@testitem "bound_state=false with multiple state names" begin
+@testitem "bound_state=false with multiple state names" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
 
@@ -659,7 +659,7 @@ end
     @test all(abs.(traj.bounds[:u][1]) .< Inf)
 end
 
-@testitem "bound_state_l2 adds NonlinearKnotPointConstraint (block layout)" begin
+@testitem "bound_state_l2 adds NonlinearKnotPointConstraint (block layout)" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
 
@@ -691,7 +691,7 @@ end
     @test nlc[1].g_dim == 2
 end
 
-@testitem "bound_state_l2 throws when state_names is nothing" begin
+@testitem "bound_state_l2 throws when state_names is nothing" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
 
@@ -710,7 +710,7 @@ end
     @test_throws ArgumentError apply_piccolo_options!(piccolo_opts, constraints, traj;)
 end
 
-@testitem "_safe_bound_times respects initial/final constraints" begin
+@testitem "_safe_bound_times respects initial/final constraints" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
 
     _safe_bound_times = Piccolo.Control.ProblemTemplates._safe_bound_times
@@ -745,7 +745,7 @@ end
 end
 
 
-@testitem "setup_free_phase_globals! variants" begin
+@testitem "setup_free_phase_globals! variants" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using .ProblemTemplates: setup_free_phase_globals!
 
@@ -783,7 +783,7 @@ end
     _, _, _ = setup_free_phase_globals!(1, nothing, nothing; verbose = true)
 end
 
-@testitem "_fmt_bounds formatting variants" begin
+@testitem "_fmt_bounds formatting variants" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using .ProblemTemplates: _fmt_bounds
 
@@ -797,7 +797,7 @@ end
     @test _fmt_bounds(:weird) == "weird"    # fallback
 end
 
-@testitem "_unbind_state! and _safe_bound_times remaining branches" begin
+@testitem "_unbind_state! and _safe_bound_times remaining branches" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using NamedTrajectories
 
@@ -826,7 +826,7 @@ end
     @test _safe_bound_times(:x, traj_fin) == collect(1:(N-1))
 end
 
-@testitem "apply_piccolo_options! remaining branches" begin
+@testitem "apply_piccolo_options! remaining branches" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using NamedTrajectories
     using DirectTrajOpt
@@ -900,7 +900,7 @@ end
     @test !isempty(cons4)
 end
 
-@testitem "_apply_piccolo_options leakage-index resolution" begin
+@testitem "_apply_piccolo_options leakage-index resolution" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using NamedTrajectories
     using DirectTrajOpt
@@ -909,7 +909,7 @@ end
 
     Random.seed!(9)
     T, N = 5.0, 10
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
 
     # ── UnitaryTrajectory: user override + EmbeddedOperator auto-derivation ──

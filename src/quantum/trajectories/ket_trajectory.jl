@@ -8,7 +8,7 @@
 Trajectory for quantum state transfer. The ODE solution is computed at construction.
 
 # Fields
-- `system::QuantumSystem`: The quantum system
+- `system::AbstractQuantumSystem`: The quantum system
 - `pulse::P`: The control pulse
 - `initial::Vector{ComplexF64}`: Initial state |ψ₀⟩
 - `goal::Vector{ComplexF64}`: Target state |ψ_goal⟩
@@ -19,7 +19,7 @@ Trajectory for quantum state transfer. The ODE solution is computed at construct
 """
 mutable struct KetTrajectory{P<:AbstractPulse,S<:ODESolution} <:
                AbstractQuantumTrajectory{P}
-    system::QuantumSystem
+    system::AbstractQuantumSystem
     pulse::P
     initial::Vector{ComplexF64}
     goal::Vector{ComplexF64}
@@ -32,7 +32,7 @@ end
 Create a ket trajectory by solving the Schrödinger equation.
 
 # Arguments
-- `system::QuantumSystem`: The quantum system
+- `system::AbstractQuantumSystem`: The quantum system
 - `pulse::AbstractPulse`: The control pulse
 - `initial::Vector`: Initial state |ψ₀⟩
 - `goal::Vector`: Target state |ψ_goal⟩
@@ -44,7 +44,7 @@ Create a ket trajectory by solving the Schrödinger equation.
 - `n_save`: Number of output time points (default: 101)
 """
 function KetTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     pulse::AbstractPulse,
     initial::AbstractVector{<:Number},
     goal::AbstractVector{<:Number};
@@ -77,7 +77,7 @@ Convenience constructor that creates a random pulse of duration T
 (each drive sampled uniformly within its `drive_bounds`; pass `rng` for reproducibility).
 
 # Arguments
-- `system::QuantumSystem`: The quantum system
+- `system::AbstractQuantumSystem`: The quantum system
 - `initial::Vector`: Initial state |ψ₀⟩
 - `goal::Vector`: Target state |ψ_goal⟩
 - `T::Real`: Duration of the pulse
@@ -89,7 +89,7 @@ Convenience constructor that creates a random pulse of duration T
 - `reltol`: Relative tolerance (default: 1e-8)
 """
 function KetTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     initial::AbstractVector{<:Number},
     goal::AbstractVector{<:Number},
     T::Real;
@@ -117,7 +117,7 @@ end
     using LinearAlgebra
 
     # Simple 2-level system
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create with duration
     T = 1.0
@@ -143,7 +143,7 @@ end
 @testitem "KetTrajectory callable" begin
     using LinearAlgebra
 
-    system = QuantumSystem([PAULIS.X], [1.0])
+    system = OpenQuantumSystem([PAULIS.X], [1.0])
 
     T = 1.0
     ψ0 = ComplexF64[1.0, 0.0]
@@ -170,7 +170,7 @@ end
 
     # System with X drive
     σx = ComplexF64[0 1; 1 0]
-    system = QuantumSystem([σx], [1.0])
+    system = OpenQuantumSystem([σx], [1.0])
 
     # Pulse to transfer |0⟩ → |1⟩: exp(-i π/2 σx) |0⟩ = -i|1⟩
     T = π / 2

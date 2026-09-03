@@ -527,7 +527,7 @@ end
 
     N = 8
     T = 2.0
-    sys = QuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
     times = collect(range(0.0, T, length = N))
     qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(zeros(1, N), times), GATES[:X])
     qcp = SmoothPulseProblem(

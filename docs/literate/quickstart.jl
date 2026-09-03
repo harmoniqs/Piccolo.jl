@@ -32,7 +32,7 @@ H_drives = [PAULIS[:X], PAULIS[:Y]]
 drive_bounds = [1.0, 1.0]
 
 ## Create the quantum system
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 
 # ## Step 2: Create an Initial Pulse
 #
@@ -207,8 +207,8 @@ fidelity(qcp_state)
 # qubit frequency), use `SamplingProblem`:
 
 ## Perturbed systems: ±10% drift Hamiltonian
-sys_low = QuantumSystem(0.9 * H_drift, H_drives, drive_bounds)
-sys_high = QuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
+sys_low = OpenQuantumSystem(0.9 * H_drift, H_drives, drive_bounds)
+sys_high = OpenQuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
 
 ## Start from a nominal solution, then add robustness
 qcp_robust = SamplingProblem(qcp, [sys_low, sys, sys_high])

@@ -50,7 +50,7 @@
 # ```julia
 # ## Function-based system (requires Piccolissimo integrator for dynamics)
 # H = (u, t) -> u[3] * PAULIS[:Z] + u[1] * PAULIS[:X] + u[2] * PAULIS[:Y]
-# sys = QuantumSystem(H, [1.0, 1.0]; time_dependent=true, global_params=(δ=0.5,))
+# sys = OpenQuantumSystem(H, [1.0, 1.0]; time_dependent=true, global_params=(δ=0.5,))
 # ```
 #
 # For this guide we use a matrix-based system, which works with the built-in
@@ -58,7 +58,7 @@
 
 using Piccolo
 
-sys = QuantumSystem(
+sys = OpenQuantumSystem(
     PAULIS[:Z],
     [PAULIS[:X], PAULIS[:Y]],
     [1.0, 1.0];
@@ -137,7 +137,7 @@ optimized_δ
 # You can define several system parameters simultaneously:
 
 sys_multi =
-    QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [1.0]; global_params = (ω = 1.0, J = 0.05))
+    OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X]], [1.0]; global_params = (ω = 1.0, J = 0.05))
 
 qtraj_multi = UnitaryTrajectory(sys_multi, U_goal, T)
 
@@ -170,7 +170,7 @@ optimized_global_data = traj_multi.global_data
 # `global_params` in the `QuantumSystem` constructor:
 #
 # ```julia
-# sys = QuantumSystem(H_drift, H_drives, bounds; global_params = (δ = 0.15,))
+# sys = OpenQuantumSystem(H_drift, H_drives, bounds; global_params = (δ = 0.15,))
 # ```
 
 # ### 2. Use Reasonable Bounds

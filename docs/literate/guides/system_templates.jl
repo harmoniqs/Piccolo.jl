@@ -197,7 +197,7 @@ function MyCustomSystem(; ω, δ, drive_bounds)
     H_drift = ω * n + (δ / 2) * n * (n - I)
     H_drives = [a + a', 1.0im * (a' - a)]
 
-    return QuantumSystem(H_drift, H_drives, drive_bounds)
+    return OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 end
 
 my_sys = MyCustomSystem(ω = 4.0, δ = 0.2, drive_bounds = [0.2, 0.2])

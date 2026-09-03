@@ -81,7 +81,7 @@ end
     # name does not resolve in this dual-using namespace (#323).
     using Piccolo.Quantum.Pulses: duration
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 1.0
     X_gate = ComplexF64[0 1; 1 0]
@@ -106,7 +106,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 1.0
     times = collect(range(0.0, T, length = 11))
@@ -133,7 +133,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 1.0
     times = collect(range(0.0, T, length = 11))
@@ -163,7 +163,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 1.0
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]]
@@ -188,7 +188,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 1.0
     X_gate = ComplexF64[0 1; 1 0]
@@ -214,7 +214,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 1.0
     times = collect(range(0.0, T, length = 11))
@@ -238,7 +238,7 @@ end
     using LinearAlgebra
     using NamedTrajectories
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
 
     T = 1.0
     X_gate = ComplexF64[0 1; 1 0]

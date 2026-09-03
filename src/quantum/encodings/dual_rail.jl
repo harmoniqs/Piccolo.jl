@@ -59,7 +59,7 @@ enc = DualRailEncoding(n_qubits = 2, levels_per_rail = 2, conservation = :exact_
 T, idxs = subspace_transform(enc)        # sparse projector + "good" basis indices
 H_sub = reduce_to_subspace(H_full, enc)  # user-built Hamiltonian, reduced
 
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 goal = EmbeddedOperator(:CX, enc)        # encoding-aware goal
 qtraj = UnitaryTrajectory(sys, pulse, goal)
 ```

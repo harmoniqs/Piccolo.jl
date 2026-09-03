@@ -1260,7 +1260,7 @@ end
     using Random
 
     Random.seed!(0)
-    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 0.8])
+    sys = OpenQuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 0.8])
     times = collect(range(0, 1.0, length = 20))
     pulse = ZeroOrderPulse(0.1 * randn(2, 20), times)
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
@@ -1278,7 +1278,7 @@ end
     using Random
 
     Random.seed!(1)
-    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.5])
+    sys = OpenQuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.5])
     times = collect(range(0, 1.0, length = 20))
     pulse = LinearSplinePulse(0.1 * randn(1, 20), times)
     qtraj = KetTrajectory(sys, pulse, ComplexF64[1, 0], ComplexF64[0, 1])
@@ -1295,7 +1295,7 @@ end
     Random.seed!(2)
     N = 30
     T = 1.0
-    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
     times = collect(range(0, T, length = N))
     pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])

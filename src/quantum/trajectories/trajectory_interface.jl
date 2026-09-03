@@ -178,7 +178,7 @@ end
     using LinearAlgebra
 
     # UnitaryTrajectory
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     X_gate = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(system, X_gate, 1.0)
@@ -211,7 +211,7 @@ end
 @testitem "Common interface - name accessors" begin
     using LinearAlgebra
 
-    system = QuantumSystem([PAULIS.X], [1.0])
+    system = OpenQuantumSystem([PAULIS.X], [1.0])
 
     # Test state_name for each trajectory type
     qtraj_u = UnitaryTrajectory(system, ComplexF64[0 1; 1 0], 1.0)
@@ -253,7 +253,7 @@ end
 end
 
 @testitem "Display - show and summary" begin
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     X_gate = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(system, X_gate, 1.0)
 

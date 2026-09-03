@@ -273,7 +273,7 @@ plot_pulse(
 #
 # Compute the fidelity of an analytic pulse shape before optimizing:
 
-sys_fp = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+sys_fp = OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
 ψ_init_fp = ComplexF64[1, 0]
 ψ_goal_fp = ComplexF64[0, 1]
 

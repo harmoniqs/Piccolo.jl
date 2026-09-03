@@ -92,7 +92,7 @@ function TransmonSystem(;
         H_drives .*= 2π
     end
 
-    return QuantumSystem(H_drift, H_drives, drive_bounds)
+    return OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 end
 
 struct QuantumSystemCoupling
@@ -456,7 +456,7 @@ function TransmonCavitySystem(;
         H_drives = [2π * H for H in H_drives]
     end
 
-    return QuantumSystem(H_drift, H_drives, drive_bounds)
+    return OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 end
 
 # *************************************************************************** #

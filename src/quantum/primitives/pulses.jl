@@ -1675,7 +1675,7 @@ end
     # Create a simple quantum system
     H_drift = zeros(ComplexF64, 2, 2)
     H_drives = [ComplexF64[0 1; 1 0]]
-    sys = QuantumSystem(H_drift, H_drives, [(-1.0, 1.0)])
+    sys = OpenQuantumSystem(H_drift, H_drives, [(-1.0, 1.0)])
 
     # Create a pulse with custom boundary conditions
     n_drives = 1

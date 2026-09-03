@@ -9,7 +9,7 @@ Trajectory for multi-state transfer with a shared pulse. Useful for state-to-sta
 problems with multiple initial/goal pairs.
 
 # Fields
-- `system::QuantumSystem`: The quantum system
+- `system::AbstractQuantumSystem`: The quantum system
 - `pulse::P`: The shared control pulse
 - `initials::Vector{Vector{ComplexF64}}`: Initial states
 - `goals::Vector{Vector{ComplexF64}}`: Target states
@@ -21,7 +21,7 @@ problems with multiple initial/goal pairs.
 `traj[i]` returns the i-th trajectory's solution.
 """
 mutable struct MultiKetTrajectory{P<:AbstractPulse,S} <: AbstractQuantumTrajectory{P}
-    system::QuantumSystem
+    system::AbstractQuantumSystem
     pulse::P
     initials::Vector{Vector{ComplexF64}}
     goals::Vector{Vector{ComplexF64}}
@@ -95,7 +95,7 @@ end
 Create a multi-ket trajectory by solving multiple Schrödinger equations.
 
 # Arguments
-- `system::QuantumSystem`: The quantum system
+- `system::AbstractQuantumSystem`: The quantum system
 - `pulse::AbstractPulse`: The shared control pulse
 - `initials::Vector{Vector}`: Initial states
 - `goals::Vector{Vector}`: Target states
@@ -108,7 +108,7 @@ Create a multi-ket trajectory by solving multiple Schrödinger equations.
 - `n_save`: Number of output time points (default: 101)
 """
 function MultiKetTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     pulse::AbstractPulse,
     initials::Vector{<:AbstractVector{<:Number}},
     goals::Vector{<:AbstractVector{<:Number}};
@@ -183,7 +183,7 @@ Convenience constructor that creates a random pulse of duration T
 (each drive sampled uniformly within its `drive_bounds`; pass `rng` for reproducibility).
 
 # Arguments
-- `system::QuantumSystem`: The quantum system
+- `system::AbstractQuantumSystem`: The quantum system
 - `initials::Vector{Vector}`: Initial states
 - `goals::Vector{Vector}`: Target states
 - `T::Real`: Duration of the pulse
@@ -196,7 +196,7 @@ Convenience constructor that creates a random pulse of duration T
 - `reltol`: Relative tolerance (default: 1e-8)
 """
 function MultiKetTrajectory(
-    system::QuantumSystem,
+    system::AbstractQuantumSystem,
     initials::Vector{<:AbstractVector{<:Number}},
     goals::Vector{<:AbstractVector{<:Number}},
     T::Real;
@@ -240,7 +240,7 @@ Base.length(qtraj::MultiKetTrajectory) = length(qtraj.initials)
     using LinearAlgebra
 
     # Simple 2-level system
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create with duration
     T = 1.0
@@ -272,7 +272,7 @@ end
     using LinearAlgebra
     using OrdinaryDiffEqLinear
 
-    system = QuantumSystem([PAULIS.X], [1.0])
+    system = OpenQuantumSystem([PAULIS.X], [1.0])
 
     T = 1.0
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]]
@@ -303,7 +303,7 @@ end
 
     # System with X drive
     σx = ComplexF64[0 1; 1 0]
-    system = QuantumSystem([σx], [1.0])
+    system = OpenQuantumSystem([σx], [1.0])
 
     # Pulse that swaps |0⟩ ↔ |1⟩
     T = π / 2
@@ -324,7 +324,7 @@ end
 @testitem "MultiKetTrajectory state_names" begin
     using LinearAlgebra
 
-    system = QuantumSystem([PAULIS.X], [1.0])
+    system = OpenQuantumSystem([PAULIS.X], [1.0])
 
     initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0], ComplexF64[1.0, 1.0] / √2]
     goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0], ComplexF64[1.0, -1.0] / √2]
@@ -339,7 +339,7 @@ end
     using LinearAlgebra
     using SciMLBase: AbstractTimeseriesSolution
 
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     psi0 = ComplexF64[1.0, 0.0]
     psi1 = ComplexF64[0.0, 1.0]
 
@@ -361,7 +361,7 @@ end
 end
 
 @testitem "MultiKetTrajectory: rollout=:none tiles initials, readable, guarded" begin
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     ψ0 = [ComplexF64[1, 0], ComplexF64[0, 1]]
     ψg = [ComplexF64[0, 1], ComplexF64[1, 0]]
     qt = MultiKetTrajectory(sys, ψ0, ψg, 1.0; rollout = :none)

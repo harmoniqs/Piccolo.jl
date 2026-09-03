@@ -834,7 +834,7 @@ end
     σx = ComplexF64[0 1; 1 0]
     H_drift = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys = QuantumSystem(H_drift, [H_drive], [1.0])
+    sys = OpenQuantumSystem(H_drift, [H_drive], [1.0])
 
     N, T = 21, 10.0
     times = collect(range(0.0, T, length = N))
@@ -868,7 +868,7 @@ end
     using DirectTrajOpt
     using NamedTrajectories
 
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
     N, T = 11, 5.0
     times = collect(range(0, T, length = N))
     pulse = LinearSplinePulse(zeros(1, N), times)
@@ -906,7 +906,7 @@ end
     using NamedTrajectories
     using LinearAlgebra
 
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
     N, T = 11, 5.0
     times = collect(range(0, T, length = N))
     pulse = LinearSplinePulse(zeros(1, N), times)
@@ -939,7 +939,7 @@ end
     # were initially skipped entirely. They are the population most exposed to the pairing
     # hazard, so being skipped meant the riskiest problems got no check at all.
     σx = ComplexF64[0 1; 1 0]
-    sys = QuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
     N, T = 21, 10.0
     times = collect(range(0.0, T, length = N))
     pulse = LinearSplinePulse(0.1 * randn(1, N), times)
@@ -968,7 +968,7 @@ end
     using LinearAlgebra
     using Logging
 
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
     N, T = 11, 5.0
     times = collect(range(0, T, length = N))
     pulse = LinearSplinePulse(zeros(1, N), times)
@@ -1009,7 +1009,7 @@ end
 
     N = 11
     T = 5.0
-    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+    sys = OpenQuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
 
     ψ_init = ComplexF64[1, 0]
     ψ_target = ComplexF64[0, 1]
@@ -1068,7 +1068,7 @@ end
     N = 11
     T = 5.0
 
-    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+    sys = OpenQuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
 
     # Create pulse with zero controls
     times = collect(range(0, T, length = N))
@@ -1115,7 +1115,7 @@ end
     N = 11
     T = 5.0
 
-    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+    sys = OpenQuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
 
     ψ_init = ComplexF64[1, 0]
     ψ_goal = ComplexF64[0, 1]

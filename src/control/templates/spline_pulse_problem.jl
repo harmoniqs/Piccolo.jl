@@ -166,7 +166,7 @@ injected via `extra_objectives`.
 # Examples
 ```julia
 # Create system and initial pulse
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 pulse = CubicSplinePulse(u_init, du_init, times)
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
@@ -880,7 +880,7 @@ end
 # TestItems
 # ============================================================================= #
 
-@testitem "SplinePulseProblem with LinearSplinePulse" begin
+@testitem "SplinePulseProblem with LinearSplinePulse" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -896,7 +896,7 @@ end
     n_drives = 1
 
     # Create system and pulse
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
 
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
@@ -918,7 +918,7 @@ end
     @test !haskey(traj.components, :ddu)  # No second derivative for splines
 end
 
-@testitem "SplinePulseProblem with CubicSplinePulse" begin
+@testitem "SplinePulseProblem with CubicSplinePulse" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -934,7 +934,7 @@ end
     n_drives = 1
 
     # Create system and pulse
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
 
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
@@ -952,7 +952,7 @@ end
     @test get_trajectory(qcp) isa NamedTrajectory
 end
 
-@testitem "SplinePulseProblem du_bound enforcement for CubicSplinePulse" begin
+@testitem "SplinePulseProblem du_bound enforcement for CubicSplinePulse" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -968,7 +968,7 @@ end
     n_drives = 1
 
     # Create system and pulse
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
 
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
@@ -1012,7 +1012,7 @@ end
     @test haskey(traj_unbounded.bounds, :du)
 end
 
-@testitem "SplinePulseProblem rejects ZeroOrderPulse" begin
+@testitem "SplinePulseProblem rejects ZeroOrderPulse" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
 
     σx = ComplexF64[0 1; 1 0]
@@ -1023,7 +1023,7 @@ end
     T = 10.0
     N = 51
 
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
 
     times = collect(range(0.0, T, length = N))
     pulse = ZeroOrderPulse(0.1 * randn(1, N), times)
@@ -1035,7 +1035,7 @@ end
     @test_throws ErrorException SplinePulseProblem(qtraj, N)
 end
 
-@testitem "SplinePulseProblem with KetTrajectory" begin
+@testitem "SplinePulseProblem with KetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1051,7 +1051,7 @@ end
     n_drives = 1
 
     # Create system and pulse
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
 
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
@@ -1075,7 +1075,7 @@ end
     @test !haskey(traj.components, :ddu)  # No second derivative for splines
 end
 
-@testitem "SplinePulseProblem KetTrajectory leakage_indices kwarg" begin
+@testitem "SplinePulseProblem KetTrajectory leakage_indices kwarg" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1086,7 +1086,7 @@ end
     T = 10.0
     N = 51
 
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
 
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(1, N)
@@ -1139,7 +1139,7 @@ end
     end
 end
 
-@testitem "SplinePulseProblem with MultiKetTrajectory" begin
+@testitem "SplinePulseProblem with MultiKetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1155,7 +1155,7 @@ end
     n_drives = 1
 
     # Create system and pulse
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
 
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
@@ -1184,13 +1184,13 @@ end
     @test length(dynamics_integrators) == 2
 end
 
-@testitem "integrator_type names the backend it actually returns" begin
+@testitem "integrator_type names the backend it actually returns" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
 
     σx = ComplexF64[0 1; 1 0]
-    sys = QuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
     N, T = 21, 10.0
     times = collect(range(0.0, T, length = N))
     pulse = LinearSplinePulse(0.1 * randn(1, N), times)
@@ -1240,7 +1240,7 @@ end
     )
 end
 
-@testitem "SplinePulseProblem with SamplingTrajectory" begin
+@testitem "SplinePulseProblem with SamplingTrajectory" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1256,8 +1256,8 @@ end
     n_drives = 1
 
     # Create nominal and perturbed systems
-    sys_nominal = QuantumSystem(H_drift, H_drives, [1.0])
-    sys_perturbed = QuantumSystem(1.1 * H_drift, H_drives, [1.0])
+    sys_nominal = OpenQuantumSystem(H_drift, H_drives, [1.0])
+    sys_perturbed = OpenQuantumSystem(1.1 * H_drift, H_drives, [1.0])
 
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
@@ -1287,7 +1287,7 @@ end
     @test !haskey(traj.components, :ddu)  # No second derivative for splines
 end
 
-@testitem "SplinePulseProblem with global_bounds error handling" begin
+@testitem "SplinePulseProblem with global_bounds error handling" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1298,7 +1298,7 @@ end
     T = 2.0
     N = 10
 
-    sys = QuantumSystem(0.1 * GATES.Z, [GATES.X], [1.0])
+    sys = OpenQuantumSystem(0.1 * GATES.Z, [GATES.X], [1.0])
     U_goal = GATES.X
 
     # Create pulse
@@ -1318,7 +1318,7 @@ end
     )
 end
 
-@testitem "_make_free_phase_goal for EmbeddedOperator" begin
+@testitem "_make_free_phase_goal for EmbeddedOperator" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
     using .ProblemTemplates: _make_free_phase_goal
 
@@ -1365,7 +1365,7 @@ end
     @test U_sub_2q ≈ phase_diag * CZ atol = 1e-12
 end
 
-@testitem "SplinePulseProblem with UnitaryTrajectory and free_phase=true" begin
+@testitem "SplinePulseProblem with UnitaryTrajectory and free_phase=true" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1375,7 +1375,7 @@ end
     σz = ComplexF64[1 0; 0 -1]
     H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    sys = OpenQuantumSystem(H_drift_3, [H_drive_3], [1.0])
 
     T = 10.0
     N = 51
@@ -1398,14 +1398,14 @@ end
     @test haskey(traj.global_components, :φ_1)
 end
 
-@testitem "SplinePulseProblem with MultiKetTrajectory and free_phase=true" begin
+@testitem "SplinePulseProblem with MultiKetTrajectory and free_phase=true" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -1454,12 +1454,12 @@ end
           free_phase_objective_value(fill(1.0, 3))
 end
 
-@testitem "SplinePulseProblem free_phase requires EmbeddedOperator for unitary" begin
+@testitem "SplinePulseProblem free_phase requires EmbeddedOperator for unitary" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     T = 10.0
     N = 51
@@ -1472,12 +1472,12 @@ end
     @test_throws AssertionError SplinePulseProblem(qtraj, N; free_phase = true)
 end
 
-@testitem "SplinePulseProblem MultiKet free_phase requires subsystem_levels" begin
+@testitem "SplinePulseProblem MultiKet free_phase requires subsystem_levels" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -1496,14 +1496,14 @@ end
     )
 end
 
-@testitem "SplinePulseProblem MultiKet coherent kwarg" begin
+@testitem "SplinePulseProblem MultiKet coherent kwarg" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -1523,7 +1523,7 @@ end
 # Cubic-spline default-regularization tests
 # ============================================================================= #
 
-@testitem "SplinePulseProblem CubicSplinePulse default R_u, R_du are zero" begin
+@testitem "SplinePulseProblem CubicSplinePulse default R_u, R_du are zero" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1537,7 +1537,7 @@ end
     N = 11
     n_drives = 1
 
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
     derivs = zeros(n_drives, N)
@@ -1563,7 +1563,7 @@ end
     @test all(all(R_dus[1] .== 0.0))
 end
 
-@testitem "SplinePulseProblem LinearSplinePulse default R_u, R_du = R" begin
+@testitem "SplinePulseProblem LinearSplinePulse default R_u, R_du = R" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1577,7 +1577,7 @@ end
     N = 21
     n_drives = 1
 
-    sys = QuantumSystem(H_drift, H_drives, [1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0])
     times = collect(range(0.0, T, length = N))
     amps = 0.1 * randn(n_drives, N)
     pulse = LinearSplinePulse(amps, times)
@@ -1600,7 +1600,7 @@ end
     @test all(R_dus[1] .≈ R)
 end
 
-@testitem "SplinePulseProblem CubicSplinePulse: defaults do not over-regularize X gate" begin
+@testitem "SplinePulseProblem CubicSplinePulse: defaults do not over-regularize X gate" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1612,7 +1612,7 @@ end
     # cubic-spline `R = 1e-2` default was stalling fidelity at ≈ 0.91 vs 0.98+).
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     T = 10.0
     N = 11
@@ -1645,7 +1645,7 @@ end
 # extra_objectives wiring tests
 # ============================================================================= #
 
-@testitem "SplinePulseProblem extra_objectives default is identity (unitary)" begin
+@testitem "SplinePulseProblem extra_objectives default is identity (unitary)" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1654,7 +1654,7 @@ end
     # produce the same composite-objective term count as omitting the kwarg.
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     T = 10.0
     N = 11
@@ -1687,7 +1687,7 @@ end
     @test J_default ≈ J_empty
 end
 
-@testitem "SplinePulseProblem extra_objectives appends and evaluates (unitary)" begin
+@testitem "SplinePulseProblem extra_objectives appends and evaluates (unitary)" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1698,7 +1698,7 @@ end
     # contribution.
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     T = 10.0
     N = 11
@@ -1741,7 +1741,7 @@ end
     @test extra_contribution > 0.0  # nonzero pulse + nonzero R
 end
 
-@testitem "SplinePulseProblem extra_objectives appends and evaluates (MultiKet)" begin
+@testitem "SplinePulseProblem extra_objectives appends and evaluates (MultiKet)" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1749,7 +1749,7 @@ end
     # Mirror of the unitary test for the MultiKetTrajectory method signature.
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -1788,14 +1788,14 @@ end
     @test J_extra ≈ J_baseline + extra_contribution
 end
 
-@testitem "SplinePulseProblem #275 guards: cubic defaults, explicit integrator paths" begin
+@testitem "SplinePulseProblem #275 guards: cubic defaults, explicit integrator paths" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
     T, N = 10.0, 11
     times = collect(range(0.0, T, length = N))
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     lin = LinearSplinePulse(0.1 * randn(1, N), times)
     cub = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
@@ -1865,7 +1865,7 @@ end
     @test occursin("H1", err.msg)
 end
 
-@testitem "SplinePulseProblem du_bounds vectors, verbose details, KetTrajectory free_phase" begin
+@testitem "SplinePulseProblem du_bounds vectors, verbose details, KetTrajectory free_phase" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
 
     σx = ComplexF64[0 1; 1 0]
@@ -1873,7 +1873,7 @@ end
     T, N = 10.0, 11
     times = collect(range(0.0, T, length = N))
     # two drives so per-drive du_bounds differ from the scalar fill
-    sys = QuantumSystem(0.01 * σz, [σx, σx], [1.0, 1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx, σx], [1.0, 1.0])
     U_goal = σx
 
     lin2 = LinearSplinePulse(0.1 * randn(2, N), times)
@@ -1919,7 +1919,7 @@ end
 
     # single KetTrajectory free-phase: subsystem_levels gate + φ globals +
     # KetFreePhaseInfidelityObjective
-    sys1 = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys1 = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
     lin1 = LinearSplinePulse(0.1 * randn(1, N), times)
     ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
     kq = KetTrajectory(sys1, lin1, ψ0, ψ1)
@@ -1936,7 +1936,7 @@ end
     @test err isa AssertionError
 end
 
-@testitem "SplinePulseProblem global_params system data and spline_interior_bound_constraints" begin
+@testitem "SplinePulseProblem global_params system data and spline_interior_bound_constraints" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
 
     σx = ComplexF64[0 1; 1 0]
@@ -1948,7 +1948,7 @@ end
 
     # a system carrying global_params seeds global_data on BOTH trajectory
     # methods (the φ free-phase globals merge on top of it when asked for).
-    sysg = QuantumSystem(0.01 * σz, [σx], [1.0]; global_params = (δ = 0.2,))
+    sysg = OpenQuantumSystem(0.01 * σz, [σx], [1.0]; global_params = (δ = 0.2,))
     lin = LinearSplinePulse(0.1 * randn(1, N), times)
 
     uq = UnitaryTrajectory(sysg, lin, U_goal)
@@ -1959,7 +1959,7 @@ end
     qcp2 = SplinePulseProblem(mk, N)
     @test haskey(get_trajectory(qcp2).global_components, :δ)
 
-    sys1 = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys1 = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
     cub = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
     lin1 = LinearSplinePulse(0.1 * randn(1, N), times)
 
@@ -1969,7 +1969,7 @@ end
     # dependency of this package, so this test env IS the
     # no-private-package proof (AC 2): the constraint must land and no
     # fallback warning may fire.
-    bounded_sys = QuantumSystem(0.01 * σz, [σx], [(-1.0, 1.0)])
+    bounded_sys = OpenQuantumSystem(0.01 * σz, [σx], [(-1.0, 1.0)])
     qcp_bounded = SplinePulseProblem(
         UnitaryTrajectory(bounded_sys, cub, U_goal),
         N;
@@ -2002,14 +2002,14 @@ end
     )
 end
 
-@testitem "SplinePulseProblem MultiKet cubic guards, du bounds, explicit integrators" begin
+@testitem "SplinePulseProblem MultiKet cubic guards, du bounds, explicit integrators" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
     T, N = 10.0, 11
     times = collect(range(0.0, T, length = N))
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
     ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
 
     lin = LinearSplinePulse(0.1 * randn(1, N), times)
@@ -2044,7 +2044,7 @@ end
     @test lo2 ≈ [-5.0] && hi2 ≈ [5.0]
 
     # per-drive du_bounds vector on the multi-ket linear path
-    sys2 = QuantumSystem(0.01 * σz, [σx, σx], [1.0, 1.0])
+    sys2 = OpenQuantumSystem(0.01 * σz, [σx, σx], [1.0, 1.0])
     lin2 = LinearSplinePulse(0.1 * randn(2, N), times)
     mk_lin2 = MultiKetTrajectory(sys2, lin2, [ψ0, ψ1], [ψ1, ψ0])
     qcp3 = SplinePulseProblem(mk_lin2, N; du_bounds = [5.0, 2.0])
@@ -2086,7 +2086,7 @@ end
     @test occursin("H1", err.msg)
 end
 
-@testitem "coverage: _get_spline_order + verbose construction path" begin
+@testitem "coverage: _get_spline_order + verbose construction path" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
 
     @test Piccolo.Control.ProblemTemplates._get_spline_order(
@@ -2097,7 +2097,7 @@ end
     ) == 3
 
     # the :detailed display level exercises the verbose println branches
-    sys = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
+    sys = OpenQuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
     times = collect(range(0.0, 1.0; length = 11))
     pulse = LinearSplinePulse(0.1 .* randn(1, 11), times)
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
@@ -2115,7 +2115,7 @@ end
 # Bending-energy default tests (#309)
 # ============================================================================= #
 
-@testitem "SplinePulseProblem R_bend default ON for cubic, absent when opted out" begin
+@testitem "SplinePulseProblem R_bend default ON for cubic, absent when opted out" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using NamedTrajectories
     using DirectTrajOpt
@@ -2123,7 +2123,7 @@ end
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
     T = 10.0
     N = 11
     times = collect(range(0.0, T, length = N))
@@ -2162,7 +2162,7 @@ end
     @test occursin("CubicSplinePulse", err.msg)
 end
 
-@testitem "SplinePulseProblem MultiKet R_bend default ON for cubic" begin
+@testitem "SplinePulseProblem MultiKet R_bend default ON for cubic" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using NamedTrajectories
     using DirectTrajOpt
@@ -2170,7 +2170,7 @@ end
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -2190,7 +2190,7 @@ end
     @test bend[1].R == [1e-3]
 end
 
-@testitem "bending closed form ≈ fine-mesh FD; grid-refinement invariance (#309)" begin
+@testitem "bending closed form ≈ fine-mesh FD; grid-refinement invariance (#309)" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using NamedTrajectories
     using DirectTrajOpt
@@ -2230,7 +2230,7 @@ end
     @test rel_err < 0.01     # closed form ≈ independent quadrature
 end
 
-@testitem "shape_metrics quartet sanity (#309)" begin
+@testitem "shape_metrics quartet sanity (#309)" setup=[PiccoloTemplateHelpers] begin
     using Piccolo
     using Random
     Random.seed!(309)

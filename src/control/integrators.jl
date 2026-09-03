@@ -343,7 +343,7 @@ end
     using NamedTrajectories
 
     # Create system and pulse
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     N = 11
     times = collect(range(0, 1.0, length = N))
     controls = zeros(2, N)
@@ -364,7 +364,7 @@ end
     using NamedTrajectories
 
     # Create system and pulse
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     N = 11
@@ -418,8 +418,8 @@ end
     using NamedTrajectories
 
     # Create systems with parameter variation
-    sys1 = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
-    sys2 = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys1 = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys2 = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     # Create pulse
     N = 11
@@ -451,8 +451,8 @@ end
     using NamedTrajectories
 
     # Create systems with parameter variation
-    sys1 = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
-    sys2 = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys1 = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys2 = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -530,8 +530,8 @@ end
     using NamedTrajectories
 
     # Systems with drift variation
-    sys1 = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
-    sys2 = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys1 = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys2 = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -596,7 +596,7 @@ end
     using NamedTrajectories
 
     # Shared system
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     # Different initial/goal states
     ψ0 = ComplexF64[1.0, 0.0]
@@ -633,7 +633,7 @@ end
 
     T = 1.0
     N = 11
-    sys = QuantumSystem(H, [1.0, 1.0])
+    sys = OpenQuantumSystem(H, [1.0, 1.0])
 
     times = collect(range(0, T, length = N))
     controls = zeros(2, N)
@@ -660,7 +660,7 @@ end
 
     T = 1.0
     N = 11
-    sys = QuantumSystem(H, [1.0])
+    sys = OpenQuantumSystem(H, [1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -690,7 +690,7 @@ end
 
     T = 1.0
     N = 11
-    sys = QuantumSystem(H, [1.0, 1.0])
+    sys = OpenQuantumSystem(H, [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -723,8 +723,8 @@ end
 
     T = 1.0
     N = 11
-    sys1 = QuantumSystem(H1, [1.0])
-    sys2 = QuantumSystem(H2, [1.0])
+    sys1 = OpenQuantumSystem(H1, [1.0])
+    sys2 = OpenQuantumSystem(H2, [1.0])
 
     times = collect(range(0, T, length = N))
     controls = zeros(1, N)
@@ -755,7 +755,7 @@ end
     H_x = GATES[:X]
 
     # Build modulated system via Pair
-    sys = QuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
+    sys = OpenQuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
     @test sys.time_dependent
 
     T = 1.0
@@ -791,7 +791,7 @@ end
     H_z = GATES[:Z]
     H_x = GATES[:X]
 
-    sys = QuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
+    sys = OpenQuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -828,8 +828,8 @@ end
     H_z = GATES[:Z]
     H_x = GATES[:X]
 
-    sys1 = QuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
-    sys2 = QuantumSystem(1.1 * H_z, [H_x => t -> cos(omega * t)], [1.0])
+    sys1 = OpenQuantumSystem(H_z, [H_x => t -> cos(omega * t)], [1.0])
+    sys2 = OpenQuantumSystem(1.1 * H_z, [H_x => t -> cos(omega * t)], [1.0])
 
     T = 1.0
     N = 11

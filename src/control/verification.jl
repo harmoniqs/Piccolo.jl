@@ -357,7 +357,7 @@ end
     using NamedTrajectories
     using LinearAlgebra
 
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
     N, T = 11, 5.0
     times = collect(range(0, T, length = N))
     pulse = LinearSplinePulse(zeros(1, N), times)
@@ -393,7 +393,7 @@ end
     using NamedTrajectories
     using LinearAlgebra
 
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
     N, T = 11, 5.0
     times = collect(range(0, T, length = N))
     pulse = LinearSplinePulse(zeros(1, N), times)
@@ -428,7 +428,7 @@ end
     # hand-rolled check in fluxonium-2q/scripts/probe/rollout_fidelity_check.jl exists to cover,
     # so `verify` could not replace it.
     σx = ComplexF64[0 1; 1 0]
-    sys = QuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
+    sys = OpenQuantumSystem(0.01 * ComplexF64[1 0; 0 -1], [σx], [1.0])
     N, T = 21, 10.0
     times = collect(range(0.0, T, length = N))
     pulse = LinearSplinePulse(0.1 * randn(1, N), times)
@@ -464,7 +464,7 @@ end
     σx = ComplexF64[0 1; 1 0]
     H_drift = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys = QuantumSystem(H_drift, [H_drive], [1.0])
+    sys = OpenQuantumSystem(H_drift, [H_drive], [1.0])
 
     N, T = 21, 10.0
     times = collect(range(0.0, T, length = N))
@@ -506,8 +506,8 @@ end
 
     # Small 2-qubit unitary problem with two perturbed systems
     T, N = 2.0, 11
-    sys_nom = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
-    sys_var = QuantumSystem(1.05 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_nom = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys_var = OpenQuantumSystem(1.05 * GATES[:Z], [GATES[:X]], [1.0])
 
     pulse = ZeroOrderPulse(0.2 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys_nom, pulse, GATES[:X])
@@ -536,8 +536,8 @@ end
     using LinearAlgebra
 
     T, N = 2.0, 11
-    sys_nom = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
-    sys_var = QuantumSystem(1.05 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_nom = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_var = OpenQuantumSystem(1.05 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
@@ -562,8 +562,8 @@ end
     using LinearAlgebra
 
     T, N = 1.0, 11
-    sys_nom = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
-    sys_var = QuantumSystem(1.05 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_nom = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_var = OpenQuantumSystem(1.05 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -689,7 +689,7 @@ end
     # divergence ≈ 0.36, i.e. a genuine pairing/resolution failure, and would make this a
     # test of the problem rather than of `verify`.
     T, N = 10.0, 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
     qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)

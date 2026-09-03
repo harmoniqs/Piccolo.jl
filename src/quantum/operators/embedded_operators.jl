@@ -583,7 +583,7 @@ end
     σ_x = a + a'
     σ_y = -1im * (a - a')
     u_bounds = ones(2)
-    system = QuantumSystem([kron(σ_x, σ_x), kron(σ_y, σ_y)], u_bounds)
+    system = OpenQuantumSystem([kron(σ_x, σ_x), kron(σ_y, σ_y)], u_bounds)
 
     op_explicit_qubit =
         EmbeddedOperator(CZ, system, subspace = get_subspace_indices([1:2, 1:2], [3, 3]))
@@ -717,7 +717,7 @@ end
 
     # Composite system
     system = CompositeQuantumSystem(
-        [QuantumSystem([P], [(-1.0, 1.0)]) for P ∈ PAULIS],
+        [OpenQuantumSystem([P], [(-1.0, 1.0)]) for P ∈ PAULIS],
         Float64[],
     )
     embedded_op = EmbeddedOperator(subspace_op, [2, 3], fill(1:2, length(PAULIS)), system)

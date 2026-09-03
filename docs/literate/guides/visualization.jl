@@ -19,7 +19,7 @@ Random.seed!(42)
 ## Create and solve a simple qubit gate problem
 H_drift = 0.5 * PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
-sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+sys = OpenQuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 T = 10.0
 N = 50

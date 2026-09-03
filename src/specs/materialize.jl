@@ -82,7 +82,7 @@ function _build_system(s::SystemSpec)
         H_drives = [_to_matrix(h) for h in s.H_drives]
         drive_bounds =
             _concretize(get(s.params, :drive_bounds, fill(1.0, length(H_drives))))
-        return Quantum.QuantumSystem(H_drift, H_drives, drive_bounds)
+        return Quantum.OpenQuantumSystem(H_drift, H_drives, drive_bounds)
     else
         # :composite deferred in Phase 1 (validation should have flagged it).
         throw(
@@ -1221,8 +1221,8 @@ end
     # kwargs-only factory cannot build one).
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sub1 = QuantumSystem(0.01 * σz, [σx], [1.0])
-    sub2 = QuantumSystem(0.02 * σz, [σx], [1.0])
+    sub1 = OpenQuantumSystem(0.01 * σz, [σx], [1.0])
+    sub2 = OpenQuantumSystem(0.02 * σz, [σx], [1.0])
     comp = CompositeQuantumSystem(
         0.01 * kron(σx, σx),
         Matrix{ComplexF64}[],

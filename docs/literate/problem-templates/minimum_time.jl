@@ -81,7 +81,7 @@ using Printf # hide
 ## Setup
 H_drift = PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
-sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+sys = OpenQuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 T, N = 20.0, 100
 times = collect(range(0, T, length = N))
@@ -146,7 +146,7 @@ end
 # solve!(qcp_base; max_iter=100)
 #
 # # Add robustness
-# sys_perturbed = QuantumSystem(1.1 * H_drift, H_drives, [1.0, 1.0])
+# sys_perturbed = OpenQuantumSystem(1.1 * H_drift, H_drives, [1.0, 1.0])
 # qcp_robust = SamplingProblem(qcp_base, [sys, sys_perturbed])
 # solve!(qcp_robust; max_iter=100)
 #

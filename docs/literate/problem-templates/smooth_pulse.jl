@@ -84,7 +84,7 @@ using Piccolo
 ## Define system
 H_drift = PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
-sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+sys = OpenQuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 ## Create trajectory
 T, N = 10.0, 100
@@ -160,7 +160,7 @@ cached_solve!(qcp, "smooth_pulse_leakage"; max_iter = 100)
 #
 # Works with `KetTrajectory` for state preparation. Here we go back to the 2-level system:
 #
-sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+sys = OpenQuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 ψ_init = ComplexF64[1, 0]  ## |0⟩
 ψ_goal = ComplexF64[0, 1]  ## |1⟩
@@ -195,7 +195,7 @@ cached_solve!(qcp, "smooth_pulse_multi_ket"; max_iter = 100)
 #
 # Use `initial_phases` to warm-start the phases (e.g. from a previous solve):
 
-sys_fp = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+sys_fp = OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
 ψ0_fp, ψ1_fp = ComplexF64[1, 0], ComplexF64[0, 1]
 pulse_fp = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj_fp = MultiKetTrajectory(sys_fp, pulse_fp, [ψ0_fp, ψ1_fp], [ψ1_fp, ψ0_fp])

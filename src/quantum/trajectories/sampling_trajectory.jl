@@ -23,8 +23,8 @@ This type does NOT store a NamedTrajectory - use `NamedTrajectory(sampling, N)` 
 
 # Example
 ```julia
-sys_nom = QuantumSystem(...)
-sys_variations = [QuantumSystem(...) for _ in 1:3]  # Parameter variations
+sys_nom = OpenQuantumSystem(...)
+sys_variations = [OpenQuantumSystem(...) for _ in 1:3]  # Parameter variations
 qtraj = UnitaryTrajectory(sys_nom, pulse, U_goal)
 sampling = SamplingTrajectory(qtraj, sys_variations, [0.5, 0.3, 0.2])
 
@@ -500,9 +500,9 @@ end
     using NamedTrajectories: NamedTrajectory
 
     # Create base system and variations
-    sys_nom = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
-    sys_var1 = QuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0])
-    sys_var2 = QuantumSystem(1.05 * PAULIS.Z, [PAULIS.X], [1.0])
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys_var1 = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0])
+    sys_var2 = OpenQuantumSystem(1.05 * PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create pulse
     T = 1.0
@@ -553,9 +553,9 @@ end
     using NamedTrajectories: NamedTrajectory
 
     # Create base system and variations
-    sys_nom = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
-    sys_var1 = QuantumSystem([0.95 * PAULIS.X, PAULIS.Y], [1.0, 1.0])
-    sys_var2 = QuantumSystem([1.05 * PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys_nom = OpenQuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys_var1 = OpenQuantumSystem([0.95 * PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys_var2 = OpenQuantumSystem([1.05 * PAULIS.X, PAULIS.Y], [1.0, 1.0])
 
     # Create pulse
     T = 1.0
@@ -636,8 +636,8 @@ end
     using LinearAlgebra
     using NamedTrajectories: NamedTrajectory
 
-    sys_nom = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
-    sys_var = QuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0])
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys_var = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 1.0
     times = range(0, T, length = 11)
@@ -727,8 +727,8 @@ end
     using NamedTrajectories: NamedTrajectory
 
     # Create base system and variations
-    sys_nom = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
-    sys_var = QuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0])
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys_var = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create pulse
     T = 1.0
@@ -773,8 +773,8 @@ end
     using NamedTrajectories: NamedTrajectory
 
     # Create base system and variations
-    sys_nom = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
-    sys_var = QuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0])
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys_var = OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create pulse
     T = 1.0

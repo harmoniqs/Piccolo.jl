@@ -429,7 +429,7 @@ end
     PD = Piccolo.Control.ProblemDisplay
 
     # -- _system_dim: levels scalar, H_drift, size-only fallback, nothing --
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     @test PD._system_dim(sys) == 2          # via :levels (a scalar Int)
     struct DriftOnlySys
         H_drift::Matrix{ComplexF64}
@@ -561,7 +561,7 @@ end
 
     PD = Piccolo.Control.ProblemDisplay
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     times = collect(range(0.0, 1.0, length = 6))
     pulse = ZeroOrderPulse(0.1 * randn(1, 6), times)
 
@@ -782,7 +782,7 @@ end
 
     PD = Piccolo.Control.ProblemDisplay
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     times = collect(range(0.0, 1.0, length = 5))
     pulse = ZeroOrderPulse(0.1 * randn(1, 5), times)
 
@@ -859,7 +859,7 @@ end
 
     Random.seed!(11)
     T, N = 5.0, 20
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
@@ -937,7 +937,7 @@ end
     σx = ComplexF64[0 1; 1 0]
     H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    sys = OpenQuantumSystem(H_drift_3, [H_drive_3], [1.0])
 
     T, N = 10.0, 21
     times = collect(range(0.0, T, length = N))
@@ -983,7 +983,7 @@ end
 
     Random.seed!(5)
     T, N = 5.0, 10
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
 

@@ -36,13 +36,13 @@ Use `=>` to attach time-dependent modulation to drift or drive terms:
 
 ```julia
 # Modulated drive: u[1] * cos(ωt) * H_x
-sys = QuantumSystem(H_z, [H_x => t -> cos(ω*t)], [1.0])
+sys = OpenQuantumSystem(H_z, [H_x => t -> cos(ω*t)], [1.0])
 
 # Modulated drift: cos(ωt) * H_z
-sys = QuantumSystem(H_z => t -> cos(ω*t), [H_x], [1.0])
+sys = OpenQuantumSystem(H_z => t -> cos(ω*t), [H_x], [1.0])
 
 # Multiple drift terms
-sys = QuantumSystem([H_z, H_x => t -> cos(ω*t)], [H_y], [1.0])
+sys = OpenQuantumSystem([H_z, H_x => t -> cos(ω*t)], [H_y], [1.0])
 ```
 
 See also [`OpenQuantumSystem`](@ref), [`VariationalQuantumSystem`](@ref).
@@ -80,7 +80,7 @@ control fails), `MagnusAdapt4()` for Hermitian systems.
 function default_algorithm end
 
 """
-    QuantumSystem(H::Function, drive_bounds::Vector; time_dependent::Bool=false)
+    OpenQuantumSystem(H::Function, drive_bounds::Vector; time_dependent::Bool=false)
 
 Construct a QuantumSystem from a Hamiltonian function.
 
@@ -102,10 +102,10 @@ Construct a QuantumSystem from a Hamiltonian function.
 ```julia
 # Define a time-dependent Hamiltonian
 H = (u, t) -> PAULIS[:Z] + u[1] * cos(ω * t) * PAULIS[:X]
-sys = QuantumSystem(H, [(-1.0, 1.0)]; time_dependent=true)
+sys = OpenQuantumSystem(H, [(-1.0, 1.0)]; time_dependent=true)
 ```
 """
-function QuantumSystem(
+function OpenQuantumSystem(
     H::Function,
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
@@ -141,7 +141,7 @@ function QuantumSystem(
         @assert is_hermitian(H_test) "Hamiltonian H(u, t=0) is not Hermitian for test control values u=$u_test"
     end
 
-    return QuantumSystem(
+    return OpenQuantumSystem(
         (u, t) -> H(u, t),
         (u, t) -> Isomorphisms.G(H(u, t)),
         sparse(H_drift),
@@ -157,7 +157,7 @@ function QuantumSystem(
 end
 
 """
-    QuantumSystem(
+    OpenQuantumSystem(
         H_drift::AbstractMatrix{<:Number},
         H_drives::Vector{<:AbstractMatrix{<:Number}},
         drive_bounds::Vector{<:Union{Tuple{Float64, Float64}, Float64}};
@@ -182,14 +182,14 @@ The resulting Hamiltonian is: H(u, t) = H_drift + Σᵢ uᵢ * H_drives[i]
 
 # Example
 ```julia
-sys = QuantumSystem(
+sys = OpenQuantumSystem(
     PAULIS[:Z],                    # drift
     [PAULIS[:X], PAULIS[:Y]],      # drives
     [1.0, 1.0]                     # symmetric bounds: [(-1.0, 1.0), (-1.0, 1.0)]
 )
 ```
 """
-function QuantumSystem(
+function OpenQuantumSystem(
     H_drift::AbstractMatrix{<:Number},
     H_drives::Vector{<:AbstractMatrix{<:Number}},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
@@ -233,7 +233,7 @@ function QuantumSystem(
     # iteration in per-substep RHS loops.
     linear_drives = [LinearDrive(H_drives[i], i) for i = 1:n_drives]
 
-    return QuantumSystem(
+    return OpenQuantumSystem(
         H,
         G,
         H_drift,
@@ -250,7 +250,7 @@ end
 
 # Convenience constructors
 """
-    QuantumSystem(H_drives::Vector{<:AbstractMatrix}, drive_bounds::Vector; time_dependent::Bool=false)
+    OpenQuantumSystem(H_drives::Vector{<:AbstractMatrix}, drive_bounds::Vector; time_dependent::Bool=false)
 
 Convenience constructor for a system with no drift Hamiltonian (H_drift = 0).
 
@@ -263,11 +263,11 @@ Convenience constructor for a system with no drift Hamiltonian (H_drift = 0).
 # Example
 ```julia
 # Using scalars for symmetric bounds
-sys = QuantumSystem([PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+sys = OpenQuantumSystem([PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
 # Equivalent to: drive_bounds = [(-1.0, 1.0), (-1.0, 1.0)]
 ```
 """
-function QuantumSystem(
+function OpenQuantumSystem(
     H_drives::Vector{<:AbstractMatrix{ℂ}},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
@@ -275,7 +275,7 @@ function QuantumSystem(
     hermitian::Bool = true,
 ) where {ℂ<:Number}
     @assert !isempty(H_drives) "At least one drive is required"
-    return QuantumSystem(
+    return OpenQuantumSystem(
         spzeros(ℂ, size(H_drives[1])),
         H_drives,
         drive_bounds;
@@ -286,16 +286,16 @@ function QuantumSystem(
 end
 
 """
-    QuantumSystem(drives::Vector{<:AbstractDrive}, drive_bounds::Vector; time_dependent::Bool=false)
+    OpenQuantumSystem(drives::Vector{<:AbstractDrive}, drive_bounds::Vector; time_dependent::Bool=false)
 
 Convenience constructor for a typed-drive system with no drift Hamiltonian (H_drift = 0).
 
 # Example
 ```julia
-sys = QuantumSystem([LinearDrive(sparse(PAULIS[:X]), 1)], [1.0])
+sys = OpenQuantumSystem([LinearDrive(sparse(PAULIS[:X]), 1)], [1.0])
 ```
 """
-function QuantumSystem(
+function OpenQuantumSystem(
     drives::Vector{<:AbstractDrive},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
     time_dependent::Bool = false,
@@ -304,7 +304,7 @@ function QuantumSystem(
 )
     @assert !isempty(drives) "At least one drive is required"
     levels = drive_dim(first(drives))
-    return QuantumSystem(
+    return OpenQuantumSystem(
         spzeros(ComplexF64, levels, levels),
         drives,
         drive_bounds;
@@ -315,22 +315,22 @@ function QuantumSystem(
 end
 
 """
-    QuantumSystem(H_drift::AbstractMatrix; time_dependent::Bool=false)
+    OpenQuantumSystem(H_drift::AbstractMatrix; time_dependent::Bool=false)
 
 Convenience constructor for a system with only a drift Hamiltonian (no drives).
 
 # Example
 ```julia
-sys = QuantumSystem(PAULIS[:Z])
+sys = OpenQuantumSystem(PAULIS[:Z])
 ```
 """
-function QuantumSystem(
+function OpenQuantumSystem(
     H_drift::AbstractMatrix{ℂ};
     time_dependent::Bool = false,
     global_params::NamedTuple = NamedTuple(),
     hermitian::Bool = true,
 ) where {ℂ<:Number}
-    QuantumSystem(
+    OpenQuantumSystem(
         H_drift,
         Matrix{ℂ}[],
         Float64[];
@@ -341,7 +341,7 @@ function QuantumSystem(
 end
 
 """
-    QuantumSystem(
+    OpenQuantumSystem(
         H_drift::AbstractMatrix,
         drives::Vector{<:AbstractDrive},
         drive_bounds::Vector;
@@ -364,7 +364,7 @@ The resulting Hamiltonian is: H(u, t) = H_drift + Σ_d drive_coeff(d, u) * d.H
 
 # Example: Displaced frame with nonlinear |α|² term
 ```julia
-sys = QuantumSystem(
+sys = OpenQuantumSystem(
     H_drift,
     [
         LinearDrive(sparse(σx), 1),                    # u[1] * σx (qubit I)
@@ -381,7 +381,7 @@ sys = QuantumSystem(
 )
 ```
 """
-function QuantumSystem(
+function OpenQuantumSystem(
     H_drift::AbstractMatrix{<:Number},
     drives::Vector{<:AbstractDrive},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
@@ -444,7 +444,7 @@ function QuantumSystem(
     # instead of widening to AbstractDrive. The struct's `DD` type parameter
     # captures it. Callers can pass Vector{LinearDrive}, Vector{NonlinearDrive},
     # or Vector{Union{LinearDrive,NonlinearDrive}} for fully type-stable iteration.
-    return QuantumSystem(
+    return OpenQuantumSystem(
         H_fn,
         G_fn,
         H_drift,
@@ -493,7 +493,7 @@ const _DriftInput =
 const _DriftInputs = Union{_DriftInput,AbstractVector}
 
 """
-    QuantumSystem(drift, H_drives_input, drive_bounds; ...)
+    OpenQuantumSystem(drift, H_drives_input, drive_bounds; ...)
 
 Pair-based constructor supporting modulated drift terms and modulated drive terms.
 
@@ -511,7 +511,7 @@ Each element of `H_drives_input` may be:
 `time_dependent` is auto-detected from the presence of modulation and need not be
 set manually.
 """
-function QuantumSystem(
+function OpenQuantumSystem(
     drift::_DriftInputs,
     H_drives_input::AbstractVector,
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
@@ -597,7 +597,7 @@ function QuantumSystem(
                 sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
     end
 
-    return QuantumSystem(
+    return OpenQuantumSystem(
         H_fn,
         G_fn,
         H_drift_sum,
@@ -617,7 +617,7 @@ end
 # Both methods share the same intent for this input shape; route through the
 # pair-based path (it handles `Vector{<:AbstractDrive}` natively in its drive loop)
 # so dispatch is unambiguous.
-function QuantumSystem(
+function OpenQuantumSystem(
     drift::_DriftInputs,
     drives::Vector{<:AbstractDrive},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
@@ -638,7 +638,7 @@ function QuantumSystem(
 end
 
 """
-    QuantumSystem(
+    OpenQuantumSystem(
         H_drift,
         drives::Vector{<:AbstractDrive},
         drive_bounds::Vector;
@@ -657,10 +657,10 @@ from materialized matrices for backward compatibility with function-based paths.
 ```julia
 using Piccolissimo: DiagonalOperator
 H_drift_op = DiagonalOperator(ComplexF64[0.0, 1.0, 2.0])
-sys = QuantumSystem(H_drift_op, [LinearDrive(H_x_op, 1)], [1.0])
+sys = OpenQuantumSystem(H_drift_op, [LinearDrive(H_x_op, 1)], [1.0])
 ```
 """
-function QuantumSystem(
+function OpenQuantumSystem(
     H_drift_op,
     drives::Vector{<:AbstractDrive},
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}};
@@ -669,7 +669,7 @@ function QuantumSystem(
     hermitian::Bool = true,
 )
     # Only dispatch here for non-AbstractMatrix types; matrices use the method above
-    H_drift_op isa AbstractMatrix && return QuantumSystem(
+    H_drift_op isa AbstractMatrix && return OpenQuantumSystem(
         convert(AbstractMatrix{ComplexF64}, H_drift_op),
         drives,
         drive_bounds;
@@ -722,7 +722,7 @@ function QuantumSystem(
                 sum(drive_coeff(d, u, t) * G_d for (d, G_d) in zip(drives, G_drive_mats))
     end
 
-    return QuantumSystem(
+    return OpenQuantumSystem(
         H_fn,
         G_fn,
         H_drift_op,    # store the structured operator, not the sparse matrix
@@ -747,7 +747,7 @@ end
     n_drives = length(H_drives)
     u_bounds = ones(n_drives)
 
-    system = QuantumSystem(H_drift, H_drives, u_bounds)
+    system = OpenQuantumSystem(H_drift, H_drives, u_bounds)
     @test system isa QuantumSystem
     @test get_drift(system) == H_drift
     @test get_drives(system) == H_drives
@@ -763,7 +763,7 @@ end
     n_drives = length(H_drives)
     u_bounds = ones(n_drives)
 
-    system = QuantumSystem(H_drift, H_drives, u_bounds)
+    system = OpenQuantumSystem(H_drift, H_drives, u_bounds)
     @test system isa QuantumSystem
     @test get_drift(system) == H_drift
     @test get_drives(system) == H_drives
@@ -776,8 +776,8 @@ end
     H_drives = [PAULIS.X, PAULIS.Y]
     u_bounds = [1.0, 1.0]
 
-    sys1 = QuantumSystem(H_drift, H_drives, u_bounds)
-    sys2 = QuantumSystem(H_drives, u_bounds)
+    sys1 = OpenQuantumSystem(H_drift, H_drives, u_bounds)
+    sys2 = OpenQuantumSystem(H_drives, u_bounds)
 
     @test get_drift(sys1) == get_drift(sys2) == H_drift
     @test get_drives(sys1) == get_drives(sys2) == H_drives
@@ -789,8 +789,8 @@ end
     H_drives = Matrix{ComplexF64}[]
     u_bounds = Float64[]
 
-    sys1 = QuantumSystem(H_drift, H_drives, u_bounds)
-    sys2 = QuantumSystem(H_drift)
+    sys1 = OpenQuantumSystem(H_drift, H_drives, u_bounds)
+    sys2 = OpenQuantumSystem(H_drift)
 
     @test get_drift(sys1) == get_drift(sys2) == H_drift
     @test get_drives(sys1) == get_drives(sys2) == H_drives
@@ -803,7 +803,7 @@ end
     H_drift = PAULIS.Z
     H_drives = [PAULIS.X]
 
-    system = QuantumSystem((a, t) -> H_drift + sum(a .* H_drives), [1.0])
+    system = OpenQuantumSystem((a, t) -> H_drift + sum(a .* H_drives), [1.0])
     @test system isa QuantumSystem
     @test get_drift(system) == H_drift
     @test get_drives(system) == H_drives
@@ -812,7 +812,7 @@ end
 
     H_drives = [PAULIS.X, PAULIS.Y, PAULIS.Z]
     system =
-        QuantumSystem((a, t) -> sum(a .* H_drives), [1.0, 1.0, 1.0], time_dependent = false)
+        OpenQuantumSystem((a, t) -> sum(a .* H_drives), [1.0, 1.0, 1.0], time_dependent = false)
     @test system isa QuantumSystem
     @test get_drift(system) == zeros(2, 2)
     @test get_drives(system) == H_drives
@@ -823,44 +823,44 @@ end
 
     # Non-Hermitian drift should fail
     H_drift_bad = [1.0 1.0im; 0.0 1.0]  # Not Hermitian
-    @test_throws AssertionError QuantumSystem(H_drift_bad, [PAULIS.X], [1.0])
+    @test_throws AssertionError OpenQuantumSystem(H_drift_bad, [PAULIS.X], [1.0])
 
     # Non-Hermitian drive should fail  
     H_drive_bad = [1.0 1.0im; 0.0 1.0]  # Not Hermitian
-    @test_throws AssertionError QuantumSystem(PAULIS.Z, [H_drive_bad], [1.0])
+    @test_throws AssertionError OpenQuantumSystem(PAULIS.Z, [H_drive_bad], [1.0])
 
     # Hermitian matrices should succeed
     H_drift = PAULIS.Z
     H_drives = [PAULIS.X, PAULIS.Y]
-    sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+    sys = OpenQuantumSystem(H_drift, H_drives, [1.0, 1.0])
     @test sys isa QuantumSystem
 
     # Function-based: non-Hermitian should fail
     H_bad = (u, t) -> [1.0 1.0im; 0.0 1.0]
-    @test_throws AssertionError QuantumSystem(H_bad, [1.0])
+    @test_throws AssertionError OpenQuantumSystem(H_bad, [1.0])
 
     # Function-based: Hermitian should succeed
     H_good = (u, t) -> PAULIS.Z + u[1] * PAULIS.X
-    sys2 = QuantumSystem(H_good, [1.0])
+    sys2 = OpenQuantumSystem(H_good, [1.0])
     @test sys2 isa QuantumSystem
 
     # Non-Hermitian drift with hermitian=false should succeed
     H_drift_nh = ComplexF64[0 1; 1 0] + ComplexF64[-0.5im 0; 0 0]
     H_drives_nh = [ComplexF64[0 1; 1 0]]
     bounds_nh = [(-1.0, 1.0)]
-    sys_nh = QuantumSystem(H_drift_nh, H_drives_nh, bounds_nh; hermitian = false)
+    sys_nh = OpenQuantumSystem(H_drift_nh, H_drives_nh, bounds_nh; hermitian = false)
     @test sys_nh isa QuantumSystem
     @test sys_nh.n_drives == 1
     @test sys_nh.levels == 2
     @test sys_nh.hermitian == false
 
     # Hermitian system should have hermitian=true by default
-    sys_h = QuantumSystem(ComplexF64[1 0; 0 -1], [ComplexF64[0 1; 1 0]], [(-1.0, 1.0)])
+    sys_h = OpenQuantumSystem(ComplexF64[1 0; 0 -1], [ComplexF64[0 1; 1 0]], [(-1.0, 1.0)])
     @test sys_h.hermitian == true
 
     # Non-Hermitian drift with hermitian=true (default) should still fail
-    @test_throws AssertionError QuantumSystem(H_drift_nh, H_drives_nh, bounds_nh)
-    @test_throws AssertionError QuantumSystem(
+    @test_throws AssertionError OpenQuantumSystem(H_drift_nh, H_drives_nh, bounds_nh)
+    @test_throws AssertionError OpenQuantumSystem(
         H_drift_nh,
         H_drives_nh,
         bounds_nh;
@@ -875,7 +875,7 @@ end
     H_drives = [PAULIS.X, PAULIS.Y]
     u_bounds = [1.0, 1.0]
 
-    sys = QuantumSystem(H_drift, H_drives, u_bounds)
+    sys = OpenQuantumSystem(H_drift, H_drives, u_bounds)
     @test sys isa QuantumSystem
     @test get_drift(sys) == H_drift
     @test get_drives(sys) == H_drives
@@ -888,13 +888,13 @@ end
     @test sys.H_drives[2].index == 2
 
     # Test with drives only (no drift)
-    sys2 = QuantumSystem(H_drives, u_bounds)
+    sys2 = OpenQuantumSystem(H_drives, u_bounds)
     @test sys2 isa QuantumSystem
     @test get_drift(sys2) == zeros(ComplexF64, 2, 2)
     @test get_drives(sys2) == H_drives
 
     # Test with drift only (no drives)
-    sys3 = QuantumSystem(H_drift)
+    sys3 = OpenQuantumSystem(H_drift)
     @test sys3 isa QuantumSystem
     @test get_drift(sys3) == H_drift
     @test isempty(get_drives(sys3))
@@ -912,7 +912,7 @@ end
         LinearDrive(sparse(ComplexF64.(PAULIS.X)), 1),
         LinearDrive(sparse(ComplexF64.(PAULIS.Y)), 2),
     ]
-    sys = QuantumSystem(H_drift, drives, [1.0, 1.0])
+    sys = OpenQuantumSystem(H_drift, drives, [1.0, 1.0])
     @test sys isa QuantumSystem
     @test sys.n_drives == 2
     @test length(sys.H_drives) == 2
@@ -928,7 +928,7 @@ end
         (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0,
     )
     mixed_drives = [drives..., nonlinear_drive]
-    sys2 = QuantumSystem(H_drift, mixed_drives, [1.0, 1.0])
+    sys2 = OpenQuantumSystem(H_drift, mixed_drives, [1.0, 1.0])
 
     @test sys2 isa QuantumSystem
     @test sys2.n_drives == 2  # control dimension = 2
@@ -951,13 +951,13 @@ end
 
     # Test default empty global_params
     H_drives = [PAULIS[:X], PAULIS[:Y]]
-    sys1 = QuantumSystem(H_drives, [1.0, 1.0])
+    sys1 = OpenQuantumSystem(H_drives, [1.0, 1.0])
     @test isempty(sys1.global_params)
     @test sys1.global_params isa NamedTuple
 
     # Test with global parameters
     global_params = (δ = 0.5, Ω = 1.0, α = -0.2)
-    sys2 = QuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
+    sys2 = OpenQuantumSystem(H_drives, [1.0, 1.0]; global_params = global_params)
     @test sys2.global_params === global_params
     @test sys2.global_params.δ == 0.5
     @test sys2.global_params.Ω == 1.0
@@ -965,14 +965,14 @@ end
 
     # Test with function-based constructor
     H(u, t) = u[1] * PAULIS[:X] + u[2] * PAULIS[:Y]
-    sys3 = QuantumSystem(H, [1.0, 1.0]; global_params = (β = 2.5,))
+    sys3 = OpenQuantumSystem(H, [1.0, 1.0]; global_params = (β = 2.5,))
     @test sys3.global_params.β == 2.5
 
     # Test that function-based system can use global params via closure
     # Users should capture global_params in their H function definition
     gp = (scale = 2.0,)
     H_with_global(u, t) = gp.scale * (u[1] * PAULIS[:X] + u[2] * PAULIS[:Y])
-    sys4 = QuantumSystem(H_with_global, [1.0, 1.0]; global_params = gp)
+    sys4 = OpenQuantumSystem(H_with_global, [1.0, 1.0]; global_params = gp)
     @test sys4.global_params.scale == 2.0
     # Verify H function uses the global parameter via closure
     u_test = [0.5, 0.5]
@@ -992,7 +992,7 @@ end
     # Coefficient reads u[3] = the single appended global parameter.
     d = NonlinearDrive(H, u -> u[1] * u[2] * u[3])
 
-    sys = QuantumSystem(H, [d], [(0.0, 1.0), (0.0, 1.0)]; global_params = (g1 = 0.5,))
+    sys = OpenQuantumSystem(H, [d], [(0.0, 1.0), (0.0, 1.0)]; global_params = (g1 = 0.5,))
     @test sys.n_drives == 2
     @test length(sys.global_params) == 1
 end
@@ -1008,7 +1008,7 @@ end
 
     # Modulated drift with NO drives: the isempty(drives) branch builds
     # H/G purely from modulated drift terms.
-    sys0 = QuantumSystem(H_z => t -> cos(omega * t), AbstractDrive[], Float64[])
+    sys0 = OpenQuantumSystem(H_z => t -> cos(omega * t), AbstractDrive[], Float64[])
     @test sys0 isa QuantumSystem
     @test sys0.n_drives == 0
     @test sys0.levels == 2
@@ -1019,7 +1019,7 @@ end
     @test sys0.G((), 0.3) ≈ Piccolo.Isomorphisms.G(H_z * cos(omega * 0.3))
 
     # Modulated drive: H_x => t -> cos(omega*t)
-    sys1 = QuantumSystem(H_z, [H_x => t -> cos(omega * t), H_y], [1.0, 1.0])
+    sys1 = OpenQuantumSystem(H_z, [H_x => t -> cos(omega * t), H_y], [1.0, 1.0])
     @test sys1.n_drives == 2
     @test sys1.H_drives[1] isa ModulatedDrive
     @test sys1.H_drives[2] isa LinearDrive
@@ -1027,14 +1027,14 @@ end
     @test !has_modulation(sys1.drift_terms[1])
 
     # Modulated drift: H_z => t -> cos(omega*t)
-    sys2 = QuantumSystem(H_z => t -> cos(omega * t), [H_x, H_y], [1.0, 1.0])
+    sys2 = OpenQuantumSystem(H_z => t -> cos(omega * t), [H_x, H_y], [1.0, 1.0])
     @test sys2.n_drives == 2
     @test length(sys2.drift_terms) == 1
     @test has_modulation(sys2.drift_terms[1])
     @test sys2.H_drift ≈ H_z  # static sum
 
     # Multiple drift terms
-    sys3 = QuantumSystem([H_z, H_x => t -> cos(omega * t)], [H_y], [1.0])
+    sys3 = OpenQuantumSystem([H_z, H_x => t -> cos(omega * t)], [H_y], [1.0])
     @test length(sys3.drift_terms) == 2
     @test !has_modulation(sys3.drift_terms[1])
     @test has_modulation(sys3.drift_terms[2])
@@ -1042,12 +1042,12 @@ end
 
     # Typed drive with modulation: NonlinearDrive => modulation
     nd = NonlinearDrive(H_x, u -> u[1]^2; active_controls = [1])
-    sys4 = QuantumSystem(H_z, [nd => t -> cos(omega * t)], [1.0])
+    sys4 = OpenQuantumSystem(H_z, [nd => t -> cos(omega * t)], [1.0])
     @test sys4.H_drives[1] isa ModulatedDrive
     @test sys4.H_drives[1].base === nd
 
     # time_dependent auto-detection
-    @test !QuantumSystem(H_z, [H_x], [1.0]).time_dependent
+    @test !OpenQuantumSystem(H_z, [H_x], [1.0]).time_dependent
     @test sys1.time_dependent
     @test sys2.time_dependent
     @test sys3.time_dependent
@@ -1066,8 +1066,8 @@ end
     H_x = sparse(ComplexF64[0 1; 1 0])
     H_y = sparse(ComplexF64[0 -im; im 0])
 
-    # QuantumSystem(drives, bounds): zero drift inferred from the first drive
-    sys = QuantumSystem([LinearDrive(H_x, 1), LinearDrive(H_y, 2)], [1.0, 1.0])
+    # OpenQuantumSystem(drives, bounds): zero drift inferred from the first drive
+    sys = OpenQuantumSystem([LinearDrive(H_x, 1), LinearDrive(H_y, 2)], [1.0, 1.0])
     @test sys isa QuantumSystem
     @test get_drift(sys) == zeros(ComplexF64, 2, 2)
     @test sys.n_drives == 2
@@ -1076,12 +1076,12 @@ end
     @test sys.H(u, 0.0) ≈ 0.4 * H_x - 0.6 * H_y
 
     # Scalar/tuple bounds both accepted
-    sys_t = QuantumSystem([LinearDrive(H_x, 1)], [(-0.5, 0.5)])
+    sys_t = OpenQuantumSystem([LinearDrive(H_x, 1)], [(-0.5, 0.5)])
     @test sys_t.drive_bounds == [(-0.5, 0.5)]
     @test sys_t.n_drives == 1
 
     # Empty drive vector is rejected
-    @test_throws AssertionError QuantumSystem(LinearDrive[], [1.0])
+    @test_throws AssertionError OpenQuantumSystem(LinearDrive[], [1.0])
 end
 
 @testitem "QuantumSystem structured (non-matrix) drift operator" begin
@@ -1102,7 +1102,7 @@ end
     σx_3 = sparse(ComplexF64[0 1 0; 1 0 1; 0 1 0] / sqrt(2))
     drives = [LinearDrive(σx_3, 1)]
 
-    sys = QuantumSystem(H_drift_op, drives, [1.0])
+    sys = OpenQuantumSystem(H_drift_op, drives, [1.0])
     @test sys isa QuantumSystem
     # The structured operator is stored as-is (not sparsified away)
     @test sys.H_drift === H_drift_op
@@ -1118,14 +1118,14 @@ end
     @test sys.G(u, 0.0) ≈ Piccolo.Isomorphisms.G(Matrix(H_drift_op) + 0.25 * σx_3)
 
     # LinearDrive index outside the control dimension is rejected
-    @test_throws AssertionError QuantumSystem(H_drift_op, [LinearDrive(σx_3, 2)], [1.0])
+    @test_throws AssertionError OpenQuantumSystem(H_drift_op, [LinearDrive(σx_3, 2)], [1.0])
 
     # NonlinearDrive Jacobian validation runs against n_drives + globals
     nd_bad = NonlinearDrive(σx_3, u -> u[1]^2, (u, j) -> 3u[1])
-    @test_throws AssertionError QuantumSystem(H_drift_op, [nd_bad], [1.0])
+    @test_throws AssertionError OpenQuantumSystem(H_drift_op, [nd_bad], [1.0])
 
     # No drives: H/G are the drift alone
-    sys0 = QuantumSystem(H_drift_op, AbstractDrive[], Float64[])
+    sys0 = OpenQuantumSystem(H_drift_op, AbstractDrive[], Float64[])
     @test sys0.n_drives == 0
     @test sys0.H(rand(0), 0.7) ≈ Matrix(H_drift_op)
     @test sys0.G(rand(0), 0.7) ≈ Piccolo.Isomorphisms.G(Matrix(H_drift_op))
@@ -1138,23 +1138,23 @@ end
     # Asymmetric tuple bounds: the Hermiticity probe evaluates at the
     # interval midpoint (b[1] + b[2]) / 2, not at 0.0.
     H_mid = (u, t) -> PAULIS.Z + u[1] * PAULIS.X
-    sys = QuantumSystem(H_mid, [(-0.5, 1.5)])
+    sys = OpenQuantumSystem(H_mid, [(-0.5, 1.5)])
     @test sys.drive_bounds == [(-0.5, 1.5)]
     @test sys.n_drives == 1
 
     # Non-Hermitian at the probe point but hermitian=false opts out
     H_nh = (u, t) -> PAULIS.Z + u[1] * (PAULIS.X + im * PAULIS.Y)
-    sys_nh = QuantumSystem(H_nh, [1.0]; hermitian = false)
+    sys_nh = OpenQuantumSystem(H_nh, [1.0]; hermitian = false)
     @test sys_nh.hermitian == false
     @test sys_nh.levels == 2
 
     # The same non-Hermitian Hamiltonian fails the default check. Asymmetric
     # bounds are required: the control probe evaluates at the midpoint
     # (lo + hi) / 2, which is nonzero here.
-    @test_throws AssertionError QuantumSystem(H_nh, [(-0.5, 1.5)])
+    @test_throws AssertionError OpenQuantumSystem(H_nh, [(-0.5, 1.5)])
 
     # global_params are float-converted (Ints become Float64)
-    sys_gp = QuantumSystem((u, t) -> u[1] * PAULIS.X, [1.0]; global_params = (δ = 1, Ω = 2))
+    sys_gp = OpenQuantumSystem((u, t) -> u[1] * PAULIS.X, [1.0]; global_params = (δ = 1, Ω = 2))
     @test sys_gp.global_params isa NamedTuple
     @test all(v -> v isa Float64, values(sys_gp.global_params))
     @test sys_gp.global_params == (δ = 1.0, Ω = 2.0)

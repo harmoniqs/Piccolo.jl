@@ -801,7 +801,7 @@ end
 
     include("../../../test/test_utils.jl")
 
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         kron(GATES.Z, GATES.Z),
         [kron(GATES.X, GATES.X), kron(GATES.Y, GATES.Y)],
         [1.0, 1.0],
@@ -850,7 +850,7 @@ end
     # globals enter DISTINCT operators so a swap is observable: ∂H/∂b=Z, ∂H/∂a=Y.
     # global_params=(b, a) ⇒ integrator global_names=[:b,:a]; H reads u[3]=b, u[4]=a.
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -897,7 +897,7 @@ end
     using Piccolo
     using BenchmarkTools
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     N = 11
     times = collect(range(0, 1.0, length = N))
     pulse = LinearSplinePulse(zeros(2, N), times)
@@ -943,7 +943,7 @@ end
     ]
     drive_bounds = [1.0]
 
-    sys = QuantumSystem(PAULIS.Z, drives, drive_bounds)
+    sys = OpenQuantumSystem(PAULIS.Z, drives, drive_bounds)
 
     @test has_nonlinear_drives(sys.H_drives)
 
@@ -984,7 +984,7 @@ end
     ]
     drive_bounds = [1.0]
 
-    sys = QuantumSystem(PAULIS.Z, drives, drive_bounds; global_params = (δ = δ_init,))
+    sys = OpenQuantumSystem(PAULIS.Z, drives, drive_bounds; global_params = (δ = δ_init,))
 
     @test has_nonlinear_drives(sys.H_drives)
 
@@ -1016,7 +1016,7 @@ end
 
     include("../../../test/test_utils.jl")
 
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         kron(GATES.Z, GATES.Z),
         [kron(GATES.X, GATES.X), kron(GATES.Y, GATES.Y)],
         [1.0, 1.0],
@@ -1083,7 +1083,7 @@ end
     Random.seed!(204_101)
     T = 2.0
     N = 8
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(sys, ψ_init, ψ_goal, T)
@@ -1119,7 +1119,7 @@ end
     N = 7
 
     # --- no globals: exercises the x-u cross-term block ---
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(sys, ψ_init, ψ_goal, T)
@@ -1145,7 +1145,7 @@ end
 
     # --- with globals: additionally exercises the x-g cross-term block ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
+    gsys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1194,7 +1194,7 @@ end
     N = 7
 
     # --- no globals: u-u, u-Δt, Δt-Δt parameter-parameter blocks ---
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(sys, ψ_init, ψ_goal, T)
@@ -1239,7 +1239,7 @@ end
 
     # --- with globals: adds u-g, g-g, Δt-g p-p blocks ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
+    gsys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1289,7 +1289,7 @@ end
     N = 12
 
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1385,7 +1385,7 @@ end
     Random.seed!(204_105)
     T = 2.0
     N = 6
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(sys, ψ_init, ψ_goal, T)
@@ -1423,7 +1423,7 @@ end
         LinearDrive(sparse(ComplexF64.(PAULIS.X)), 1),
         NonlinearDrive(PAULIS.Z, u -> u[1]^2),
     ]
-    sys = QuantumSystem(PAULIS.Z, drives, [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, drives, [1.0])
     @test has_nonlinear_drives(sys.H_drives)
 
     ψ_init = ComplexF64[1.0, 0.0]
@@ -1469,7 +1469,7 @@ end
     A2 = randn(ComplexF64, n, n)
     H2 = Matrix(Hermitian(A2 + A2'))
     H = (u, t) -> H0 + u[1] * H1 + u[2] * H2
-    sys = QuantumSystem(H, [1.0, 1.0]; time_dependent = true)
+    sys = OpenQuantumSystem(H, [1.0, 1.0]; time_dependent = true)
 
     ψ_init = normalize(randn(ComplexF64, n))
     ψ_goal = normalize(randn(ComplexF64, n))
@@ -1528,7 +1528,7 @@ end
     using SparseArrays
     using Test
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     N = 6
     T0 = 1.7
     Random.seed!(20260831)

@@ -531,14 +531,15 @@ function _sampling_fidelity_constraint(
 end
 
 # Tests
-@testitem "SamplingProblem Construction" begin
+@testitem "SamplingProblem Construction" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
+    using Piccolo
 
     T = 10.0
     N = 50
 
     # Define system
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
 
     # Create base problem
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
@@ -567,7 +568,7 @@ end
     @test length(sampling_prob.prob.integrators) == 4
 end
 
-@testitem "SamplingProblem preserves smooth base structure" begin
+@testitem "SamplingProblem preserves smooth base structure" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
@@ -579,7 +580,7 @@ end
     T = 10.0
     N = 50
 
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
@@ -667,8 +668,8 @@ end
 
     # Simple robust optimization
     # System with uncertainty in drift
-    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
-    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_nominal = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
@@ -683,15 +684,15 @@ end
     @test sampling_prob.prob.objective(sampling_prob.trajectory) < 1e10 # Just check it didn't blow up
 end
 
-@testitem "SamplingProblem with KetTrajectory" begin
+@testitem "SamplingProblem with KetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
 
     T = 1.0
     N = 50
 
     # Robust state transfer over parameter uncertainty
-    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
-    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_nominal = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_perturbed = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -717,15 +718,15 @@ end
     solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
 end
 
-@testitem "SamplingProblem with custom weights" begin
+@testitem "SamplingProblem with custom weights" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
 
     T = 10.0
     N = 50
 
-    sys1 = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
-    sys2 = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
-    sys3 = QuantumSystem(0.9 * GATES[:Z], [GATES[:X]], [1.0])
+    sys1 = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys2 = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys3 = OpenQuantumSystem(0.9 * GATES[:Z], [GATES[:X]], [1.0])
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys1, pulse, GATES[:X])
@@ -747,15 +748,15 @@ end
     solve!(sampling_prob; max_iter = 5, verbose = false, print_level = 1)
 end
 
-@testitem "SamplingProblem + MinimumTimeProblem composition" begin
+@testitem "SamplingProblem + MinimumTimeProblem composition" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
 
     T = 1.0
     N = 50
 
     # Robust minimum-time optimization
-    sys_nominal = QuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
-    sys_perturbed = QuantumSystem(0.11 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_nominal = OpenQuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = OpenQuantumSystem(0.11 * GATES[:Z], [GATES[:X]], [1.0])
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
@@ -777,7 +778,7 @@ end
     solve!(mintime_prob; max_iter = 20, verbose = false, print_level = 1)
 end
 
-@testitem "SamplingProblem with EmbeddedOperator" begin
+@testitem "SamplingProblem with EmbeddedOperator" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
 
     # Minimal setup (reproducing the bug from main.jl)
@@ -814,15 +815,15 @@ end
     @test_skip "DensityTrajectory support not yet implemented"
 end
 
-@testitem "SamplingProblem with custom integrator factory" begin
+@testitem "SamplingProblem with custom integrator factory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
     T = 10.0
     N = 50
 
-    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
-    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_nominal = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
@@ -844,14 +845,14 @@ end
     solve!(sampling_prob; max_iter = 5, verbose = false, print_level = 1)
 end
 
-@testitem "SamplingProblem is a parametric wrapper: wrap history lives in the type" begin
+@testitem "SamplingProblem is a parametric wrapper: wrap history lives in the type" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
     T = 1.0
     N = 8
-    sys_a = QuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
-    sys_b = QuantumSystem(0.11 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_a = OpenQuantumSystem(0.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_b = OpenQuantumSystem(0.11 * GATES[:Z], [GATES[:X]], [1.0])
     opts = PiccoloOptions(display = :silent)
 
     times = collect(range(0.0, T, length = N))

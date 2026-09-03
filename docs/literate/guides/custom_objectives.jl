@@ -21,7 +21,7 @@ Random.seed!(42)
 H_drift = 0.5 * PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
 drive_bounds = [1.0, 1.0]
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 
 ## Create initial pulse and trajectory
 T = 10.0

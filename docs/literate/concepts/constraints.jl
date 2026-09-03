@@ -32,7 +32,7 @@ using Piccolo
 H_drift = PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
 drive_bounds = [1.0, 0.5]  # Drive 1: ±1.0, Drive 2: ±0.5
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 
 # ### Derivative Bounds
 #

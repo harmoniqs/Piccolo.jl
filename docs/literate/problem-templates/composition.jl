@@ -37,7 +37,7 @@ using Piccolo
 ## Define nominal system
 H_drift = 0.5 * PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
-sys_nominal = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+sys_nominal = OpenQuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 ## Create initial trajectory
 T, N = 20.0, 100
@@ -65,8 +65,8 @@ get_duration(get_trajectory(qcp_base))
 # ### Step 3: Add Robustness
 
 ## Create perturbed systems (±5% drift variation)
-sys_high = QuantumSystem(1.05 * H_drift, H_drives, [1.0, 1.0])
-sys_low = QuantumSystem(0.95 * H_drift, H_drives, [1.0, 1.0])
+sys_high = OpenQuantumSystem(1.05 * H_drift, H_drives, [1.0, 1.0])
+sys_low = OpenQuantumSystem(0.95 * H_drift, H_drives, [1.0, 1.0])
 
 qcp_robust = SamplingProblem(qcp_base, [sys_nominal, sys_high, sys_low]; Q = 100.0)
 cached_solve!(qcp_robust, "composition_robust"; max_iter = 100)

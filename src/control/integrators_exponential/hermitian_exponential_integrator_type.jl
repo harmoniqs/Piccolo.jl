@@ -619,7 +619,7 @@ end
     using NamedTrajectories
     using Piccolo
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     N = 11
     times = collect(range(0, 1.0, length = N))
     pulse = LinearSplinePulse(zeros(2, N), times)

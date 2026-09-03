@@ -102,7 +102,7 @@ using Piccolo
 ## Define system
 H_drift = PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
-sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+sys = OpenQuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 ## Create cubic spline pulse
 T, N = 10.0, 50

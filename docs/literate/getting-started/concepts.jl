@@ -25,7 +25,7 @@ H_drift = PAULIS[:Z]            # Always-on term
 H_drives = [PAULIS[:X], PAULIS[:Y]]  # Controllable terms
 drive_bounds = [1.0, 1.0]       # Maximum control amplitudes
 
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 
 # ### Pulse
 #
@@ -57,7 +57,7 @@ qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
 #
 # ```
 # ┌─────────────────┐
-# │ Define System   │  sys = QuantumSystem(...)
+# │ Define System   │  sys = OpenQuantumSystem(...)
 # └────────┬────────┘
 #          │
 #          ▼
@@ -170,9 +170,9 @@ fidelity(qcp_fast)
 # Optimize for parameter uncertainty:
 
 ## Create perturbed systems
-sys_low = QuantumSystem(0.9 * H_drift, H_drives, drive_bounds)
+sys_low = OpenQuantumSystem(0.9 * H_drift, H_drives, drive_bounds)
 sys_nominal = sys
-sys_high = QuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
+sys_high = OpenQuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
 
 ## Solve for nominal system first
 qcp_nom = SmoothPulseProblem(qtraj, N)

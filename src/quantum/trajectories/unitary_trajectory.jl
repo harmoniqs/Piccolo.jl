@@ -122,7 +122,7 @@ end
     using LinearAlgebra
 
     # Simple 2-level system
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
     # Create with duration
     T = 1.0
@@ -147,7 +147,7 @@ end
 @testitem "UnitaryTrajectory goal type conversion" begin
     using LinearAlgebra
 
-    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    system = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
     T = 1.0
 
     # ComplexF64 matrix goal: identity preserved (no conversion needed)
@@ -172,7 +172,7 @@ end
     H_drift = diagm(ComplexF64[1.0, 0.0, -1.0])
     H_drive = zeros(ComplexF64, 3, 3)
     H_drive[1, 2] = H_drive[2, 1] = 1.0
-    sys3 = QuantumSystem(H_drift, [H_drive], [1.0])
+    sys3 = OpenQuantumSystem(H_drift, [H_drive], [1.0])
     goal_embed = EmbeddedOperator(:X, [1, 2], 3)
     qtraj_embed = UnitaryTrajectory(sys3, goal_embed, T)
     @test qtraj_embed.goal === goal_embed
@@ -193,7 +193,7 @@ end
 @testitem "UnitaryTrajectory callable" begin
     using LinearAlgebra
 
-    system = QuantumSystem([PAULIS.X], [1.0])
+    system = OpenQuantumSystem([PAULIS.X], [1.0])
 
     T = 1.0
     X_gate = ComplexF64[0 1; 1 0]
@@ -218,7 +218,7 @@ end
 
     # System that naturally implements X gate
     σx = ComplexF64[0 1; 1 0]
-    system = QuantumSystem([σx], [1.0])
+    system = OpenQuantumSystem([σx], [1.0])
 
     # Create pulse that implements X gate: exp(-i π/2 σx) = -i σx
     T = π / 2
@@ -241,7 +241,7 @@ end
     H_drift = diagm(ComplexF64[1.0, 0.0, -1.0])
     H_drive = zeros(ComplexF64, 3, 3)
     H_drive[1, 2] = H_drive[2, 1] = 1.0
-    system = QuantumSystem(H_drift, [H_drive], [1.0])
+    system = OpenQuantumSystem(H_drift, [H_drive], [1.0])
 
     # Embedded X gate on levels 1,2
     X_embedded = EmbeddedOperator(:X, [1, 2], 3)
@@ -263,7 +263,7 @@ end
 
     # Strong-driving system where 101 fixed steps may be inaccurate
     ω = 520.0
-    sys = QuantumSystem(ω * PAULIS.Z, [PAULIS.X], [1.0])
+    sys = OpenQuantumSystem(ω * PAULIS.Z, [PAULIS.X], [1.0])
 
     T = 2π / ω * 5  # 5 full rotations
     times = [0.0, T]
@@ -303,7 +303,7 @@ end
     using LinearAlgebra
     using OrdinaryDiffEqLinear: MagnusAdapt4
 
-    sys = QuantumSystem(10.0 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(10.0 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     T = 1.0
     pulse = ZeroOrderPulse(randn(2, 5), range(0, T, length = 5))
     X_gate = ComplexF64[0 1; 1 0]
@@ -328,7 +328,7 @@ end
     using OrdinaryDiffEqLinear: MagnusAdapt4
 
     # Exact X gate: exp(-i π/2 σx) = -iσx, fidelity with X should be 1.0
-    sys = QuantumSystem([PAULIS.X], [1.0])
+    sys = OpenQuantumSystem([PAULIS.X], [1.0])
     T = π / 2
     pulse = ZeroOrderPulse(ones(1, 2), [0.0, T])
     X_gate = ComplexF64[0 1; 1 0]
@@ -360,7 +360,7 @@ end
     using Random
 
     Random.seed!(172)
-    sys = QuantumSystem(1.7 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(1.7 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     T = 1.0
     pulse = ZeroOrderPulse(randn(2, 4), range(0, T, length = 4))
     X_gate = ComplexF64[0 1; 1 0]
@@ -408,7 +408,7 @@ end
 
     σx = ComplexF64[0 1; 1 0]
     σz = ComplexF64[1 0; 0 -1]
-    sys = QuantumSystem(0.1σz, [σx], [1.0])
+    sys = OpenQuantumSystem(0.1σz, [σx], [1.0])
     goal = ComplexF64[0 1; 1 0]   # X gate
 
     # The convenience ctor draws a RANDOM pulse; a supplied rng makes it reproducible.

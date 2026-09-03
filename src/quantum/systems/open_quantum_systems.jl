@@ -48,6 +48,10 @@ function Base.getproperty(sys::OpenQuantumSystem, s::Symbol)
         return SparseMatrixCSC{ComplexF64,Int}[
             sparse(ComplexF64.(dissipator_matrix(d))) for d in getfield(sys, :dissipators)
         ]
+    elseif s === :G
+        # Backcompat alias: the generator field was renamed G → 𝒢; every
+        # consumer (testitems, integrators, examples) still reads `sys.G`.
+        return getfield(sys, :𝒢)
     end
     return getfield(sys, s)
 end
@@ -206,15 +210,15 @@ function OpenQuantumSystem(
             dss = diss_list,
             𝒟s = diss_iso_mats
 
-            u -> begin
+            (u, _t = 0.0) -> begin
                 out = 𝒢d + zero(𝒢d)
                 for (i, d) in enumerate(drs)
-                    c = drive_coeff(d, u, 0.0)
+                    c = drive_coeff(d, u, _t)
                     out = out + c * 𝒢drs[i]
                 end
                 for (j, diss) in enumerate(dss)
                     γ = rate_coeff(diss, u)
-                    out = out + γ * 𝒟s[j]
+                    out = out + γ * 𝓜s[j]
                 end
                 return out
             end
@@ -330,10 +334,10 @@ function OpenQuantumSystem(
             dss = diss_list,
             𝒟s = diss_iso_mats
 
-            u -> begin
+            (u, _t = 0.0) -> begin
                 out = 𝒢d + zero(𝒢d)
                 for (i, d) in enumerate(drs)
-                    c = drive_coeff(d, u, 0.0)
+                    c = drive_coeff(d, u, _t)
                     out = out + c * 𝒢drs[i]
                 end
                 for (j, diss) in enumerate(dss)
@@ -435,7 +439,7 @@ function OpenQuantumSystem(
     n_drives = length(drive_bounds)
     n_globals = length(global_params)
 
-    # Build test vector u = [controls..., globals...] — matches QuantumSystem(H::Function, ...)
+    # Build test vector u = [controls..., globals...] — matches OpenQuantumSystem(H::Function, ...)
     u_zeros =
         n_globals > 0 ? vcat(zeros(n_drives), collect(values(global_params))) :
         zeros(n_drives)
@@ -900,7 +904,7 @@ end
     @test system.dissipation_operators == dissipation_operators
 
     # from QuantumSystem
-    qsys = QuantumSystem(H_drift, H_drives, drive_bounds)
+    qsys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
     system = OpenQuantumSystem(qsys, dissipation_operators = dissipation_operators)
     @test system isa OpenQuantumSystem
     @test get_drift(system) == H_drift
@@ -991,7 +995,7 @@ end
     @test size(𝒢_result) == (8, 8)  # 2² × 2² × 2 (iso)
 
     # From QuantumSystem with nonlinear drives
-    qsys = QuantumSystem(H_drift, drives, [1.0, 1.0])
+    qsys = OpenQuantumSystem(H_drift, drives, [1.0, 1.0])
     osys = OpenQuantumSystem(qsys; dissipation_operators = dissipation_operators)
     @test osys isa OpenQuantumSystem
     @test length(osys.H_drives) == 3
@@ -1007,7 +1011,7 @@ end
 
     # Modulated linear drive via Pair syntax on QuantumSystem
     omega = 2.0
-    qsys = QuantumSystem(H_drift, [PAULIS.X => t -> cos(omega * t)], [1.0])
+    qsys = OpenQuantumSystem(H_drift, [PAULIS.X => t -> cos(omega * t)], [1.0])
     osys = OpenQuantumSystem(qsys; dissipation_operators = dissipation_operators)
 
     @test osys isa OpenQuantumSystem

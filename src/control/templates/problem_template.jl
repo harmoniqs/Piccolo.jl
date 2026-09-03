@@ -533,7 +533,7 @@ _pulse_type_of(::AbstractQuantumTrajectory{P}) where {P} = P
 # Tests
 # ============================================================================= #
 
-@testitem "@problem_template generates tag, alias, constructors, traits, registry record" begin
+@testitem "@problem_template generates tag, alias, constructors, traits, registry record" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
@@ -609,7 +609,7 @@ _pulse_type_of(::AbstractQuantumTrajectory{P}) where {P} = P
     # (3) constructor methods on the alias
     N = 6
     T = 2.0
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [1.0])
+    sys = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [1.0])
     times = collect(range(0.0, T, length = N))
     zo_qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(zeros(1, N), times), GATES[:X])
 
@@ -650,7 +650,7 @@ _pulse_type_of(::AbstractQuantumTrajectory{P}) where {P} = P
     @test ProbeProblem{typeof(zo_qtraj)} <: ProbeProblem
 end
 
-@testitem "Live/Frozen: a Frozen term has no spelling in the build path" begin
+@testitem "Live/Frozen: a Frozen term has no spelling in the build path" setup=[PiccoloTemplateHelpers] begin
     # The frozen-drift bug class (a state-dependent term evaluated along a
     # reference instead of the current iterate) is made unrepresentable rather
     # than validated against: NO method of `build_term` accepts `Frozen`.
@@ -675,7 +675,7 @@ end
     @test state_dependent_terms(ProbeLiveTag()) === ()
 end
 
-@testitem "@problem_template state_dependent: Live-only field types + per-tag build_term" begin
+@testitem "@problem_template state_dependent: Live-only field types + per-tag build_term" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
 

@@ -629,7 +629,7 @@ end
     using LinearAlgebra
 
     ## H_drift = 0, single X drive: a constant amplitude drives Rabi oscillations.
-    system = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [1.0])
+    system = OpenQuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [1.0])
     pulse = ZeroOrderPulse(fill(0.5, 1, 20), collect(range(0, π, length = 20)))
     ψ0 = ComplexF64[1.0, 0.0]
 

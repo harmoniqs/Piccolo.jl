@@ -29,8 +29,8 @@ See also [Lifted Operators](@ref lib-lifted-operators), [`lift_operator`](@ref).
 # Example
 ```julia
 # Two qubits with ZZ coupling
-sys1 = QuantumSystem([PAULIS[:X]], [(-1.0, 1.0)])
-sys2 = QuantumSystem([PAULIS[:Y]], [(-1.0, 1.0)])
+sys1 = OpenQuantumSystem([PAULIS[:X]], [(-1.0, 1.0)])
+sys2 = OpenQuantumSystem([PAULIS[:Y]], [(-1.0, 1.0)])
 H_coupling = 0.1 * kron(PAULIS[:Z], PAULIS[:Z])
 csys = CompositeQuantumSystem(H_coupling, [sys1, sys2], Float64[])
 ```
@@ -83,8 +83,8 @@ The total drives include coupling drives followed by all subsystem drives (autom
 
 # Example
 ```julia
-sys1 = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [1.0])
-sys2 = QuantumSystem([PAULIS[:Y]], [1.0])
+sys1 = OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X]], [1.0])
+sys2 = OpenQuantumSystem([PAULIS[:Y]], [1.0])
 g12 = 0.1 * kron(PAULIS[:X], PAULIS[:X])  # coupling drift
 csys = CompositeQuantumSystem(g12, Matrix{ComplexF64}[], [sys1, sys2], Float64[])
 ```
@@ -171,8 +171,8 @@ Convenience constructor for a composite system with coupling drives but no coupl
 
 # Example
 ```julia
-sys1 = QuantumSystem([PAULIS[:X]], [1.0])
-sys2 = QuantumSystem([PAULIS[:Y]], [1.0])
+sys1 = OpenQuantumSystem([PAULIS[:X]], [1.0])
+sys2 = OpenQuantumSystem([PAULIS[:Y]], [1.0])
 g12 = 0.1 * kron(PAULIS[:X], PAULIS[:X])  # coupling drive
 csys = CompositeQuantumSystem([g12], [sys1, sys2], [1.0])  # symmetric bound
 ```
@@ -208,8 +208,8 @@ Convenience constructor for a composite system with coupling drift but no coupli
 
 # Example
 ```julia
-sys1 = QuantumSystem([PAULIS[:X]], [1.0])
-sys2 = QuantumSystem([PAULIS[:Y]], [1.0])
+sys1 = OpenQuantumSystem([PAULIS[:X]], [1.0])
+sys2 = OpenQuantumSystem([PAULIS[:Y]], [1.0])
 H_coupling = 0.1 * kron(PAULIS[:Z], PAULIS[:Z])  # coupling drift
 csys = CompositeQuantumSystem(H_coupling, [sys1, sys2], Float64[])
 ```
@@ -241,8 +241,8 @@ composite space, but without any direct coupling between them.
 
 # Example
 ```julia
-sys1 = QuantumSystem([PAULIS[:X]], [1.0])
-sys2 = QuantumSystem([PAULIS[:Y]], [1.0])
+sys1 = OpenQuantumSystem([PAULIS[:X]], [1.0])
+sys2 = OpenQuantumSystem([PAULIS[:Y]], [1.0])
 csys = CompositeQuantumSystem([sys1, sys2], Float64[])
 ```
 """
@@ -265,13 +265,13 @@ end
 
 @testitem "Composite system" begin
     subsystem_levels = [4, 2, 2]
-    sys1 = QuantumSystem(
+    sys1 = OpenQuantumSystem(
         kron(PAULIS[:Z], PAULIS[:Z]),
         [kron(PAULIS[:X], PAULIS[:Y])],
         [(-1.0, 1.0)],
     )
-    sys2 = QuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
-    sys3 = QuantumSystem(zeros(ComplexF64, 2, 2))
+    sys2 = OpenQuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
+    sys3 = OpenQuantumSystem(zeros(ComplexF64, 2, 2))
     subsystems = [sys1, sys2, sys3]
     g12 =
         0.1 *
@@ -292,8 +292,8 @@ end
     using LinearAlgebra
 
     subsystem_levels = [2, 2]
-    sys1 = QuantumSystem([PAULIS[:X], PAULIS[:Y]], [(-1.0, 1.0), (-1.0, 1.0)])
-    sys2 = QuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
+    sys1 = OpenQuantumSystem([PAULIS[:X], PAULIS[:Y]], [(-1.0, 1.0), (-1.0, 1.0)])
+    sys2 = OpenQuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
     subsystems = [sys1, sys2]
     g12 = 0.1 * kron(PAULIS[:X], PAULIS[:X])
 
@@ -308,9 +308,9 @@ end
 
 @testitem "Composite system from drives" begin
     subsystem_levels = [2, 2, 2]
-    sys1 = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [(-1.0, 1.0), (-1.0, 1.0)])
-    sys2 = QuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
-    sys3 = QuantumSystem(zeros(ComplexF64, 2, 2))
+    sys1 = OpenQuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [(-1.0, 1.0), (-1.0, 1.0)])
+    sys2 = OpenQuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
+    sys3 = OpenQuantumSystem(zeros(ComplexF64, 2, 2))
     subsystems = [sys1, sys2, sys3]
     g12 = 0.1 * lift_operator([PAULIS[:X], PAULIS[:X]], [1, 2], subsystem_levels)
     g23 = 0.2 * lift_operator([PAULIS[:Y], PAULIS[:Y]], [2, 3], subsystem_levels)
@@ -328,8 +328,8 @@ end
     using LinearAlgebra
 
     # Test scalar bounds are converted to symmetric tuples
-    sys1 = QuantumSystem([PAULIS[:X]], [1.0])
-    sys2 = QuantumSystem([PAULIS[:Y]], [1.0])
+    sys1 = OpenQuantumSystem([PAULIS[:X]], [1.0])
+    sys2 = OpenQuantumSystem([PAULIS[:Y]], [1.0])
     subsystems = [sys1, sys2]
     g12 = 0.1 * kron(PAULIS[:X], PAULIS[:X])
 

@@ -133,7 +133,7 @@ function RydbergChainSystem(;
     H_detune = -sum([operator_from_string(lift('n', i, N), lookup = PAULIS) for i = 1:N])
     push!(H_drives, H_detune)
 
-    return QuantumSystem(H_drift, H_drives, drive_bounds; time_dependent = time_dependent)
+    return OpenQuantumSystem(H_drift, H_drives, drive_bounds; time_dependent = time_dependent)
 end
 
 # *************************************************************************** #

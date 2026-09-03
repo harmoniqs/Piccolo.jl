@@ -647,7 +647,7 @@ end
     using LinearAlgebra
 
     Random.seed!(77)
-    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
+    sys = OpenQuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
     T, N = 5.0, 10
     times = collect(range(0, T, length = N))
     qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(0.1 * randn(1, N), times), GATES[:X])
@@ -674,7 +674,7 @@ end
     # Global-carrying trajectory (free-phase spline): the update! type=:both path
     H_drift_3 = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive_3 = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys3 = QuantumSystem(H_drift_3, [H_drive_3], [1.0])
+    sys3 = OpenQuantumSystem(H_drift_3, [H_drive_3], [1.0])
     pulse3 = LinearSplinePulse(0.1 * ones(1, N), times)
     U_goal = EmbeddedOperator(ComplexF64[0 1; 1 0], [1, 2], [3])
     qtraj3 = UnitaryTrajectory(sys3, pulse3, U_goal)
@@ -717,7 +717,7 @@ end
     using Random
 
     Random.seed!(42)
-    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
     T, N = 10.0, 30
     times = collect(range(0, T, length = N))
     pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
@@ -760,7 +760,7 @@ end
     using Random
 
     Random.seed!(7)
-    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
+    sys = OpenQuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
     times = collect(range(0, 5.0, length = 20))
     qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(0.1 * randn(1, 20), times), GATES[:X])
     qcp = SmoothPulseProblem(
@@ -787,7 +787,7 @@ end
     using NamedTrajectories
     using CairoMakie
 
-    sys = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
+    sys = OpenQuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X]], [1.0])
     times = collect(range(0, 1.0, length = 5))
     qtraj = UnitaryTrajectory(sys, ZeroOrderPulse(zeros(1, 5), times), GATES[:X])
     qcp = SmoothPulseProblem(

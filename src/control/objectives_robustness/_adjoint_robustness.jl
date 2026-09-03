@@ -2811,7 +2811,7 @@ end
     # second-order-sensitivity term, which doesn't vanish for general U_N).
     T = 5.0
     N = 6
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
     integrator = HermitianExponentialIntegrator(qtraj, N)
@@ -2863,7 +2863,7 @@ end
     # Small operator problem
     T = 5.0
     N = 6
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
     integrator = HermitianExponentialIntegrator(qtraj, N)
@@ -2935,7 +2935,7 @@ end
     # Single qubit system: H = ω Z + u_x X
     T = 5.0
     N = 10
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
 
     # Create unitary trajectory targeting Hadamard gate
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
@@ -2970,7 +2970,7 @@ end
     # Single qubit with X and Y drives
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
 
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
@@ -3003,7 +3003,7 @@ end
 
     T = 5.0
     N = 6
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
 
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
@@ -3029,7 +3029,7 @@ end
 
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
     integrator = HermitianExponentialIntegrator(qtraj, N)
@@ -3071,7 +3071,7 @@ end
 
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
     integrator = HermitianExponentialIntegrator(qtraj, N)
@@ -3111,7 +3111,7 @@ end
 
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
     integrator = HermitianExponentialIntegrator(qtraj, N)
@@ -3174,7 +3174,7 @@ end
     # At u=0: G(0) = 0, P_k = I, Φ21_k = Δt_k * G_E
     # V_N = T * G_E, so ||U†V||² = T² * ||E||²
     # Exact result: E_V = Q * T² * tr(E†E) / d
-    sys = QuantumSystem([GATES.X], [1.0])
+    sys = OpenQuantumSystem([GATES.X], [1.0])
     d = 2
 
     N = 5
@@ -3252,7 +3252,7 @@ end
     H_drive2 = zeros(ComplexF64, 3, 3)
     H_drive2[2, 3] = H_drive2[3, 2] = 1.0
 
-    sys = QuantumSystem(H_drift, [H_drive1, H_drive2], [1.0, 1.0])
+    sys = OpenQuantumSystem(H_drift, [H_drive1, H_drive2], [1.0, 1.0])
 
     T = 3.0
     N = 8
@@ -3310,7 +3310,7 @@ end
 
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
     integrator = HermitianExponentialIntegrator(qtraj, N)
@@ -3360,7 +3360,7 @@ end
 
     T = 1.0
     N = 6
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
 
     times = collect(range(0.0, T, length = N))
     pulse = LinearSplinePulse(fill(0.5, 2, N), times)
@@ -3394,7 +3394,7 @@ end
 
     T = 1.0
     N = 6
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
 
     times = collect(range(0.0, T, length = N))
     pulse = CubicSplinePulse(fill(0.5, 2, N), fill(0.0, 2, N), times)
@@ -3425,7 +3425,7 @@ end
 
     T = 1.0
     N = 5
-    sys = QuantumSystem(GATES.Z, [GATES.X], [1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X], [1.0])
 
     times = collect(range(0.0, T, length = N))
     pulse = LinearSplinePulse(fill(0.5, 1, N), times)
@@ -3449,7 +3449,7 @@ end
 
     T = 1.0
     N = 6
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
 
     times = collect(range(0.0, T, length = N))
     pulse = LinearSplinePulse(fill(0.5, 2, N), times)
@@ -3490,7 +3490,7 @@ end
     N = 8
 
     # Regular system for trajectory creation
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
 
     # Variational system: same drift/drives, Z dephasing as variational perturbation
     varsys = VariationalQuantumSystem(
@@ -3538,7 +3538,7 @@ end
 
     T = 10.0
     N = 15
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
 
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     integrator = HermitianExponentialIntegrator(qtraj, N)
@@ -3582,7 +3582,7 @@ end
 
     T = 1.0
     N = 10
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
 
     times = collect(range(0.0, T, length = N))
     pulse = LinearSplinePulse(fill(0.5, 2, N), times)
@@ -3624,7 +3624,7 @@ end
 
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -3658,7 +3658,7 @@ end
 
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -3695,7 +3695,7 @@ end
 
     T = 5.0
     N = 6
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -3721,7 +3721,7 @@ end
 
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -3750,7 +3750,7 @@ end
 
     T = 5.0
     N = 8
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -3791,7 +3791,7 @@ end
     H_drive2 = zeros(ComplexF64, 3, 3)
     H_drive2[2, 3] = H_drive2[3, 2] = 1.0
 
-    sys = QuantumSystem(H_drift, [H_drive1, H_drive2], [1.0, 1.0])
+    sys = OpenQuantumSystem(H_drift, [H_drive1, H_drive2], [1.0, 1.0])
 
     T = 3.0
     N = 8
@@ -3832,7 +3832,7 @@ end
 
     T = 10.0
     N = 15
-    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]

@@ -24,7 +24,7 @@ H_drives = [PAULIS[:X], PAULIS[:Y]]  # Drives: σ_x and σ_y
 drive_bounds = [1.0, 1.0]  # Maximum amplitudes
 
 ## Create the system
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 
 println("System has $(sys.levels) energy levels")
 println("System has $(sys.n_drives) control drives")

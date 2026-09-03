@@ -312,7 +312,7 @@ end
     levels = 2
     H_drift = zeros(ComplexF64, levels, levels)
     σx = ComplexF64[0 1; 1 0]
-    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+    sys = OpenQuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
 
     ψ_init = ComplexF64[1, 0]
     ψ_target = ComplexF64[0, 1]
@@ -356,7 +356,7 @@ end
     levels = 2
     H_drift = zeros(ComplexF64, levels, levels)
     σx = ComplexF64[0 1; 1 0]
-    sys = QuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
+    sys = OpenQuantumSystem(H_drift, [σx], [(-2.0, 2.0)]; time_dependent = false)
 
     ψ_init = ComplexF64[1, 0]
     ψ_target = ComplexF64[0, 1]

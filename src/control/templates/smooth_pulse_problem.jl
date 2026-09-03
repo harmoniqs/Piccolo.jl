@@ -155,7 +155,7 @@ The problem adds discrete derivative variables (du, ddu) that:
 # Examples
 ```julia
 # Unitary gate synthesis with piecewise constant pulse
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 pulse = ZeroOrderPulse(0.1 * randn(n_drives, N), collect(range(0.0, T, length=N)))
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
@@ -395,7 +395,7 @@ use `SplinePulseProblem` instead.
 # Examples
 ```julia
 # Create ensemble for X gate via state transfer
-sys = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 pulse = ZeroOrderPulse(0.1 * randn(n_drives, N), collect(range(0.0, T, length=N)))
 
 ψ0 = ComplexF64[1.0, 0.0]
@@ -778,11 +778,12 @@ end
 
 @testitem "SmoothPulseProblem with UnitaryTrajectory" tags = [:experimental] begin
     using DirectTrajOpt
+    using Piccolo
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     U_goal = GATES[:H]
 
     # Create pulse and quantum trajectory
@@ -818,12 +819,12 @@ end
     @test norm(δ, Inf) < 1e-2
 end
 
-@testitem "SmoothPulseProblem rejects spline pulses" begin
+@testitem "SmoothPulseProblem rejects spline pulses" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     U_goal = GATES[:X]
 
     times = collect(range(0.0, T, length = N))
@@ -839,13 +840,13 @@ end
     @test_throws ErrorException SmoothPulseProblem(qtraj_cubic, N)
 end
 
-@testitem "SmoothPulseProblem with KetTrajectory" begin
+@testitem "SmoothPulseProblem with KetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
 
@@ -876,7 +877,7 @@ end
     @test norm(δ, Inf) < 1e-3
 end
 
-@testitem "SmoothPulseProblem with DensityTrajectory" begin
+@testitem "SmoothPulseProblem with DensityTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
@@ -952,7 +953,7 @@ end
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     # Create initial and goal states for different state transfers
     ψ0 = ComplexF64[1.0, 0.0]
@@ -1009,13 +1010,13 @@ end
     end
 end
 
-@testitem "SmoothPulseProblem honors MultiKetTrajectory weights (coherent)" begin
+@testitem "SmoothPulseProblem honors MultiKetTrajectory weights (coherent)" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
     T = 10.0
     N = 20
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -1054,7 +1055,7 @@ end
 # MultiKetTrajectory Tests (manual setup)
 # ============================================================================= #
 
-@testitem "MultiKetTrajectory manual setup" begin
+@testitem "MultiKetTrajectory manual setup" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
 
@@ -1063,7 +1064,7 @@ end
 
     T = 1.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     # Create initial and goal states
     ψ0 = ComplexF64[1.0, 0.0]
@@ -1107,7 +1108,7 @@ end
     # Both state transfers should have reasonable fidelity
 end
 
-@testitem "EnsembleTrajectory vs SamplingTrajectory distinction" begin
+@testitem "EnsembleTrajectory vs SamplingTrajectory distinction" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
 
@@ -1117,7 +1118,7 @@ end
 
     T = 1.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
 
     # ===== MultiKetTrajectory setup =====
     # Multiple state transfers on the SAME system
@@ -1133,7 +1134,7 @@ end
 
     # ===== SamplingTrajectory setup =====
     # Same goal, different systems (robust optimization)
-    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
 
     pulse_unitary = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj_unitary = UnitaryTrajectory(sys, pulse_unitary, GATES[:X])
@@ -1154,7 +1155,7 @@ end
 # Time-Dependent System Tests
 # ============================================================================= #
 
-@testitem "SmoothPulseProblem with time-dependent UnitaryTrajectory" begin
+@testitem "SmoothPulseProblem with time-dependent UnitaryTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
@@ -1164,7 +1165,7 @@ end
 
     T = 5.0
     N = 50
-    sys = QuantumSystem(H, [1.0, 1.0])
+    sys = OpenQuantumSystem(H, [1.0, 1.0])
 
     U_goal = GATES[:H]
     times = collect(range(0.0, T, length = N))
@@ -1204,7 +1205,7 @@ end
     @test norm(δ, Inf) < 1e-2
 end
 
-@testitem "SmoothPulseProblem with time-dependent KetTrajectory" begin
+@testitem "SmoothPulseProblem with time-dependent KetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
@@ -1214,7 +1215,7 @@ end
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(H, [1.0])
+    sys = OpenQuantumSystem(H, [1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -1247,7 +1248,7 @@ end
     @test norm(δ, Inf) < 1e-2
 end
 
-@testitem "SmoothPulseProblem with SamplingTrajectory (Unitary)" begin
+@testitem "SmoothPulseProblem with SamplingTrajectory (Unitary)" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
@@ -1255,8 +1256,8 @@ end
     N = 50
 
     # System with uncertainty in drift
-    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
-    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_nominal = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
 
     pulse = ZeroOrderPulse(0.5 * randn(1, N), collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
@@ -1287,7 +1288,7 @@ end
     end
 end
 
-@testitem "SmoothPulseProblem with SamplingTrajectory (Ket)" begin
+@testitem "SmoothPulseProblem with SamplingTrajectory (Ket)" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
@@ -1295,8 +1296,8 @@ end
     N = 50
 
     # System with uncertainty in drift
-    sys_nominal = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
-    sys_perturbed = QuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
+    sys_nominal = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys_perturbed = OpenQuantumSystem(1.1 * GATES[:Z], [GATES[:X]], [1.0])
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
@@ -1330,7 +1331,7 @@ end
     end
 end
 
-@testitem "SmoothPulseProblem with time-dependent MultiKetTrajectory" begin
+@testitem "SmoothPulseProblem with time-dependent MultiKetTrajectory" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
@@ -1340,7 +1341,7 @@ end
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(H, [1.0, 1.0])
+    sys = OpenQuantumSystem(H, [1.0, 1.0])
 
     # Create ensemble ket trajectory for X gate
     ψ0 = ComplexF64[1.0, 0.0]
@@ -1374,7 +1375,7 @@ end
     end
 end
 
-@testitem "SmoothPulseProblem with time-dependent SamplingTrajectory (Unitary)" begin
+@testitem "SmoothPulseProblem with time-dependent SamplingTrajectory (Unitary)" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
@@ -1385,8 +1386,8 @@ end
 
     T = 1.0
     N = 50
-    sys_nominal = QuantumSystem(H1, [1.0])
-    sys_perturbed = QuantumSystem(H2, [1.0])
+    sys_nominal = OpenQuantumSystem(H1, [1.0])
+    sys_perturbed = OpenQuantumSystem(H2, [1.0])
 
     U_goal = GATES[:X]
     # Deterministic small smooth init — keeps the test reproducible across
@@ -1433,7 +1434,7 @@ end
     end
 end
 
-@testitem "SmoothPulseProblem with global_names requires custom integrator" begin
+@testitem "SmoothPulseProblem with global_names requires custom integrator" setup=[PiccoloTemplateHelpers] begin
 
     # System with global parameters
     T = 2.0
@@ -1445,7 +1446,7 @@ end
     end
 
     δ_init = 0.1
-    sys = QuantumSystem(H, [1.0]; time_dependent = true, global_params = (δ = δ_init,))
+    sys = OpenQuantumSystem(H, [1.0]; time_dependent = true, global_params = (δ = δ_init,))
     U_goal = GATES.X
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
@@ -1461,7 +1462,7 @@ end
     )
 end
 
-@testitem "SmoothPulseProblem with global_bounds error handling" begin
+@testitem "SmoothPulseProblem with global_bounds error handling" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
 
@@ -1471,7 +1472,7 @@ end
     T = 5.0
     N = 10
 
-    sys = QuantumSystem(0.1 * GATES.Z, [GATES.X], [1.0])
+    sys = OpenQuantumSystem(0.1 * GATES.Z, [GATES.X], [1.0])
     U_goal = GATES.X
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
@@ -1487,7 +1488,7 @@ end
     )
 end
 
-@testitem "_make_free_phase_ket_goals helper" begin
+@testitem "_make_free_phase_ket_goals helper" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
     using .ProblemTemplates: _make_free_phase_ket_goals, _make_free_phase_ket_goal
 
@@ -1531,13 +1532,13 @@ end
     @test goal_fn([π]) ≈ ComplexF64[0.0, -1.0] atol=1e-12
 end
 
-@testitem "SmoothPulseProblem with MultiKetTrajectory and free_phase=true" begin
+@testitem "SmoothPulseProblem with MultiKetTrajectory and free_phase=true" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -1595,12 +1596,12 @@ end
           free_phase_objective_value(fill(1.0, 3))
 end
 
-@testitem "SmoothPulseProblem free_phase requires subsystem_levels" begin
+@testitem "SmoothPulseProblem free_phase requires subsystem_levels" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
 
     T = 10.0
     N = 50
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
 
@@ -1615,7 +1616,7 @@ end
     )
 end
 
-@testitem "_ensemble_ket_objective coherent kwarg" begin
+@testitem "_ensemble_ket_objective coherent kwarg" setup=[PiccoloTemplateHelpers] begin
     using NamedTrajectories
     using DirectTrajOpt
     using LinearAlgebra
@@ -1641,7 +1642,7 @@ end
         controls = :u,
     )
 
-    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
     pulse = ZeroOrderPulse(randn(1, N), collect(range(0.0, 1.0, length = N)))
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], goals)
 
@@ -1712,14 +1713,14 @@ end
     @test coh(qtraj_w.weights) ≈ coh([0.9, 0.1])
 end
 
-@testitem "SmoothPulseProblem auto-computes leakage indices" begin
+@testitem "SmoothPulseProblem auto-computes leakage indices" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using LinearAlgebra
 
     # 3-level system (qubit in levels 1,2 with leakage to level 3)
     H_drift = ComplexF64[0 0 0; 0 1 0; 0 0 2]
     H_drive = ComplexF64[0 1 0; 1 0 1; 0 1 0] / √2
-    sys = QuantumSystem(H_drift, [H_drive], [1.0])
+    sys = OpenQuantumSystem(H_drift, [H_drive], [1.0])
 
     # State transfer |0⟩ → |1⟩ in 3-level system
     ψ0 = ComplexF64[1.0, 0.0, 0.0]
@@ -1742,13 +1743,13 @@ end
     @test length(qcp.prob.constraints) >= 2
 end
 
-@testitem "SmoothPulseProblem free_phase error contract (single trajectory)" begin
+@testitem "SmoothPulseProblem free_phase error contract (single trajectory)" setup=[PiccoloTemplateHelpers] begin
     using LinearAlgebra
     using Random
 
     Random.seed!(21)
     T, N = 5.0, 10
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
 
     # KetTrajectory: no subsystem_levels plumbing on this method at all
@@ -1771,7 +1772,7 @@ end
     )
 end
 
-@testitem "SmoothPulseProblem builds global_data from system global_params" begin
+@testitem "SmoothPulseProblem builds global_data from system global_params" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
@@ -1779,7 +1780,7 @@ end
 
     Random.seed!(31)
     T, N = 2.0, 10
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         GATES[:Z],
         [GATES[:X], GATES[:Y]],
         [1.0, 1.0];
@@ -1810,7 +1811,7 @@ end
     @test haskey(get_trajectory(qcp_mk).global_components, :δ)
 end
 
-@testitem "SmoothPulseProblem accepts prebuilt integrators" begin
+@testitem "SmoothPulseProblem accepts prebuilt integrators" setup=[PiccoloTemplateHelpers] begin
     using DirectTrajOpt
     using NamedTrajectories
     using LinearAlgebra
@@ -1818,7 +1819,7 @@ end
 
     Random.seed!(41)
     T, N = 5.0, 10
-    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
     pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
 
     # Single integrator (not a vector) for the single-trajectory method

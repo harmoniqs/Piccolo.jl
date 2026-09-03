@@ -89,7 +89,7 @@ function _hermitian_exp_unitary(
     else
         sample_u = sample_controls
     end
-    G_sample = sys.G(sample_u, 0.0)
+    G_sample = sys.𝒢(sample_u, 0.0)
     ketdim = size(G_sample, 1) ÷ 2
 
     # Dimensions for API (u_dim is control dimension, not including globals)
@@ -133,7 +133,7 @@ function _hermitian_exp_unitary(
     dk_so_bufs = _alloc_dk_so_bufs(ketdim, nthr)
 
     return HermitianExponentialIntegrator{UnitaryTrajectory}(
-        u_ -> sys.G(u_, 0.0),
+        u_ -> sys.𝒢(u_, 0.0),
         u_ -> sys.H(u_, 0.0),
         [x],  # Wrap in vector for unified API
         u,
@@ -852,7 +852,7 @@ end
 
     include("../../../test/test_utils.jl")
 
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         kron(GATES.Z, GATES.Z),
         [kron(GATES.X, GATES.X), kron(GATES.Y, GATES.Y)],
         [1.0, 1.0],
@@ -890,7 +890,7 @@ end
 
     Random.seed!(90_211)
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -937,7 +937,7 @@ end
 
     T = 1.0
     N = 10
-    sys = QuantumSystem(GATES.Z, [GATES.X], [1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X], [1.0])
     U_goal = GATES.H
     ketdim = 2
     x_dim = 2 * ketdim * ketdim  # 8 (isomorphic unitary)
@@ -988,7 +988,7 @@ end
     using Piccolo
     using BenchmarkTools
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     N = 11
     times = collect(range(0, 1.0, length = N))
     pulse = LinearSplinePulse(zeros(2, N), times)
@@ -1034,7 +1034,7 @@ end
     ]
     drive_bounds = [1.0]
 
-    sys = QuantumSystem(PAULIS.Z, drives, drive_bounds)
+    sys = OpenQuantumSystem(PAULIS.Z, drives, drive_bounds)
 
     @test has_nonlinear_drives(sys.H_drives)
 
@@ -1074,7 +1074,7 @@ end
     ]
     drive_bounds = [1.0]
 
-    sys = QuantumSystem(PAULIS.Z, drives, drive_bounds; global_params = (δ = δ_init,))
+    sys = OpenQuantumSystem(PAULIS.Z, drives, drive_bounds; global_params = (δ = δ_init,))
 
     @test has_nonlinear_drives(sys.H_drives)
 
@@ -1125,7 +1125,7 @@ end
 
     include("../../../test/test_utils.jl")
 
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         kron(GATES.Z, GATES.Z),
         [kron(GATES.X, GATES.X), kron(GATES.Y, GATES.Y)],
         [1.0, 1.0],
@@ -1188,7 +1188,7 @@ end
     Random.seed!(204_201)
     T = 2.0
     N = 8
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     U_goal = GATES.H
     qtraj = UnitaryTrajectory(sys, U_goal, T)
 
@@ -1222,7 +1222,7 @@ end
     N = 7
 
     # --- no globals: x-u cross-term block ---
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     U_goal = GATES.H
     qtraj = UnitaryTrajectory(sys, U_goal, T)
 
@@ -1247,7 +1247,7 @@ end
 
     # --- with globals: adds the x-g cross-term block ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
+    gsys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1297,7 +1297,7 @@ end
     N = 7
 
     # --- no globals: u-u, u-Δt, Δt-Δt p-p blocks ---
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     U_goal = GATES.H
     qtraj = UnitaryTrajectory(sys, U_goal, T)
 
@@ -1341,7 +1341,7 @@ end
 
     # --- with globals: adds u-g, g-g, Δt-g p-p blocks ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
+    gsys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1391,7 +1391,7 @@ end
     N = 12
 
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1485,7 +1485,7 @@ end
     Random.seed!(204_205)
     T = 2.0
     N = 6
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
     traj = NamedTrajectory(qtraj, N)
 
@@ -1533,7 +1533,7 @@ end
         LinearDrive(sparse(ComplexF64.(PAULIS.X)), 1),
         NonlinearDrive(PAULIS.Z, u -> u[1]^2),
     ]
-    sys = QuantumSystem(PAULIS.Z, drives, [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, drives, [1.0])
     @test has_nonlinear_drives(sys.H_drives)
 
     T = 1.0
@@ -1574,7 +1574,7 @@ end
     using SparseArrays
     using Test
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     N = 6
     T0 = 1.7
     Random.seed!(20260831)
@@ -1607,7 +1607,7 @@ end
     ∂F = eval_jacobian(ℰ, traj)
     @test size(∂F) == (x_dim * (N - 1), length(vec(traj)))
     for k = 1:(N-1)
-        Gₖ = sys.G(u[:, k], 0.0)
+        Gₖ = sys.𝒢(u[:, k], 0.0)
         Φₖ = exp_eigen((T0 / (N - 1)) .* sys.H(u[:, k], 0.0))
         dcdΔt = -vec(Gₖ * Φₖ * reshape(Ũ⃗[:, k], 4, 2))   # ∂cₖ/∂Δtₖ
         @test ∂F[((k-1)*x_dim) .+ (1:x_dim), T_col] ≈ wₖ .* dcdΔt
@@ -1624,7 +1624,7 @@ end
     ∂F_sat = eval_jacobian(ℰ_sat, traj_sat)
     for k = 1:(N-1)
         @test ∂F_sat[((k-1)*x_dim) .+ (1:x_dim), T_col] ≈
-              -wₖ .* vec(sys.G(u[:, k], 0.0) * reshape(Ũ⃗sat[:, k+1], 4, 2))
+              -wₖ .* vec(sys.𝒢(u[:, k], 0.0) * reshape(Ũ⃗sat[:, k+1], 4, 2))
     end
 
     # FD parity of the full Jacobian over the PACKED vector (perturbs T too)

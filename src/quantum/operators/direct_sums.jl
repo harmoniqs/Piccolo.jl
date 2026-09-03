@@ -50,8 +50,8 @@ Both systems must have the same number of drives. The resulting system uses sys1
 
 # Example
 ```julia
-sys1 = QuantumSystem([PAULIS[:X]], [(-1.0, 1.0)])
-sys2 = QuantumSystem([PAULIS[:Y]], [(-1.0, 1.0)])
+sys1 = OpenQuantumSystem([PAULIS[:X]], [(-1.0, 1.0)])
+sys2 = OpenQuantumSystem([PAULIS[:Y]], [(-1.0, 1.0)])
 sys_combined = direct_sum(sys1, sys2)
 ```
 """
@@ -64,7 +64,7 @@ function direct_sum(sys1::QuantumSystem, sys2::QuantumSystem)
     drive_bounds = sys1.drive_bounds  # They should be the same as sys2.drive_bounds
 
     # Create new QuantumSystem with the Hamiltonian function
-    return QuantumSystem(H, drive_bounds)
+    return OpenQuantumSystem(H, drive_bounds)
 end
 
 direct_sum(systems::AbstractVector{<:QuantumSystem}) = reduce(direct_sum, systems)
@@ -99,8 +99,8 @@ end
     # Test with no drives - use Hermitian matrices
     H1 = ComplexF64[1 1+im; 1-im 2]
     H2 = ComplexF64[3 2-im; 2+im 4]
-    sys1 = QuantumSystem(H1)
-    sys2 = QuantumSystem(H2)
+    sys1 = OpenQuantumSystem(H1)
+    sys2 = OpenQuantumSystem(H2)
     sys = direct_sum(sys1, sys2)
     result = sys.H(Float64[], 0.0)
     @test result == ComplexF64[1 1+im 0 0; 1-im 2 0 0; 0 0 3 2-im; 0 0 2+im 4]
@@ -108,8 +108,8 @@ end
     @test sys.n_drives == 0
 
     # Test with drives
-    sys1 = QuantumSystem([PAULIS[:X]], [(-1.0, 1.0)])
-    sys2 = QuantumSystem([PAULIS[:Y]], [(-1.0, 1.0)])
+    sys1 = OpenQuantumSystem([PAULIS[:X]], [(-1.0, 1.0)])
+    sys2 = OpenQuantumSystem([PAULIS[:Y]], [(-1.0, 1.0)])
     sys = direct_sum(sys1, sys2)
     @test sys.n_drives == 1
     @test sys.drive_bounds == [(-1.0, 1.0)]
@@ -121,15 +121,15 @@ end
     @test ishermitian(H)
 
     # Test with multiple drives
-    sys1 = QuantumSystem([PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
-    sys2 = QuantumSystem([PAULIS[:Z], PAULIS[:X]], [1.0, 1.0])
+    sys1 = OpenQuantumSystem([PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    sys2 = OpenQuantumSystem([PAULIS[:Z], PAULIS[:X]], [1.0, 1.0])
     sys = direct_sum(sys1, sys2)
     @test sys.n_drives == 2
 
     # Test with vector of systems
-    sys1 = QuantumSystem(PAULIS[:Z])
-    sys2 = QuantumSystem(PAULIS[:X])
-    sys3 = QuantumSystem(PAULIS[:Y])
+    sys1 = OpenQuantumSystem(PAULIS[:Z])
+    sys2 = OpenQuantumSystem(PAULIS[:X])
+    sys3 = OpenQuantumSystem(PAULIS[:Y])
     sys = direct_sum([sys1, sys2, sys3])
     @test sys.n_drives == 0
     H = sys.H(Float64[], 0.0)
@@ -140,8 +140,8 @@ end
 @testitem "Test direct sum error handling" begin
 
     # Test mismatched n_drives
-    sys1 = QuantumSystem([PAULIS[:X]], [(-1.0, 1.0)])
-    sys2 = QuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
+    sys1 = OpenQuantumSystem([PAULIS[:X]], [(-1.0, 1.0)])
+    sys2 = OpenQuantumSystem([PAULIS[:Y], PAULIS[:Z]], [(-1.0, 1.0), (-1.0, 1.0)])
 
     @test_throws AssertionError direct_sum(sys1, sys2)
 end

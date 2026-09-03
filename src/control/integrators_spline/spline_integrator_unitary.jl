@@ -125,10 +125,10 @@ function _spline_unitary(
         throw(
             ArgumentError(
                 "SplineIntegrator requires a QuantumSystem with explicit drive operators.\n" *
-                "Function-based systems (QuantumSystem(H::Function, ...)) are not supported because\n" *
+                "Function-based systems (OpenQuantumSystem(H::Function, ...)) are not supported because\n" *
                 "the spline integrator needs individual drive operators for analytical sensitivity equations.\n" *
-                "Use: QuantumSystem(H_drift, H_drives, bounds) or\n" *
-                "     QuantumSystem(H_drift, [LinearDrive(...), NonlinearDrive(...)], bounds)",
+                "Use: OpenQuantumSystem(H_drift, H_drives, bounds) or\n" *
+                "     OpenQuantumSystem(H_drift, [LinearDrive(...), NonlinearDrive(...)], bounds)",
             ),
         )
     end
@@ -320,10 +320,10 @@ function _build_alg_data(
         throw(
             ArgumentError(
                 "SplineIntegrator requires a QuantumSystem with explicit drive operators.\n" *
-                "Function-based systems (QuantumSystem(H::Function, ...)) are not supported because\n" *
+                "Function-based systems (OpenQuantumSystem(H::Function, ...)) are not supported because\n" *
                 "the spline integrator needs individual drive operators for analytical sensitivity equations.\n" *
-                "Use: QuantumSystem(H_drift, H_drives, bounds) or\n" *
-                "     QuantumSystem(H_drift, [LinearDrive(...), NonlinearDrive(...)], bounds)",
+                "Use: OpenQuantumSystem(H_drift, H_drives, bounds) or\n" *
+                "     OpenQuantumSystem(H_drift, [LinearDrive(...), NonlinearDrive(...)], bounds)",
             ),
         )
     end
@@ -366,10 +366,10 @@ function _build_alg_data(
         throw(
             ArgumentError(
                 "SplineIntegrator requires a QuantumSystem with explicit drive operators.\n" *
-                "Function-based systems (QuantumSystem(H::Function, ...)) are not supported because\n" *
+                "Function-based systems (OpenQuantumSystem(H::Function, ...)) are not supported because\n" *
                 "the spline integrator needs individual drive operators for analytical sensitivity equations.\n" *
-                "Use: QuantumSystem(H_drift, H_drives, bounds) or\n" *
-                "     QuantumSystem(H_drift, [LinearDrive(...), NonlinearDrive(...)], bounds)",
+                "Use: OpenQuantumSystem(H_drift, H_drives, bounds) or\n" *
+                "     OpenQuantumSystem(H_drift, [LinearDrive(...), NonlinearDrive(...)], bounds)",
             ),
         )
     end

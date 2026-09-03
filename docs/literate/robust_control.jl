@@ -32,7 +32,7 @@ H_drift = ω_nominal * PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
 drive_bounds = [1.0, 1.0]
 
-sys_nominal = QuantumSystem(H_drift, H_drives, drive_bounds)
+sys_nominal = OpenQuantumSystem(H_drift, H_drives, drive_bounds)
 
 ## Time parameters
 T, N = 10.0, 100
@@ -58,7 +58,7 @@ fidelity(qcp_nom)
 function evaluate_fidelity(qcp, ω_test)
     ## Create test system with different frequency
     H_test = ω_test * PAULIS[:Z]
-    sys_test = QuantumSystem(H_test, H_drives, drive_bounds)
+    sys_test = OpenQuantumSystem(H_test, H_drives, drive_bounds)
 
     ## Get optimized pulse
     pulse_opt = get_pulse(qcp.qtraj)
@@ -80,7 +80,7 @@ extrema(fidelities_nom)
 
 ## Create perturbed systems (±5% and ±10%)
 ω_samples = [0.9, 0.95, 1.0, 1.05, 1.1] .* ω_nominal
-systems = [QuantumSystem(ω * PAULIS[:Z], H_drives, drive_bounds) for ω in ω_samples]
+systems = [OpenQuantumSystem(ω * PAULIS[:Z], H_drives, drive_bounds) for ω in ω_samples]
 
 ## Optimize for all frequency samples
 
@@ -102,7 +102,7 @@ fidelity(qcp_robust)
 fidelities_robust = Float64[]
 for ω in ω_range
     H_test = ω * PAULIS[:Z]
-    sys_test = QuantumSystem(H_test, H_drives, drive_bounds)
+    sys_test = OpenQuantumSystem(H_test, H_drives, drive_bounds)
     pulse_robust = get_pulse(qcp_robust.qtraj)
     qtraj_test = UnitaryTrajectory(sys_test, pulse_robust, U_goal)
     push!(fidelities_robust, fidelity(qtraj_test))
@@ -209,7 +209,7 @@ cached_solve!(
 fidelities_weighted = Float64[]
 for ω in ω_range
     H_test = ω * PAULIS[:Z]
-    sys_test = QuantumSystem(H_test, H_drives, drive_bounds)
+    sys_test = OpenQuantumSystem(H_test, H_drives, drive_bounds)
     pulse_w = get_pulse(qcp_weighted.qtraj)
     qtraj_test = UnitaryTrajectory(sys_test, pulse_w, U_goal)
     push!(fidelities_weighted, fidelity(qtraj_test))

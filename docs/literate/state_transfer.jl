@@ -30,7 +30,7 @@ Random.seed!(123)
 ## Create quantum system
 H_drift = 0.5 * PAULIS[:Z]
 H_drives = [PAULIS[:X], PAULIS[:Y]]
-sys = QuantumSystem(H_drift, H_drives, [1.0, 1.0])
+sys = OpenQuantumSystem(H_drift, H_drives, [1.0, 1.0])
 
 ## Time parameters
 T, N = 10.0, 100

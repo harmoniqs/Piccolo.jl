@@ -187,7 +187,7 @@ function HermitianExponentialIntegrator(
     dk_so_bufs = _alloc_dk_so_bufs(ketdim, nthr)
 
     return HermitianExponentialIntegrator{MultiKetTrajectory}(
-        u_ -> sys.G(u_, 0.0),
+        u_ -> sys.𝒢(u_, 0.0),
         u_ -> sys.H(u_, 0.0),
         x_names,
         u,
@@ -1065,7 +1065,7 @@ end
 
     T = 10.0
     N = 10
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
 
     # Create initial and goal states for ensemble
     ψ0 = ComplexF64[1.0, 0.0]
@@ -1102,7 +1102,7 @@ end
 
     T = 1.0
     N = 10
-    sys = QuantumSystem(GATES.Z, [GATES.X], [1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X], [1.0])
     ketdim = 2
     n_kets = 2
     x_dim = 2 * ketdim * n_kets  # 8 total
@@ -1152,7 +1152,7 @@ end
     using Piccolo
     using BenchmarkTools
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     N = 11
     times = collect(range(0, 1.0, length = N))
     pulse = LinearSplinePulse(zeros(2, N), times)
@@ -1199,7 +1199,7 @@ end
     ]
     drive_bounds = [1.0]
 
-    sys = QuantumSystem(PAULIS.Z, drives, drive_bounds)
+    sys = OpenQuantumSystem(PAULIS.Z, drives, drive_bounds)
 
     @test has_nonlinear_drives(sys.H_drives)
 
@@ -1244,7 +1244,7 @@ end
     ]
     drive_bounds = [1.0]
 
-    sys = QuantumSystem(PAULIS.Z, drives, drive_bounds; global_params = (δ = δ_init,))
+    sys = OpenQuantumSystem(PAULIS.Z, drives, drive_bounds; global_params = (δ = δ_init,))
 
     @test has_nonlinear_drives(sys.H_drives)
 
@@ -1300,7 +1300,7 @@ end
 
     include("../../../test/test_utils.jl")
 
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
 
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
@@ -1366,7 +1366,7 @@ end
     Random.seed!(202_001)
     T = 2.0
     N = 8
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     qtraj = MultiKetTrajectory(sys, [ψ0, ψ1], [ψ1, ψ0], T)
@@ -1403,7 +1403,7 @@ end
     N = 7
 
     # --- no globals: exercises the x-u cross-term block ---
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     qtraj = MultiKetTrajectory(sys, [ψ0, ψ1], [ψ1, ψ0], T)
@@ -1429,7 +1429,7 @@ end
 
     # --- with globals: additionally exercises the x-g cross-term block ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
+    gsys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1478,7 +1478,7 @@ end
 
     # Affine system with globals so several blocks (x, u, Δt, g) are exercised.
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1573,7 +1573,7 @@ end
     Random.seed!(202_004)
     T = 2.0
     N = 6
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     qtraj = MultiKetTrajectory(sys, [ψ0, ψ1], [ψ1, ψ0], T)
@@ -1603,7 +1603,7 @@ end
         LinearDrive(sparse(ComplexF64.(PAULIS.X)), 1),
         NonlinearDrive(PAULIS.Z, u -> u[1]^2),
     ]
-    sys = QuantumSystem(PAULIS.Z, drives, [1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, drives, [1.0])
     @test has_nonlinear_drives(sys.H_drives)
 
     ψ0 = ComplexF64[1.0, 0.0]
@@ -1654,7 +1654,7 @@ end
     N = 7
 
     # --- no globals: exercises the u-u, u-Δt, Δt-Δt parameter-parameter blocks ---
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     qtraj = MultiKetTrajectory(sys, [ψ0, ψ1], [ψ1, ψ0], T)
@@ -1699,7 +1699,7 @@ end
 
     # --- with globals: adds the u-g, g-g, and Δt-g parameter-parameter blocks ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
+    gsys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1760,7 +1760,7 @@ end
     D1 = Matrix(Hermitian(B1 + B1'))
     B2 = randn(ComplexF64, n, n)
     D2 = Matrix(Hermitian(B2 + B2'))
-    sys = QuantumSystem(H0, [D1, D2], [1.0, 1.0])
+    sys = OpenQuantumSystem(H0, [D1, D2], [1.0, 1.0])
 
     kin = [normalize(randn(ComplexF64, n)), normalize(randn(ComplexF64, n))]
     kgo = [normalize(randn(ComplexF64, n)), normalize(randn(ComplexF64, n))]
@@ -1813,7 +1813,7 @@ end
 
     # affine system with globals so every p-p block (u-u, u-g, g-g, Δt-* ) is present
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1868,7 +1868,7 @@ end
     N = 12
 
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
+    sys = OpenQuantumSystem(
         H,
         [1.0, 1.0];
         time_dependent = true,
@@ -1942,7 +1942,7 @@ end
     Random.seed!(203_005)
     T = 2.0
     N = 6
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     qtraj = MultiKetTrajectory(sys, [ψ0, ψ1], [ψ1, ψ0], T)
@@ -1971,7 +1971,7 @@ end
     Random.seed!(203_006)
     T = 8.0
     N = 12
-    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     initials = [ψ0, ψ1]
@@ -2022,7 +2022,7 @@ end
     using SparseArrays
     using Test
 
-    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
     N = 6
     T0 = 1.7
     Random.seed!(20260831)
@@ -2057,7 +2057,7 @@ end
     ∂F = eval_jacobian(ℰ, traj)
     @test size(∂F) == (x_dim * (N - 1), length(vec(traj)))
     for k = 1:(N-1)
-        Gₖ = sys.G(u[:, k], 0.0)
+        Gₖ = sys.𝒢(u[:, k], 0.0)
         Φₖ = exp_eigen((T0 / (N - 1)) .* sys.H(u[:, k], 0.0))
         dcdΔt₁ = -Gₖ * Φₖ * ψ̃₁[:, k]
         dcdΔt₂ = -Gₖ * Φₖ * ψ̃₂[:, k]
@@ -2078,9 +2078,9 @@ end
     ∂F_sat = eval_jacobian(ℰ_sat, traj_sat)
     for k = 1:(N-1)
         @test ∂F_sat[((k-1)*x_dim) .+ (1:4), T_col] ≈
-              -wₖ .* (sys.G(u[:, k], 0.0) * ψ̃₁sat[:, k+1])
+              -wₖ .* (sys.𝒢(u[:, k], 0.0) * ψ̃₁sat[:, k+1])
         @test ∂F_sat[((k-1)*x_dim) .+ (5:8), T_col] ≈
-              -wₖ .* (sys.G(u[:, k], 0.0) * ψ̃₂sat[:, k+1])
+              -wₖ .* (sys.𝒢(u[:, k], 0.0) * ψ̃₂sat[:, k+1])
     end
 
     # FD parity of the full Jacobian over the PACKED vector (perturbs T too)
