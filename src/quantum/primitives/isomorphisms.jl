@@ -76,8 +76,7 @@ function iso_vec_to_operator(Ũ⃗::AbstractVector{ℝ}) where {ℝ<:Real}
     N = Int(sqrt(Ũ⃗_dim))
     U = Matrix{complex(ℝ)}(undef, N, N)
     for i = 0:(N-1)
-        U[:, i+1] .=
-            @view(Ũ⃗[i*2N .+ (1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N .+ ((N+1):2N)])
+        U[:, i+1] .= @view(Ũ⃗[i*2N .+ (1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N .+ ((N+1):2N)])
     end
     return U
 end
