@@ -1,0 +1,63 @@
+# Wrapper + warm-start fixture.
+#
+# rich.toml says "wrappers omitted", and no other fixture carries a [warm_start]
+# block — so before this file, `_wrapper_dict` and `_warm_start_dict` in hashes.jl
+# were never executed by any test, and the cross-language hash agreement for specs
+# containing [[wrappers]] or [warm_start] was UNVERIFIED. A TypeScript mirror that
+# projected either block differently (dropping empty `variants`, emitting `weights`
+# as ints, ordering keys differently) would have produced a different digest with
+# nothing to catch it.
+#
+# Deliberate content:
+#   - a wrapper carrying BOTH `variants` (heterogeneous scalar types, to exercise
+#     _wireval) and `weights` (mixed int/float literals, so the int-valued one has
+#     to render as a bare integer under the ES Number::toString rule).
+#   - a SECOND wrapper with neither, so the "omit empty variants/weights" branches
+#     are exercised too — those omissions are part of the wire shape and therefore
+#     part of the digest.
+#   - warm_start with both catalog_ref AND pulse_hash set.
+#   - `sampling` is the only wrapper kind in the OSS schema (`robust` is private to
+#     Piccolissimo), so this fixture stays valid against the public variant.
+#
+# structure_hash covers only `wrappers[].kind` (sorted) — variants/weights are
+# VALUES and land in problem_hash only. Two wrappers of the same kind therefore
+# collapse to one repeated kind in the structure projection, which is intended.
+schema_version = 1
+kind = "control"
+
+[system]
+kind = "template"
+template = "TransmonSystem"
+params = { levels = 3, drive_bounds = [0.02, 0.02] }
+
+[goal]
+kind = "unitary"
+gate = "X"
+
+[pulse]
+kind = "cubic_spline"
+T = 50.0
+
+[problem]
+template = "SplinePulseProblem"
+N = 50
+
+[[wrappers]]
+kind = "sampling"
+weights = [1, 0.25]
+variants = [{ drive_scale = 0.98, label = "lo" }, { drive_scale = 1.02, label = "hi" }]
+
+[[wrappers]]
+kind = "sampling"
+
+[warm_start]
+catalog_ref = "catalog://transmon/X/N50"
+pulse_hash = "sha256:0123456789abcdef"
+
+[integrator]
+kind = "spline"
+alg = "magnus_gl4"
+
+[solver]
+backend = "ipopt"
+strategy = "direct"

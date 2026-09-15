@@ -61,6 +61,15 @@
 # This is strictly harder than per-state fidelity because relative phases
 # must be correct.
 #
+# Per-state weights turn this into a weighted mean of overlaps, normalized by
+# the weight sum (uniform weights recover the formula above):
+#
+# ```math
+# F_{\text{coh}} = \left| \frac{\sum_{j} w_j \langle \psi_{\text{goal},j} | \psi_{j,N} \rangle}{\sum_{j} w_j} \right|^2
+# ```
+#
+# A `MultiKetTrajectory` built with `weights` passes them through automatically.
+#
 # ```julia
 # obj = CoherentKetInfidelityObjective([:ψ̃1, :ψ̃2], [ψ_goal1, ψ_goal2]; Q=100.0)
 # ```
