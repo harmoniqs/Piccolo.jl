@@ -504,9 +504,20 @@ function _final_fidelity_constraint(
     traj::NamedTrajectory;
     subsystem_levels::Union{Nothing,Vector{Int}} = nothing,
 )
-    constraints = [
-        _sampling_fidelity_constraint(qtraj.base_trajectory, name, final_fidelity, traj) for name in state_names(qtraj)
-    ]
+    # Per-member constraints: one name per member for single-state bases, one
+    # name-vector per member for multi-state bases. A method may return a single
+    # constraint or a vector of them (multi-density) — flatten either way.
+    # (Re-land of #270, reverted by #259 — issue #339.)
+    constraints = AbstractConstraint[]
+    for member_states in sampling_member_states(qtraj)
+        c = _sampling_fidelity_constraint(
+            qtraj.base_trajectory,
+            member_states,
+            final_fidelity,
+            traj,
+        )
+        c isa AbstractVector ? append!(constraints, c) : push!(constraints, c)
+    end
     return constraints
 end
 
@@ -527,6 +538,44 @@ function _sampling_fidelity_constraint(
     traj::NamedTrajectory,
 )
     return FinalKetFidelityConstraint(qtraj.goal, state_sym, final_fidelity, traj)
+end
+
+function _sampling_fidelity_constraint(
+    qtraj::MultiKetTrajectory,
+    state_syms::Vector{Symbol},
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    # Per-member coherent fidelity constraint over the member's ket sub-states
+    return FinalCoherentKetFidelityConstraint(
+        qtraj.goals,
+        state_syms,
+        final_fidelity,
+        traj;
+        weights = qtraj.weights,
+    )
+end
+
+function _sampling_fidelity_constraint(
+    qtraj::DensityTrajectory,
+    state_sym::Symbol,
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    return FinalDensityFidelityConstraint(qtraj.goal, state_sym, final_fidelity, traj)
+end
+
+function _sampling_fidelity_constraint(
+    qtraj::MultiDensityTrajectory,
+    state_syms::Vector{Symbol},
+    final_fidelity::Float64,
+    traj::NamedTrajectory,
+)
+    # One density fidelity constraint per sub-state of this member
+    return [
+        FinalDensityFidelityConstraint(goal, name, final_fidelity, traj) for
+        (goal, name) in zip(qtraj.goals, state_syms)
+    ]
 end
 
 # Tests
@@ -907,4 +956,136 @@ end
     @test !(mt_base isa AbstractProblemWrapper)
     @test template_tag(mt_base) === SmoothPulseTemplate()
     @test template_params(mt_base) === template_params(base)
+end
+
+# ============================================================================= #
+# Regression: per-member endpoint fidelity constraints (re-land of #270,        #
+# reverted by #259). Issue #339.                                                #
+# ============================================================================= #
+
+@testitem "SamplingProblem + MinimumTimeProblem composition (MultiKet)" begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 21
+
+    sys_nominal = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_perturbed = QuantumSystem(0.11 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    qtraj = MultiKetTrajectory(sys_nominal, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
+
+    sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
+    solve!(sampling_prob; max_iter = 10, verbose = false, print_level = 1)
+
+    # Per-member final-fidelity constraints: one coherent constraint per member
+    # (2 members), each over the member's 2 ket components
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(
+        sampling_prob.qtraj,
+        0.80,
+        get_trajectory(sampling_prob),
+    )
+    @test length(cons) == 2
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
+
+    mintime_prob = MinimumTimeProblem(sampling_prob; final_fidelity = 0.80, D = 50.0)
+
+    # Under #259's parametric-template typing, min-time over a sampling problem
+    # returns the SAME SamplingProblem wrapper (no flattening to a bare
+    # QuantumControlProblem) — see the wrapper-preservation test above.
+    @test mintime_prob isa SamplingProblem
+    @test mintime_prob isa AbstractQuantumControlProblem
+    @test mintime_prob.qtraj isa SamplingTrajectory
+
+    solve!(mintime_prob; max_iter = 10, verbose = false, print_level = 1)
+end
+
+@testitem "SamplingTrajectory (Density) min-time fidelity constraint" tags = [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    base_qtraj = DensityTrajectory(sys_nom, pulse, ρ0, ρg)
+
+    # Built directly: SamplingProblem construction errors loudly on the density
+    # objective cell, so the min-time machinery is exercised at the dispatch
+    # level. Behavior pinned: per-member FinalDensityFidelityConstraint (public
+    # machinery), usable as-is once a downstream objective registers.
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(sampling_qtraj, 0.9, traj)
+    @test length(cons) == 2
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
+end
+
+@testitem "SamplingTrajectory (MultiDensity) min-time fidelity constraints" tags =
+    [:density] begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 11
+
+    L = ComplexF64[0.0 0.1; 0.0 0.0]
+    sys_nom = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys_var =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρ1 = ComplexF64[0.0 0.0; 0.0 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    base_qtraj = MultiDensityTrajectory(sys_nom, pulse, [ρ0, ρ1], [ρ1, ρ0])
+
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    # One FinalDensityFidelityConstraint per (member, density) — 2 × 2 = 4
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(sampling_qtraj, 0.9, traj)
+    @test length(cons) == 4
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
+end
+
+@testitem "SamplingProblem endpoint constraints are per-member (regression guard #339)" begin
+    using DirectTrajOpt
+
+    # A rebase that flattens `_final_fidelity_constraint(::SamplingTrajectory)`
+    # back to a `state_names` comprehension (as #259 did to #270) collapses a
+    # multi-state base's per-member grouping: a 2-member × 2-substate MultiKet
+    # would yield 4 single-state constraints instead of 2 coherent per-member
+    # ones. This guard fails on that regression by asserting the per-member
+    # count for a multi-state base.
+    T = 1.0
+    N = 11
+
+    sys_nom = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    sys_var = QuantumSystem(0.11 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    base_qtraj = MultiKetTrajectory(sys_nom, pulse, [ψ0, ψ1], [ψ1, ψ0])
+
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys_nom, sys_var])
+    traj = NamedTrajectory(sampling_qtraj, N)
+
+    cons = Piccolo.ProblemTemplates._final_fidelity_constraint(sampling_qtraj, 0.9, traj)
+
+    # Per-member, NOT per-substate: 2 members → 2 coherent constraints (a
+    # flattened comprehension would give 4).
+    @test length(cons) == length(sampling_qtraj.systems)
+    @test length(cons) == 2
+    @test all(c -> c isa NonlinearKnotPointConstraint, cons)
 end
