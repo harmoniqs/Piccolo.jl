@@ -245,7 +245,8 @@ vector. Three call shapes, aligned with the other problem templates:
 """
 function _resolve_sampling_integrators(integrator, sampling_qtraj, N::Int, n_slots::Int)
     if isnothing(integrator)
-        default_int = BilinearIntegrator(sampling_qtraj, N)
+        # #334: default sampling integrator is the native exact-PWC tier (globals-aware).
+        default_int = HermitianExponentialIntegrator(sampling_qtraj, N)
         return AbstractIntegrator[(default_int isa AbstractVector ? default_int :
                                    [default_int])...,]
     elseif integrator isa AbstractIntegrator
