@@ -177,6 +177,104 @@ function NonlinearDrive(
 end
 
 """
+    BilinearCouplerCoeff
+
+Coefficient functor for [`coupling_drive`](@ref): `a · u[i] · u[j]`.
+
+The drive term it parameterizes is *nonlinear* in the control vector (a
+product of two controls — hence it lives inside a [`NonlinearDrive`](@ref))
+but *bilinear* with respect to the two coupler controls `u[i]` and `u[j]`,
+with a fixed (baked) coupling strength `a`.
+
+A named functor — rather than an anonymous closure — keeps the drive
+introspectable (`d.coeff.i`, `d.coeff.j`, `d.coeff.a`), serializable
+(plain-data fields, no closure types), and concretely typed (all couplings
+share one `NonlinearDrive{H,BilinearCouplerCoeff,...}` type).
+"""
+struct BilinearCouplerCoeff
+    i::Int
+    j::Int
+    a::Float64
+end
+(c::BilinearCouplerCoeff)(u) = c.a * u[c.i] * u[c.j]
+
+"""
+    BilinearCouplerCoeffJac
+
+Analytic Jacobian functor companion to [`BilinearCouplerCoeff`](@ref):
+`∂(a·u[i]·u[j])/∂u_p`. Avoids the per-query ForwardDiff gradient fallback.
+"""
+struct BilinearCouplerCoeffJac
+    i::Int
+    j::Int
+    a::Float64
+end
+(c::BilinearCouplerCoeffJac)(u, p) = p == c.i ? c.a * u[c.j] : p == c.j ? c.a * u[c.i] : 0.0
+
+"""
+    BilinearCouplerCoeffHess
+
+Analytic Hessian functor companion to [`BilinearCouplerCoeff`](@ref):
+`∂²(a·u[i]·u[j])/∂u_p∂u_q` — constant `a` on the `(i,j)`/`(j,i)` entries,
+zero elsewhere.
+"""
+struct BilinearCouplerCoeffHess
+    i::Int
+    j::Int
+    a::Float64
+end
+(c::BilinearCouplerCoeffHess)(u, p, q) =
+    ((p == c.i && q == c.j) || (p == c.j && q == c.i)) ? c.a : 0.0
+
+"""
+    coupling_drive(H, i::Int, j::Int; strength=1.0)
+
+Construct a [`NonlinearDrive`](@ref) for a pairwise coupling term with a
+**fixed (baked) coupling strength**: `strength · u[i] · u[j] · H`.
+
+The returned drive *is* a `NonlinearDrive` — parameterized by the named
+functors [`BilinearCouplerCoeff`](@ref) / [`BilinearCouplerCoeffJac`](@ref) /
+[`BilinearCouplerCoeffHess`](@ref) instead of anonymous closures, so coupled
+systems stay introspectable, serializable, and concretely typed.
+
+This is the recommended way to express coupler-mediated interactions of the
+form `A_ij · u_i(t) · u_j(t) · H_ij` (e.g. photonic networks where a mixing
+circuit couples modes `i` and `j` with controllable rates, as in
+recirculating quantum photonic networks) when the coupling matrix entry
+`A_ij` is a calibration constant rather than an optimization variable.
+
+Baking the strength into the drive — instead of appending it to the control
+vector as a global parameter — removes it from the NLP entirely: no extra
+sensitivity column in every interval's Jacobian ODE, and no gauge-flat
+Hessian directions from the rescaling redundancy
+`u_i → α·u_i, A_ij → A_ij/α`. Empirically (rqpnn C-matrix campaign,
+2026-06-10) this improves both convergence quality and wall time relative
+to co-optimizing the coupling strengths.
+
+The analytic Jacobian and Hessian are provided (no ForwardDiff fallback),
+and `active_controls = [i, j]` gives the integrator exact structural
+sparsity.
+
+# Example
+```julia
+# A_12 = 0.85 coupling between modes 1 and 2:
+d = coupling_drive(ad_2 * a_1 + ad_1 * a_2, 1, 2; strength = 0.85)
+d.coeff.a  # 0.85 — readable back out of any saved system
+```
+"""
+function coupling_drive(H, i::Int, j::Int; strength::Real = 1.0)
+    i == j && throw(ArgumentError("coupling_drive requires i ≠ j (got i = j = $i)"))
+    a = Float64(strength)
+    return NonlinearDrive(
+        H,
+        BilinearCouplerCoeff(i, j, a),
+        BilinearCouplerCoeffJac(i, j, a);
+        coeff_hess = BilinearCouplerCoeffHess(i, j, a),
+        active_controls = [i, j],
+    )
+end
+
+"""
     _forwarddiff_jacobian(f) -> (u, j) -> ∂f/∂u_j
 
 Create a Jacobian function from a scalar-valued function `f(u)` using ForwardDiff.
@@ -434,7 +532,8 @@ Spot-check the Jacobian of a `NonlinearDrive` against ForwardDiff at random cont
 Throws an `AssertionError` if the user-provided Jacobian disagrees with the AD Jacobian.
 
 This is called automatically during `QuantumSystem` construction for all `NonlinearDrive`
-terms, catching sign errors or off-by-one bugs early.
+terms, catching sign errors or off-by-one bugs early. Sampling uses a local RNG so
+construction does not advance the global `Random` stream as a side effect.
 """
 function validate_drive_jacobian(
     d::NonlinearDrive,
@@ -442,8 +541,9 @@ function validate_drive_jacobian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
+    rng = MersenneTwister(0)
     for _ = 1:n_samples
-        u = randn(u_dim)
+        u = randn(rng, u_dim)
         grad_ad = ForwardDiff.gradient(d.coeff, u)
         for j = 1:u_dim
             user_val = d.coeff_jac(u, j)
@@ -460,6 +560,9 @@ end
 
 Spot-check the Hessian of a `NonlinearDrive` against ForwardDiff at random control vectors.
 Throws an `AssertionError` if the user-provided Hessian disagrees with the AD Hessian.
+
+Sampling uses a local RNG so construction does not advance the global `Random` stream
+as a side effect.
 """
 function validate_drive_hessian(
     d::NonlinearDrive,
@@ -467,8 +570,9 @@ function validate_drive_hessian(
     atol::Float64 = 1e-6,
     n_samples::Int = 3,
 )
+    rng = MersenneTwister(0)
     for _ = 1:n_samples
-        u = randn(u_dim)
+        u = randn(rng, u_dim)
         hess_ad = ForwardDiff.hessian(d.coeff, u)
         for i = 1:u_dim, j = i:u_dim
             user_val = d.coeff_hess(u, i, j)
@@ -738,6 +842,53 @@ end
     @test_throws AssertionError validate_drive_jacobian(d_wrong_global, 3)
 end
 
+@testitem "QuantumSystem construction does not advance the global RNG" begin
+    # Regression: validators previously sampled with `randn(u_dim)` on the
+    # global stream during `QuantumSystem` construction, silently shifting
+    # downstream `rand`/`randn` results in user scripts that seed once at
+    # the top.
+
+    using Piccolo
+    using Random
+    using SparseArrays
+
+    H_drift = sparse(ComplexF64[1.0 0.0; 0.0 -1.0])
+    H1 = sparse(ComplexF64[0.0 1.0; 1.0 0.0])
+    H2 = sparse(ComplexF64[0.0 -1.0im; 1.0im 0.0])
+
+    # 1. Direct validator entry points.
+    d_simple = NonlinearDrive(H1, u -> u[1] * u[2] * u[3])
+    Random.seed!(42)
+    baseline = rand(5)
+    Random.seed!(42)
+    validate_drive_jacobian(d_simple, 3)
+    validate_drive_hessian(d_simple, 3)
+    @test rand(5) == baseline
+
+    # 2. Full QuantumSystem path with NonlinearDrives + globals — this is
+    #    the surface that hit the user. Multiple nonlinear drives × a
+    #    larger u_dim is the worst case for randn consumption.
+    drives = AbstractDrive[
+        LinearDrive(H1, 1),
+        NonlinearDrive(H2, u -> u[1]^2 + u[2] * u[3]),
+        NonlinearDrive(H1, u -> u[2] * u[3]),
+    ]
+    bounds = [(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)]
+    Random.seed!(42)
+    baseline2 = rand(5)
+    Random.seed!(42)
+    QuantumSystem(H_drift, drives, bounds; global_params = (g1 = 0.5,))
+    @test rand(5) == baseline2
+
+    # 3. Same again but with no globals — verifies the no-globals path is
+    #    also RNG-clean.
+    Random.seed!(42)
+    baseline3 = rand(5)
+    Random.seed!(42)
+    QuantumSystem(H_drift, drives, bounds)
+    @test rand(5) == baseline3
+end
+
 @testitem "G works on AbstractDrive types" begin
     using Piccolo
     using SparseArrays
@@ -880,4 +1031,180 @@ end
     # 2-arg backward-compatible shims
     @test drive_coeff(ld, u) == drive_coeff(ld, u, 0.0)
     @test drive_coeff_jac(ld, u, 2) == drive_coeff_jac(ld, u, 0.0, 2)
+end
+
+@testitem "coupling_drive: values, Jacobian, Hessian, sparsity" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse([0.0+0im 1.0+0im; 1.0+0im 0.0+0im])
+    d = coupling_drive(H, 1, 3; strength = 0.85)
+
+    u = [2.0, 5.0, 3.0, 7.0]
+    @test drive_coeff(d, u) ≈ 0.85 * 2.0 * 3.0
+    @test drive_coeff_jac(d, u, 1) ≈ 0.85 * 3.0
+    @test drive_coeff_jac(d, u, 3) ≈ 0.85 * 2.0
+    @test drive_coeff_jac(d, u, 2) == 0.0
+    @test drive_coeff_jac(d, u, 4) == 0.0
+    @test drive_coeff_hess(d, u, 1, 3) ≈ 0.85
+    @test drive_coeff_hess(d, u, 3, 1) ≈ 0.85
+    @test drive_coeff_hess(d, u, 1, 1) == 0.0
+    @test drive_coeff_hess(d, u, 2, 3) == 0.0
+    @test active_controls(d) == [1, 3]
+
+    # default strength = 1.0
+    d1 = coupling_drive(H, 2, 4)
+    @test drive_coeff(d1, u) ≈ 5.0 * 7.0
+
+    # i == j is rejected
+    @test_throws ArgumentError coupling_drive(H, 2, 2)
+
+    # functor parameterization: introspectable, concrete, serializable
+    @test d.coeff isa BilinearCouplerCoeff
+    @test (d.coeff.i, d.coeff.j, d.coeff.a) == (1, 3, 0.85)
+    @test typeof(d) == typeof(d1)  # one concrete type for all couplings
+
+    using Serialization
+    buf = IOBuffer()
+    serialize(buf, d)
+    seekstart(buf)
+    d2 = deserialize(buf)
+    @test drive_coeff(d2, u) ≈ drive_coeff(d, u)
+    @test d2.coeff.a == 0.85
+end
+
+@testitem "coupling_drive ≡ trilinear NonlinearDrive with frozen global" begin
+    using Piccolo
+    using SparseArrays
+
+    # The baked form a·u[i]·u[j] must match the trilinear form
+    # u[i]·u[j]·u[g] evaluated at a control vector with u[g] frozen to a.
+    H = sparse([1.0+0im 0.0+0im; 0.0+0im -1.0+0im])
+    i, j, g, a = 1, 2, 5, 0.7321
+
+    baked = coupling_drive(H, i, j; strength = a)
+    trilinear = NonlinearDrive(
+        H,
+        u -> u[i] * u[j] * u[g],
+        (u, p) ->
+            p == i ? u[j] * u[g] : p == j ? u[i] * u[g] : p == g ? u[i] * u[j] : 0.0;
+        coeff_hess = (u, p, q) -> begin
+            if (p == i && q == j) || (p == j && q == i)
+                u[g]
+            elseif (p == i && q == g) || (p == g && q == i)
+                u[j]
+            elseif (p == j && q == g) || (p == g && q == j)
+                u[i]
+            else
+                0.0
+            end
+        end,
+        active_controls = [i, j, g],
+    )
+
+    u = [1.3, -0.4, 9.9, 2.2, a]  # u[g] frozen at the baked strength
+    @test drive_coeff(baked, u) ≈ drive_coeff(trilinear, u)
+    for p in (i, j)
+        @test drive_coeff_jac(baked, u, p) ≈ drive_coeff_jac(trilinear, u, p)
+    end
+    for p in (i, j), q in (i, j)
+        @test drive_coeff_hess(baked, u, p, q) ≈ drive_coeff_hess(trilinear, u, p, q)
+    end
+
+    # The trilinear Hessian's g-cross terms (the branches the (i,j) block never
+    # touches): ∂²(u_i u_j u_g)/∂u_p∂u_q picks up u of the third index. The
+    # BAKED form has no such terms by design — baking removes the gauge
+    # direction — so assert the trilinear closure itself, against AD.
+    @test drive_coeff_hess(trilinear, u, i, g) ≈ u[j]
+    @test drive_coeff_hess(trilinear, u, g, i) ≈ u[j]
+    @test drive_coeff_hess(trilinear, u, j, g) ≈ u[i]
+    @test drive_coeff_hess(trilinear, u, g, j) ≈ u[i]
+    validate_drive_hessian(trilinear, 5)
+end
+
+@testitem "coupling_drive: AD cross-check + QuantumSystem integration" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse([0.0+0im 1.0+0im; 1.0+0im 0.0+0im])
+
+    # Independent ForwardDiff cross-check of the analytic functors
+    # (validate_* sample random u and compare against AD; throws on mismatch)
+    for (i, j, a) in ((1, 3, 0.85), (2, 4, -1.3), (1, 2, 2))  # incl. negative + Int strength
+        d = coupling_drive(H, i, j; strength = a)
+        validate_drive_jacobian(d, 4)
+        validate_drive_hessian(d, 4)
+    end
+
+    # End-to-end: coupling_drive inside a QuantumSystem
+    σz = sparse([1.0+0im 0.0+0im; 0.0+0im -1.0+0im])
+    drives = AbstractDrive[LinearDrive(σz, 1), coupling_drive(H, 1, 2; strength = 0.5)]
+    sys = QuantumSystem(zeros(ComplexF64, 2, 2), drives, [(-1.0, 1.0), (-1.0, 1.0)])
+    u = [0.3, -0.8]
+    @test sys.H(u, 0.0) ≈ 0.3 * σz + 0.5 * 0.3 * (-0.8) * H
+end
+
+# Minimal non-matrix Hamiltonian: exercises the generic NonlinearDrive
+# constructors (H stored as-is) and the _ensure_matrix fallbacks through the
+# generic drive_matrix / drive_dim / G methods.
+@testitem "drives: generic (non-matrix) Hamiltonians, ModulatedDrive Hessian, has_modulation" begin
+    using Piccolo
+    using SparseArrays
+    using LinearAlgebra
+
+    struct WrapOp
+        M::Matrix{ComplexF64}
+    end
+    Base.Matrix(w::WrapOp) = w.M
+
+    struct WrappedDrive <: AbstractDrive
+        H::WrapOp
+    end
+
+    H = sparse(ComplexF64[0 1; 1 0])
+
+    # ── generic NonlinearDrive constructors: H is not an AbstractMatrix ──
+    w = WrapOp(ComplexF64[1 0; 0 -1])
+
+    # 2-arg (auto Jacobian + Hessian via ForwardDiff)
+    d1 = NonlinearDrive(w, u -> u[1]^2)
+    @test d1.H === w                       # stored as-is, not sparsified
+    @test drive_coeff(d1, [3.0]) == 9.0
+    @test drive_coeff_jac(d1, [3.0], 1) ≈ 6.0
+    @test drive_coeff_hess(d1, [3.0], 1, 1) ≈ 2.0
+
+    # 3-arg (explicit Jacobian; Hessian still auto-generated)
+    d2 = NonlinearDrive(w, u -> u[1]^2, (u, j) -> j == 1 ? 2u[1] : 0.0)
+    @test d2.H === w
+    @test drive_coeff_jac(d2, [3.0], 1) ≈ 6.0
+    @test drive_coeff_hess(d2, [3.0], 1, 1) ≈ 2.0
+
+    # auto-generated derivatives agree with AD for the generic constructors too
+    validate_drive_jacobian(d1, 1)
+    validate_drive_hessian(d1, 1)
+
+    # ── generic drive_matrix / drive_dim / _ensure_matrix via a custom subtype ──
+    d = WrappedDrive(WrapOp(ComplexF64[0 1; 1 0]))
+    @test drive_matrix(d) == ComplexF64[0 1; 1 0]      # Base.Matrix fallback
+    @test drive_dim(d) == 2
+    @test Piccolo.Isomorphisms.G(d) == Piccolo.Isomorphisms.G(ComplexF64[0 1; 1 0])
+
+    # ── ModulatedDrive Hessian: base Hessian scaled by the modulation at t=0 ──
+    nd = NonlinearDrive(H, u -> u[1]^2 + u[2]^2)
+    md = ModulatedDrive(nd, t -> 2 + cos(3t))
+    u = [3.0, 4.0, 0.0]
+    @test drive_coeff_hess(md, u, 1, 1) ≈ 2.0 * (2 + cos(0.0))
+    @test drive_coeff_hess(md, u, 1, 2) ≈ 0.0
+    # wrapping a linear drive: zero base Hessian stays zero
+    ld = LinearDrive(H, 2)
+    md_l = ModulatedDrive(ld, t -> 2 + cos(3t))
+    @test drive_coeff_hess(md_l, u, 1, 1) == 0.0
+    @test drive_coeff_hess(md_l, u, 2, 2) == 0.0
+
+    # ── has_modulation across the drive types ──
+    @test !has_modulation(DriftTerm(H))                    # identity modulation
+    @test has_modulation(DriftTerm(H, t -> cos(2t)))
+    @test has_modulation(md_l)                             # ModulatedDrive always
+    @test !has_modulation(ld)
+    @test !has_modulation(nd)
 end

@@ -5,6 +5,7 @@ export display_level
 export DISPLAY_SILENT, DISPLAY_COMPACT, DISPLAY_STANDARD, DISPLAY_DETAILED
 
 using ExponentialAction
+using TestItems
 
 
 # TODO: Add duration and symmetry options
@@ -66,12 +67,16 @@ Options for the Piccolo quantum optimal control library.
   `Δt_bounds`, letting the optimizer choose a non-uniform grid (concentrating
   samples where the pulse is changing fast). Set to `true` to force uniform
   spacing — useful when the target hardware has a fixed sample-rate.
-- `rollout_integrator::Function = expv`: Integrator to use for rollout
-- `geodesic = true`: Use the geodesic to initialize the optimization.
-- `zero_initial_and_final_derivative::Bool=false`: Zero the initial and final control pulse derivatives.
 - `complex_control_norm_constraint_name::Union{Nothing, Symbol} = nothing`: Name of the complex control norm constraint.
 - `complex_control_norm_constraint_radius::Float64 = 1.0`: Radius of the complex control norm constraint.
-- `bound_state::Bool = false`: Bound the state variables <= 1.0.
+- `bound_state::Bool = true`: Keep the default [-1, 1] box bounds on each component
+  of the isomorphism state vector at every knot point. These bounds are set
+  automatically during trajectory construction. Set to `false` to remove them,
+  giving the optimizer full freedom on state variables.
+- `bound_state_l2::Bool = false`: Add nonlinear constraints bounding each complex
+  component's magnitude (Re² + Im²) ≤ 1 at every knot point. Tighter than `bound_state`
+  but adds NLP complexity (Jacobian/Hessian entries). Not yet supported for
+  DensityTrajectory.
 - `leakage_constraint::Bool = false`: Suppress leakage with constraint and cost.
 - `leakage_constraint_value::Float64 = 1e-2`: Value for the leakage constraint.
 - `leakage_cost::Float64 = 1e-2`: Leakage suppression parameter.
@@ -79,12 +84,10 @@ Options for the Piccolo quantum optimal control library.
 mutable struct PiccoloOptions
     display::Symbol
     timesteps_all_equal::Bool
-    rollout_integrator::Function
-    geodesic::Bool
-    zero_initial_and_final_derivative::Bool
     complex_control_norm_constraint_name::Union{Nothing,Symbol}
     complex_control_norm_constraint_radius::Float64
     bound_state::Bool
+    bound_state_l2::Bool
     leakage_constraint::Bool
     leakage_constraint_value::Float64
     leakage_cost::Float64
@@ -94,12 +97,10 @@ function PiccoloOptions(;
     display::Union{Symbol,Nothing} = nothing,
     verbose = nothing,
     timesteps_all_equal::Bool = false,
-    rollout_integrator::Function = expv,
-    geodesic::Bool = true,
-    zero_initial_and_final_derivative::Bool = false,
     complex_control_norm_constraint_name::Union{Nothing,Symbol} = nothing,
     complex_control_norm_constraint_radius::Float64 = 1.0,
-    bound_state::Bool = false,
+    bound_state::Bool = true,
+    bound_state_l2::Bool = false,
     leakage_constraint::Bool = false,
     leakage_constraint_value::Float64 = 1e-2,
     leakage_cost::Float64 = 1e-2,
@@ -124,16 +125,22 @@ function PiccoloOptions(;
     return PiccoloOptions(
         display,
         timesteps_all_equal,
-        rollout_integrator,
-        geodesic,
-        zero_initial_and_final_derivative,
         complex_control_norm_constraint_name,
         complex_control_norm_constraint_radius,
         bound_state,
+        bound_state_l2,
         leakage_constraint,
         leakage_constraint_value,
         leakage_cost,
     )
+end
+
+@testitem "PiccoloOptions constructor is quiet on defaults" begin
+    using Piccolo
+
+    # Defaults, and consulted fields, produce no warning.
+    @test_logs min_level = Base.CoreLogging.Warn PiccoloOptions()
+    @test_logs min_level = Base.CoreLogging.Warn PiccoloOptions(bound_state = false)
 end
 
 end
