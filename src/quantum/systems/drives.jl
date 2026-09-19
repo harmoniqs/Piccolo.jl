@@ -1110,6 +1110,16 @@ end
     for p in (i, j), q in (i, j)
         @test drive_coeff_hess(baked, u, p, q) ≈ drive_coeff_hess(trilinear, u, p, q)
     end
+
+    # The trilinear Hessian's g-cross terms (the branches the (i,j) block never
+    # touches): ∂²(u_i u_j u_g)/∂u_p∂u_q picks up u of the third index. The
+    # BAKED form has no such terms by design — baking removes the gauge
+    # direction — so assert the trilinear closure itself, against AD.
+    @test drive_coeff_hess(trilinear, u, i, g) ≈ u[j]
+    @test drive_coeff_hess(trilinear, u, g, i) ≈ u[j]
+    @test drive_coeff_hess(trilinear, u, j, g) ≈ u[i]
+    @test drive_coeff_hess(trilinear, u, g, j) ≈ u[i]
+    validate_drive_hessian(trilinear, 5)
 end
 
 @testitem "coupling_drive: AD cross-check + QuantumSystem integration" begin
@@ -1132,4 +1142,69 @@ end
     sys = QuantumSystem(zeros(ComplexF64, 2, 2), drives, [(-1.0, 1.0), (-1.0, 1.0)])
     u = [0.3, -0.8]
     @test sys.H(u, 0.0) ≈ 0.3 * σz + 0.5 * 0.3 * (-0.8) * H
+end
+
+# Minimal non-matrix Hamiltonian: exercises the generic NonlinearDrive
+# constructors (H stored as-is) and the _ensure_matrix fallbacks through the
+# generic drive_matrix / drive_dim / G methods.
+@testitem "drives: generic (non-matrix) Hamiltonians, ModulatedDrive Hessian, has_modulation" begin
+    using Piccolo
+    using SparseArrays
+    using LinearAlgebra
+
+    struct WrapOp
+        M::Matrix{ComplexF64}
+    end
+    Base.Matrix(w::WrapOp) = w.M
+
+    struct WrappedDrive <: AbstractDrive
+        H::WrapOp
+    end
+
+    H = sparse(ComplexF64[0 1; 1 0])
+
+    # ── generic NonlinearDrive constructors: H is not an AbstractMatrix ──
+    w = WrapOp(ComplexF64[1 0; 0 -1])
+
+    # 2-arg (auto Jacobian + Hessian via ForwardDiff)
+    d1 = NonlinearDrive(w, u -> u[1]^2)
+    @test d1.H === w                       # stored as-is, not sparsified
+    @test drive_coeff(d1, [3.0]) == 9.0
+    @test drive_coeff_jac(d1, [3.0], 1) ≈ 6.0
+    @test drive_coeff_hess(d1, [3.0], 1, 1) ≈ 2.0
+
+    # 3-arg (explicit Jacobian; Hessian still auto-generated)
+    d2 = NonlinearDrive(w, u -> u[1]^2, (u, j) -> j == 1 ? 2u[1] : 0.0)
+    @test d2.H === w
+    @test drive_coeff_jac(d2, [3.0], 1) ≈ 6.0
+    @test drive_coeff_hess(d2, [3.0], 1, 1) ≈ 2.0
+
+    # auto-generated derivatives agree with AD for the generic constructors too
+    validate_drive_jacobian(d1, 1)
+    validate_drive_hessian(d1, 1)
+
+    # ── generic drive_matrix / drive_dim / _ensure_matrix via a custom subtype ──
+    d = WrappedDrive(WrapOp(ComplexF64[0 1; 1 0]))
+    @test drive_matrix(d) == ComplexF64[0 1; 1 0]      # Base.Matrix fallback
+    @test drive_dim(d) == 2
+    @test Piccolo.Isomorphisms.G(d) == Piccolo.Isomorphisms.G(ComplexF64[0 1; 1 0])
+
+    # ── ModulatedDrive Hessian: base Hessian scaled by the modulation at t=0 ──
+    nd = NonlinearDrive(H, u -> u[1]^2 + u[2]^2)
+    md = ModulatedDrive(nd, t -> 2 + cos(3t))
+    u = [3.0, 4.0, 0.0]
+    @test drive_coeff_hess(md, u, 1, 1) ≈ 2.0 * (2 + cos(0.0))
+    @test drive_coeff_hess(md, u, 1, 2) ≈ 0.0
+    # wrapping a linear drive: zero base Hessian stays zero
+    ld = LinearDrive(H, 2)
+    md_l = ModulatedDrive(ld, t -> 2 + cos(3t))
+    @test drive_coeff_hess(md_l, u, 1, 1) == 0.0
+    @test drive_coeff_hess(md_l, u, 2, 2) == 0.0
+
+    # ── has_modulation across the drive types ──
+    @test !has_modulation(DriftTerm(H))                    # identity modulation
+    @test has_modulation(DriftTerm(H, t -> cos(2t)))
+    @test has_modulation(md_l)                             # ModulatedDrive always
+    @test !has_modulation(ld)
+    @test !has_modulation(nd)
 end

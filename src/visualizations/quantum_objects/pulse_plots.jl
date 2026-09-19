@@ -9,6 +9,7 @@ using Piccolo:
     AbstractQuantumSystem,
     AbstractQuantumTrajectory,
     QuantumControlProblem,
+    AbstractQuantumControlProblem,
     ZeroOrderPulse,
     LinearSplinePulse,
     CubicSplinePulse,
@@ -977,9 +978,9 @@ function plot_pulse(
 end
 
 """
-    plot_pulse(qcp::QuantumControlProblem; bounds=false, components=Symbol[], component_bounds=false, labels=nothing, kwargs...)
+    plot_pulse(qcp::AbstractQuantumControlProblem; bounds=false, components=Symbol[], component_bounds=false, labels=nothing, kwargs...)
 
-Plot the (possibly optimized) pulse from a `QuantumControlProblem`.
+Plot the (possibly optimized) pulse from a control problem.
 
 # Keyword Arguments
 - `bounds::Bool=false`: When `true`, derive per-drive bounds from
@@ -995,7 +996,7 @@ Plot the (possibly optimized) pulse from a `QuantumControlProblem`.
 - All other `plot_pulse(::AbstractPulse)` kwargs are forwarded.
 """
 function plot_pulse(
-    qcp::QuantumControlProblem;
+    qcp::AbstractQuantumControlProblem;
     bounds::Bool = false,
     components::Vector{Symbol} = Symbol[],
     component_bounds::Bool = false,

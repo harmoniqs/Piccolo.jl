@@ -243,7 +243,7 @@ control_values = traj[:u]
 
 # Trajectory data:
 
-println("Number of timesteps: ", length(timesteps))
+println("Number of knots: ", length(timesteps))
 println("Total duration: ", sum(timesteps))
 println("Control array size: ", size(control_values)) # nothing
 
