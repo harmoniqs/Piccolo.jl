@@ -5,6 +5,9 @@ using Reexport
 include("animations.jl")
 @reexport using .AnimatedPlots
 
+include("live_callbacks.jl")
+@reexport using .LiveCallbacks
+
 include("quantum_objects/_quantum_object_plots.jl")
 @reexport using .QuantumObjectPlots
 

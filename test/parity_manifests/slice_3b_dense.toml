@@ -1,0 +1,73 @@
+# ============================================================================ #
+# Slice 3b — dense-leg parity manifest (OB-2, harmoniqs/Piccolissimo.jl#430)
+#
+# Freezes the DENSE parity population for the SplineIntegrator split: every
+# row is a dense cell configuration that must hold the essentially-exact
+# parity oracle (fixed-step MagnusGL4 on PWC-aligned fixtures — Piccolo #318)
+# and cross-algorithm consistency. One row per (trajectory kind, algorithm,
+# spline) cell that lives in Piccolo after the split.
+#
+# Fields:
+#   name        — stable row id (referenced by the harness testitem)
+#   trajectory  — Piccolo trajectory constructor kind
+#   algorithm   — IntegrationAlgorithm subtype under test
+#   spline      — pulse parameterization (LinearSpline | CubicSpline)
+#   oracle      — the essentially-exact reference for the row
+#
+# The MF (matrix-free) population for this slice is frozen on the
+# Piccolissimo side: test/parity_manifests/slice_3b_mf.toml.
+#
+# Stiff (Rodas5P/Rosenbrock) rows deferred — follows in a dedicated slice gated
+# on upstream ExponentialUtilities/LinearSolve-5 compat (director decision
+# 2026-08-30).
+# ============================================================================ #
+
+[[rows]]
+name = "unitary-tsit5-linear"
+trajectory = "unitary"
+algorithm = "Tsit5Alg"
+spline = "LinearSpline"
+oracle = "gl4_pwc"
+
+[[rows]]
+name = "unitary-magnusgl4-linear"
+trajectory = "unitary"
+algorithm = "MagnusGL4Alg"
+spline = "LinearSpline"
+oracle = "gl4_pwc"
+
+[[rows]]
+name = "unitary-magnusadapt4-linear"
+trajectory = "unitary"
+algorithm = "MagnusAdapt4Alg"
+spline = "LinearSpline"
+oracle = "gl4_pwc"
+
+[[rows]]
+name = "ket-tsit5-linear"
+trajectory = "ket"
+algorithm = "Tsit5Alg"
+spline = "LinearSpline"
+oracle = "gl4_pwc"
+
+[[rows]]
+name = "multiket-tsit5-linear"
+trajectory = "multiket"
+algorithm = "Tsit5Alg"
+spline = "LinearSpline"
+oracle = "gl4_pwc"
+
+[[rows]]
+name = "density-tsit5-linear"
+trajectory = "density"
+algorithm = "Tsit5Alg"
+spline = "LinearSpline"
+oracle = "gl4_pwc"
+
+[[rows]]
+name = "unitary-tsit5-cubic"
+trajectory = "unitary"
+algorithm = "Tsit5Alg"
+spline = "CubicSpline"
+oracle = "gl4_pwc"
+

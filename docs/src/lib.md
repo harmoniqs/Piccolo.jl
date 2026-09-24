@@ -60,6 +60,12 @@ Modules = [Piccolo.Quantum.Rollouts]
 Modules = [Piccolo.Quantum.EmbeddedOperators]
 ```
 
+## [Dual-Rail Encodings](@id lib-dual-rail-encodings)
+
+```@autodocs
+Modules = [Piccolo.Quantum.DualRailEncodings]
+```
+
 ## [Lifted Operators](@id lib-lifted-operators)
 
 ```@autodocs
@@ -82,6 +88,12 @@ Modules = [Piccolo.Quantum.Isomorphisms]
 
 ```@autodocs
 Modules = [Piccolo.Control.QuantumControlProblems]
+```
+
+## [Verification](@id lib-verification)
+
+```@autodocs
+Modules = [Piccolo.Control.Verification]
 ```
 
 ## [Problem Templates](@id lib-problem-templates)
@@ -112,4 +124,16 @@ Modules = [Piccolo.Control.Options]
 
 ```@autodocs
 Modules = [Piccolo.Visualizations.QuantumObjectPlots]
+```
+
+### Animations
+
+```@autodocs
+Modules = [Piccolo.Visualizations.AnimatedPlots]
+```
+
+### QuantumToolbox Plots
+
+```@autodocs
+Modules = [Piccolo.Visualizations.QuantumToolboxPlots]
 ```
