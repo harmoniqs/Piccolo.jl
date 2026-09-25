@@ -279,3 +279,18 @@ end
     @test !occursin("Piccolo.", s)
     @test !occursin("QuantumTrajectories.", s)
 end
+
+@testitem "Interface - MultiDensityTrajectory getters" begin
+    using LinearAlgebra
+
+    system = OpenQuantumSystem([PAULIS.X], [1.0])
+    ρ0s = [ComplexF64[1.0 0.0; 0.0 0.0], ComplexF64[0.0 0.0; 0.0 1.0]]
+    ρgs = [ComplexF64[0.0 0.0; 0.0 1.0], ComplexF64[1.0 0.0; 0.0 0.0]]
+
+    qtraj = MultiDensityTrajectory(system, ρ0s, ρgs, 1.0)
+
+    @test get_system(qtraj) === system
+    @test get_initial(qtraj) == qtraj.initials
+    @test get_goal(qtraj) == qtraj.goals
+    @test duration(qtraj) ≈ 1.0
+end
