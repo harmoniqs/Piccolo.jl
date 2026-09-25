@@ -44,6 +44,16 @@ save("my_pulse.jld2", optimized_pulse)
 
 # Bundling a pulse with metadata — fidelity, gate name, system parameters,
 # anything you want to remember — uses `jldsave` from JLD2 directly:
+#
+# !!! warning "Record the duration with `get_duration`, not `sum(get_timesteps)`"
+#     `get_timesteps` returns one Δt **per knot**, including a padded final one, so
+#     `sum(get_timesteps(traj))` overshoots the real end time by exactly one timestep —
+#     **+10% at the common `N = 11`**. The cumulative end time is
+#     `get_duration(traj) == get_times(traj)[end]`, which sums only the `N-1` intervals
+#     between knots and is correct whether Δt is fixed or a minimum-time variable.
+#     `duration(pulse)` is equivalent and is the better choice when you have the pulse
+#     rather than the trajectory. A duration saved into metadata propagates into pulse
+#     catalogs and papers, so it is worth getting right at the source.
 
 using JLD2
 
@@ -51,7 +61,7 @@ jldsave(
     "my_pulse_with_metadata.jld2";
     pulse = optimized_pulse,
     fidelity = fidelity(qcp),
-    duration = sum(get_timesteps(get_trajectory(qcp))),
+    duration = get_duration(get_trajectory(qcp)),
     gate = "X",
     system_drift = H_drift,
 )
@@ -185,7 +195,7 @@ loaded_traj[:u][:, 1:3]  # First 3 timesteps of controls
 # jldsave("data/CZ.jld2";
 #     pulse = get_pulse(qcp.qtraj),
 #     fidelity = fidelity(qcp),
-#     duration = sum(get_timesteps(get_trajectory(qcp))),
+#     duration = get_duration(get_trajectory(qcp)),
 #     gate_name = "CZ",
 #     system_config = "2-atom Rydberg, 8.7 μm spacing",
 #     date = string(Dates.now()),
