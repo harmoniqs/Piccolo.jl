@@ -431,3 +431,51 @@ end
     @test occursin("downstream package", err.msg)
 end
 
+@testitem "E1: SplineIntegrator sampling auto-detects nominal-system globals" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: has_global_dependence
+
+    # The sampling conversion does not attach globals; the sampling constructor
+    # re-attaches them from the NOMINAL system's global_params (members share
+    # the names) — mirroring the non-sampling conversions.
+    sys1 = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0]; global_params = (δ = 0.01,))
+    sys2 = QuantumSystem(1.05 * GATES[:Z], [GATES[:X]], [1.0]; global_params = (δ = 0.01,))
+
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(zeros(1, N), times)
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+
+    base_qtraj = KetTrajectory(sys1, pulse, ψ_init, ψ_goal)
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+
+    𝒮s = SplineIntegrator(sampling_qtraj, N)
+    @test length(𝒮s) == 2
+    for 𝒮 in 𝒮s
+        @test has_global_dependence(𝒮)
+        @test 𝒮.global_names == [:δ]
+        @test 𝒮.global_dim == 1
+        # u_dim counts controls PLUS the threaded global
+        @test 𝒮.u_dim == 1 + 1
+    end
+
+    # The member cells run with the globals threaded through the packed ODE
+    # parameters: the per-knot call operator takes them explicitly (the
+    # expanded conversion trajectory carries no global_data by design — the
+    # globals live on the integrator's parameter vector).
+    g = [0.01]
+    δ = zeros(𝒮s[1].x_dim)
+    𝒮s[1](δ, expanded_traj[1], expanded_traj[2], 1, g)
+    @test !all(iszero, δ)
+    # The member-1 knot-1 residual matches the NON-sampling ket cell on the
+    # nominal system with the same globals.
+    base_𝒮 = SplineIntegrator(base_qtraj, N)
+    base_traj = NamedTrajectory(base_qtraj, N)
+    δ_base = zeros(base_𝒮.x_dim)
+    base_𝒮(δ_base, base_traj[1], base_traj[2], 1, g)
+    @test δ ≈ δ_base atol = 1e-10
+end

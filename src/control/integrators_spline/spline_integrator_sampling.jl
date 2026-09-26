@@ -57,6 +57,10 @@ function SplineIntegrator(
     # Expanded sampling trajectory. The sampling conversion does not attach
     # globals, so attach them here — mirroring the non-sampling conversions (which
     # auto-attach sys.global_params) and SamplingProblem's own propagation.
+    # NamedTrajectory takes globals as a FLAT vector + global_components ranges
+    # (the same final shape `_add_global_data_to_kwargs` hands downstream), NOT
+    # the Dict form — the Dict form is only the conversion layer's INPUT
+    # vocabulary and was a construction-time TypeError here.
     traj = NamedTrajectory(qtraj, N)
     if !isempty(resolved_global_names)
         global_data = Dict{Symbol,Vector{Float64}}(
@@ -65,6 +69,16 @@ function SplineIntegrator(
                 nominal_sys.global_params[name] : 0.0,
             ] for name in resolved_global_names
         )
+        # Consistent ordering (mirrors _add_global_data_to_kwargs)
+        global_names_sorted = sort(collect(keys(global_data)))
+        global_vec = vcat([global_data[name] for name in global_names_sorted]...)
+        offset = 0
+        global_comps = map(global_names_sorted) do name
+            len = length(global_data[name])
+            range = (offset+1):(offset+len)
+            offset += len
+            return name => range
+        end
         traj = NamedTrajectory(
             traj.datavec,
             traj.components,
@@ -75,7 +89,8 @@ function SplineIntegrator(
             initial = traj.initial,
             final = isnothing(traj.final_) ? NamedTuple() : traj.final_,
             goal = traj.goal,
-            global_data = global_data,
+            global_data = global_vec,
+            global_components = NamedTuple(global_comps),
         )
     end
 
