@@ -236,9 +236,26 @@ function ZeroOrderPulse(
     )
 end
 
+# Map a query time onto the knot range [t₁, tₙ] before evaluating a
+# matrix-valued interpolation. DataInterpolations' `ExtrapolationType.Constant`
+# returns `first(A.u)` / `last(A.u)` for out-of-range queries, which on an
+# `n_drives × N` control matrix is a single scalar element (the wrong channel)
+# rather than the boundary column. Clamping gives the boundary knot's full
+# control vector, which is what constant extrapolation is meant to provide.
+# The range check is on the primal value, so in-range queries (including the
+# endpoints) pass through untouched and ForwardDiff duals keep their partials.
+function _clamp_to_knots(interp, t)
+    t₁, tₙ = first(interp.t), last(interp.t)
+    tv = ForwardDiff.value(t)
+    tv < t₁ && return oftype(t, t₁)
+    tv > tₙ && return oftype(t, tₙ)
+    return t
+end
+
 derivative(p::ZeroOrderPulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
 function evaluate(p::ZeroOrderPulse, t)
+    t = _clamp_to_knots(p.controls, t)
     if p.snap_to_knots
         knots = p.controls.t
         idx = searchsortedfirst(knots, t)
@@ -347,7 +364,7 @@ end
 
 derivative(p::LinearSplinePulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
-evaluate(p::LinearSplinePulse, t) = p.controls(t)
+evaluate(p::LinearSplinePulse, t) = p.controls(_clamp_to_knots(p.controls, t))
 
 # ============================================================================ #
 # CubicSplinePulse (Hermite spline with explicit derivatives)
@@ -473,7 +490,7 @@ end
 # TODO: Unimplemented by DataInterpolations
 # derivative(p::CubicSplinePulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
-evaluate(p::CubicSplinePulse, t) = p.controls(t)
+evaluate(p::CubicSplinePulse, t) = p.controls(_clamp_to_knots(p.controls, t))
 
 # ============================================================================ #
 # Spline pulse knot accessors
@@ -1348,6 +1365,65 @@ end
     # CubicHermiteSpline known failure mode
     pulse = CubicSplinePulse(inits, times)
     @test_broken derivative(pulse, last(times)) isa AbstractVector
+end
+
+@testitem "Pulse evaluation outside the knot range" begin
+    using .Pulses: derivative
+
+    # ODE integrators can query a pulse slightly outside [t₁, tₙ] (step
+    # rounding). Out-of-range queries must return the boundary knot's full
+    # control vector — never a scalar, and never another drive's value.
+    controls = [0.1 0.4 -0.2 0.3; -0.7 0.5 0.6 0.9]
+    derivatives = [0.0 1.0 -1.0 0.0; 0.0 2.0 -2.0 0.0]
+    times = [0.0, 1.0, 2.5, 4.0]
+    first_col = controls[:, 1]
+    last_col = controls[:, end]
+
+    pulses = [
+        ZeroOrderPulse(controls, times),
+        ZeroOrderPulse(controls, times; snap_to_knots = false),
+        LinearSplinePulse(controls, times),
+        CubicSplinePulse(controls, derivatives, times),
+    ]
+
+    for pulse in pulses
+        for t in (4.0 + 2e-9, 4.0 + 1e-6, 5.0, 100.0)
+            v = pulse(t)
+            @test v isa AbstractVector
+            @test length(v) == 2
+            @test v ≈ last_col
+            @test v ≈ pulse(4.0)
+        end
+        for t in (-2e-9, -1e-6, -1.0)
+            v = pulse(t)
+            @test v isa AbstractVector
+            @test length(v) == 2
+            @test v ≈ first_col
+            @test v ≈ pulse(0.0)
+        end
+    end
+
+    # In-range evaluation is unchanged.
+    @test pulses[1](0.5) == controls[:, 1]
+    @test pulses[1](1.5) == controls[:, 2]
+    @test pulses[3](0.5) ≈ (controls[:, 1] + controls[:, 2]) / 2
+    @test pulses[4](1.0) ≈ controls[:, 2]
+
+    # ForwardDiff through an out-of-range query sees constant extrapolation
+    # (zero slope); in-range derivatives are unaffected.
+    cubic = pulses[4]
+    @test derivative(cubic, 4.0 + 1e-3) ≈ zeros(2)
+    @test derivative(cubic, -1e-3) ≈ zeros(2)
+    @test derivative(cubic, 1.0) ≈ derivatives[:, 2]
+
+    # The drive closure consumes the pulse value directly; an out-of-range
+    # query must produce the same Hamiltonian as the boundary knot.
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    for pulse in pulses
+        t_end = 4.0 + 2e-9
+        @test sys.H(pulse(t_end), t_end) ≈ sys.H(pulse(4.0), 4.0)
+        @test sys.H(pulse(-2e-9), -2e-9) ≈ sys.H(pulse(0.0), 0.0)
+    end
 end
 
 @testitem "GaussianPulse" begin
