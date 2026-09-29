@@ -561,9 +561,13 @@ end
     F_dim = x_dim * (N - 1)
     Z_dim = z_dim * N + traj.global_dim
 
+    # Extract globals once (constant across knot points) — jacobian! needs them
+    # to fill the per-knot global-derivative block
+    globals = extract_globals(ℰ, traj)
+
     # Fill preallocated structures in parallel
     Threads.@threads for k = 1:(N-1)
-        jacobian!(ℰ.∂ℰs[k], ℰ, traj[k], traj[k+1], k)
+        jacobian!(ℰ.∂ℰs[k], ℰ, traj[k], traj[k+1], k, globals)
     end
 
     # Build final Jacobian by slicing out the relevant var_comps from preallocated structures
@@ -580,6 +584,16 @@ end
             ℰ.∂ℰs[k][:, ℰ.z_dim .+ var_comps_now]
     end
 
+    # Global columns: copy from the per-knot blocks to their Z positions, in
+    # the trajectory's global_components order (the permuted-∂c/∂θ convention)
+    if traj.global_dim > 0
+        g_cols_local = (2ℰ.z_dim+1):(2ℰ.z_dim+traj.global_dim)
+        g_cols_full = _global_full_cols(ℰ, traj)
+        for k = 1:(N-1)
+            ∂F[slice(k, x_dim), g_cols_full] = ℰ.∂ℰs[k][:, g_cols_local]
+        end
+    end
+
     return ∂F
 end
 
@@ -593,22 +607,46 @@ function eval_hessian_of_lagrangian(
     z_dim = traj.dim
     Z_dim = z_dim * N + traj.global_dim
 
+    # Extract globals once (constant across knot points) — the per-knot
+    # hessian_of_lagrangian! needs them to fill the g blocks
+    globals = extract_globals(ℰ, traj)
+
     # Fill preallocated Hessian structures in parallel
     Threads.@threads for k = 1:(N-1)
         μₖ = μ[slice(k, x_dim)]
-        hessian_of_lagrangian!(ℰ.μ∂²ℰs[k], ℰ, μₖ, traj[k], traj[k+1], k)
+        hessian_of_lagrangian!(ℰ.μ∂²ℰs[k], ℰ, μₖ, traj[k], traj[k+1], k, globals)
     end
 
     # Build index mapping: canonical → trajectory
     canonical_comps, traj_comps = build_hessian_index_mapping(ℰ, traj)
 
-    # Assemble final Hessian from preallocated structures with index mapping
-    # The filled matrices are already symmetric from hessian_of_lagrangian!, just take triu
+    # Assemble final Hessian from preallocated structures with index mapping.
+    # Map the FULL symmetric per-knot block, no early triu: the canonical →
+    # trajectory mapping can swap upper/lower triangle positions, so a triu
+    # taken BEFORE the reorder discards the wrong half (the exact defect the
+    # density-family per-type overrides documented when they diverged from
+    # this generic).
     μ∂²F = spzeros(Z_dim, Z_dim)
     for k = 1:(N-1)
-        μ∂²ℰ_triu = triu(ℰ.μ∂²ℰs[k])
         μ∂²F[slice(k, traj_comps, z_dim), slice(k, traj_comps, z_dim)] .=
-            μ∂²ℰ_triu[canonical_comps, canonical_comps]
+            ℰ.μ∂²ℰs[k][canonical_comps, canonical_comps]
+    end
+
+    # Global blocks: cross-terms with per-knot vars + the g-g block, mapped
+    # from canonical (global_names order) to the trajectory's global column
+    # order via _global_full_cols (the permuted-∂c/∂θ convention).
+    global_dim = traj.global_dim
+    if global_dim > 0
+        knot_dim = canonical_hessian_knot_dim(ℰ)
+        g_can = (2*knot_dim+1):(2*knot_dim+global_dim)
+        g_traj = _global_full_cols(ℰ, traj)
+        for k = 1:(N-1)
+            μ∂²F[slice(k, traj_comps, z_dim), g_traj] .=
+                ℰ.μ∂²ℰs[k][canonical_comps, collect(g_can)]
+            μ∂²F[g_traj, slice(k, traj_comps, z_dim)] .=
+                ℰ.μ∂²ℰs[k][collect(g_can), canonical_comps]
+            μ∂²F[g_traj, g_traj] .+= ℰ.μ∂²ℰs[k][collect(g_can), collect(g_can)]
+        end
     end
 
     return μ∂²F
@@ -654,4 +692,95 @@ end
         @test size(ℰ.work_bufs[t]) == (n, n)
         @test size(ℰ.expG_bufs[t]) == (2n, 2n)
     end
+end
+
+
+@testitem "exp_eigen iso dispatch and affine-direction error lanes" begin
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators:
+        exp_eigen, _build_affine_directions
+    using Piccolo.Isomorphisms
+    using LinearAlgebra
+
+    H = Matrix{ComplexF64}(GATES.Z / 2)
+    G_real = Matrix(Isomorphisms.G(H))
+    @test eltype(G_real) == Float64
+
+    # The iso-form dispatch converts G back to H and delegates — identical to
+    # the complex entry point, and to the plain matrix exponential
+    @test exp_eigen(G_real) ≈ exp_eigen(H)
+    @test exp_eigen(G_real) ≈ exp(G_real) atol = 1e-12
+
+    # _build_affine_directions: the error lanes must all return nothing so the
+    # caller keeps the ForwardDiff path (no silent wrong directions)
+    @test isnothing(_build_affine_directions(u -> error("boom"), 2, 2))
+    @test isnothing(_build_affine_directions(u -> zeros(3, 3), 2, 2))  # wrong size
+    @test isnothing(_build_affine_directions(u -> u[1] * GATES.Z + u[2]^2 * GATES.X, 2, 2))                                                                       # non-affine
+
+    # The affine happy path: directions ARE the per-parameter generators
+    dirs = _build_affine_directions(u -> u[1] * GATES.Z + u[2] * GATES.X, 2, 2)
+    @test !isnothing(dirs)
+    @test length(dirs) == 2
+    @test dirs[1] ≈ GATES.Z && dirs[2] ≈ GATES.X
+end
+
+@testitem "AbstractExponentialIntegrator generic assembly matches the specialization" begin
+    # The abstract-type fallbacks in hermitian_exponential_integrator_type.jl are
+    # what any FUTURE trajectory type would inherit. They must agree with the
+    # specialized methods on an existing type — historical sign that the shared
+    # scaffolding is correct (regression for the triu-before-map defect the
+    # density-family overrides document).
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using SparseArrays
+    using Random
+
+    Random.seed!(90_348)
+    # Non-canonical component order + globals: the exact regime where the old
+    # pre-mapping triu() dropped cross-terms.
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys = QuantumSystem(
+        H,
+        [1.0, 1.0];
+        time_dependent = true,
+        global_params = (b = 0.2, a = 0.1),
+    )
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    N = 6
+    qtraj = KetTrajectory(sys, ψ0, ψg, 2.0)
+    ℰ = HermitianExponentialIntegrator(qtraj, N)
+    traj = NamedTrajectory(qtraj, N)
+    traj.datavec .= 0.3 .* randn(length(traj.datavec))
+
+    J_spec = DirectTrajOpt.CommonInterface.eval_jacobian(ℰ, traj)
+    J_gen = invoke(
+        DirectTrajOpt.CommonInterface.eval_jacobian,
+        Tuple{ExponentialIntegrators.AbstractExponentialIntegrator,NamedTrajectory},
+        ℰ,
+        traj,
+    )
+    @test size(J_gen) == size(J_spec)
+    @test Matrix(J_gen) ≈ Matrix(J_spec)
+
+    μ = randn(ℰ.dim)
+    H_spec = DirectTrajOpt.CommonInterface.eval_hessian_of_lagrangian(ℰ, traj, μ)
+    H_gen = invoke(
+        DirectTrajOpt.CommonInterface.eval_hessian_of_lagrangian,
+        Tuple{
+            ExponentialIntegrators.AbstractExponentialIntegrator,
+            NamedTrajectory,
+            AbstractVector,
+        },
+        ℰ,
+        traj,
+        μ,
+    )
+    @test size(H_gen) == size(H_spec)
+    # Consumers take triu (only the upper triangle reaches Ipopt/MadNLP); the
+    # two paths agree exactly on that contract.
+    @test triu(Matrix(H_gen)) ≈ triu(Matrix(H_spec))
 end
