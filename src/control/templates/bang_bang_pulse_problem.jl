@@ -723,3 +723,79 @@ end
         subsystem_levels = nothing,
     )
 end
+
+@testitem "BangBangPulseProblem builds global_data from system global_params" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(43)
+    T, N = 1.0, 10
+    sys = QuantumSystem(
+        GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.1,),
+    )
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 .* randn(2, N), times)
+    opts = PiccoloOptions(display = :silent, timesteps_all_equal = true)
+
+    # Single-trajectory path: global_data seeded from sys.global_params
+    kq = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = BangBangPulseProblem(kq, N; piccolo_options = opts)
+    traj = get_trajectory(qcp)
+    @test haskey(traj.global_components, :δ)
+    @test traj.global_data[traj.global_components[:δ]] ≈ [0.1]
+
+    # Ensemble path: the same seeding
+    mkq = MultiKetTrajectory(
+        sys,
+        pulse,
+        [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]],
+        [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]],
+    )
+    qcp_mk = BangBangPulseProblem(mkq, N; piccolo_options = opts)
+    @test haskey(get_trajectory(qcp_mk).global_components, :δ)
+end
+
+@testitem "BangBangPulseProblem integrator kwarg: instance and vector shapes" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(44)
+    T, N = 1.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 .* randn(1, N), times)
+    opts = PiccoloOptions(display = :silent, timesteps_all_equal = true)
+
+    # ── Single-trajectory constructor: an AbstractIntegrator instance is
+    #    wrapped; a vector is splatted (the two documented shapes) ──
+    kq = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp_inst = BangBangPulseProblem(
+        kq,
+        N;
+        integrator = BilinearIntegrator(kq, N),
+        piccolo_options = opts,
+    )
+    @test qcp_inst isa QuantumControlProblem
+
+    qcp_vec = BangBangPulseProblem(
+        kq,
+        N;
+        integrator = [BilinearIntegrator(kq, N)],
+        piccolo_options = opts,
+    )
+    @test qcp_vec isa QuantumControlProblem
+
+    # ── Ensemble constructor: a single-member MultiKetTrajectory with its
+    #    per-member integrator instance (counts match: one state, one
+    #    integrator) ──
+    mk1 = MultiKetTrajectory(sys, pulse, [ComplexF64[1.0, 0.0]], [ComplexF64[0.0, 1.0]])
+    ints = BilinearIntegrator(mk1, N)
+    one = ints isa AbstractVector ? ints[1] : ints
+    qcp_mk = BangBangPulseProblem(mk1, N; integrator = one, piccolo_options = opts)
+    @test qcp_mk isa QuantumControlProblem
+end

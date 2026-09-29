@@ -1057,3 +1057,56 @@ end
     end
     @test !haskey(Specs.TEMPLATES, :HandDeclaredTmpl)
 end
+
+@testitem "_json_default: the value → JSON-default ladder" begin
+    using Piccolo.Specs
+
+    @test Specs._json_default(true) === true
+    @test Specs._json_default(7) === 7
+    @test Specs._json_default(1.5) === 1.5
+    @test Specs._json_default(Inf) === nothing            # non-finite Real is refused
+    @test Specs._json_default(:ω) == "ω"                  # Symbol → string
+    @test Specs._json_default([:a, :b]) == ["a", "b"]     # Symbol vector → string vector
+    @test Specs._json_default([1, 2.0]) == [1.0, 2.0]     # Real vector → Float64 vector
+    @test Specs._json_default("str") === nothing          # everything else → no default
+    @test Specs._json_default(nothing) === nothing
+
+    # unknown hand-declared params types stay unconstrained rather than crash
+    @test Specs._json_type_of("junk") === nothing
+end
+
+@testitem "schema conditional queries: the negative lanes" begin
+    using Piccolo, Piccolo.Specs, JSON3
+
+    Specs.register_all!()
+    sch = JSON3.read(Specs.emit_schema())
+
+    # a template/pulse pair the schema carries NO branch for → false
+    @test Specs.schema_has_conditional(sch, "SmoothPulseProblem", "cubic_spline") === false
+    @test Specs.schema_has_conditional(sch, "NoSuchTemplate", "zero_order") === false
+
+    # a schema with no free_phase ∨ globals branch at all → false
+    bare = JSON3.read("""{"allOf": []}""")
+    @test Specs.schema_free_phase_requires_nonbilinear(bare) === false
+end
+
+@testitem "_workload_pulse/_workload_trajectory: every kind lane including the fallthrough" begin
+    using Piccolo, Piccolo.Specs
+    using Random
+
+    Random.seed!(52)
+    times = collect(range(0.0, 1.0, length = 11))
+
+    # the three constructible pulse kinds, plus the unknown-kind fallthrough
+    @test Specs._workload_pulse(:zero_order, 1, 11, times) isa ZeroOrderPulse
+    @test Specs._workload_pulse(:linear_spline, 1, 11, times) isa LinearSplinePulse
+    @test Specs._workload_pulse(:cubic_spline, 1, 11, times) isa CubicSplinePulse
+    @test Specs._workload_pulse(:bogus, 1, 11, times) === nothing
+
+    # the two trajectory kinds, plus the unknown-kind fallthrough
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    zp = ZeroOrderPulse(0.05 .* randn(1, 11), times)
+    @test Specs._workload_trajectory(:unitary, sys, zp) isa UnitaryTrajectory
+    @test Specs._workload_trajectory(:ket, sys, zp) isa KetTrajectory
+    @test Specs._workload_trajectory(:bogus, sys, zp) === nothing
+end

@@ -1316,3 +1316,88 @@ end
     fig4 = plot_pulse(qcp; bounds = true, components = [:du, :ddu], component_bounds = true)
     @test fig4 isa Figure
 end
+
+@testitem "plot_pulse theme fallbacks and derivative label helpers" begin
+    using CairoMakie
+    using Piccolo
+    using LaTeXStrings
+
+    V = Piccolo.Visualizations.QuantumObjectPlots
+
+    # Under a bare theme with no :palette / :textcolor entries, both helpers
+    # fall back to their defaults instead of throwing (the empty-theme lanes)
+    set_theme!(Theme())
+    pal = V._theme_palette()
+    neut = V._theme_neutral()
+    set_theme!()   # restore for the rest of the suite
+
+    @test pal isa AbstractVector && !isempty(pal)
+    @test neut !== nothing
+
+    # The derivative naming convention renders as decorated math; plain and
+    # digit-following names pass through undecorated
+    @test string(V._component_latex(:dddu)) == string(latexstring("\\dddot{u}"))
+    @test string(V._component_latex(:ddu)) == string(latexstring("\\ddot{u}"))
+    @test string(V._component_latex(:du)) == string(latexstring("\\dot{u}"))
+    @test string(V._component_latex(:dx)) == string(latexstring("\\dot{x}"))
+    @test string(V._component_latex(:u)) == string(latexstring("u"))
+    @test string(V._component_latex(:d1)) == string(latexstring("d1"))
+end
+
+@testitem "plot_pulse reveal: t_max playhead on the dense cubic curve" begin
+    using CairoMakie
+    using Piccolo
+    using Random
+
+    Random.seed!(47)
+    times = collect(range(0.0, 1.0, length = 11))
+    pulse = CubicSplinePulse(0.05 .* randn(1, 11), 0.05 .* randn(1, 11), times)
+
+    # A playhead mid-pulse reveals the interpolated curve up to t_max; the
+    # static knot markers and tangents are suppressed behind the playhead
+    fig = plot_pulse(pulse; t_max = Observable(0.4))
+    @test fig isa Figure
+
+    fig2 = plot_pulse(pulse; t_max = Observable(1.0))
+    @test fig2 isa Figure
+end
+
+@testitem "plot_pulse bounds plumbing: system mismatch, component bounds, string labels" begin
+    using CairoMakie
+    using Piccolo
+    using NamedTrajectories
+    using Random
+
+    V = Piccolo.Visualizations.QuantumObjectPlots
+
+    Random.seed!(48)
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    times = collect(range(0.0, 1.0, length = 11))
+    pulse = ZeroOrderPulse(0.05 .* randn(2, 11), times)
+
+    # A system/pulse drive-count mismatch refuses the bounds with a warning
+    mismatched = @test_logs (:warn, r"bounds skipped") V._system_bounds(sys, 5)
+    @test mismatched === nothing
+    @test V._system_bounds(sys, 2) == [(-1.0, 1.0), (-1.0, 1.0)]
+
+    # Per-component bounds: absent → nothing, present → per-dimension tuples
+    traj = NamedTrajectory(
+        (ψ̃ = randn(4, 11), u = randn(1, 11), Δt = fill(0.1, 11));
+        controls = :u,
+        timestep = :Δt,
+        bounds = (u = (-1.0, 1.0),),
+    )
+    @test V._component_bounds(traj, :u) == [(-1.0, 1.0)]
+    @test V._component_bounds(traj, :ψ̃) === nothing
+
+    # String labels are converted to math labels on the qcp path
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        11;
+        Q = 100.0,
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    fig = plot_pulse(qcp; labels = ["Ωx", "Ωy"])
+    @test fig isa Figure
+end

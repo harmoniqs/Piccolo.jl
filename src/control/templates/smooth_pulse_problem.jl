@@ -1842,3 +1842,60 @@ end
     )
     @test qcp_mk isa QuantumControlProblem
 end
+
+@testitem "SmoothPulseProblem integrator kwarg accepts a vector on the single-trajectory constructor" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(45)
+    T, N = 1.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 .* randn(1, N), times)
+    kq = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+
+    # the documented vector shape, exercised through the single-trajectory
+    # method (the splat lane)
+    qcp = SmoothPulseProblem(
+        kq,
+        N;
+        integrator = [BilinearIntegrator(kq, N)],
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test qcp isa QuantumControlProblem
+end
+
+@testitem "SmoothPulseProblem MultiKet global_names requires a custom integrator" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(46)
+    T, N = 1.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 .* randn(1, N), times)
+    mkq = MultiKetTrajectory(
+        sys,
+        pulse,
+        [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]],
+        [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]],
+    )
+
+    # the ensemble constructor gates global_names behind a globals-capable
+    # integrator, exactly like the single-trajectory constructor
+    err = try
+        SmoothPulseProblem(
+            mkq,
+            N;
+            global_names = [:δ],
+            piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+        )
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("custom integrator", sprint(showerror, err))
+end
