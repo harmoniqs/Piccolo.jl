@@ -312,9 +312,11 @@ fidelity objectives for each system.
 # Keyword Arguments
 - `weights::Vector{Float64}=fill(1.0, length(systems))`: Weights for each system
 - `Q::Float64=100.0`: Weight on infidelity objective (explicit, not extracted from base problem)
-- `integrator::Union{Nothing, Function}=nothing`: Optional integrator factory function. When
-  provided, it is called as `integrator(sampling_qtraj, N)` and must return an integrator or
-  vector of integrators. When `nothing` (default), `BilinearIntegrator` is used.
+- `integrator::Union{Nothing, Function, AbstractIntegrator, AbstractVector}=nothing`: Optional
+  integrator(s), three call shapes aligned with the other problem templates: `nothing`
+  (default `BilinearIntegrator`), an `AbstractIntegrator` instance (single-slot ensembles
+  only), a vector of integrators (one per ensemble dynamics slot), or a factory function
+  called as `integrator(sampling_qtraj, N)` returning an integrator or vector of integrators.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. SamplingProblem builds a fresh constraint list (rather than inheriting from the base `qcp`), so calibration_target pins set on the base `qcp` are *not* automatically carried over — pass them here explicitly. Default empty: globals stay free.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Options for the solver
 
@@ -327,7 +329,7 @@ function SamplingProblem(
     systems::Vector{<:AbstractQuantumSystem};
     weights::Vector{Float64} = fill(1.0, length(systems)),
     Q::Float64 = 100.0,
-    integrator::Union{Nothing,Function} = nothing,
+    integrator::Union{Nothing,Function,AbstractIntegrator,AbstractVector} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
