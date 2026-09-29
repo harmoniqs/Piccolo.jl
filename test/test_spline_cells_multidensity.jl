@@ -231,3 +231,193 @@ end
         alg = ChebyshevAlg(bracket = (-8.0, 8.0), n_sub = 8),
     )
 end
+
+# ── E1 resume fill (#347): inner-ctor lanes, fixed-step probe, globals, and ─── #
+# ── the standalone MultiDensity Jacobian structure. ────────────────────────── #
+
+@testitem "E1: multidensity inner-ctor lanes: Chebyshev gate, pulse, du, fixed-step" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: spline_order, get_state_vectors
+
+    L = ComplexF64[0 0.1; 0 0]
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    ρ0₁ = ComplexF64[1 0; 0 0]
+    ρg₁ = ComplexF64[0 0; 0 1]
+    ρ0₂ = ComplexF64[0 0; 0 1]
+    ρg₂ = ComplexF64[1 0; 0 0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+
+    # The (qtraj, traj) inner form carries its own Magnus/Chebyshev refusals
+    qtraj = MultiDensityTrajectory(
+        sys,
+        LinearSplinePulse(fill(0.3, 1, N), times),
+        [ρ0₁, ρ0₂],
+        [ρg₁, ρg₂],
+    )
+    traj = NamedTrajectory(qtraj, N)
+    @test_throws ErrorException SplineIntegrator(qtraj, traj; alg = MagnusGL4Alg())
+    @test_throws ErrorException SplineIntegrator(
+        qtraj,
+        traj;
+        alg = ChebyshevAlg(bracket = (-8.0, 8.0)),
+    )
+
+    # Non-spline pulse defaults to linear
+    zo_qtraj = MultiDensityTrajectory(
+        sys,
+        ZeroOrderPulse(0.3 * fill(1.0, 1, N), times),
+        [ρ0₁, ρ0₂],
+        [ρg₁, ρg₂],
+    )
+    zo_traj = NamedTrajectory(zo_qtraj, N)
+    𝒮 = SplineIntegrator(zo_qtraj, zo_traj)
+    @test spline_order(𝒮) == 1
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, zo_traj)
+    @test norm(δ, Inf) < 1e-4
+
+    # Cubic without du bounds: the derivative seed zero-fills
+    cq = MultiDensityTrajectory(
+        sys,
+        CubicSplinePulse(fill(0.3, 1, N), fill(0.0, 1, N), times),
+        [ρ0₁, ρ0₂],
+        [ρg₁, ρg₂],
+    )
+    ctraj = NamedTrajectory(cq, N)
+    boundfree = NamedTrajectory(ctraj; bounds = (u = 1.0,))
+    𝒮_c = SplineIntegrator(cq, boundfree)
+    @test spline_order(𝒮_c) == 3
+    δ_c = zeros(𝒮_c.dim)
+    evaluate!(δ_c, 𝒮_c, boundfree)
+    @test norm(δ_c, Inf) < 1e-4
+
+    # Fixed-step Tsit5: the multidensity Φ-probe sparsity lane
+    𝒮_f = SplineIntegrator(qtraj, traj; alg = Tsit5Alg(adaptive = false))
+    δ_f = zeros(𝒮_f.dim)
+    evaluate!(δ_f, 𝒮_f, traj)
+    @test norm(δ_f, Inf) < 1e-4
+
+    # Globals ride through the global-seed lane
+    gsys = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (δ = 0.01,),
+    )
+    gq = MultiDensityTrajectory(
+        gsys,
+        LinearSplinePulse(fill(0.3, 1, N), times),
+        [ρ0₁, ρ0₂],
+        [ρg₁, ρg₂],
+    )
+    gtraj = NamedTrajectory(gq, N)
+    # The inner form does not auto-detect globals — names passed explicitly
+    𝒮_g = SplineIntegrator(gq, gtraj; global_names = [:δ])
+    @test 𝒮_g.global_names == [:δ]
+    @test 𝒮_g.global_dim == 1
+    δ_g = zeros(𝒮_g.dim)
+    evaluate!(δ_g, 𝒮_g, gtraj)
+    @test norm(δ_g, Inf) < 1e-4
+
+    # get_state_vectors returns per-density state vectors
+    zₖ = traj[1]
+    xs = get_state_vectors(𝒮, zₖ)
+    @test length(xs) == 2
+end
+
+@testitem "E1: multidensity standalone jacobian_structure: blocks and globals" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using SparseArrays
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: jacobian_structure
+
+    L = ComplexF64[0 0.1; 0 0]
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    ρ0₁ = ComplexF64[1 0; 0 0]
+    ρg₁ = ComplexF64[0 0; 0 1]
+    ρ0₂ = ComplexF64[0 0; 0 1]
+    ρg₂ = ComplexF64[1 0; 0 0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    qtraj = MultiDensityTrajectory(
+        sys,
+        CubicSplinePulse(fill(0.3, 1, N), fill(0.0, 1, N), times),
+        [ρ0₁, ρ0₂],
+        [ρg₁, ρg₂],
+    )
+    traj = NamedTrajectory(qtraj, N)
+
+    n = sys.levels
+    Φ_structure = sparse(ones(n^2, n^2))
+
+    # Cubic with du: total_x_dim = n_densities · n² rows, both-knot cols + params
+    J = jacobian_structure(
+        MultiDensityTrajectory,
+        state_names(qtraj),
+        :u,
+        n,
+        Φ_structure,
+        3,
+        traj;
+        global_names = Symbol[],
+    )
+    @test size(J) == (2 * n^2, 2 * traj.dim)
+    x_comps_1 = traj.components[state_names(qtraj)[1]]
+    @test nnz(J[1:n^2, x_comps_1]) > 0
+    @test nnz(J[1:n^2, traj.dim .+ x_comps_1]) == n^2  # identity block
+
+    # Linear member: no du columns
+    lin_qtraj = MultiDensityTrajectory(
+        sys,
+        LinearSplinePulse(fill(0.3, 1, N), times),
+        [ρ0₁, ρ0₂],
+        [ρg₁, ρg₂],
+    )
+    lin_traj = NamedTrajectory(lin_qtraj, N)
+    J_lin = jacobian_structure(
+        MultiDensityTrajectory,
+        state_names(lin_qtraj),
+        :u,
+        n,
+        Φ_structure,
+        1,
+        lin_traj;
+        global_names = Symbol[],
+    )
+    @test size(J_lin) == (2 * n^2, 2 * lin_traj.dim)
+
+    # Globals add dense per-density global columns
+    gsys = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (δ = 0.01,),
+    )
+    gq = MultiDensityTrajectory(
+        gsys,
+        LinearSplinePulse(fill(0.3, 1, N), times),
+        [ρ0₁, ρ0₂],
+        [ρg₁, ρg₂],
+    )
+    g_traj = NamedTrajectory(gq, N)
+    J_g = jacobian_structure(
+        MultiDensityTrajectory,
+        state_names(gq),
+        :u,
+        n,
+        Φ_structure,
+        1,
+        g_traj;
+        global_names = [:δ],
+    )
+    @test size(J_g) == (2 * n^2, 2 * g_traj.dim + 1)
+    @test all(J_g[:, 2 * g_traj.dim + 1] .== 1.0)
+end

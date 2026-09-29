@@ -479,3 +479,222 @@ end
     base_𝒮(δ_base, base_traj[1], base_traj[2], 1, g)
     @test δ ≈ δ_base atol = 1e-10
 end
+
+# ── E1 resume fill (#347): the density/multidensity member constructor lanes ─ #
+# ── (cubic, globals, fixed-step probe, NonlinearDrive) + nominal-globals. ──── #
+
+@testitem "E1: sampling density members: cubic, globals, and gates" begin
+    using DirectTrajOpt, NamedTrajectories, Piccolo
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: spline_order
+
+    L = ComplexF64[0 0.1; 0 0]
+    sys1 = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys2 =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    ρ0 = ComplexF64[1 0; 0 0]
+    ρg = ComplexF64[0 0; 0 1]
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+
+    # Cubic density members drive the order-3 member ctor (p_dim, du seed,
+    # Hermite forward) — the linear member lane was the only one exercised.
+    pulse = CubicSplinePulse(randn(1, N) .* 0.1, randn(1, N) .* 0.05, times)
+    base_qtraj = DensityTrajectory(sys1, pulse, ρ0, ρg)
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+
+    integrators = SplineIntegrator(sampling_qtraj, N)
+    @test length(integrators) == 2
+    for 𝒮 in integrators
+        @test spline_order(𝒮) == 3
+    end
+    for 𝒮 in integrators
+        test_integrator(𝒮, expanded_traj; atol = 1e-3, gauss_newton = true)
+    end
+
+    # Gates: the density member constructors refuse Magnus/Chebyshev
+    @test_throws ErrorException SplineIntegrator(
+        sampling_qtraj,
+        N;
+        alg = MagnusGL4Alg(),
+    )
+    @test_throws ErrorException SplineIntegrator(
+        sampling_qtraj,
+        N;
+        alg = ChebyshevAlg(bracket = (-8.0, 8.0)),
+    )
+
+    # Fixed-step members: the Φ-probe sparsity lane
+    f_integrators = SplineIntegrator(sampling_qtraj, N; alg = Tsit5Alg(adaptive = false))
+    @test length(f_integrators) == 2
+    for 𝒮 in f_integrators
+        test_integrator(𝒮, expanded_traj; atol = 1e-3, gauss_newton = true)
+    end
+end
+
+@testitem "E1: sampling density members with globals ride the shared global names" begin
+    using DirectTrajOpt, NamedTrajectories, Piccolo
+    using LinearAlgebra
+
+    L = ComplexF64[0 0.1; 0 0]
+    sys1 = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (δ = 0.01,),
+    )
+    sys2 = OpenQuantumSystem(
+        0.95 * PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (δ = 0.02,),
+    )
+    ρ0 = ComplexF64[1 0; 0 0]
+    ρg = ComplexF64[0 0; 0 1]
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(randn(1, N) .* 0.1, times)
+
+    base_qtraj = DensityTrajectory(sys1, pulse, ρ0, ρg)
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+
+    # NO explicit global_names: the sampling ctor auto-detects from the NOMINAL
+    # system and every member rides the same names.
+    integrators = SplineIntegrator(sampling_qtraj, N)
+    for 𝒮 in integrators
+        @test 𝒮.global_names == [:δ]
+        @test 𝒮.global_dim == 1
+    end
+
+    # The expanded conversion trajectory carries NO global_data by design — the
+    # globals live on the integrator's parameter vector, threaded through the
+    # per-knot call operator (trajectory-level evaluate! cannot extract them).
+    # Member 1's knot-1 residual matches the NON-sampling density cell on the
+    # nominal system with the same globals.
+    g = [0.01]
+    δ₁ = zeros(integrators[1].x_dim)
+    integrators[1](δ₁, expanded_traj[1], expanded_traj[2], 1, g)
+    @test !all(iszero, δ₁)
+    base_𝒮 = SplineIntegrator(base_qtraj, N; global_names = [:δ])
+    base_traj = NamedTrajectory(base_qtraj, N)
+    δ_base = zeros(base_𝒮.x_dim)
+    base_𝒮(δ_base, base_traj[1], base_traj[2], 1, g)
+    @test δ₁ ≈ δ_base atol = 1e-10
+end
+
+@testitem "E1: sampling density members with NonlinearDrive: active-control table" begin
+    using DirectTrajOpt, NamedTrajectories, Piccolo
+    using LinearAlgebra
+
+    L = ComplexF64[0 0.1; 0 0]
+    # NonlinearDrive derives its Jacobian from the coefficient via ForwardDiff —
+    # no user dnl needed (the 3-arg form expects coeff_jac(u, j)).
+    drives = [NonlinearDrive(PAULIS.X, u -> u[1]^3)]
+    sys1 = OpenQuantumSystem(PAULIS.Z, drives, [1.0]; dissipation_operators = [L])
+    sys2 = OpenQuantumSystem(0.95 * PAULIS.Z, drives, [1.0]; dissipation_operators = [L])
+    ρ0 = ComplexF64[1 0; 0 0]
+    ρg = ComplexF64[0 0; 0 1]
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(randn(1, N) .* 0.1, times)
+
+    base_qtraj = DensityTrajectory(sys1, pulse, ρ0, ρg)
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+
+    integrators = SplineIntegrator(sampling_qtraj, N)
+    @test length(integrators) == 2
+    for 𝒮 in integrators
+        test_integrator(𝒮, expanded_traj; atol = 1e-3, gauss_newton = true)
+    end
+end
+
+@testitem "E1: sampling multidensity members: cubic + globals + gates" begin
+    using DirectTrajOpt, NamedTrajectories, Piccolo
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: spline_order
+
+    L = ComplexF64[0 0.1; 0 0]
+    # Globals-free pair: drives the order-3 member ctor, gates, fixed-step lane
+    sys1n = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    sys2n =
+        OpenQuantumSystem(0.95 * PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    # Nominal-global pair: auto-detect + per-knot threading
+    sys1 = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (δ = 0.01,),
+    )
+    sys2 = OpenQuantumSystem(
+        0.95 * PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (δ = 0.02,),
+    )
+    ρ0₁ = ComplexF64[1 0; 0 0]
+    ρg₁ = ComplexF64[0 0; 0 1]
+    ρ0₂ = ComplexF64[0 0; 0 1]
+    ρg₂ = ComplexF64[1 0; 0 0]
+    N = 11
+    times = collect(range(0, 1.0, length = N))
+
+    # Cubic multidensity members: the order-3 member ctor + du seed
+    pulse = CubicSplinePulse(randn(1, N) .* 0.1, randn(1, N) .* 0.05, times)
+    base_qtraj_n = MultiDensityTrajectory(sys1n, pulse, [ρ0₁, ρ0₂], [ρg₁, ρg₂])
+    sampling_qtraj_n = SamplingTrajectory(base_qtraj_n, [sys1n, sys2n])
+    expanded_traj_n = NamedTrajectory(sampling_qtraj_n, N)
+
+    integrators = SplineIntegrator(sampling_qtraj_n, N)
+    @test length(integrators) == 2
+    for 𝒮 in integrators
+        @test spline_order(𝒮) == 3
+        test_integrator(𝒮, expanded_traj_n; atol = 1e-3, gauss_newton = true)
+    end
+
+    # Globals: auto-detected from the NOMINAL system; the expanded traj carries
+    # no global_data by design, so the members run per-knot with explicit
+    # globals — member 1 matches the NON-sampling multidensity cell.
+    gpulse = LinearSplinePulse(randn(1, N) .* 0.1, times)
+    base_qtraj = MultiDensityTrajectory(sys1, gpulse, [ρ0₁, ρ0₂], [ρg₁, ρg₂])
+    sampling_qtraj = SamplingTrajectory(base_qtraj, [sys1, sys2])
+    expanded_traj = NamedTrajectory(sampling_qtraj, N)
+
+    g_integrators = SplineIntegrator(sampling_qtraj, N)
+    @test length(g_integrators) == 2
+    for 𝒮 in g_integrators
+        @test 𝒮.global_names == [:δ]  # auto-detected from the nominal system
+        @test 𝒮.global_dim == 1
+    end
+    g = [0.01]
+    x_dim = g_integrators[1].x_dim
+    δ₁ = zeros(x_dim)
+    g_integrators[1](δ₁, expanded_traj[1], expanded_traj[2], 1, g)
+    base_𝒮 = SplineIntegrator(base_qtraj, N; global_names = [:δ])
+    base_traj = NamedTrajectory(base_qtraj, N)
+    δ_base = zeros(base_𝒮.x_dim)
+    base_𝒮(δ_base, base_traj[1], base_traj[2], 1, g)
+    @test δ₁ ≈ δ_base atol = 1e-10
+
+    # Gates + fixed-step probe lane (globals-free pair)
+    @test_throws ErrorException SplineIntegrator(
+        sampling_qtraj_n,
+        N;
+        alg = MagnusGL4Alg(),
+    )
+    @test_throws ErrorException SplineIntegrator(
+        sampling_qtraj_n,
+        N;
+        alg = ChebyshevAlg(bracket = (-8.0, 8.0)),
+    )
+    f_integrators = SplineIntegrator(sampling_qtraj_n, N; alg = Tsit5Alg(adaptive = false))
+    for 𝒮 in f_integrators
+        test_integrator(𝒮, expanded_traj_n; atol = 1e-3, gauss_newton = true)
+    end
+end

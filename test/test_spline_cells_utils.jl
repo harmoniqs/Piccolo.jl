@@ -618,3 +618,313 @@ end
     # Without U_goal, no Ũ⃗ goal is attached
     @test !haskey(traj.goal, :Ũ⃗)
 end
+
+# ── E1 resume fill (#347): type-layer utilities, packed-layout traits, and ─── #
+# ── the shared ODE-builder contract lanes. ────────────────────────────────── #
+
+@testitem "E1: SplineType trait layer: orders, packed blocks, global carriage" begin
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        SplineType, spline_order, param_blocks, n_param_blocks
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        ControlValueBlock, ControlDerivBlock, ControlDeriv2Block
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        param_block_carries_globals
+
+    # The SplineType-value order methods — through the pulse trait chain and directly
+    @test spline_order(LinearSpline()) == 1
+    @test spline_order(CubicSpline()) == 3
+
+    # Pulse-level inference routes through SplineType(pulse) → spline_order(S)
+    times = collect(range(0.0, 1.0, 5))
+    lp = LinearSplinePulse(fill(0.5, 1, 5), times)
+    cp = CubicSplinePulse(fill(0.5, 1, 5), fill(0.0, 1, 5), times)
+    @test spline_order(lp) == 1
+    @test spline_order(cp) == 3
+    @test SplineType(lp) isa LinearSpline
+    @test SplineType(cp) isa CubicSpline
+
+    # Packed block declarations: linear = [uₖ, uₖ₊₁], cubic adds du endpoints
+    @test n_param_blocks(LinearSpline()) == 2
+    @test n_param_blocks(CubicSpline()) == 4
+    @test param_blocks(LinearSpline()) == ((ControlValueBlock(), 0), (ControlValueBlock(), 1))
+
+    # Global carriage: only the control-VALUE blocks ride globals; derivative
+    # roles are identically-zero slots.
+    @test param_block_carries_globals(ControlValueBlock())
+    @test !param_block_carries_globals(ControlDerivBlock())
+    @test !param_block_carries_globals(ControlDeriv2Block())
+end
+
+@testitem "E1: packed-layout component helpers on live cells (ddu, knot dims)" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        param_block_component,
+        ddu_name,
+        du_name,
+        canonical_hessian_knot_dim,
+        _spline_type,
+        spline_order,
+        ControlValueBlock,
+        ControlDerivBlock,
+        ControlDeriv2Block
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = LinearSplinePulse(fill(0.3, 2, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+    𝒮 = SplineIntegrator(qtraj, N)
+
+    # _spline_type reads the SplineType type-parameter straight off the cell
+    @test _spline_type(𝒮) isa LinearSpline
+    @test spline_order(𝒮) == 1
+
+    # param_block_component resolves each role to the trajectory component name
+    @test param_block_component(𝒮, ControlValueBlock()) == :u
+    @test param_block_component(𝒮, ControlDerivBlock()) == du_name(𝒮)
+    @test param_block_component(𝒮, ControlDeriv2Block()) == ddu_name(𝒮)
+    @test du_name(𝒮) == Symbol("d", 𝒮.u_name)
+    @test ddu_name(𝒮) == Symbol("dd", 𝒮.u_name)
+
+    # canonical_hessian_knot_dim: [x, u, Δt, t] for linear (the canonical knot
+    # counts ONE u slot), cubic adds the du slot
+    @test canonical_hessian_knot_dim(𝒮) == 𝒮.x_dim + 𝒮.u_dim + 2
+    𝒮c = SplineIntegrator(
+        KetTrajectory(
+            sys,
+            CubicSplinePulse(fill(0.3, 2, N), fill(0.0, 2, N), times),
+            ψ_init,
+            ψ_goal,
+        ),
+        N,
+    )
+    @test _spline_type(𝒮c) isa CubicSpline
+    @test spline_order(𝒮c) == 3
+    @test canonical_hessian_knot_dim(𝒮c) == 𝒮c.x_dim + 2 * 𝒮c.u_dim + 2
+end
+
+@testitem "E1: canonical_block_hessian_structure covers order/global/ensemble lanes" begin
+    using Piccolo
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        canonical_block_hessian_structure
+    using SparseArrays
+
+    # Single-state, linear: canonical knot = x + u + 2 (ONE u slot), total = 2 knots
+    S1 = canonical_block_hessian_structure(4, 2, 1)
+    @test size(S1) == (16, 16)
+    @test issymmetric(S1)
+
+    # Single-state, cubic: canonical knot = x + 2u + 2
+    S3 = canonical_block_hessian_structure(4, 2, 3)
+    @test size(S3) == (20, 20)
+
+    # Globals extend the structure by global_dim on BOTH axes
+    S1g = canonical_block_hessian_structure(4, 2, 1, 3)
+    @test size(S1g) == (19, 19)
+    S3g = canonical_block_hessian_structure(4, 2, 3, 1)
+    @test size(S3g) == (21, 21)
+
+    # Structure content, linear single-state (x = 1:4, knot dim 8):
+    # p columns at knot k: uₖ 5:6, Δt 7, t 8; at k+1: uₖ₊₁ 13:14.
+    # Knot-k state rows couple with ALL p columns (upper-triangle entries —
+    # they survive the impl's `sparse(Symmetric(...))`). The knot-k+1 state
+    # rows' knot-k-side couplings are filled but sit in the LOWER triangle, so
+    # the Symmetric truncation drops them: k+1 states keep only their k+1-side
+    # parameter columns. That stays a superset of the physical Hessian — the
+    # constraint is linear in x_{k+1}, so no true x_{k+1}/p curvature exists.
+    for r in 1:4
+        for c in (5, 6, 7, 8, 13, 14)
+            @test S1[r, c] == 1.0
+        end
+    end
+    for r in 9:12
+        for c in (13, 14)
+            @test S1[r, c] == 1.0
+        end
+        for c in (5, 6, 7, 8)
+            @test S1[r, c] == 0.0
+        end
+    end
+    @test nnz(S1[1:4, 1:4]) == 0
+    @test nnz(S1[1:4, 9:12]) == 0
+    @test nnz(S1[5:8, 5:8]) == 0
+
+    # globals couple to both knots' state rows (upper triangle on both sides:
+    # global columns land after both knot blocks)
+    for r in (1, 3, 9, 11)
+        for c in 17:19
+            @test S1g[r, c] == 1.0
+        end
+    end
+
+    # Multi-state (ensemble) version: two kets of dim 4 share the p columns.
+    # knot = (4 + 4) + 2 + 2 = 12; x rows 1:8; uₖ 9:10, Δt 11, t 12, uₖ₊₁ 21:22.
+    Sm = canonical_block_hessian_structure([4, 4], 2, 1)
+    @test size(Sm) == (24, 24)
+    for r in 1:8
+        for c in (9, 10, 11, 12, 21, 22)
+            @test Sm[r, c] == 1.0
+        end
+    end
+    # k+1 state rows (13:20) keep only their k+1-side parameter columns
+    for r in 13:20
+        for c in (21, 22)
+            @test Sm[r, c] == 1.0
+        end
+        for c in (9, 10)
+            @test Sm[r, c] == 0.0
+        end
+    end
+
+    # Unsupported order: the impl has no else-branch, so knot_dim is unbound
+    @test_throws Exception canonical_block_hessian_structure(4, 2, 2)
+end
+
+@testitem "E1: get_param_indices two-arg form and refresh_sensitivities! lanes" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        get_param_indices, refresh_sensitivities!, _refresh_prop_results!
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = LinearSplinePulse(fill(0.3, 2, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+    traj = NamedTrajectory(qtraj, N)
+    𝒮 = SplineIntegrator(qtraj, N)
+
+    # Two-arg form: the per-knot parameter columns plus the Δt/t slots
+    ctrl_indices, Δt_idx, t_idx, global_indices = get_param_indices(𝒮, traj)
+    @test length(ctrl_indices) == 2 * 𝒮.u_dim  # [uₖ; uₖ₊₁] (linear)
+    @test Δt_idx == 2 * 𝒮.u_dim + 1
+    @test t_idx == 2 * 𝒮.u_dim + 2
+    @test isempty(global_indices)
+
+    # The per-knot form: traj columns [u at k; u at k+1; Δt; t] with matching
+    # packed-vector ode indices — the Δt/t slots land at exactly the two-arg
+    # form's Δt_idx/t_idx.
+    cols_k1, oi_k1 = get_param_indices(𝒮, traj, 1)
+    @test length(cols_k1) == 2 * 𝒮.u_dim + 2
+    @test length(oi_k1) == 2 * 𝒮.u_dim + 2
+    @test oi_k1[end-1:end] == [Δt_idx, t_idx]
+
+    # _refresh_prop_results! runs the threaded compute_ode_jacobian! loop over
+    # every knot; refresh_sensitivities! is the public seam over it. The
+    # forward residual is unchanged by a sensitivity refresh (the refresh never
+    # perturbs the forward state).
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, traj)
+    δ_before = copy(δ)
+
+    _refresh_prop_results!(𝒮, traj, nothing)
+    refresh_sensitivities!(𝒮, traj, nothing)
+
+    δ_after = zeros(𝒮.dim)
+    evaluate!(δ_after, 𝒮, traj)
+    @test δ_after ≈ δ_before atol = 1e-12
+    # After the refresh, every knot's prop_results carries the solved Φ
+    for k = 1:(traj.N-1)
+        @test !iszero(𝒮.prop_results[k].Φ_vec)
+    end
+end
+
+@testitem "E1: shared ODE-builder contracts: drive-free systems and bad orders" begin
+    using Piccolo
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        build_sensitivity_ode,
+        build_ket_jvp_ode,
+        build_hvp_forward_ode,
+        build_second_order_adjoint_ode,
+        build_ket_sensitivity_ode,
+        build_second_order_sensitivity_ode,
+        build_density_sensitivity_ode,
+        tri_idx,
+        _to_operator
+
+    drift_op = _to_operator(Matrix{ComplexF64}(1.0I, 2, 2))
+
+    # Drive-free systems: every builder returns (nothing, n_params) — the
+    # documented "no analytic sensitivities without explicit drives" contract.
+    n_params_1 = 2 * 1 + 2
+
+    f_sens, np = build_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, 1)
+    @test isnothing(f_sens)
+    @test np == n_params_1
+
+    f_jvp, np = build_ket_jvp_ode(drift_op, AbstractDrive[], 1, 2, 1)
+    @test isnothing(f_jvp)
+    @test np == n_params_1
+
+    f_hvp, np = build_hvp_forward_ode(drift_op, AbstractDrive[], 1, 2, 1)
+    @test isnothing(f_hvp)
+    @test np == n_params_1
+
+    f_2adj, np = build_second_order_adjoint_ode(drift_op, AbstractDrive[], 1, 2, 1)
+    @test isnothing(f_2adj)
+    @test np == n_params_1
+
+    f_ksens, np = build_ket_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, 1, 2)
+    @test isnothing(f_ksens)
+    @test np == n_params_1
+
+    f_hess, np, pairs, statedim =
+        build_second_order_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, 1)
+    @test isnothing(f_hess)
+    @test np == n_params_1
+    @test isempty(pairs)
+    @test statedim == 0
+
+    # The density sensitivity builder shares the same contract (𝒢c real form)
+    d_sens, np =
+        build_density_sensitivity_ode(Matrix{Float64}(1.0I, 4, 4), Matrix{Float64}[], AbstractDrive[], Vector{Int}[], 1, 2, 1)
+    @test isnothing(d_sens)
+    @test np == n_params_1
+
+    # Unsupported spline orders error loudly in every builder
+    for order in (0, 2, 4)
+        @test_throws ErrorException build_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, order)
+        @test_throws ErrorException build_ket_jvp_ode(drift_op, AbstractDrive[], 1, 2, order)
+        @test_throws ErrorException build_hvp_forward_ode(drift_op, AbstractDrive[], 1, 2, order)
+        @test_throws ErrorException build_second_order_adjoint_ode(drift_op, AbstractDrive[], 1, 2, order)
+        @test_throws ErrorException build_ket_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, order, 1)
+        @test_throws ErrorException build_second_order_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, order)
+    end
+
+    # tri_idx: the strictly-upper-triangular pair enumeration index — dense,
+    # gap-free, in (i ≤ j) scan order.
+    n = 4
+    seen = Int[]
+    for i = 1:n, j = i:n
+        push!(seen, tri_idx(i, j, n))
+    end
+    @test seen == collect(1:(n * (n + 1) ÷ 2))
+end
+
+@testitem "E1: _solve_forward_tsit5 keeps non-Tsit5 algs on the adaptive solve" begin
+    using Piccolo
+    using SciMLBase: ODEProblem
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: _solve_forward_tsit5
+
+    # A unit-rate problem whose solution at t=1 is exp(1)·x₀
+    prob = ODEProblem((dx, x, p, t) -> (dx[1] = x[1]; nothing), [1.0], (0.0, 1.0))
+
+    # Non-Tsit5Alg dispatch (the Rodas5P-sensitivity fallback): adaptive solve
+    sol_other = _solve_forward_tsit5(prob, MagnusGL4Alg(), 1e-8)
+    @test length(sol_other.u) == 2          # saveat = 1.0 → [t=0, t=1]
+    @test sol_other.u[end][1] ≈ exp(1.0) atol = 1e-6
+
+    # Tsit5Alg fixed-step dispatch honors ode_h (#180)
+    sol_fixed = _solve_forward_tsit5(prob, Tsit5Alg(adaptive = false, ode_h = 0.5), 1e-8)
+    @test sol_fixed.u[end][1] ≈ exp(1.0) atol = 1e-3
+end

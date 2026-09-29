@@ -506,3 +506,324 @@ end
     evaluate!(δ, integrator, traj)
     @test norm(δ, Inf) < 1e-4
 end
+
+# ── E1 resume fill (#347): Magnus lanes, ctor fallback lanes, the standalone
+# ── Jacobian structure, and the seam gates reachable from the open core. ──── #
+
+@testitem "E1: MultiKet MagnusGL4: construction + forward parity vs Tsit5" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: compute_ode_jacobian!
+
+    H_drift = diagm(ComplexF64[0.0, 1.0, 2.0])
+    H_x = ComplexF64[0 1 0; 1 0 1; 0 1 0] / sqrt(2)
+    H_y = ComplexF64[0 -im 0; im 0 -im; 0 im 0] / sqrt(2)
+    sys = QuantumSystem(H_drift, [H_x, H_y], [1.0, 1.0])
+
+    T = 1.0
+    N = 5
+    ψ0 = ComplexF64[1.0, 0.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0, 0.0]
+    initials = [ψ0, ψ1]
+    goals = [ψ1, ψ0]
+
+    times = collect(range(0.0, T, N))
+    pulse = LinearSplinePulse(fill(0.4, 2, N), times)
+    eq = MultiKetTrajectory(sys, pulse, initials, goals)
+    traj = NamedTrajectory(eq, N)
+
+    # MagnusGL4 multiket construction runs the shared _build_alg_data dispatch
+    # (the MagnusGL4Data buffer lane). MagnusAdapt4 mirrors it.
+    𝒮_m = SplineIntegrator(eq, traj; alg = MagnusGL4Alg(n_steps = 40))
+    @test 𝒮_m isa SplineIntegrator{MultiKetTrajectory,LinearSpline}
+    @test 𝒮_m.alg isa MagnusGL4Alg
+
+    𝒮_a = SplineIntegrator(eq, traj; alg = MagnusAdapt4Alg())
+    @test 𝒮_a.alg isa MagnusAdapt4Alg
+
+    # Forward: the non-Tsit5 lane propagates via the real-isomorphic Magnus
+    # propagator and applies it to each ket.
+    𝒮_t = SplineIntegrator(eq, traj)
+    δ_m = zeros(𝒮_m.dim)
+    δ_t = zeros(𝒮_t.dim)
+    evaluate!(δ_m, 𝒮_m, traj)
+    evaluate!(δ_t, 𝒮_t, traj)
+    @test norm(δ_m - δ_t, Inf) < 1e-6
+    @test norm(δ_m, Inf) < 1e-5  # rollout-consistent
+
+    # Magnus + explicit ket_sensitivity: the forward caches the complex Φ built
+    # from the Magnus real-iso propagator's Re/Im blocks (the conversion lane),
+    # and the per-knot ket-sensitivity solve still agrees with the Tsit5 cell's.
+    𝒮_mk = SplineIntegrator(eq, traj; alg = MagnusGL4Alg(n_steps = 40), ket_sensitivity = true)
+    @test 𝒮_mk.use_ket_sensitivity
+    δ_mk = zeros(𝒮_mk.dim)
+    evaluate!(δ_mk, 𝒮_mk, traj)
+    @test δ_mk ≈ δ_m atol = 1e-12
+
+    # After a forward pass the Φ_vec caches carry the complex propagator
+    for k = 1:(traj.N-1)
+        @test !iszero(𝒮_mk.prop_results[k].Φ_vec)
+    end
+
+    # The ket-sensitivity per-knot solve works under the Magnus alg too
+    # (the sensitivity ODE is always Tsit5-solved regardless of the forward alg)
+    compute_ode_jacobian!(𝒮_mk, traj[1], traj[2], 1, nothing)
+    @test !isnothing(𝒮_mk.ket_sens_results[1])
+
+    # MagnusGL4Alg buffers are per-knot (thread-safe copies were built)
+    @test length(𝒮_m.alg_data.G_drift_copies) == traj.N - 1
+end
+
+@testitem "E1: MultiKet constructor fallback lanes: pulse/order inference + error gates" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        _SamplingMemberQTraj, multiket_sens_refresh_count, _mk_multiket_qtraj, spline_order
+
+    H_drift = diagm(ComplexF64[0.0, 1.0, 2.0])
+    H_x = ComplexF64[0 1 0; 1 0 1; 0 1 0] / sqrt(2)
+    sys = QuantumSystem(H_drift, [H_x], [1.0])
+
+    T = 1.0
+    N = 5
+    ψ0 = ComplexF64[1.0, 0.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0, 0.0]
+    initials = [ψ0, ψ1]
+    goals = [ψ1, ψ0]
+    times = collect(range(0.0, T, N))
+
+    # Non-spline pulse + no explicit order → defaults to linear (order 1)
+    zo = ZeroOrderPulse(0.3 * fill(1.0, 1, N), times)
+    eq_zo = MultiKetTrajectory(sys, zo, initials, goals)
+    traj_zo = NamedTrajectory(eq_zo, N)
+    𝒮 = SplineIntegrator(eq_zo, traj_zo)
+    @test spline_order(𝒮) == 1
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, traj_zo)
+    @test norm(δ, Inf) < 1e-5
+
+    # The sampling-member shim: length reports the ket count
+    ket_names = state_names(eq_zo)
+    shim = _mk_multiket_qtraj(sys, zo, ket_names, :u, traj_zo)
+    @test shim isa _SamplingMemberQTraj
+    @test length(shim) == 2
+    @test state_names(shim) == ket_names
+    @test drive_name(shim) == :u
+    @test get_system(shim) === sys
+    @test get_pulse(shim) === zo
+
+    # Drive-free system: the explicit-drives ArgumentError fires from the
+    # shim-form constructor (the drive check precedes everything else).
+    sys_free = QuantumSystem(GATES.Z)
+    shim_free = _mk_multiket_qtraj(sys_free, zo, ket_names, :u, traj_zo)
+    @test_throws ArgumentError SplineIntegrator(shim_free, traj_zo)
+
+    # The refresh-count accessor is loadable and non-decreasing
+    c0 = multiket_sens_refresh_count()
+    @test c0 >= 0
+    @test multiket_sens_refresh_count() >= c0
+end
+
+@testitem "E1: MultiKet cubic without du bounds zero-fills the derivative seed" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: spline_order
+
+    H_drift = diagm(ComplexF64[0.0, 1.0, 2.0])
+    H_x = ComplexF64[0 1 0; 1 0 1; 0 1 0] / sqrt(2)
+    sys = QuantumSystem(H_drift, [H_x], [1.0])
+
+    T = 1.0
+    N = 5
+    times = collect(range(0.0, T, N))
+    ψ0 = ComplexF64[1.0, 0.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0, 0.0]
+    eq = MultiKetTrajectory(
+        sys,
+        CubicSplinePulse(fill(0.3, 1, N), fill(0.0, 1, N), times),
+        [ψ0, ψ1],
+        [ψ1, ψ0],
+    )
+
+    # Rebuild the combined traj WITHOUT du bounds: the ctor seeds du from zeros
+    # (the no-bounds lane) instead of the upper bound.
+    traj_full = NamedTrajectory(eq, N)
+    @test haskey(traj_full.bounds, :du)
+    boundfree = NamedTrajectory(traj_full; bounds = (u = 1.0,))
+    @test !haskey(boundfree.bounds, :du)
+
+    𝒮 = SplineIntegrator(eq, boundfree)
+    @test spline_order(𝒮) == 3
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, boundfree)
+    @test norm(δ, Inf) < 1e-5
+
+    # With du bounds present the seed is the upper bound instead (covered lane,
+    # re-asserted for the pair)
+    𝒮_b = SplineIntegrator(eq, traj_full)
+    δ_b = zeros(𝒮_b.dim)
+    evaluate!(δ_b, 𝒮_b, traj_full)
+    @test norm(δ_b, Inf) < 1e-5
+end
+
+@testitem "E1: MultiKet standalone jacobian_structure: blocks, du/dθ, globals" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using SparseArrays
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: jacobian_structure
+
+    H_drift = diagm(ComplexF64[0.0, 1.0, 2.0])
+    H_x = ComplexF64[0 1 0; 1 0 1; 0 1 0] / sqrt(2)
+    H_y = ComplexF64[0 -im 0; im 0 -im; 0 im 0] / sqrt(2)
+    sys = QuantumSystem(H_drift, [H_x, H_y], [1.0, 1.0])
+
+    T = 1.0
+    N = 5
+    times = collect(range(0.0, T, N))
+    ψ0 = ComplexF64[1.0, 0.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0, 0.0]
+    eq = MultiKetTrajectory(
+        sys,
+        CubicSplinePulse(fill(0.3, 2, N), fill(0.0, 2, N), times),
+        [ψ0, ψ1],
+        [ψ1, ψ0],
+    )
+    traj = NamedTrajectory(eq, N)
+
+    x_names = state_names(eq)
+    ketdim = sys.levels
+    # Φ_structure is per-ket in the ISO (real-isomorphic) basis: 2·ketdim square
+    Φ_structure = sparse(ones(2 * ketdim, 2 * ketdim))
+
+    # Cubic, du in traj: total_x_dim × (2 z_dim + global_dim) with du columns
+    J = jacobian_structure(MultiKetTrajectory, x_names, :u, ketdim, Φ_structure, 3, traj)
+    @test size(J) == (2 * 2 * ketdim, 2 * traj.dim)
+    # Each ket's state block couples with: its own x cols (Φ structure),
+    # k+1 x cols (identity), and all parameter columns
+    x_comps_1 = traj.components[x_names[1]]
+    @test nnz(J[1:(2ketdim), x_comps_1]) > 0
+    @test nnz(J[1:(2ketdim), traj.dim .+ x_comps_1]) == 2 * ketdim
+
+    # Cubic, traj carries :dθ instead of :du: the fallback name picks it up.
+    # The state comps are built under the trajectory's OWN state names (the
+    # combining-tilde symbols from state_names) — the structure lookup keys on
+    # x_names verbatim.
+    comps = Pair{Symbol,Matrix{Float64}}[]
+    for name in x_names
+        push!(comps, name => 0.1 * randn(2 * ketdim, N))
+    end
+    push!(comps, :u => 0.1 * randn(2, N))
+    push!(comps, :dθ => 0.1 * randn(2, N))
+    push!(comps, :Δt => fill(T / (N - 1), 1, N))
+    push!(comps, :t => reshape(collect(range(0.0, T, N)), 1, :))
+    θ_traj = NamedTrajectory(
+        (; comps...);
+        controls = :u,
+        timestep = :Δt,
+        bounds = (u = 1.0,),
+    )
+    J_dθ = jacobian_structure(
+        MultiKetTrajectory,
+        x_names,
+        :u,
+        ketdim,
+        Φ_structure,
+        3,
+        θ_traj;
+        global_names = Symbol[],
+    )
+    @test size(J_dθ) == (2 * 2 * ketdim, 2 * θ_traj.dim)
+
+    # Linear: no du columns; parameter cols are [u at k; u at k+1; Δt; t]
+    lin_eq = MultiKetTrajectory(
+        sys,
+        LinearSplinePulse(fill(0.3, 2, N), times),
+        [ψ0, ψ1],
+        [ψ1, ψ0],
+    )
+    lin_traj = NamedTrajectory(lin_eq, N)
+    J_lin = jacobian_structure(
+        MultiKetTrajectory,
+        x_names,
+        :u,
+        ketdim,
+        Φ_structure,
+        1,
+        lin_traj;
+        global_names = Symbol[],
+    )
+    @test size(J_lin) == (2 * 2 * ketdim, 2 * lin_traj.dim)
+
+    # Globals widen the structure and add per-ket dense global columns
+    gsys = QuantumSystem(H_drift, [H_x, H_y], [1.0, 1.0]; global_params = (δ = 0.1,))
+    g_eq = MultiKetTrajectory(
+        gsys,
+        LinearSplinePulse(fill(0.3, 2, N), times),
+        [ψ0, ψ1],
+        [ψ1, ψ0],
+    )
+    g_traj = NamedTrajectory(g_eq, N)
+    J_g = jacobian_structure(
+        MultiKetTrajectory,
+        x_names,
+        :u,
+        ketdim,
+        Φ_structure,
+        1,
+        g_traj;
+        global_names = [:δ],
+    )
+    @test size(J_g) == (2 * 2 * ketdim, 2 * g_traj.dim + 1)
+    # The global column is dense over both kets' state rows
+    @test all(J_g[:, 2 * g_traj.dim + 1] .== 1.0)
+end
+
+@testitem "E1: MultiKet seam gates: dense Jacobian/Hessian need the proprietary layout" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+
+    H_drift = diagm(ComplexF64[0.0, 1.0, 2.0])
+    H_x = ComplexF64[0 1 0; 1 0 1; 0 1 0] / sqrt(2)
+    sys = QuantumSystem(H_drift, [H_x], [1.0])
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    ψ0 = ComplexF64[1.0, 0.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0, 0.0]
+    eq = MultiKetTrajectory(sys, LinearSplinePulse(fill(0.3, 1, N), times), [ψ0, ψ1], [ψ1, ψ0])
+    traj = NamedTrajectory(eq, N)
+
+    𝒮 = SplineIntegrator(eq, traj)
+
+    # eval_jacobian reads matrix_free_layout(𝒮, traj) — no open-core method
+    @test_throws MethodError eval_jacobian(𝒮, traj)
+
+    # eval_hessian_of_lagrangian probes _multiket_directional_hvp_probs first
+    # — no open-core method
+    μ = zeros(𝒮.dim)
+    @test_throws MethodError eval_hessian_of_lagrangian(𝒮, traj, μ)
+
+    # ChebyshevAlg on MultiKet: the matrix-free alg data builder is proprietary,
+    # so construction itself is the gate (cubic pulse passes the cubic-only
+    # refusal, then MethodErrors at _build_alg_data).
+    ceq = MultiKetTrajectory(
+        sys,
+        CubicSplinePulse(fill(0.3, 1, N), fill(0.0, 1, N), times),
+        [ψ0, ψ1],
+        [ψ1, ψ0],
+    )
+    @test_throws MethodError SplineIntegrator(
+        ceq,
+        traj;
+        alg = ChebyshevAlg(bracket = (-8.0, 8.0), n_sub = 8),
+    )
+end

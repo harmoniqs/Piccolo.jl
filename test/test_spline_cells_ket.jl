@@ -622,3 +622,195 @@ end
     @test δ_fine ≈ δ_adapt atol = 1e-5
     @test norm(δ_coarse - δ_adapt) > 1e-9
 end
+
+# ── E1 resume fill (#347): inner-constructor lanes, Rodas5P/Magnus/Chebyshev ── #
+# ── gates, the ket-sensitivity forward, and the Hessian solve paths. ──────── #
+
+@testitem "E1: _spline_ket inner lanes: pulse inference + globals auto-detect" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: _spline_ket, spline_order
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+
+    # Non-spline pulse through the inner constructor: defaults to order 1
+    zo = ZeroOrderPulse(0.3 * fill(1.0, 2, N), times)
+    qtraj_zo = KetTrajectory(sys, zo, ψ_init, ψ_goal)
+    traj_zo = NamedTrajectory(qtraj_zo, N)
+    𝒮 = _spline_ket(sys, zo, state_name(qtraj_zo), drive_name(qtraj_zo), traj_zo)
+    @test spline_order(𝒮) == 1
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, traj_zo)
+    @test norm(δ, Inf) < 1e-5
+
+    # Globals auto-detect via the inner constructor: a system WITH global_params
+    # yields the collected names without being asked. The pulse's drive count
+    # must match the system (one drive here).
+    gsys = QuantumSystem(GATES.Z, [GATES.X], [1.0]; global_params = (δ = 0.01,))
+    zo_g = ZeroOrderPulse(0.3 * fill(1.0, 1, N), times)
+    gq = KetTrajectory(gsys, zo_g, ψ_init, ψ_goal)
+    gtraj = NamedTrajectory(gq, N)
+    𝒮_g = _spline_ket(gsys, zo_g, state_name(gq), drive_name(gq), gtraj)
+    @test 𝒮_g.global_names == [:δ]
+    @test 𝒮_g.global_dim == 1
+
+    # …and a drive-global-free system resolves to an empty name list
+    𝒮_0 = _spline_ket(sys, zo, state_name(qtraj_zo), drive_name(qtraj_zo), traj_zo)
+    @test isempty(𝒮_0.global_names)
+    @test 𝒮_0.global_dim == 0
+end
+
+@testitem "E1: Rodas5P ket cell: closed-form Jacobians wired, solves gated" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: compute_ode_jacobian!
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = LinearSplinePulse(fill(0.3, 2, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+    traj = NamedTrajectory(qtraj, N)
+
+    # Construction succeeds in the open core: the forward ODE problems carry the
+    # closed-form complex Jacobian (built by build_forward_ode_jacobian), and
+    # the sensitivity problems carry the block-diagonal one.
+    𝒮 = SplineIntegrator(qtraj, N; alg = Rodas5PAlg())
+    @test 𝒮 isa SplineIntegrator{KetTrajectory,LinearSpline}
+    @test 𝒮.alg isa Rodas5PAlg
+    @test !isnothing(𝒮.sens_probs)
+    # The sensitivity problems were rebuilt with the closed-form jac attached
+    @test 𝒮.sens_probs[1].f.jac !== nothing
+
+    # Forward solve: the concrete stiff solver is proprietary (slice 3b
+    # de-scope) — _stiff_rodas5p_solve has no open-core method, so the forward
+    # errors loudly instead of silently falling back. The per-knot cells run
+    # under Threads.@threads, so the nested MethodError surfaces wrapped in a
+    # CompositeException (one TaskFailedException per failing knot task).
+    δ = zeros(𝒮.dim)
+    @test_throws CompositeException evaluate!(δ, 𝒮, traj)
+
+    # The analytic-Jacobian machinery is still exercised at construction (the
+    # Hamiltonian jacobian + ODE jacobian builders); the sensitivity solve hits
+    # the same proprietary hook — a DIRECT call here is unwrapped, so the bare
+    # MethodError is observable.
+    @test_throws MethodError compute_ode_jacobian!(𝒮, traj[1], traj[2], 1, nothing)
+end
+
+@testitem "E1: ket algorithm gates: Magnus and Chebyshev construction is proprietary" begin
+    using DirectTrajOpt
+    using Piccolo
+    using LinearAlgebra
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = LinearSplinePulse(fill(0.3, 2, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+
+    # The Magnus ket cell's ChebyshevData (matrix-free midpoint-Magnus cores)
+    # is built by the proprietary _build_magnus_ket_data hook
+    @test_throws MethodError SplineIntegrator(qtraj, N; alg = MagnusGL4Alg())
+    @test_throws MethodError SplineIntegrator(qtraj, N; alg = MagnusAdapt4Alg())
+
+    # ChebyshevAlg alg-data construction routes through the shared (undefined
+    # in open core) _build_alg_data dispatch
+    @test_throws MethodError SplineIntegrator(qtraj, N; alg = ChebyshevAlg(bracket = (-4.0, 4.0)))
+end
+
+@testitem "E1: use_ket_sensitivity forward materializes and caches the propagator" begin
+    using DirectTrajOpt
+    using Piccolo
+    using LinearAlgebra
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = LinearSplinePulse(fill(0.3, 2, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+    traj = NamedTrajectory(qtraj, N)
+
+    𝒮_k = SplineIntegrator(qtraj, N; use_ket_sensitivity = true)
+    𝒮_d = SplineIntegrator(qtraj, N)
+
+    # The ket-sensitivity forward solves the identity-initialized matrix ODE
+    # (returning Φₖ itself), caches it, and applies it to ψₖ — agreeing with
+    # the default vector-state forward.
+    δ_k = zeros(𝒮_k.dim)
+    δ_d = zeros(𝒮_d.dim)
+    evaluate!(δ_k, 𝒮_k, traj)
+    evaluate!(δ_d, 𝒮_d, traj)
+    @test norm(δ_k - δ_d, Inf) < 1e-10
+    @test norm(δ_k, Inf) < 1e-5
+    for k = 1:(N-1)
+        @test !iszero(𝒮_k.prop_results[k].Φ_vec)
+    end
+end
+
+@testitem "E1: ket compute_ode_hessian! lanes: exact Hessian solve + no-hessian gate" begin
+    using DirectTrajOpt
+    using Piccolo
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: compute_ode_hessian!
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = LinearSplinePulse(fill(0.3, 2, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+    traj = NamedTrajectory(qtraj, N)
+
+    # A non-exact cell has no second-order problems: compute_ode_hessian!
+    # errors loudly instead of silently degrading to Gauss-Newton.
+    𝒮_gn = SplineIntegrator(qtraj, N)
+    @test_throws ErrorException compute_ode_hessian!(𝒮_gn, traj[1], traj[2], 1, nothing)
+
+    # The exact cell solves the second-order sensitivity ODE per knot and the
+    # result agrees with the Jacobian's sensitivities at the same knot.
+    𝒮_ex = SplineIntegrator(qtraj, N; exact_hessian = true)
+    compute_ode_hessian!(𝒮_ex, traj[1], traj[2], 1, nothing)
+    @test !isnothing(𝒮_ex.hess_probs)
+
+    # Jacobian/Hessian conformance for the SAME cell (dense exact Hessian)
+    test_integrator(𝒮_ex, traj; atol = 1e-4, gauss_newton = false)
+end
+
+@testitem "E1: exact-Hessian cubic spline matches FiniteDiff (SOSE du/Δt chains)" begin
+    using DirectTrajOpt
+    using Piccolo
+    using LinearAlgebra
+
+    # Cubic + exact Hessian drives the second-order sensitivity ODE's full
+    # order-3 closure: the Hermite basis du blocks, the Δt↔du chain rules and
+    # the (du, Δt) mixed pairs that the linear-spline exact tests never touch.
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    T = 1.0
+    times = collect(range(0.0, T, N))
+    pulse = CubicSplinePulse(fill(0.4, 2, N), 0.2 * fill(1.0, 2, N), times)
+    qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
+    traj = NamedTrajectory(qtraj, N)
+
+    𝒮 = SplineIntegrator(qtraj, N; exact_hessian = true)
+    @test 𝒮.exact_hessian
+    @test !isnothing(𝒮.hess_probs)
+    test_integrator(𝒮, traj; atol = 1e-4, gauss_newton = false)
+end

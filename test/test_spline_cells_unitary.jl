@@ -764,3 +764,204 @@ end
     # construction instead of silently falling back to a Tsit5 forward.
     @test_throws ErrorException SplineIntegrator(qtraj, N; alg = ChebyshevAlg())
 end
+
+# ── E1 resume fill (#347): Magnus lanes (Adapt4 + Dual buffers), inner-ctor ── #
+# ── fallback lanes, and the control-before-state Hessian symmetric branch. ─── #
+
+@testitem "E1: Unitary MagnusAdapt4: construction + adaptive Magnus forward parity" begin
+    using DirectTrajOpt
+    using Piccolo
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: compute_ode_jacobian!
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    U_init = Matrix{ComplexF64}(1.0I, 2, 2)
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = LinearSplinePulse(fill(0.3, 2, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, U_init)
+    traj = NamedTrajectory(qtraj, N)
+
+    # MagnusAdapt4 construction builds the shared buffer alg-data
+    𝒮_a = SplineIntegrator(qtraj, N; alg = MagnusAdapt4Alg(tol = 1e-10))
+    @test 𝒮_a isa SplineIntegrator{UnitaryTrajectory,LinearSpline}
+    @test 𝒮_a.alg isa MagnusAdapt4Alg
+
+    # Adaptive-Magnus forward: Φ stays unitary and agrees with both the Tsit5
+    # cell and the fixed-step GL4 cell.
+    𝒮_t = SplineIntegrator(qtraj, N)
+    𝒮_g = SplineIntegrator(qtraj, N; alg = MagnusGL4Alg(n_steps = 40))
+    δ_a = zeros(𝒮_a.dim)
+    δ_t = zeros(𝒮_t.dim)
+    δ_g = zeros(𝒮_g.dim)
+    evaluate!(δ_a, 𝒮_a, traj)
+    evaluate!(δ_t, 𝒮_t, traj)
+    evaluate!(δ_g, 𝒮_g, traj)
+    @test norm(δ_a, Inf) < 1e-5
+    @test norm(δ_a - δ_t, Inf) < 1e-5
+    @test norm(δ_a - δ_g, Inf) < 1e-5
+
+    # Lie-group structure: the per-knot propagator is unitary (read through the
+    # Jacobian's cached complex Φ — solved by Tsit5 at the cell's tol, so the
+    # deviation is solver-tolerance-bound, not machine precision)
+    compute_ode_jacobian!(𝒮_a, traj[1], traj[2], 1, nothing)
+    Φ = get_propagator(𝒮_a.prop_results[1], 2)
+    @test norm(Φ'Φ - I, Inf) < 1e-8
+end
+
+@testitem "E1: Unitary MagnusGL4 forward propagates ForwardDiff Duals" begin
+    using DirectTrajOpt
+    using Piccolo
+    using ForwardDiff
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: _forward_propagate
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    U_init = Matrix{ComplexF64}(1.0I, 2, 2)
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = LinearSplinePulse(fill(0.3, 2, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, U_init)
+    traj = NamedTrajectory(qtraj, N)
+
+    𝒮 = SplineIntegrator(qtraj, N; alg = MagnusGL4Alg(n_steps = 10))
+    pₖ = [fill(0.3, 4); 1.0 / (N - 1); 0.0]  # [uₖ; uₖ₊₁; Δt; t]
+
+    # Float64 lane: pre-allocated per-knot buffers
+    Φ_real = _forward_propagate(𝒮, 1, pₖ)
+    @test size(Φ_real) == (4, 4)
+
+    # Dual lane: fresh type-matched buffers, values identical to the Float64
+    # path (the tangent machinery rides the same fixed-step Magnus product)
+    p_dual = ForwardDiff.Dual.(pₖ, one.(pₖ))
+    Φ_dual = _forward_propagate(𝒮, 1, p_dual)
+    @test eltype(Φ_dual) <: ForwardDiff.Dual
+    @test isapprox(ForwardDiff.value.(Φ_dual), Φ_real; atol = 1e-12)
+end
+
+@testitem "E1: _spline_unitary inner lanes: pulse inference, globals, drive gates" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: _spline_unitary, spline_order
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    U_init = Matrix{ComplexF64}(1.0I, 2, 2)
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+
+    # Non-spline pulse through the inner constructor: defaults to linear
+    zo = ZeroOrderPulse(0.3 * fill(1.0, 2, N), times)
+    qtraj_zo = UnitaryTrajectory(sys, zo, U_init)
+    traj_zo = NamedTrajectory(qtraj_zo, N)
+    𝒮 = _spline_unitary(sys, zo, :Ũ⃗, :u, traj_zo)
+    @test spline_order(𝒮) == 1
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, traj_zo)
+    @test norm(δ, Inf) < 1e-5
+
+    # Explicit global_names on a traj WITHOUT globals: the fallback dims the
+    # u-vector for globals, then the global seed read fails loudly (a traj must
+    # carry the global data it declares — the empty global-component NamedTuple
+    # throws FieldError on :δ access).
+    @test_throws FieldError _spline_unitary(
+        sys,
+        zo,
+        :Ũ⃗,
+        :u,
+        traj_zo;
+        global_names = [:δ],
+    )
+
+    # Drive-free system: the explicit-drives ArgumentError
+    sys_free = QuantumSystem(GATES.Z)
+    @test_throws ArgumentError _spline_unitary(sys_free, zo, :Ũ⃗, :u, traj_zo)
+
+    # ChebyshevAlg refusal: unitary states buy nothing from matrix-free
+    @test_throws ErrorException _spline_unitary(
+        sys,
+        zo,
+        :Ũ⃗,
+        :u,
+        traj_zo;
+        alg = ChebyshevAlg(bracket = (-4.0, 4.0)),
+    )
+end
+
+@testitem "E1: Unitary cubic without du bounds zero-fills the derivative seed" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: _spline_unitary, spline_order
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    U_init = Matrix{ComplexF64}(1.0I, 2, 2)
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    cpulse = CubicSplinePulse(fill(0.3, 2, N), fill(0.0, 2, N), times)
+    qtraj = UnitaryTrajectory(sys, cpulse, U_init)
+    traj_full = NamedTrajectory(qtraj, N)
+    @test haskey(traj_full.bounds, :du)
+
+    # Strip the du bounds (keep the du component): the ctor seeds du from zeros
+    boundfree = NamedTrajectory(traj_full; bounds = (u = 1.0,))
+    @test !haskey(boundfree.bounds, :du)
+
+    𝒮 = _spline_unitary(sys, cpulse, :Ũ⃗, :u, boundfree)
+    @test spline_order(𝒮) == 3
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, boundfree)
+    @test norm(δ, Inf) < 1e-5
+end
+
+@testitem "E1: control-before-state layout: unitary Hessian fills both triangles" begin
+    using DirectTrajOpt
+    using Piccolo
+    using LinearAlgebra
+    using SparseArrays
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: _spline_unitary, get_pulse
+
+    # A trajectory whose control component PRECEDES the state: parameter
+    # columns land BEFORE x columns, so the (x,p) Hessian fill takes the
+    # mirrored triangle branch for every parameter block. The state columns
+    # are a genuine constant-control rollout (exact matrix exponentials).
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    N = 5
+    T = 1.0
+    Δt = T / (N - 1)
+    H = GATES.Z + 0.3 * (GATES.X + GATES.Y)
+    Us = [exp(-im * H * (k * Δt)) for k = 0:(N-1)]
+    traj = NamedTrajectory(
+        (
+            u = 0.3 * fill(1.0, 2, N),
+            Ũ⃗ = hcat(operator_to_iso_vec.(Us)...),
+            Δt = fill(Δt, N),
+            t = collect(range(0.0, T, N)),
+        );
+        controls = :u,
+        timestep = :Δt,
+        bounds = (u = 1.0,),
+    )
+
+    qtraj = UnitaryTrajectory(
+        sys,
+        LinearSplinePulse(0.3 * fill(1.0, 2, N), collect(range(0.0, T, N))),
+        Matrix{ComplexF64}(1.0I, 2, 2),
+    )
+    𝒮 = _spline_unitary(sys, get_pulse(qtraj), :Ũ⃗, :u, traj)
+
+    # Forward is dynamically consistent on the mirrored layout
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, traj)
+    @test norm(δ, Inf) < 1e-5
+
+    # Jacobian conformance on the mirrored layout
+    test_integrator(𝒮, traj; atol = 1e-4, gauss_newton = true)
+
+    # The Hessian fill populates BOTH the (x<p) and mirrored (x>p) triangles
+    μ = ones(𝒮.dim)
+    H = eval_hessian_of_lagrangian(𝒮, traj, μ)
+    @test nnz(H) > 0
+end

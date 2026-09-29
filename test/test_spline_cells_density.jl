@@ -529,3 +529,159 @@ end
         end
     end
 end
+
+# ── E1 resume fill (#347): typed-dissipator kernels, inner-ctor lanes, the ─── #
+# ── fixed-step sparsity probe, and the cubic Δt↔du sensitivity chain. ──────── #
+
+@testitem "E1: dissipator_apply!/dissipator_adjoint_apply! rated kernels" begin
+    using Piccolo
+    using LinearAlgebra
+    using Random
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        dissipator_apply!, dissipator_adjoint_apply!, duhamel_tape
+
+    Random.seed!(3473)
+
+    n = 3
+    L1 = zeros(ComplexF64, n, n); L1[1, 2] = 0.3
+    L2 = zeros(ComplexF64, n, n); L2[2, 3] = 0.5
+    Ls = [L1, L2]
+    Ks = [L' * L for L in Ls]
+    rates = [2.0, 0.5]
+    Δt = 0.05
+    tmp = zeros(ComplexF64, n, n)
+
+    M = randn(ComplexF64, n, n); M = (M + M') / 2
+    A = randn(ComplexF64, n, n); A = (A + A') / 2
+
+    # dissipator_apply! = Δt·Σ ratesⱼ (Lⱼ M Lⱼ† − ½{Kⱼ, M}) from zero
+    dM = Matrix{ComplexF64}(undef, n, n)
+    dissipator_apply!(dM, M, Δt, Ls, Ks, rates, tmp)
+    expected =
+        sum(Δt * rates[j] * (L * M * L' - (Ks[j] * M + M * Ks[j]) / 2) for (j, L) in enumerate(Ls))
+    @test dM ≈ expected atol = 1e-12
+
+    # dissipator_adjoint_apply! is the Hilbert–Schmidt adjoint of the above:
+    # ⟨A, 𝒟(M)⟩ = ⟨𝒟†(A), M⟩ exactly.
+    dA = Matrix{ComplexF64}(undef, n, n)
+    dissipator_adjoint_apply!(dA, A, Δt, Ls, Ks, rates, tmp)
+    @test abs(tr(A' * dM) - tr(dA' * M)) < 1e-12
+
+    # rates = ones reproduces the un-rated Lindblad dissipator half
+    dissipator_apply!(dM, M, Δt, Ls, Ks, fill(1.0, 2), tmp)
+    un_rated =
+        sum(Δt * (L * M * L' - ((L' * L) * M + M * (L' * L)) / 2) for L in Ls)
+    @test dM ≈ un_rated atol = 1e-12
+end
+
+@testitem "E1: density inner-ctor lanes: gates, pulse inference, globals, fixed-step" begin
+    using DirectTrajOpt
+    using Piccolo
+    using NamedTrajectories
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: spline_order, duhamel_tape
+
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+
+    # (qtraj, traj) inner form: gates refuse Magnus/Chebyshev at THIS layer too
+    qtraj = DensityTrajectory(sys, LinearSplinePulse(fill(0.3, 1, N), times), ρ0, ρg)
+    traj = NamedTrajectory(qtraj, N)
+    @test_throws ErrorException SplineIntegrator(qtraj, traj; alg = MagnusGL4Alg())
+    @test_throws ErrorException SplineIntegrator(
+        qtraj,
+        traj;
+        alg = ChebyshevAlg(bracket = (-8.0, 8.0)),
+    )
+
+    # Non-spline pulse: defaults to linear through the inner form
+    zo_qtraj = DensityTrajectory(sys, ZeroOrderPulse(0.3 * fill(1.0, 1, N), times), ρ0, ρg)
+    zo_traj = NamedTrajectory(zo_qtraj, N)
+    𝒮 = SplineIntegrator(zo_qtraj, zo_traj)
+    @test spline_order(𝒮) == 1
+    δ = zeros(𝒮.dim)
+    evaluate!(δ, 𝒮, zo_traj)
+    @test norm(δ, Inf) < 1e-4
+
+    # Fixed-step Tsit5: the Φ-solve sparsity probe derives the structural
+    # pattern from the solved propagator (the adaptive lane stays dense)
+    𝒮_f = SplineIntegrator(qtraj, traj; alg = Tsit5Alg(adaptive = false))
+    @test 𝒮_f.alg isa Tsit5Alg
+    δ_f = zeros(𝒮_f.dim)
+    evaluate!(δ_f, 𝒮_f, traj)
+    @test norm(δ_f, Inf) < 1e-4
+
+    # Globals: an open system with a global rides it through the seed + comps
+    gsys = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (δ = 0.01,),
+    )
+    gq = DensityTrajectory(
+        gsys,
+        LinearSplinePulse(fill(0.3, 1, N), times),
+        ρ0,
+        ρg,
+    )
+    gtraj = NamedTrajectory(gq, N)
+    # The (qtraj, traj) inner form does NOT auto-detect globals — the names
+    # must be given explicitly (the traj carries the :δ component from the
+    # system's global_params).
+    𝒮_g = SplineIntegrator(gq, gtraj; global_names = [:δ])
+    @test 𝒮_g.global_names == [:δ]
+    @test 𝒮_g.global_dim == 1
+    δ_g = zeros(𝒮_g.dim)
+    evaluate!(δ_g, 𝒮_g, gtraj)
+    @test norm(δ_g, Inf) < 1e-4
+
+    # Cubic without du bounds: the derivative seed zero-fills
+    cq = DensityTrajectory(
+        sys,
+        CubicSplinePulse(fill(0.3, 1, N), fill(0.0, 1, N), times),
+        ρ0,
+        ρg,
+    )
+    ctraj = NamedTrajectory(cq, N)
+    @test haskey(ctraj.bounds, :du)
+    # Rebuild the same trajectory WITHOUT the du bound (copy-ctor with an
+    # overridden bounds tuple — `components` are index ranges, not data).
+    boundfree = NamedTrajectory(ctraj; bounds = (u = 1.0,))
+    𝒮_c = SplineIntegrator(cq, boundfree)
+    @test spline_order(𝒮_c) == 3
+    δ_c = zeros(𝒮_c.dim)
+    evaluate!(δ_c, 𝒮_c, boundfree)
+    @test norm(δ_c, Inf) < 1e-4
+
+    # The Duhamel tape travels with the cell (density-specific alg_data)
+    @test !isnothing(duhamel_tape(𝒮_c))
+end
+
+@testitem "E1: density cubic with NONZERO du drives the Δt↔du sensitivity chain" begin
+    using DirectTrajOpt
+    using Piccolo
+    using LinearAlgebra
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: spline_order
+
+    # A cubic density cell with genuinely nonzero du values exercises the
+    # total_du_dΔt chain inside the density sensitivity ODE (the prior cubic
+    # items all seeded du = 0, which skips it), then passes full conformance.
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    ρ0 = ComplexF64[1.0 0.0; 0.0 0.0]
+    ρg = ComplexF64[0.0 0.0; 0.0 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    pulse = CubicSplinePulse(fill(0.4, 1, N), 0.2 * fill(1.0, 1, N), times)
+    qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
+
+    𝒮 = SplineIntegrator(qtraj, N)
+    @test spline_order(𝒮) == 3
+    traj = NamedTrajectory(qtraj, N)
+    test_integrator(𝒮, traj; atol = 1e-4, gauss_newton = true)
+end
