@@ -1324,8 +1324,11 @@ end
 
     V = Piccolo.Visualizations.QuantumObjectPlots
 
-    # Under a bare theme with no :palette / :textcolor entries, both helpers
-    # fall back to their defaults instead of throwing (the empty-theme lanes)
+    # The theme-robustness contract: under a bare theme the helpers still
+    # return usable values instead of throwing. (The palette/textcolor-missing
+    # fallback branches themselves are documented misses — Makie's
+    # current_default_theme always carries merged :palette/:textcolor entries,
+    # so the public API cannot produce a key-less theme state.)
     set_theme!(Theme())
     pal = V._theme_palette()
     neut = V._theme_neutral()
@@ -1344,7 +1347,7 @@ end
     @test string(V._component_latex(:d1)) == string(latexstring("d1"))
 end
 
-@testitem "plot_pulse reveal: t_max playhead on the dense cubic curve" begin
+@testitem "plot_pulse! reveal: t_max playhead on the dense cubic curve" begin
     using CairoMakie
     using Piccolo
     using Random
@@ -1353,13 +1356,18 @@ end
     times = collect(range(0.0, 1.0, length = 11))
     pulse = CubicSplinePulse(0.05 .* randn(1, 11), 0.05 .* randn(1, 11), times)
 
-    # A playhead mid-pulse reveals the interpolated curve up to t_max; the
+    # A playhead mid-pulse reveals the interpolated curve up to t_max through
+    # the per-axis API (the full-figure entry does not carry t_max); the
     # static knot markers and tangents are suppressed behind the playhead
-    fig = plot_pulse(pulse; t_max = Observable(0.4))
-    @test fig isa Figure
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    plot_pulse!(ax, pulse; t_max = Observable(0.4))
+    @test length(ax.scene.plots) > 0
 
-    fig2 = plot_pulse(pulse; t_max = Observable(1.0))
-    @test fig2 isa Figure
+    fig2 = Figure()
+    ax2 = Axis(fig2[1, 1])
+    plot_pulse!(ax2, pulse; t_max = Observable(1.0))
+    @test length(ax2.scene.plots) > 0
 end
 
 @testitem "plot_pulse bounds plumbing: system mismatch, component bounds, string labels" begin

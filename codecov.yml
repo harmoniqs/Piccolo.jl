@@ -78,6 +78,14 @@
 #       constructor cannot represent it. The shared refusal IS
 #       behavior-tested through verify()'s explicit `phases = Float64[]`
 #       lane (stored_phases distinguishes no-φ from φ-declared-but-empty).
+#
+#   (5) Makie theme-fallback lanes (pulse_plots 57/59/74/76): the
+#       key-missing branches of _theme_palette/_theme_neutral — Makie's
+#       current_default_theme always carries merged :palette/:textcolor
+#       entries, so the public API cannot produce a key-less theme state.
+#       The theme-robustness CONTRACT (helpers still return usable values
+#       under a bare set_theme!(Theme())) is behavior-tested; the
+#       key-missing lanes themselves cannot fire.
 
 ignore:
   - "src/specs/schema/regenerate.jl"

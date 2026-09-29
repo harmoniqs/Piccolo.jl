@@ -1163,6 +1163,16 @@ end
         piccolo_options = opts,
     )
     @test sp_fact isa SamplingProblem
+    # A factory returning a bare AbstractIntegrator for a 1-slot ensemble takes
+    # the wrap-as-single-slot lane (BilinearIntegrator(sq, n) over a sampling
+    # trajectory already returns one integrator per member, i.e. a vector).
+    sp_fact_single = SamplingProblem(
+        qcp,
+        [sys];
+        integrator = ((sq, n) -> scalar),
+        piccolo_options = opts,
+    )
+    @test sp_fact_single isa SamplingProblem
     @test_throws ErrorException SamplingProblem(
         qcp,
         [sys, sys];

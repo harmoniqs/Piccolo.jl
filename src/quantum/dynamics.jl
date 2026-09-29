@@ -1246,6 +1246,52 @@ end
     @test Rollouts._name("x") === nothing
 end
 
+@testitem "unitary_rollout dispatch lanes (:constant/:linear/:cubic/error)" begin
+    using Piccolo
+    using NamedTrajectories
+    using OrdinaryDiffEqLinear
+
+    # The raw NamedTrajectory + AbstractQuantumSystem rollout carries its own
+    # interpolation dispatch, separate from unitary_rollout_fidelity's — all
+    # three lanes plus the unknown-kind refusal
+    T = 1.0
+    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    X_gate = ComplexF64[0 1; 1 0]
+    I_gate = ComplexF64[1 0; 0 1]
+    utraj = NamedTrajectory(
+        (Ũ⃗ = randn(8, 11), u = randn(2, 11), du = randn(2, 11), Δt = fill(T / 10, 11));
+        controls = (:u, :du),
+        timestep = :Δt,
+        initial = (Ũ⃗ = operator_to_iso_vec(I_gate),),
+        goal = (Ũ⃗ = operator_to_iso_vec(X_gate),),
+    )
+
+    for interp in (:constant, :linear, :cubic)
+        Ũ⃗_traj = unitary_rollout(utraj, sys; interpolation = interp)
+        @test size(Ũ⃗_traj) == (8, 11)
+        @test all(isfinite, Ũ⃗_traj)
+    end
+
+    err = try
+        unitary_rollout(utraj, sys; interpolation = :bogus)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("Unknown interpolation", sprint(showerror, err))
+
+    # a missing state name refuses loudly too
+    err2 = try
+        unitary_rollout(utraj, sys; state_name = :ψ̃)
+        nothing
+    catch e
+        e
+    end
+    @test err2 isa ErrorException
+    @test occursin("does not contain", sprint(showerror, err2))
+end
+
 @testitem "extract_globals utility" begin
     using NamedTrajectories
 
