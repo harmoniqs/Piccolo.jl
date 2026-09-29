@@ -474,15 +474,6 @@ _normalize_drift_entry(H::AbstractMatrix) = DriftTerm(sparse(ComplexF64.(H)))
 _normalize_drift_entry(p::Pair{<:AbstractMatrix,<:Function}) =
     DriftTerm(sparse(ComplexF64.(p.first)), p.second)
 
-"""Normalize a single drive input into an AbstractDrive."""
-_normalize_drive(H::AbstractMatrix, index::Int) = LinearDrive(sparse(ComplexF64.(H)), index)
-function _normalize_drive(p::Pair{<:AbstractMatrix,<:Function}, index::Int)
-    return ModulatedDrive(LinearDrive(sparse(ComplexF64.(p.first)), index), p.second)
-end
-_normalize_drive(d::AbstractDrive, ::Int) = d
-_normalize_drive(p::Pair{<:AbstractDrive,<:Function}, ::Int) =
-    ModulatedDrive(p.first, p.second)
-
 """Check if any drift_terms or drives have non-identity modulation."""
 function _has_any_modulation(drift_terms, drives)
     any(has_modulation, drift_terms) || any(has_modulation, drives)
