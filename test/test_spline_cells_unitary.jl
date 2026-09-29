@@ -844,7 +844,8 @@ end
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
-    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: _spline_unitary, spline_order
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        _spline_unitary, spline_order
 
     sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     U_init = Matrix{ComplexF64}(1.0I, 2, 2)
@@ -865,14 +866,7 @@ end
     # u-vector for globals, then the global seed read fails loudly (a traj must
     # carry the global data it declares — the empty global-component NamedTuple
     # throws FieldError on :δ access).
-    @test_throws FieldError _spline_unitary(
-        sys,
-        zo,
-        :Ũ⃗,
-        :u,
-        traj_zo;
-        global_names = [:δ],
-    )
+    @test_throws FieldError _spline_unitary(sys, zo, :Ũ⃗, :u, traj_zo; global_names = [:δ])
 
     # Drive-free system: the explicit-drives ArgumentError
     sys_free = QuantumSystem(GATES.Z)
@@ -894,7 +888,8 @@ end
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
-    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: _spline_unitary, spline_order
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        _spline_unitary, spline_order
 
     sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
     U_init = Matrix{ComplexF64}(1.0I, 2, 2)

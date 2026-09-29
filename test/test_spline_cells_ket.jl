@@ -727,7 +727,11 @@ end
 
     # ChebyshevAlg alg-data construction routes through the shared (undefined
     # in open core) _build_alg_data dispatch
-    @test_throws MethodError SplineIntegrator(qtraj, N; alg = ChebyshevAlg(bracket = (-4.0, 4.0)))
+    @test_throws MethodError SplineIntegrator(
+        qtraj,
+        N;
+        alg = ChebyshevAlg(bracket = (-4.0, 4.0)),
+    )
 end
 
 @testitem "E1: use_ket_sensitivity forward materializes and caches the propagator" begin

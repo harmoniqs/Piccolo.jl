@@ -514,11 +514,7 @@ end
     end
 
     # Gates: the density member constructors refuse Magnus/Chebyshev
-    @test_throws ErrorException SplineIntegrator(
-        sampling_qtraj,
-        N;
-        alg = MagnusGL4Alg(),
-    )
+    @test_throws ErrorException SplineIntegrator(sampling_qtraj, N; alg = MagnusGL4Alg())
     @test_throws ErrorException SplineIntegrator(
         sampling_qtraj,
         N;
@@ -683,11 +679,7 @@ end
     @test δ₁ ≈ δ_base atol = 1e-10
 
     # Gates + fixed-step probe lane (globals-free pair)
-    @test_throws ErrorException SplineIntegrator(
-        sampling_qtraj_n,
-        N;
-        alg = MagnusGL4Alg(),
-    )
+    @test_throws ErrorException SplineIntegrator(sampling_qtraj_n, N; alg = MagnusGL4Alg())
     @test_throws ErrorException SplineIntegrator(
         sampling_qtraj_n,
         N;

@@ -543,22 +543,28 @@ end
     Random.seed!(3473)
 
     n = 3
-    L1 = zeros(ComplexF64, n, n); L1[1, 2] = 0.3
-    L2 = zeros(ComplexF64, n, n); L2[2, 3] = 0.5
+    L1 = zeros(ComplexF64, n, n)
+    L1[1, 2] = 0.3
+    L2 = zeros(ComplexF64, n, n)
+    L2[2, 3] = 0.5
     Ls = [L1, L2]
     Ks = [L' * L for L in Ls]
     rates = [2.0, 0.5]
     Δt = 0.05
     tmp = zeros(ComplexF64, n, n)
 
-    M = randn(ComplexF64, n, n); M = (M + M') / 2
-    A = randn(ComplexF64, n, n); A = (A + A') / 2
+    M = randn(ComplexF64, n, n)
+    M = (M + M') / 2
+    A = randn(ComplexF64, n, n)
+    A = (A + A') / 2
 
     # dissipator_apply! = Δt·Σ ratesⱼ (Lⱼ M Lⱼ† − ½{Kⱼ, M}) from zero
     dM = Matrix{ComplexF64}(undef, n, n)
     dissipator_apply!(dM, M, Δt, Ls, Ks, rates, tmp)
-    expected =
-        sum(Δt * rates[j] * (L * M * L' - (Ks[j] * M + M * Ks[j]) / 2) for (j, L) in enumerate(Ls))
+    expected = sum(
+        Δt * rates[j] * (L * M * L' - (Ks[j] * M + M * Ks[j]) / 2) for
+        (j, L) in enumerate(Ls)
+    )
     @test dM ≈ expected atol = 1e-12
 
     # dissipator_adjoint_apply! is the Hilbert–Schmidt adjoint of the above:
@@ -569,8 +575,7 @@ end
 
     # rates = ones reproduces the un-rated Lindblad dissipator half
     dissipator_apply!(dM, M, Δt, Ls, Ks, fill(1.0, 2), tmp)
-    un_rated =
-        sum(Δt * (L * M * L' - ((L' * L) * M + M * (L' * L)) / 2) for L in Ls)
+    un_rated = sum(Δt * (L * M * L' - ((L' * L) * M + M * (L' * L)) / 2) for L in Ls)
     @test dM ≈ un_rated atol = 1e-12
 end
 
@@ -623,12 +628,7 @@ end
         dissipation_operators = [L],
         global_params = (δ = 0.01,),
     )
-    gq = DensityTrajectory(
-        gsys,
-        LinearSplinePulse(fill(0.3, 1, N), times),
-        ρ0,
-        ρg,
-    )
+    gq = DensityTrajectory(gsys, LinearSplinePulse(fill(0.3, 1, N), times), ρ0, ρg)
     gtraj = NamedTrajectory(gq, N)
     # The (qtraj, traj) inner form does NOT auto-detect globals — the names
     # must be given explicitly (the traj carries the :δ component from the

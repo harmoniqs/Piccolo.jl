@@ -240,7 +240,8 @@ end
     using Piccolo
     using NamedTrajectories
     using LinearAlgebra
-    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: spline_order, get_state_vectors
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
+        spline_order, get_state_vectors
 
     L = ComplexF64[0 0.1; 0 0]
     sys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
@@ -370,8 +371,8 @@ end
     )
     @test size(J) == (2 * n^2, 2 * traj.dim)
     x_comps_1 = traj.components[state_names(qtraj)[1]]
-    @test nnz(J[1:n^2, x_comps_1]) > 0
-    @test nnz(J[1:n^2, traj.dim .+ x_comps_1]) == n^2  # identity block
+    @test nnz(J[1:(n^2), x_comps_1]) > 0
+    @test nnz(J[1:(n^2), traj.dim .+ x_comps_1]) == n^2  # identity block
 
     # Linear member: no du columns
     lin_qtraj = MultiDensityTrajectory(
@@ -419,5 +420,5 @@ end
         global_names = [:δ],
     )
     @test size(J_g) == (2 * n^2, 2 * g_traj.dim + 1)
-    @test all(J_g[:, 2 * g_traj.dim + 1] .== 1.0)
+    @test all(J_g[:, 2*g_traj.dim+1] .== 1.0)
 end

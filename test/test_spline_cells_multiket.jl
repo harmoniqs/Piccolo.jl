@@ -556,7 +556,8 @@ end
     # Magnus + explicit ket_sensitivity: the forward caches the complex Φ built
     # from the Magnus real-iso propagator's Re/Im blocks (the conversion lane),
     # and the per-knot ket-sensitivity solve still agrees with the Tsit5 cell's.
-    𝒮_mk = SplineIntegrator(eq, traj; alg = MagnusGL4Alg(n_steps = 40), ket_sensitivity = true)
+    𝒮_mk =
+        SplineIntegrator(eq, traj; alg = MagnusGL4Alg(n_steps = 40), ket_sensitivity = true)
     @test 𝒮_mk.use_ket_sensitivity
     δ_mk = zeros(𝒮_mk.dim)
     evaluate!(δ_mk, 𝒮_mk, traj)
@@ -724,12 +725,8 @@ end
     push!(comps, :dθ => 0.1 * randn(2, N))
     push!(comps, :Δt => fill(T / (N - 1), 1, N))
     push!(comps, :t => reshape(collect(range(0.0, T, N)), 1, :))
-    θ_traj = NamedTrajectory(
-        (; comps...);
-        controls = :u,
-        timestep = :Δt,
-        bounds = (u = 1.0,),
-    )
+    θ_traj =
+        NamedTrajectory((; comps...); controls = :u, timestep = :Δt, bounds = (u = 1.0,))
     J_dθ = jacobian_structure(
         MultiKetTrajectory,
         x_names,
@@ -783,7 +780,7 @@ end
     )
     @test size(J_g) == (2 * 2 * ketdim, 2 * g_traj.dim + 1)
     # The global column is dense over both kets' state rows
-    @test all(J_g[:, 2 * g_traj.dim + 1] .== 1.0)
+    @test all(J_g[:, 2*g_traj.dim+1] .== 1.0)
 end
 
 @testitem "E1: MultiKet seam gates: dense Jacobian/Hessian need the proprietary layout" begin
@@ -799,7 +796,12 @@ end
     times = collect(range(0.0, 1.0, N))
     ψ0 = ComplexF64[1.0, 0.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0, 0.0]
-    eq = MultiKetTrajectory(sys, LinearSplinePulse(fill(0.3, 1, N), times), [ψ0, ψ1], [ψ1, ψ0])
+    eq = MultiKetTrajectory(
+        sys,
+        LinearSplinePulse(fill(0.3, 1, N), times),
+        [ψ0, ψ1],
+        [ψ1, ψ0],
+    )
     traj = NamedTrajectory(eq, N)
 
     𝒮 = SplineIntegrator(eq, traj)

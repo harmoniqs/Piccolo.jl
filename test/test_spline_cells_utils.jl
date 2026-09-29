@@ -165,9 +165,9 @@ end
     @test size(grad) == (1, N - 1)
     ε = 1e-6
     for j = 1:(N-1)
-        p = copy(controls);
+        p = copy(controls)
         p[1, j] += ε
-        m = copy(controls);
+        m = copy(controls)
         m[1, j] -= ε
         fd = (loss(p) - loss(m)) / (2ε)
         @test grad[1, j] ≈ fd atol = 1e-6
@@ -591,8 +591,8 @@ end
 
     U_exact = exp(-im * T * (0.3 * ComplexF64.(PAULIS.Z) + a * ComplexF64.(PAULIS.X)))
     Ũ⃗_roll = traj.Ũ⃗[:, end]
-    @test norm(Ũ⃗_roll - operator_to_iso_vec(U_exact)) /
-          norm(operator_to_iso_vec(U_exact)) < 1e-10
+    @test norm(Ũ⃗_roll - operator_to_iso_vec(U_exact)) / norm(operator_to_iso_vec(U_exact)) <
+          1e-10
 
     # Δt is the uniform grid step (with the final step repeated)
     @test all(dt -> abs(dt - T / (samples - 1)) < 1e-12, diff(vec(collect(traj.t))))
@@ -628,8 +628,7 @@ end
         SplineType, spline_order, param_blocks, n_param_blocks
     using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
         ControlValueBlock, ControlDerivBlock, ControlDeriv2Block
-    using Piccolo.Control.QuantumIntegrators.SplineIntegrators:
-        param_block_carries_globals
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: param_block_carries_globals
 
     # The SplineType-value order methods — through the pulse trait chain and directly
     @test spline_order(LinearSpline()) == 1
@@ -647,7 +646,8 @@ end
     # Packed block declarations: linear = [uₖ, uₖ₊₁], cubic adds du endpoints
     @test n_param_blocks(LinearSpline()) == 2
     @test n_param_blocks(CubicSpline()) == 4
-    @test param_blocks(LinearSpline()) == ((ControlValueBlock(), 0), (ControlValueBlock(), 1))
+    @test param_blocks(LinearSpline()) ==
+          ((ControlValueBlock(), 0), (ControlValueBlock(), 1))
 
     # Global carriage: only the control-VALUE blocks ride globals; derivative
     # roles are identically-zero slots.
@@ -738,12 +738,12 @@ end
     # the Symmetric truncation drops them: k+1 states keep only their k+1-side
     # parameter columns. That stays a superset of the physical Hessian — the
     # constraint is linear in x_{k+1}, so no true x_{k+1}/p curvature exists.
-    for r in 1:4
+    for r = 1:4
         for c in (5, 6, 7, 8, 13, 14)
             @test S1[r, c] == 1.0
         end
     end
-    for r in 9:12
+    for r = 9:12
         for c in (13, 14)
             @test S1[r, c] == 1.0
         end
@@ -758,7 +758,7 @@ end
     # globals couple to both knots' state rows (upper triangle on both sides:
     # global columns land after both knot blocks)
     for r in (1, 3, 9, 11)
-        for c in 17:19
+        for c = 17:19
             @test S1g[r, c] == 1.0
         end
     end
@@ -767,13 +767,13 @@ end
     # knot = (4 + 4) + 2 + 2 = 12; x rows 1:8; uₖ 9:10, Δt 11, t 12, uₖ₊₁ 21:22.
     Sm = canonical_block_hessian_structure([4, 4], 2, 1)
     @test size(Sm) == (24, 24)
-    for r in 1:8
+    for r = 1:8
         for c in (9, 10, 11, 12, 21, 22)
             @test Sm[r, c] == 1.0
         end
     end
     # k+1 state rows (13:20) keep only their k+1-side parameter columns
-    for r in 13:20
+    for r = 13:20
         for c in (21, 22)
             @test Sm[r, c] == 1.0
         end
@@ -816,7 +816,7 @@ end
     cols_k1, oi_k1 = get_param_indices(𝒮, traj, 1)
     @test length(cols_k1) == 2 * 𝒮.u_dim + 2
     @test length(oi_k1) == 2 * 𝒮.u_dim + 2
-    @test oi_k1[end-1:end] == [Δt_idx, t_idx]
+    @test oi_k1[(end-1):end] == [Δt_idx, t_idx]
 
     # _refresh_prop_results! runs the threaded compute_ode_jacobian! loop over
     # every knot; refresh_sensitivities! is the public seam over it. The
@@ -886,19 +886,63 @@ end
     @test statedim == 0
 
     # The density sensitivity builder shares the same contract (𝒢c real form)
-    d_sens, np =
-        build_density_sensitivity_ode(Matrix{Float64}(1.0I, 4, 4), Matrix{Float64}[], AbstractDrive[], Vector{Int}[], 1, 2, 1)
+    d_sens, np = build_density_sensitivity_ode(
+        Matrix{Float64}(1.0I, 4, 4),
+        Matrix{Float64}[],
+        AbstractDrive[],
+        Vector{Int}[],
+        1,
+        2,
+        1,
+    )
     @test isnothing(d_sens)
     @test np == n_params_1
 
     # Unsupported spline orders error loudly in every builder
     for order in (0, 2, 4)
-        @test_throws ErrorException build_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, order)
-        @test_throws ErrorException build_ket_jvp_ode(drift_op, AbstractDrive[], 1, 2, order)
-        @test_throws ErrorException build_hvp_forward_ode(drift_op, AbstractDrive[], 1, 2, order)
-        @test_throws ErrorException build_second_order_adjoint_ode(drift_op, AbstractDrive[], 1, 2, order)
-        @test_throws ErrorException build_ket_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, order, 1)
-        @test_throws ErrorException build_second_order_sensitivity_ode(drift_op, AbstractDrive[], 1, 2, order)
+        @test_throws ErrorException build_sensitivity_ode(
+            drift_op,
+            AbstractDrive[],
+            1,
+            2,
+            order,
+        )
+        @test_throws ErrorException build_ket_jvp_ode(
+            drift_op,
+            AbstractDrive[],
+            1,
+            2,
+            order,
+        )
+        @test_throws ErrorException build_hvp_forward_ode(
+            drift_op,
+            AbstractDrive[],
+            1,
+            2,
+            order,
+        )
+        @test_throws ErrorException build_second_order_adjoint_ode(
+            drift_op,
+            AbstractDrive[],
+            1,
+            2,
+            order,
+        )
+        @test_throws ErrorException build_ket_sensitivity_ode(
+            drift_op,
+            AbstractDrive[],
+            1,
+            2,
+            order,
+            1,
+        )
+        @test_throws ErrorException build_second_order_sensitivity_ode(
+            drift_op,
+            AbstractDrive[],
+            1,
+            2,
+            order,
+        )
     end
 
     # tri_idx: the strictly-upper-triangular pair enumeration index — dense,
@@ -908,7 +952,7 @@ end
     for i = 1:n, j = i:n
         push!(seen, tri_idx(i, j, n))
     end
-    @test seen == collect(1:(n * (n + 1) ÷ 2))
+    @test seen == collect(1:(n*(n+1)÷2))
 end
 
 @testitem "E1: _solve_forward_tsit5 keeps non-Tsit5 algs on the adaptive solve" begin
