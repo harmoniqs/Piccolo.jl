@@ -24,10 +24,27 @@
 #
 # Deliberately NOT done here: lowering the patch target. The remaining diff is
 # library code and should be held to the project's own bar.
+#
+# Accepted-permanent misses — the constant-fold one-liner class (#349 policy
+# call (a)). Julia emits NO coverage counters for methods whose entire body is
+# a constant literal (`has_modulation(d::ModulatedDrive) = true`,
+# `drive_coeff_dt(::LinearDrive, ...) = 0.0`, the SII `is_parameter(...) =
+# false` predicates, `return nothing` fallthroughs): there is no statement to
+# instrument, so the line is unmarkable by ANY test — verified empirically on
+# Julia 1.12 with both concrete- and dynamically-dispatched calls. Julia has no
+# per-line coverage-exclusion pragma to annotate these with, and Codecov only
+# supports path-level `ignore`. The family convention is therefore: leave them
+# in place, behavior-test the surrounding contract (the dispatch behavior these
+# one-liners encode IS exercised: modulation detection drives
+# `QuantumSystem.time_dependent`, the zero-derivative/Hessian contract is
+# asserted for unmodulated drives, the SII predicates are exercised through
+# `solve`), and count them here as documented measurement noise — never delete
+# working code to move a number. When Julia grows a coverage-exclusion pragma,
+# this class can be annotated instead.
 
 ignore:
   - "src/specs/schema/regenerate.jl"
-  - "src/specs/schema/emit_hash_fixtures.jl"
+  - "scripts/emit_hash_fixtures.jl"
 
 coverage:
   status:
