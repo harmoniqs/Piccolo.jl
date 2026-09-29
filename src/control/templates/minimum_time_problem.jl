@@ -899,8 +899,13 @@ end
 
     # ── Δt_bounds kwarg overwrites the base's free-time bounds ──
     qtraj_u = UnitaryTrajectory(sys, pulse, GATES[:H])
-    qcp_dt =
-        SmoothPulseProblem(qtraj_u, N; Q = 100.0, Δt_bounds = (0.01, 0.5), piccolo_options = opts)
+    qcp_dt = SmoothPulseProblem(
+        qtraj_u,
+        N;
+        Q = 100.0,
+        Δt_bounds = (0.01, 0.5),
+        piccolo_options = opts,
+    )
     mt = MinimumTimeProblem(
         qcp_dt;
         final_fidelity = 0.5,
@@ -913,7 +918,7 @@ end
     # ── goal kwarg rebuilds a KetTrajectory around the new state ──
     kq = KetTrajectory(sys, pulse, ComplexF64[1, 0], ComplexF64[0, 1])
     kcp = SmoothPulseProblem(kq, N; Q = 100.0, piccolo_options = opts)
-    ψ_new = ComplexF64[1 / sqrt(2), 1 / sqrt(2)]
+    ψ_new = ComplexF64[1/sqrt(2), 1/sqrt(2)]
     mtk = MinimumTimeProblem(
         kcp;
         final_fidelity = 0.5,
@@ -1072,13 +1077,7 @@ end
         bounds = (u = (-1.0, 1.0), Δt = (1e-3, 0.5)),
     )
     err = try
-        Piccolo.ProblemTemplates._ensemble_fidelity_constraint(
-            dq,
-            dq.goal,
-            :ρ⃗̃,
-            0.9,
-            dtraj,
-        )
+        Piccolo.ProblemTemplates._ensemble_fidelity_constraint(dq, dq.goal, :ρ⃗̃, 0.9, dtraj)
         nothing
     catch e
         e
