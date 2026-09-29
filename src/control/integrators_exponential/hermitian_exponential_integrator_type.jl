@@ -376,17 +376,24 @@ end
 """
     _global_full_cols(ℰ, traj) -> full_cols::Vector{Int}
 
-Positions, in the FULL decision vector `Z`, of the integrator's per-knot
-global-derivative block — returned in the SAME order that block is laid out
-(`ℰ.global_names` / [`extract_globals`](@ref) order), but pointing at each
-global's column under the TRAJECTORY's `global_components` order (the order the
-solver/Ipopt indexes `Z`'s globals, base `traj.dim*traj.N`).
+Positions, in the decision vector the solver indexes, of the integrator's
+per-knot global-derivative block — returned in the SAME order that block is
+laid out (`ℰ.global_names` / [`extract_globals`](@ref) order), but pointing at
+each global's column under the TRAJECTORY's `global_components` order.
+
+The base is `_packed_knot_dim(traj) * traj.N`: under a time warp the packed
+layout is `[non-derived rows] ++ [globals] ++ [warp params]`
+(NamedTrajectories#161), so the globals sit BEFORE the warp parameters at the
+packed tail — `traj.dim * traj.N` would overshoot the packed vector in every
+warped assembly path (Jacobian, Hessian, both structures). Without a warp
+`_packed_knot_dim(traj) == traj.dim`, so the base is bit-identical to the
+historical `traj.dim*traj.N`.
 
 Each call site keeps its OWN local (source-block) column range — which differs by
 context: `2*ℰ.z_dim` for the preallocated `∂ℰ`/`μ∂²ℰ` matrices, `2*traj.dim` for a
 fresh structure template, `2*knot_dim` for the canonical Hessian layout — and
 pairs it element-wise with `full_cols`, so `∂F[:, full_cols] = block[:, local]`
-lands each global's derivative in the right `Z` column.
+lands each global's derivative in the right column.
 
 Fixes a permuted-`∂c/∂θ` bug: the per-knot block is filled in `global_names`
 (insertion) order, but globals frequently reach the trajectory through a `Dict`
@@ -395,7 +402,7 @@ Fixes a permuted-`∂c/∂θ` bug: the per-knot block is filled in `global_names
 the global columns, handing Ipopt a wrong Jacobian.
 """
 function _global_full_cols(ℰ::AbstractExponentialIntegrator, traj::NamedTrajectory)
-    base_full = traj.dim * traj.N
+    base_full = _packed_knot_dim(traj) * traj.N
     full_cols = Int[]
     for name in ℰ.global_names
         for c in traj.global_components[name]

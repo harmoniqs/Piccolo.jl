@@ -340,3 +340,81 @@ function _get_hessian_of_lagrangian_structure_warped(
     end
     return μ∂²F
 end
+
+
+@testitem "Warp plumbing: _packed_row_index non-warp lane and warped globals columns" begin
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
+    using DirectTrajOpt
+    using NamedTrajectories
+    using TrajectoryIndexingUtils: slice
+    using LinearAlgebra
+    using SparseArrays
+    using Random
+
+    # Non-warp trajectory: _packed_row_index is the plain lattice index
+    traj0 = NamedTrajectory(
+        (x = randn(4, 5), u = randn(1, 5), Δt = fill(0.2, 5));
+        timestep = :Δt,
+        controls = :u,
+    )
+    @test ExponentialIntegrators._packed_row_index(traj0, 2, 3) ==
+          TrajectoryIndexingUtils.index(2, 3, traj0.dim)
+
+    # Warped trajectory WITH globals: the packed warped Jacobian carries the
+    # global columns and the warped structure declares them
+    Random.seed!(90_353)
+    N = 6
+    T0 = 1.7
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys = QuantumSystem(
+        H,
+        [1.0, 1.0];
+        time_dependent = true,
+        global_params = (b = 0.2, a = 0.1),
+    )
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    qtraj = KetTrajectory(sys, ψ0, ψg, T0)
+    Δt = fill(T0 / (N - 1), 1, N)
+    traj = NamedTrajectory(
+        (ψ̃ = randn(4, N), u = 0.3 .* randn(2, N), Δt = Δt),
+        (a = [0.1], b = [0.2]);  # alphabetical global order, matching the conversions
+        controls = (:u,),
+        timestep = :Δt,
+        warp = GlobalScale(T0),
+    )
+    @test traj.warp !== nothing
+    @test traj.global_dim == 2
+
+    # Mirror the #321 warp testitem's direct per-base construction so the
+    # integrator's globals come from the fixture explicitly
+    ℰ = Piccolo.Control.QuantumIntegrators.ExponentialIntegrators._hermitian_exp_ket(
+        sys,
+        :ψ̃,
+        :u,
+        traj,
+        [:b, :a],
+    )
+    @test ℰ.global_dim == 2
+
+    δ = zeros(ℰ.dim)
+    DirectTrajOpt.evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
+
+    J = DirectTrajOpt.CommonInterface.eval_jacobian(ℰ, traj)
+    # Packed width: z_dim*N − Δt*N (derived rows dropped) + warp + globals
+    Z_packed = traj.dim * N - traj.dims[:Δt] * N + traj.global_dim + 1
+    @test size(J, 2) == Z_packed
+    # The global columns at the packed tail carry real derivatives
+    @test !all(iszero, Matrix(J)[:, Z_packed-1])
+    @test !all(iszero, Matrix(J)[:, Z_packed-2])
+
+    S = DirectTrajOpt.Integrators.get_jacobian_structure(ℰ, traj)
+    @test size(S) == size(J)
+    Jn, Sn = Matrix(J), Matrix(S)
+    @test all(iszero(Jn[i, j]) || !iszero(Sn[i, j]) for i = 1:size(J, 1), j = 1:size(J, 2))
+
+    Hs = DirectTrajOpt.Integrators.get_hessian_of_lagrangian_structure(ℰ, traj)
+    @test size(Hs) == (Z_packed, Z_packed)
+end
