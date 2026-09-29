@@ -41,6 +41,43 @@
 # `solve`), and count them here as documented measurement noise — never delete
 # working code to move a number. When Julia grows a coverage-exclusion pragma,
 # this class can be annotated instead.
+#
+# Behavior-unreachable misses — the E3 census classes (the drift-fill audit,
+# #349), each verified unreachable-in-repo by probe before being accepted:
+#
+#   (1) Seam-blocked proprietary lanes. The single-trajectory free-phase
+#       objective constructions (SmoothPulseProblem 297/299, and
+#       BangBangPulseProblem's ket free-phase branch 142-145 plus its
+#       free-phase objectives 239/241) sit behind the constructors'
+#       globals-capable-integrator gate. Piccolo ships no integrator that
+#       reads φ/θ globals (BilinearIntegrator has no global_names support),
+#       and the gate's own error text names Piccolissimo's
+#       HermitianExponentialIntegrator as the intended custom integrator.
+#       Driving the lanes with a globals-IGNORANT integrator would construct
+#       a silently-broken problem — false-green testing — so they stay
+#       unmarked until a globals-capable integrator is in Piccolo's test env.
+#       The ensemble free-phase lanes (no such gate) are covered.
+#
+#   (2) Defensive default-integrator lanes (smooth 281, bang-bang 227,
+#       spline 381/774): `default_int isa AbstractVector` splat/wrap branches
+#       in the single-trajectory template constructors (whose trajectory
+#       types — Unitary/Ket/Density — always yield a scalar BilinearIntegrator)
+#       and the scalar-wrap in the ensemble spline constructor (whose default
+#       is always a vector). Belt-and-braces mirroring of the sibling
+#       constructor; unreachable by construction.
+#
+#   (3) Best-effort @debug catch lanes (schema.jl 818/837): the
+#       precompile_workload catch handlers exist so a tier-1 warm-up failure
+#       never crashes precompilation; the happy path IS tested
+#       (precompile_workload is callable and returns nothing).
+#
+#   (4) The φ-declared-but-empty fidelity guard (problems.jl 527): that
+#       corrupt state is only constructible by a deserialized/catalog
+#       trajectory that declared φ_ components but persisted no values —
+#       DirectTrajOptProblem drops empty global components, so the public
+#       constructor cannot represent it. The shared refusal IS
+#       behavior-tested through verify()'s explicit `phases = Float64[]`
+#       lane (stored_phases distinguishes no-φ from φ-declared-but-empty).
 
 ignore:
   - "src/specs/schema/regenerate.jl"
