@@ -652,3 +652,59 @@ end
     ∂g_autodiff = ForwardDiff.jacobian(ĝ, vec(traj))
     @test ∂g_full[:, 1:(traj.dim*traj.N)] ≈ ∂g_autodiff
 end
+
+@testitem "NonlinearKnotPointConstraint - concatenated multi-var g and the eval accessors" begin
+    using DirectTrajOpt
+    using DirectTrajOpt.CommonInterface: evaluate!
+    using NamedTrajectories
+    using TrajectoryIndexingUtils
+    using LinearAlgebra
+    using SparseArrays
+    using ForwardDiff
+
+    N = 6
+    traj = NamedTrajectory(
+        (x = randn(2, N), u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    # g takes ONE concatenated argument: the separate-args probe throws, so the
+    # constructor must fall through to the concatenated lane `(x, _) -> g(x)`.
+    g_concat(z) = [z[1]^2 - 0.5, z[2] + z[3]]
+    NLC = Piccolo.OptimizedNonlinearKnotPointConstraint(
+        g_concat,
+        [:x, :u],
+        traj;
+        equality = false,
+    )
+
+    X_SLICE(k) = slice(k, traj.components[:x], traj.dim)
+    U_SLICE(k) = slice(k, traj.components[:u], traj.dim)
+    ĝ(Z⃗) = vcat([g_concat(vcat(Z⃗[X_SLICE(k)], Z⃗[U_SLICE(k)])) for k = 1:N]...)
+
+    # evaluate! agrees with the direct definition
+    δ = zeros(NLC.dim)
+    evaluate!(δ, NLC, traj)
+    @test δ ≈ ĝ(vec(traj))
+
+    # eval_jacobian: high-level accessor matches forward-mode AD
+    ∂g_eval = DirectTrajOpt.CommonInterface.eval_jacobian(NLC, traj)
+    ∂g_fd = ForwardDiff.jacobian(ĝ, vec(traj))
+    @test ∂g_eval[:, 1:(traj.dim*N)] ≈ ∂g_fd
+
+    # jacobian_structure returns the stored sparsity pattern
+    ∂g_struct = DirectTrajOpt.CommonInterface.jacobian_structure(NLC, traj)
+    @test ∂g_struct == NLC.∂g_full
+    @test nnz(∂g_struct) > 0
+
+    # eval_hessian_of_lagrangian matches the μ-weighted FD Hessian
+    μ = randn(2 * N)
+    μ∂²g_eval = DirectTrajOpt.CommonInterface.eval_hessian_of_lagrangian(NLC, traj, μ)
+    H_fd = ForwardDiff.hessian(Z -> μ'ĝ(Z), vec(traj))
+    @test μ∂²g_eval[1:(traj.dim*N), 1:(traj.dim*N)] ≈ H_fd
+
+    # hessian_structure returns the stored sparsity pattern
+    μ∂²g_struct = DirectTrajOpt.CommonInterface.hessian_structure(NLC, traj)
+    @test μ∂²g_struct == NLC.μ∂²g_full
+end
