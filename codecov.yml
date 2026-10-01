@@ -24,10 +24,72 @@
 #
 # Deliberately NOT done here: lowering the patch target. The remaining diff is
 # library code and should be held to the project's own bar.
+#
+# Accepted-permanent misses — the constant-fold one-liner class (#349 policy
+# call (a)). Julia emits NO coverage counters for methods whose entire body is
+# a constant literal (`has_modulation(d::ModulatedDrive) = true`,
+# `drive_coeff_dt(::LinearDrive, ...) = 0.0`, the SII `is_parameter(...) =
+# false` predicates, `return nothing` fallthroughs): there is no statement to
+# instrument, so the line is unmarkable by ANY test — verified empirically on
+# Julia 1.12 with both concrete- and dynamically-dispatched calls. Julia has no
+# per-line coverage-exclusion pragma to annotate these with, and Codecov only
+# supports path-level `ignore`. The family convention is therefore: leave them
+# in place, behavior-test the surrounding contract (the dispatch behavior these
+# one-liners encode IS exercised: modulation detection drives
+# `QuantumSystem.time_dependent`, the zero-derivative/Hessian contract is
+# asserted for unmodulated drives, the SII predicates are exercised through
+# `solve`), and count them here as documented measurement noise — never delete
+# working code to move a number. When Julia grows a coverage-exclusion pragma,
+# this class can be annotated instead.
+#
+# Behavior-unreachable misses — the E3 census classes (the drift-fill audit,
+# #349), each verified unreachable-in-repo by probe before being accepted:
+#
+#   (1) Seam-blocked proprietary lanes. The single-trajectory free-phase
+#       objective constructions (SmoothPulseProblem 297/299, and
+#       BangBangPulseProblem's ket free-phase branch 142-145 plus its
+#       free-phase objectives 239/241) sit behind the constructors'
+#       globals-capable-integrator gate. Piccolo ships no integrator that
+#       reads φ/θ globals (BilinearIntegrator has no global_names support),
+#       and the gate's own error text names Piccolissimo's
+#       HermitianExponentialIntegrator as the intended custom integrator.
+#       Driving the lanes with a globals-IGNORANT integrator would construct
+#       a silently-broken problem — false-green testing — so they stay
+#       unmarked until a globals-capable integrator is in Piccolo's test env.
+#       The ensemble free-phase lanes (no such gate) are covered.
+#
+#   (2) Defensive default-integrator lanes (smooth 281, bang-bang 227,
+#       spline 381/774): `default_int isa AbstractVector` splat/wrap branches
+#       in the single-trajectory template constructors (whose trajectory
+#       types — Unitary/Ket/Density — always yield a scalar BilinearIntegrator)
+#       and the scalar-wrap in the ensemble spline constructor (whose default
+#       is always a vector). Belt-and-braces mirroring of the sibling
+#       constructor; unreachable by construction.
+#
+#   (3) Best-effort @debug catch lanes (schema.jl 818/837): the
+#       precompile_workload catch handlers exist so a tier-1 warm-up failure
+#       never crashes precompilation; the happy path IS tested
+#       (precompile_workload is callable and returns nothing).
+#
+#   (4) The φ-declared-but-empty fidelity guard (problems.jl 527): that
+#       corrupt state is only constructible by a deserialized/catalog
+#       trajectory that declared φ_ components but persisted no values —
+#       DirectTrajOptProblem drops empty global components, so the public
+#       constructor cannot represent it. The shared refusal IS
+#       behavior-tested through verify()'s explicit `phases = Float64[]`
+#       lane (stored_phases distinguishes no-φ from φ-declared-but-empty).
+#
+#   (5) Makie theme-fallback lanes (pulse_plots 57/59/74/76): the
+#       key-missing branches of _theme_palette/_theme_neutral — Makie's
+#       current_default_theme always carries merged :palette/:textcolor
+#       entries, so the public API cannot produce a key-less theme state.
+#       The theme-robustness CONTRACT (helpers still return usable values
+#       under a bare set_theme!(Theme())) is behavior-tested; the
+#       key-missing lanes themselves cannot fire.
 
 ignore:
   - "src/specs/schema/regenerate.jl"
-  - "src/specs/schema/emit_hash_fixtures.jl"
+  - "scripts/emit_hash_fixtures.jl"
 
 coverage:
   status:

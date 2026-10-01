@@ -84,7 +84,7 @@ qcp_mintime = MinimumTimeProblem(qcp_smooth; goal=U_goal_new, final_fidelity=0.9
 """
 function MinimumTimeProblem(
     p::AbstractQuantumControlProblem;
-    goal::Union{Nothing,AbstractPiccoloOperator,AbstractVector} = nothing,
+    goal::Union{Nothing,AbstractPiccoloOperator,AbstractVecOrMat} = nothing,
     final_fidelity::Float64 = 0.99,
     D::Float64 = 100.0,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
@@ -120,7 +120,7 @@ end
 # fidelity constraint. Returns `(qtraj_for_constraint, new_prob)`.
 function _min_time_parts(
     p::AbstractQuantumControlProblem;
-    goal::Union{Nothing,AbstractPiccoloOperator,AbstractVector} = nothing,
+    goal::Union{Nothing,AbstractPiccoloOperator,AbstractVecOrMat} = nothing,
     final_fidelity::Float64 = 0.99,
     D::Float64 = 100.0,
     Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing,
@@ -884,4 +884,204 @@ end
     # Verify the free-phase variable is preserved in the trajectory
     traj = get_trajectory(qcp_mintime)
     @test haskey(traj.global_components, :φ_1)
+end
+
+@testitem "MinimumTimeProblem: Δt_bounds update and per-kind goal updates" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    T = 1.0
+    N = 10
+    opts = PiccoloOptions(display = :silent)
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 * randn(1, N), times)
+
+    # ── Δt_bounds kwarg overwrites the base's free-time bounds ──
+    qtraj_u = UnitaryTrajectory(sys, pulse, GATES[:H])
+    qcp_dt = SmoothPulseProblem(
+        qtraj_u,
+        N;
+        Q = 100.0,
+        Δt_bounds = (0.01, 0.5),
+        piccolo_options = opts,
+    )
+    mt = MinimumTimeProblem(
+        qcp_dt;
+        final_fidelity = 0.5,
+        D = 1.0,
+        Δt_bounds = (0.02, 0.2),
+        piccolo_options = opts,
+    )
+    @test get_trajectory(mt).bounds[:Δt] == ([0.02], [0.2])
+
+    # ── goal kwarg rebuilds a KetTrajectory around the new state ──
+    kq = KetTrajectory(sys, pulse, ComplexF64[1, 0], ComplexF64[0, 1])
+    kcp = SmoothPulseProblem(kq, N; Q = 100.0, piccolo_options = opts)
+    ψ_new = ComplexF64[1/sqrt(2), 1/sqrt(2)]
+    mtk = MinimumTimeProblem(
+        kcp;
+        final_fidelity = 0.5,
+        D = 1.0,
+        goal = ψ_new,
+        piccolo_options = opts,
+    )
+    @test quantum_trajectory(mtk).goal ≈ ψ_new
+    @test quantum_trajectory(mtk).initial ≈ ComplexF64[1, 0]
+
+    # ── goal kwarg rebuilds a DensityTrajectory around the new state ──
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    osys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    dq = DensityTrajectory(osys, pulse, ComplexF64[1 0; 0 0], ComplexF64[0 0; 0 1])
+    dcp = SmoothPulseProblem(dq, N; Q = 100.0, piccolo_options = opts)
+    ρ_new = ComplexF64[0.5 0.5; 0.5 0.5]
+    mtd = MinimumTimeProblem(
+        dcp;
+        final_fidelity = 0.5,
+        D = 1.0,
+        goal = ρ_new,
+        piccolo_options = opts,
+    )
+    @test quantum_trajectory(mtd).goal ≈ ρ_new
+end
+
+@testitem "MinimumTimeProblem: free-phase ket and multiket fidelity constraints" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using NamedTrajectories
+
+    T = 1.0
+    N = 10
+    opts = PiccoloOptions(display = :silent)
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 * randn(1, N), times)
+
+    # ── free-phase KET: a base trajectory carrying φ_ globals makes the final
+    #    fidelity constraint the free-phase form (phase-adjusted goal function) ──
+    ψ0 = ComplexF64[1, 0]
+    ψg = ComplexF64[0, 1]
+    kq = KetTrajectory(sys, pulse, ψ0, ψg)
+    traj_ket = NamedTrajectory(
+        (ψ̃ = randn(4, N), u = randn(1, N), Δt = fill(T / (N - 1), N));
+        controls = :u,
+        timestep = :Δt,
+        initial = (ψ̃ = ket_to_iso(ψ0),),
+        goal = (ψ̃ = ket_to_iso(ψg),),
+        bounds = (u = (-1.0, 1.0), Δt = (1e-3, 0.5)),
+        global_data = [0.0],
+        global_components = (φ_1 = 1:1,),
+    )
+    ket_base = QuantumControlProblem(
+        kq,
+        DirectTrajOptProblem(
+            traj_ket,
+            QuadraticRegularizer(:u, traj_ket, 1.0),
+            BilinearIntegrator(kq, N),
+        ),
+    )
+    mt_ket = MinimumTimeProblem(
+        ket_base;
+        final_fidelity = 0.5,
+        D = 1.0,
+        subsystem_levels = [2],
+        piccolo_options = opts,
+    )
+    @test mt_ket isa QuantumControlProblem
+    @test any(
+        occursin("FinalKetFreePhaseConstraint", string(typeof(c))) for
+        c in mt_ket.prob.constraints
+    )
+
+    # ── free-phase MULTIKET: φ_ globals require subsystem_levels ──
+    sys2 = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    u2 = 0.05 .* randn(2, N)
+    ens = MultiKetTrajectory(
+        sys2,
+        ZeroOrderPulse(u2, times),
+        [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]],
+        [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]],
+    )
+    traj_ens = NamedTrajectory(
+        (ψ̃1 = randn(4, N), ψ̃2 = randn(4, N), u = randn(2, N), Δt = fill(T / (N - 1), N));
+        controls = :u,
+        timestep = :Δt,
+        initial = (ψ̃1 = ket_to_iso(ψ0), ψ̃2 = ket_to_iso(ψg)),
+        goal = (ψ̃1 = ket_to_iso(ψg), ψ̃2 = ket_to_iso(ψ0)),
+        bounds = (u = (-1.0, 1.0), Δt = (1e-3, 0.5)),
+        global_data = [0.0, 0.0],
+        global_components = (φ_1 = 1:1, φ_2 = 2:2),
+    )
+    ens_base = QuantumControlProblem(
+        ens,
+        DirectTrajOptProblem(
+            traj_ens,
+            QuadraticRegularizer(:u, traj_ens, 1.0),
+            BilinearIntegrator(ens, N),
+        ),
+    )
+    @test_throws AssertionError MinimumTimeProblem(
+        ens_base;
+        final_fidelity = 0.5,
+        D = 1.0,
+        piccolo_options = opts,
+    )
+    mt_ens = MinimumTimeProblem(
+        ens_base;
+        final_fidelity = 0.5,
+        D = 1.0,
+        subsystem_levels = [2],
+        piccolo_options = opts,
+    )
+    @test mt_ens isa QuantumControlProblem
+    @test !isempty(mt_ens.prob.constraints)
+
+    # ── MultiKet _update_goal is the loud fallback: goal kwarg refuses ──
+    err = try
+        MinimumTimeProblem(
+            ens_base;
+            final_fidelity = 0.5,
+            D = 1.0,
+            goal = GATES[:X],
+            piccolo_options = opts,
+        )
+        nothing
+    catch e
+        e
+    end
+    @test err isa ArgumentError
+    @test occursin("MultiKetTrajectory", sprint(showerror, err))
+end
+
+@testitem "MinimumTimeProblem: ensemble density fidelity gate is loud" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using NamedTrajectories
+
+    # _ensemble_fidelity_constraint for DensityTrajectory is a documented
+    # not-yet-implemented gate: it must refuse loudly, never install a
+    # silent constraint
+    T = 1.0
+    N = 10
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    osys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    times = collect(range(0.0, T, length = N))
+    zp = ZeroOrderPulse(0.05 .* randn(1, N), times)
+    dq = DensityTrajectory(osys, zp, ComplexF64[1 0; 0 0], ComplexF64[0 0; 0 1])
+    dtraj = NamedTrajectory(
+        (ρ⃗̃ = randn(4, N), u = randn(1, N), Δt = fill(T / (N - 1), N));
+        controls = :u,
+        timestep = :Δt,
+        initial = (ρ⃗̃ = density_to_compact_iso(ComplexF64[1 0; 0 0]),),
+        goal = (ρ⃗̃ = density_to_compact_iso(ComplexF64[0 0; 0 1]),),
+        bounds = (u = (-1.0, 1.0), Δt = (1e-3, 0.5)),
+    )
+    err = try
+        Piccolo.ProblemTemplates._ensemble_fidelity_constraint(dq, dq.goal, :ρ⃗̃, 0.9, dtraj)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ArgumentError
+    @test occursin("not yet implemented", sprint(showerror, err))
 end

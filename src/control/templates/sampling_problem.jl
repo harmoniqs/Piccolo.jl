@@ -312,9 +312,11 @@ fidelity objectives for each system.
 # Keyword Arguments
 - `weights::Vector{Float64}=fill(1.0, length(systems))`: Weights for each system
 - `Q::Float64=100.0`: Weight on infidelity objective (explicit, not extracted from base problem)
-- `integrator::Union{Nothing, Function}=nothing`: Optional integrator factory function. When
-  provided, it is called as `integrator(sampling_qtraj, N)` and must return an integrator or
-  vector of integrators. When `nothing` (default), `BilinearIntegrator` is used.
+- `integrator::Union{Nothing, Function, AbstractIntegrator, AbstractVector}=nothing`: Optional
+  integrator(s), three call shapes aligned with the other problem templates: `nothing`
+  (default `BilinearIntegrator`), an `AbstractIntegrator` instance (single-slot ensembles
+  only), a vector of integrators (one per ensemble dynamics slot), or a factory function
+  called as `integrator(sampling_qtraj, N)` returning an integrator or vector of integrators.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. SamplingProblem builds a fresh constraint list (rather than inheriting from the base `qcp`), so calibration_target pins set on the base `qcp` are *not* automatically carried over — pass them here explicitly. Default empty: globals stay free.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Options for the solver
 
@@ -327,7 +329,7 @@ function SamplingProblem(
     systems::Vector{<:AbstractQuantumSystem};
     weights::Vector{Float64} = fill(1.0, length(systems)),
     Q::Float64 = 100.0,
-    integrator::Union{Nothing,Function} = nothing,
+    integrator::Union{Nothing,Function,AbstractIntegrator,AbstractVector} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
@@ -674,6 +676,18 @@ end
             @test norm(δ, Inf) < 1e-8
         end
     end
+
+    # The name collector recurses through nested composites (objective `+`
+    # flattens, so real problems are usually flat — the collector must still
+    # name regularizers at any depth).
+    nested = CompositeObjective(
+        [
+            QuadraticRegularizer(:u, traj, 1.0) + QuadraticRegularizer(:du, traj, 1.0),
+            QuadraticRegularizer(:ddu, traj, 1.0),
+        ],
+        Float64[],
+    )
+    @test _regularizer_names(nested) == [:u, :du, :ddu]
 
     # --- Spline bases: the pulse carries :du, so the rebuild must not
     #     duplicate it; which DerivativeIntegrators survive follows the base. ---
@@ -1088,4 +1102,326 @@ end
     @test length(cons) == length(sampling_qtraj.systems)
     @test length(cons) == 2
     @test all(c -> c isa NonlinearKnotPointConstraint, cons)
+end
+
+@testitem "SamplingProblem integrator keyword: all four call shapes and their error lanes" begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 10
+    opts = PiccoloOptions(display = :silent)
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 * randn(1, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
+
+    sqtraj1 = SamplingTrajectory(quantum_trajectory(qcp), [sys])
+    sqtraj2 = SamplingTrajectory(quantum_trajectory(qcp), [sys, sys])
+    # BilinearIntegrator over a sampling trajectory yields one integrator per member
+    ints1 = BilinearIntegrator(sqtraj1, N)
+    ints2 = BilinearIntegrator(sqtraj2, N)
+    scalar = ints1 isa AbstractVector ? ints1[1] : ints1
+
+    # ── AbstractIntegrator instance ──
+    @test_throws ErrorException SamplingProblem(
+        qcp,
+        [sys, sys];
+        integrator = scalar,
+        piccolo_options = opts,
+    )
+    sp_inst = SamplingProblem(qcp, [sys]; integrator = scalar, piccolo_options = opts)
+    @test sp_inst isa SamplingProblem
+
+    # ── vector of integrators ──
+    @test_throws ErrorException SamplingProblem(
+        qcp,
+        [sys, sys];
+        integrator = [ints2 isa AbstractVector ? ints2[1] : ints2, 42],
+        piccolo_options = opts,
+    )                # junk element: the actionable validation error, not a TypeError
+    @test_throws ErrorException SamplingProblem(
+        qcp,
+        [sys, sys];
+        integrator = [ints2 isa AbstractVector ? ints2[1] : ints2],
+        piccolo_options = opts,
+    )                # one integrator for two slots
+    sp_vec = SamplingProblem(qcp, [sys, sys]; integrator = ints2, piccolo_options = opts)
+    @test sp_vec isa SamplingProblem
+
+    # ── factory function ──
+    @test_throws ErrorException SamplingProblem(
+        qcp,
+        [sys, sys];
+        integrator = ((sq, n) -> ints1 isa AbstractVector ? ints1[1] : ints1),
+        piccolo_options = opts,
+    )                # factory returned a single integrator for two slots
+    sp_fact = SamplingProblem(
+        qcp,
+        [sys];
+        integrator = ((sq, n) -> BilinearIntegrator(sq, n)),
+        piccolo_options = opts,
+    )
+    @test sp_fact isa SamplingProblem
+    # A factory returning a bare AbstractIntegrator for a 1-slot ensemble takes
+    # the wrap-as-single-slot lane (BilinearIntegrator(sq, n) over a sampling
+    # trajectory already returns one integrator per member, i.e. a vector).
+    sp_fact_single = SamplingProblem(
+        qcp,
+        [sys];
+        integrator = ((sq, n) -> scalar),
+        piccolo_options = opts,
+    )
+    @test sp_fact_single isa SamplingProblem
+    @test_throws ErrorException SamplingProblem(
+        qcp,
+        [sys, sys];
+        integrator = ((sq, n) -> 42),
+        piccolo_options = opts,
+    )                # factory returned a non-integrator
+    @test_throws ErrorException SamplingProblem(
+        qcp,
+        [sys, sys];
+        integrator = ((sq, n) -> [ints2 isa AbstractVector ? ints2[1] : ints2, 42]),
+        piccolo_options = opts,
+    )                # factory returned a junk vector
+end
+
+@testitem "SamplingProblem density base: the loud density-objective extension gate" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    T = 1.0
+    N = 10
+    opts = PiccoloOptions(display = :silent)
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    osys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 * randn(1, N), times)
+    dq = DensityTrajectory(osys, pulse, ComplexF64[1 0; 0 0], ComplexF64[0 0; 0 1])
+
+    # the base density problem itself constructs (Piccolo ships a density objective)
+    qcp = SmoothPulseProblem(dq, N; Q = 100.0, piccolo_options = opts)
+    @test qcp isa QuantumControlProblem
+
+    # ...but the SAMPLING member objective is an intentional extension point:
+    # construction must fail loudly, naming the hook, never install a null objective
+    err = try
+        SamplingProblem(qcp, [osys, osys]; piccolo_options = opts)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("sampling_state_objective", sprint(showerror, err))
+    @test occursin("density", sprint(showerror, err))
+end
+
+@testitem "SamplingProblem propagates globals; free-phase member objective for EmbeddedOperator goals" begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 10
+    opts = PiccoloOptions(display = :silent)
+    # a system with global_params: the base conversion auto-populates the global,
+    # so the base trajectory carries it and the sampling rebuild must propagate it
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0]; global_params = (δ = 0.1,))
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 * randn(1, N), times)
+
+    # EmbeddedOperator goal + globals present → the per-member sampling objective
+    # takes the free-phase form (one virtual-Z per global). The form is not
+    # nameable by type (both member objectives are GlobalKnotPointObjective
+    # wrappers), so the assertion is behavioral: the free-phase loss READS the
+    # global, so the objective value responds to the phase stored in :δ,
+    # while the regular form (below) is θ-invariant.
+    qtraj_fp = UnitaryTrajectory(sys, pulse, EmbeddedOperator(GATES[:H], sys))
+    qcp_fp = SmoothPulseProblem(qtraj_fp, N; Q = 100.0, piccolo_options = opts)
+    @test get_trajectory(qcp_fp).global_dim == 1
+    sp_fp = SamplingProblem(qcp_fp, [sys, sys]; piccolo_options = opts)
+    @test sp_fp isa SamplingProblem
+    straj = get_trajectory(sp_fp)
+    @test straj.global_dim == 1
+    @test straj.global_components[:δ] == 1:1
+
+    fp_traj = sp_fp.prob.trajectory
+    i = fp_traj.global_components[:δ][1]
+    fp_traj.global_data[i] = 0.0
+    J_fp_0 = objective_value(sp_fp.prob.objective, fp_traj)
+    fp_traj.global_data[i] = 1.5
+    J_fp_θ = objective_value(sp_fp.prob.objective, fp_traj)
+    @test J_fp_0 != J_fp_θ
+
+    # plain (non-embedded) goal with the same globals: the regular objective
+    # form — the member loss reads only the state, so the objective value is
+    # invariant under the same global perturbation
+    qtraj_reg = UnitaryTrajectory(sys, pulse, GATES[:H])
+    qcp_reg = SmoothPulseProblem(qtraj_reg, N; Q = 100.0, piccolo_options = opts)
+    sp_reg = SamplingProblem(qcp_reg, [sys, sys]; piccolo_options = opts)
+    @test sp_reg isa SamplingProblem
+    @test get_trajectory(sp_reg).global_dim == 1
+
+    reg_traj = sp_reg.prob.trajectory
+    j = reg_traj.global_components[:δ][1]
+    reg_traj.global_data[j] = 0.0
+    J_reg_0 = objective_value(sp_reg.prob.objective, reg_traj)
+    reg_traj.global_data[j] = 1.5
+    J_reg_θ = objective_value(sp_reg.prob.objective, reg_traj)
+    @test J_reg_0 == J_reg_θ
+end
+
+@testitem "SamplingProblem + MinimumTimeProblem: the goal kwarg updates the wrapped base" begin
+    using DirectTrajOpt
+
+    T = 1.0
+    N = 10
+    opts = PiccoloOptions(display = :silent)
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0]; global_params = (δ = 0.1,))
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 * randn(1, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, EmbeddedOperator(GATES[:H], sys))
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, piccolo_options = opts)
+
+    sp = SamplingProblem(qcp, [sys]; piccolo_options = opts)
+    mt = MinimumTimeProblem(sp; final_fidelity = 0.5, D = 1.0, goal = GATES[:X])
+
+    # _update_goal rebuilt the SamplingTrajectory around a goal-updated base
+    @test mt.qtraj isa SamplingTrajectory
+    new_goal = mt.qtraj.base_trajectory.goal
+    @test (new_goal isa EmbeddedOperator && new_goal.operator ≈ GATES[:X]) ||
+          new_goal ≈ GATES[:X]
+end
+
+@testitem "extract_regularization filter contract: :syms, :var_names, :name" begin
+    using Piccolo
+    using DirectTrajOpt
+    using NamedTrajectories
+
+    traj = NamedTrajectory(
+        (ψ̃ = randn(4, 11), u = randn(2, 11), Δt = fill(0.1, 11));
+        controls = :u,
+        timestep = :Δt,
+    )
+
+    # terms declare their variable dependencies through one of three fields:
+    # :syms, :var_names, or a single Symbol :name (QuadraticRegularizer)
+    struct SymsTerm
+        syms::Vector{Symbol}
+    end
+    struct VarNamesTerm
+        var_names::Vector{Symbol}
+    end
+
+    # a :syms term on an existing non-state variable is retained
+    kept = Piccolo.ProblemTemplates.extract_regularization(SymsTerm([:u]), :ψ̃, traj)
+    @test kept isa SymsTerm
+
+    # state-dependent :syms term is dropped
+    dropped_state =
+        Piccolo.ProblemTemplates.extract_regularization(SymsTerm([:ψ̃]), :ψ̃, traj)
+    @test dropped_state isa NullObjective
+
+    # :syms naming a variable the new trajectory doesn't carry is dropped
+    dropped_missing =
+        Piccolo.ProblemTemplates.extract_regularization(SymsTerm([:u, :ddu]), :ψ̃, traj)
+    @test dropped_missing isa NullObjective
+
+    # the :var_names lane behaves identically
+    kept_vn = Piccolo.ProblemTemplates.extract_regularization(VarNamesTerm([:u]), :ψ̃, traj)
+    @test kept_vn isa VarNamesTerm
+
+    # the :name lane (QuadraticRegularizer) retains control regularizers
+    kept_name = Piccolo.ProblemTemplates.extract_regularization(
+        QuadraticRegularizer(:u, traj, 1.0),
+        :ψ̃,
+        traj,
+    )
+    @test kept_name isa QuadraticRegularizer
+end
+
+@testitem "SamplingProblem derivative-chain preservation errors are loud" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+
+    T = 1.0
+    N = 10
+    opts = PiccoloOptions(display = :silent)
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+
+    # ── partial chain: a base problem whose trajectory carries {u, du, ddu}
+    #    over a CUBIC pulse — the sampling rebuild carries :du from the pulse
+    #    data but not :ddu, and partially extending a chain is refused ──
+    cp = CubicSplinePulse(0.05 .* randn(1, N), 0.05 .* randn(1, N), times)
+    qt_cubic = UnitaryTrajectory(sys, cp, GATES[:H])
+    traj_full = NamedTrajectory(
+        (
+            Ũ⃗ = randn(8, N),
+            u = randn(1, N),
+            du = randn(1, N),
+            ddu = randn(1, N),
+            Δt = fill(T / (N - 1), N),
+        );
+        controls = (:u, :du, :ddu),
+        timestep = :Δt,
+        initial = (Ũ⃗ = operator_to_iso_vec(ComplexF64[1 0; 0 1]),),
+        goal = (Ũ⃗ = operator_to_iso_vec(GATES[:H]),),
+        bounds = (u = (-1.0, 1.0), du = (-1.0, 1.0), ddu = (-1.0, 1.0), Δt = (1e-3, 0.5)),
+    )
+    base_full = QuantumControlProblem(
+        qt_cubic,
+        DirectTrajOptProblem(
+            traj_full,
+            QuadraticRegularizer(:u, traj_full, 1.0),
+            [
+                BilinearIntegrator(qt_cubic, N),
+                DerivativeIntegrator(:u, :du, traj_full),
+                DerivativeIntegrator(:du, :ddu, traj_full),
+            ],
+        ),
+    )
+    err_partial = try
+        SamplingProblem(base_full, [sys, sys]; piccolo_options = opts)
+        nothing
+    catch e
+        e
+    end
+    @test err_partial isa ErrorException
+    @test occursin("derivative chain", sprint(showerror, err_partial))
+
+    # ── un-preservable DerivativeIntegrator: a base problem carrying an
+    #    integrator on a non-control pair (:a → :da) — the sampling rebuild only
+    #    carries state + control, so preservation must refuse with the pair ──
+    zp = ZeroOrderPulse(0.05 .* randn(1, N), times)
+    qt_zo = UnitaryTrajectory(sys, zp, GATES[:H])
+    traj_extra = NamedTrajectory(
+        (
+            Ũ⃗ = randn(8, N),
+            u = randn(1, N),
+            a = randn(2, N),
+            da = randn(2, N),
+            Δt = fill(T / (N - 1), N),
+        );
+        controls = :u,
+        timestep = :Δt,
+        initial = (Ũ⃗ = operator_to_iso_vec(ComplexF64[1 0; 0 1]),),
+        goal = (Ũ⃗ = operator_to_iso_vec(GATES[:H]),),
+        bounds = (u = (-1.0, 1.0), Δt = (1e-3, 0.5)),
+    )
+    base_extra = QuantumControlProblem(
+        qt_zo,
+        DirectTrajOptProblem(
+            traj_extra,
+            QuadraticRegularizer(:u, traj_extra, 1.0),
+            [BilinearIntegrator(qt_zo, N), DerivativeIntegrator(:a, :da, traj_extra)],
+        ),
+    )
+    err_extra = try
+        SamplingProblem(base_extra, [sys, sys]; piccolo_options = opts)
+        nothing
+    catch e
+        e
+    end
+    @test err_extra isa ErrorException
+    @test occursin("a → da", sprint(showerror, err_extra))
 end

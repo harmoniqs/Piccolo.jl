@@ -2293,3 +2293,117 @@ end
     m_c2 = shape_metrics(lin_pulse; mesh = 2^12)
     @test m_c2.bend[1] < 1e-6
 end
+
+@testitem "SplinePulseProblem MultiKet R_bend: explicit opt-out, explicit weight, and the C⁰ refusal" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    cpulse = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
+
+    terms_(qcp) =
+        let obj = qcp.prob.objective
+            obj isa DirectTrajOpt.CompositeObjective ? obj.objectives : [obj]
+        end
+
+    # ── Explicit opt-out (R_bend = 0): the ensemble resolution lane drops the
+    #    term rather than defaulting it on ──
+    qtraj_c = MultiKetTrajectory(sys, cpulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp_off = SplinePulseProblem(qtraj_c, N; Q = 100.0, integrator_type = :pwc, R_bend = 0)
+    @test isempty(filter(x -> x isa HermiteBendingEnergyRegularizer, terms_(qcp_off)))
+
+    # ── Explicit nonzero weight passes through verbatim ──
+    qcp_on =
+        SplinePulseProblem(qtraj_c, N; Q = 100.0, integrator_type = :pwc, R_bend = 2e-3)
+    bend_on = filter(x -> x isa HermiteBendingEnergyRegularizer, terms_(qcp_on))
+    @test length(bend_on) == 1
+    @test bend_on[1].R == [2e-3]
+
+    # ── The C⁰ refusal: bending is undefined on a linear spline, so a nonzero
+    #    R_bend errors identically to the single-trajectory constructor ──
+    lpulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    qtraj_l = MultiKetTrajectory(sys, lpulse, [ψ0, ψ1], [ψ1, ψ0])
+    err = try
+        SplinePulseProblem(qtraj_l, N; Q = 100.0, R_bend = 0.5)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("CubicSplinePulse", err.msg)
+end
+
+@testitem "_get_spline_order names the Hermite order of each spline family" begin
+    using Piccolo
+
+    PT = Piccolo.Control.ProblemTemplates
+    times = collect(range(0.0, 1.0, length = 11))
+    @test PT._get_spline_order(LinearSplinePulse(0.1 * randn(1, 11), times)) == 1
+    @test PT._get_spline_order(
+        CubicSplinePulse(0.1 * randn(1, 11), 0.1 * randn(1, 11), times),
+    ) == 3
+end
+
+@testitem "SplinePulseProblem detailed display announces the H10 interior bound constraints" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    # finite drive bounds: the CubicSplineBoundConstraint block must run so the
+    # detailed println lane fires
+    sys = QuantumSystem(0.01 * σz, [σx], [(-0.5, 0.5)])
+
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    pulse = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
+    detailed = PiccoloOptions(display = :detailed, timesteps_all_equal = true)
+
+    # single-trajectory constructor: the println lane fires while the H10
+    # constraint lands on the problem
+    qtraj = UnitaryTrajectory(sys, pulse, σx)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        spline_interior_bound_constraints = true,
+        piccolo_options = detailed,
+    )
+    @test qcp isa QuantumControlProblem
+    @test any(
+        occursin("CubicSplineBoundConstraint", string(typeof(c))) for
+        c in qcp.prob.constraints
+    )
+
+    # ensemble constructor: the same announcement on the MultiKet path
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    mkq = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp_mk = SplinePulseProblem(
+        mkq,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        spline_interior_bound_constraints = true,
+        piccolo_options = detailed,
+    )
+    @test qcp_mk isa QuantumControlProblem
+    @test any(
+        occursin("CubicSplineBoundConstraint", string(typeof(c))) for
+        c in qcp_mk.prob.constraints
+    )
+end

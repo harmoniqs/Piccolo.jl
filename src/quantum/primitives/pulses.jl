@@ -737,6 +737,7 @@ struct GaussianPulse{F<:Function} <: AbstractPulse
     centers::Vector{Float64}
     duration::Float64
     n_drives::Int
+    drive_name::Symbol
 end
 
 """
@@ -749,12 +750,16 @@ Create a Gaussian pulse with per-drive parameters.
 - `sigmas`: Gaussian width (standard deviation) for each drive
 - `centers`: Center time for each drive
 - `duration`: Total pulse duration
+
+# Keyword Arguments
+- `drive_name`: Name of the drive variable (default `:u`)
 """
 function GaussianPulse(
     amplitudes::AbstractVector{<:Real},
     sigmas::AbstractVector{<:Real},
     centers::AbstractVector{<:Real},
-    duration::Real,
+    duration::Real;
+    drive_name::Symbol = :u,
 )
     n = length(amplitudes)
     @assert length(sigmas) == n "sigmas must have same length as amplitudes"
@@ -766,7 +771,7 @@ function GaussianPulse(
     dur = Float64(duration)
 
     f = t -> [amps[i] * exp(-(t - ctrs[i])^2 / (2 * sigs[i]^2)) for i = 1:n]
-    return GaussianPulse(f, amps, sigs, ctrs, dur, n)
+    return GaussianPulse(f, amps, sigs, ctrs, dur, n, drive_name)
 end
 
 """
@@ -787,13 +792,15 @@ function GaussianPulse(
     sigma::Real,
     duration::Real;
     center::Real = duration / 2,
+    drive_name::Symbol = :u,
 )
     n = length(amplitudes)
     return GaussianPulse(
         amplitudes,
         fill(Float64(sigma), n),
         fill(Float64(center), n),
-        duration,
+        duration;
+        drive_name = drive_name,
     )
 end
 
