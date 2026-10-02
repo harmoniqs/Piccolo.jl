@@ -51,7 +51,7 @@ solve!(qcp_robust; max_iter = 100)</code></pre><pre class="documenter-example-ou
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
 <span class="sgr1">QuantumControlProblem</span>
-├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
+├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  HermitianExponentialIntegrator, DerivativeIntegrator, DerivativeIntegrator
 │
 ├─ <span class="sgr1">System</span>
 │    dim=2   drives=2
@@ -76,19 +76,19 @@ solve!(qcp_robust; max_iter = 100)</code></pre><pre class="documenter-example-ou
 │    NullObjective                w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01332)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.776e-17)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 4.441e-16)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.01332)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 2.776e-17)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 4.441e-16)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │
 └─ <span class="sgr1">Status</span>
      variables: 1600   (1200 bounded)
@@ -100,7 +100,7 @@ solve!(qcp_robust; max_iter = 100)</code></pre><pre class="documenter-example-ou
 
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
 
-Number of nonzeros in equality constraint Jacobian...:    38156
+Number of nonzeros in equality constraint Jacobian...:    19204
 Number of nonzeros in inequality constraint Jacobian.:        0
 Number of nonzeros in Lagrangian Hessian.............:    38584
 
@@ -121,22 +121,356 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    3  9.8090519e+01 4.37e+00 4.35e+02   0.1 2.68e+00   1.9 9.80e-01 2.80e-02f  1
    4  9.1900991e+01 1.14e+00 4.74e+02   0.6 2.95e+00   1.5 8.04e-01 7.46e-01f  1
 ⋮
-  96  4.5865243e-03 3.17e-05 1.35e-03  -3.9 3.32e-02  -2.7 1.00e+00 1.00e+00h  1
-  97  4.5934354e-03 3.40e-04 4.28e-02  -3.9 8.82e-02  -3.2 1.00e+00 1.00e+00h  1
-  98  4.5935395e-03 5.07e-05 1.12e-02  -3.9 3.35e-02  -2.7 1.00e+00 1.00e+00h  1
-  99  4.6078313e-03 1.11e-03 4.77e+00  -3.9 3.35e-01  -3.2 1.00e+00 2.50e-01h  3
+  96  4.5856900e-03 3.15e-05 9.88e-04  -3.9 3.33e-02  -2.7 1.00e+00 1.00e+00h  1
+  97  4.0438901e-03 1.21e-03 1.91e-01  -5.9 7.10e-02  -3.2 9.37e-01 1.00e+00h  1
+  98  4.2603932e-03 5.94e-06 8.09e-04  -4.0 6.71e-03  -1.8 1.00e+00 1.00e+00h  1
+  99  4.2602375e-03 9.70e-05 6.47e-02  -4.0 1.54e-02  -2.3 1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  4.5870552e-03 9.10e-06 5.95e-04  -3.9 6.67e-03  -1.9 1.00e+00 1.00e+00h  1
+ 100  4.2487879e-03 3.47e-08 6.12e-03  -4.1 3.66e-04   0.8 1.00e+00 1.00e+00h  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   4.5870551977538155e-03    4.5870551977538155e-03
-Dual infeasibility......:   5.9460883943963374e-04    5.9460883943963374e-04
-Constraint violation....:   9.0979121798173690e-06    9.0979121798173690e-06
+Objective...............:   4.2487878836882575e-03    4.2487878836882575e-03
+Dual infeasibility......:   6.1164674672569367e-03    6.1164674672569367e-03
+Constraint violation....:   3.4718728558758016e-08    3.4718728558758016e-08
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.1554038097396847e-04    1.1554038097396847e-04
-Overall NLP error.......:   5.9460883943963374e-04    5.9460883943963374e-04
+Complementarity.........:   8.0839817937318262e-05    8.0839817937318262e-05
+Overall NLP error.......:   6.1164674672569367e-03    6.1164674672569367e-03
+
+
+Number of objective function evaluations             = 113
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 113
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 6.441
+
+EXIT: Maximum Number of Iterations Exceeded.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_base_089ad88.jld2
+constructing SamplingProblem
+    systems: 3
+<span class="sgr1">SamplingProblem</span>
+├─ SamplingTrajectory  ·  HermitianExponentialIntegrator, HermitianExponentialIntegrator, HermitianExponentialIntegrator, DerivativeIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=12.059   Δt∈[0, Inf]
+│    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt   (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t    (1)                                 <span class="sgr90">·</span>  state
+│    u    (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du   (2)                                 <span class="sgr90">·</span>  control
+│    ddu  (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    sampled ensemble (n=3)
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.234  @ current x</span>
+│    KnotPointObjective           w=1             2.232e-04
+│    KnotPointObjective           w=1             2.232e-04
+│    KnotPointObjective           w=1             2.232e-04
+│    QuadraticRegularizer(:u)     w=1             1.444e-03
+│    QuadraticRegularizer(:du)    w=1             3.584e-03
+│    QuadraticRegularizer(:ddu)   w=1             0.2283
+│    NullObjective                w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 2.626e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 4.127e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 3.924e-03)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.735e-18)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 6.939e-18)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 3200   (2800 bounded)
+     equality:  274433
+     inequality: 0
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+
+Number of nonzeros in equality constraint Jacobian...:    44452
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   152876
+
+Total number of variables............................:     3175
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     2776
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     2871
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  6.0134042e+00 9.86e-01 9.93e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  6.9796924e+00 5.35e-02 2.40e+00  -1.7 9.38e-01    -  7.22e-01 9.46e-01h  1
+   2  5.1663238e+00 9.19e-03 8.02e+00  -2.1 2.47e-01    -  8.90e-01 1.00e+00f  1
+   3  5.3223732e+00 3.65e-05 1.60e+00  -1.9 1.60e-02   2.0 1.00e+00 1.00e+00h  1
+   4  5.2304416e+00 1.67e-06 8.37e-02  -3.6 2.51e-03   1.5 1.00e+00 1.00e+00h  1
+⋮
+  96  2.2835279e-02 2.94e-05 4.74e-02  -4.1 1.36e-02  -2.6 1.00e+00 1.00e+00h  1
+  97  2.2845278e-02 2.74e-07 3.86e-03  -4.0 3.40e-03  -1.3 1.00e+00 1.00e+00h  1
+  98  2.2851775e-02 1.06e-06 2.85e-04  -4.0 5.86e-03  -1.8 1.00e+00 1.00e+00h  1
+  99  2.2800858e-02 6.27e-06 2.32e-02  -4.1 6.47e-03  -2.3 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  2.2823825e-02 2.03e-06 9.87e-03  -4.0 7.42e-03  -1.8 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   2.2823825167540078e-02    2.2823825167540078e-02
+Dual infeasibility......:   9.8746882993930082e-03    9.8746882993930082e-03
+Constraint violation....:   2.0254262849683791e-06    2.0254262849683791e-06
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0100337220829246e-04    1.0100337220829246e-04
+Overall NLP error.......:   9.8746882993930082e-03    9.8746882993930082e-03
+
+
+Number of objective function evaluations             = 136
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 136
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 22.565
+
+EXIT: Maximum Number of Iterations Exceeded.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_robust_089ad88.jld2</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
+    qcp_base,
+    [sys_nominal, sys_high, sys_low];
+    weights = [2.0, 1.0, 1.0],  ## Nominal weighted 2x
+)
+solve!(qcp_weighted; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SamplingProblem
+    systems: 3
+<span class="sgr1">SamplingProblem</span>
+├─ SamplingTrajectory  ·  HermitianExponentialIntegrator, HermitianExponentialIntegrator, HermitianExponentialIntegrator, DerivativeIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=11.958   Δt∈[0, Inf]
+│    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt   (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t    (1)                                 <span class="sgr90">·</span>  state
+│    u    (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du   (2)                                 <span class="sgr90">·</span>  control
+│    ddu  (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    sampled ensemble (n=3)
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.085  @ current x</span>
+│    KnotPointObjective           w=1             8.313e-03
+│    KnotPointObjective           w=1             4.156e-03
+│    KnotPointObjective           w=1             4.156e-03
+│    QuadraticRegularizer(:u)     w=1             6.208e-03
+│    QuadraticRegularizer(:du)    w=1             0.01145
+│    QuadraticRegularizer(:ddu)   w=1             1.051
+│    NullObjective                w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 6.906e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 7.087e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 7.248e-03)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 6.939e-18)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 5.551e-17)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 3200   (2800 bounded)
+     equality:  274433
+     inequality: 0
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+
+Number of nonzeros in equality constraint Jacobian...:    44452
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   152876
+
+Total number of variables............................:     3175
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     2776
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     2871
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  8.0157078e+00 2.48e+00 9.98e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  4.9927574e+00 5.30e-01 1.80e+01  -1.2 2.47e+00    -  5.51e-01 7.89e-01f  1
+   2  4.1023134e+00 4.42e-01 1.48e+01  -4.0 3.08e-01    -  5.93e-01 1.67e-01h  1
+   3  3.2210438e-01 3.08e-02 9.23e+00  -2.2 2.56e-01   0.0 6.68e-01 1.00e+00f  1
+   4  1.6510853e-01 2.42e-04 1.61e-01  -2.7 2.45e-02   0.4 1.00e+00 1.00e+00h  1
+⋮
+  96  2.7828537e-02 1.72e-06 2.27e-02  -4.1 1.41e-02  -2.8 1.00e+00 1.25e-01h  4
+  97  2.7841682e-02 1.54e-06 1.30e-02  -4.1 5.01e-03  -2.4 1.00e+00 2.50e-01h  3
+  98  2.7848311e-02 1.59e-06 1.91e-02  -4.1 1.58e-02  -2.9 1.00e+00 6.25e-02h  5
+  99  2.7860513e-02 1.49e-06 9.07e-03  -4.1 5.62e-03  -2.5 1.00e+00 2.50e-01h  3
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  2.7867188e-02 1.59e-06 1.57e-02  -4.1 1.79e-02  -2.9 1.00e+00 6.25e-02h  5
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.3933883631944425e-02    2.7867188119329762e-02
+Dual infeasibility......:   1.5686029136500225e-02    3.1371406302690662e-02
+Constraint violation....:   1.5903397154667931e-06    1.5903397154667931e-06
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   8.2845136377332587e-05    1.6568682939951401e-04
+Overall NLP error.......:   1.5686029136500225e-02    3.1371406302690662e-02
+
+
+Number of objective function evaluations             = 148
+Number of objective gradient evaluations             = 101
+Number of equality constraint evaluations            = 148
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 101
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 100
+Total seconds in IPOPT                               = 21.535
+
+EXIT: Maximum Number of Iterations Exceeded.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_weighted_089ad88.jld2</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
+systems = [QuantumSystem(s * H_drift, H_drives, [1.0, 1.0]) for s in scales]
+
+qcp_dense = SamplingProblem(qcp_base, systems)
+solve!(qcp_dense; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SamplingProblem
+    systems: 3
+<span class="sgr1">SamplingProblem</span>
+├─ SamplingTrajectory  ·  HermitianExponentialIntegrator, HermitianExponentialIntegrator, HermitianExponentialIntegrator, DerivativeIntegrator, DerivativeIntegrator
+│
+├─ <span class="sgr1">System</span>
+│    dim=2   drives=2
+│
+├─ <span class="sgr1">Trajectory</span>
+│    N=100   T=11.932   Δt∈[0, Inf]
+│    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
+│    Δt   (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
+│    t    (1)                                 <span class="sgr90">·</span>  state
+│    u    (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│    du   (2)                                 <span class="sgr90">·</span>  control
+│    ddu  (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
+│
+├─ <span class="sgr1">Goal</span>
+│    sampled ensemble (n=3)
+│
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.002  @ current x</span>
+│    KnotPointObjective           w=1             2.071e-03
+│    KnotPointObjective           w=1             2.071e-03
+│    KnotPointObjective           w=1             2.071e-03
+│    QuadraticRegularizer(:u)     w=1             7.836e-03
+│    QuadraticRegularizer(:du)    w=1             0.01091
+│    QuadraticRegularizer(:ddu)   w=1             0.9773
+│    NullObjective                w=1             0
+│
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.0123)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.01115)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.01218)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 6.939e-18)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
+│    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
+│    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
+│
+└─ <span class="sgr1">Status</span>
+     variables: 3200   (2800 bounded)
+     equality:  274433
+     inequality: 0
+
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+
+Number of nonzeros in equality constraint Jacobian...:    44452
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   152876
+
+Total number of variables............................:     3175
+                     variables with only lower bounds:      100
+                variables with lower and upper bounds:     2776
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     2871
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  6.0313327e+00 1.96e+00 9.95e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  4.7101587e+00 3.95e-01 5.94e+01  -1.0 1.87e+00    -  4.35e-01 9.20e-01f  1
+   2  3.5014384e+00 3.19e-01 4.81e+01  -1.4 2.79e-01   0.0 4.92e-01 1.90e-01f  1
+   3  1.0413317e+00 1.03e-01 1.72e+01  -2.6 1.83e-01   0.4 6.64e-01 6.67e-01f  1
+   4  1.6112946e-01 8.37e-04 5.02e+00  -2.3 6.11e-02   0.9 1.00e+00 1.00e+00h  1
+⋮
+  96  5.6440824e-02 1.67e-04 4.76e-02  -4.0 2.76e-02  -2.4 1.00e+00 1.00e+00h  1
+  97  5.6346169e-02 2.94e-05 4.87e-03  -4.0 9.81e-03  -2.0 1.00e+00 1.00e+00h  1
+  98  5.6243245e-02 1.93e-04 5.75e-02  -4.0 3.00e-02  -2.5 1.00e+00 1.00e+00h  1
+  99  5.6121025e-02 3.32e-05 5.35e-03  -4.0 1.04e-02  -2.0 1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  5.6088282e-02 2.97e-03 1.94e-01  -4.0 5.45e-02  -2.5 1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 100
+
+                                   (scaled)                 (unscaled)
+Objective...............:   5.6088281841370977e-02    5.6088281841370977e-02
+Dual infeasibility......:   1.9365189894936721e-01    1.9365189894936721e-01
+Constraint violation....:   2.9651925780156824e-03    2.9651925780156824e-03
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   9.9999999999999991e-05    9.9999999999999991e-05
+Overall NLP error.......:   1.9365189894936721e-01    1.9365189894936721e-01
 
 
 Number of objective function evaluations             = 116
@@ -146,344 +480,10 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 15.211
+Total seconds in IPOPT                               = 21.991
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_base_3691ae1.jld2
-constructing SamplingProblem
-    systems: 3
-<span class="sgr1">SamplingProblem</span>
-├─ SamplingTrajectory  ·  BilinearIntegrator, BilinearIntegrator, BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
-│
-├─ <span class="sgr1">System</span>
-│    dim=2   drives=2
-│
-├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=12.119   Δt∈[0, Inf]
-│    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Δt   (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
-│    t    (1)                                 <span class="sgr90">·</span>  state
-│    u    (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
-│    du   (2)                                 <span class="sgr90">·</span>  control
-│    ddu  (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
-│
-├─ <span class="sgr1">Goal</span>
-│    sampled ensemble (n=3)
-│
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.2707  @ current x</span>
-│    KnotPointObjective           w=1             6.357e-05
-│    KnotPointObjective           w=1             6.357e-05
-│    KnotPointObjective           w=1             6.357e-05
-│    QuadraticRegularizer(:u)     w=1             1.590e-03
-│    QuadraticRegularizer(:du)    w=1             4.029e-03
-│    QuadraticRegularizer(:ddu)   w=1             0.2649
-│    NullObjective                w=1             0
-│
-├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 4.039e-03)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 5.379e-03)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 4.549e-03)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 4.337e-19)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 0)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│
-└─ <span class="sgr1">Status</span>
-     variables: 3200   (2800 bounded)
-     equality:  274433
-     inequality: 0
-
-<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
-
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
-
-Number of nonzeros in equality constraint Jacobian...:   177004
-Number of nonzeros in inequality constraint Jacobian.:        0
-Number of nonzeros in Lagrangian Hessian.............:   152876
-
-Total number of variables............................:     3175
-                     variables with only lower bounds:      100
-                variables with lower and upper bounds:     2776
-                     variables with only upper bounds:        0
-Total number of equality constraints.................:     2871
-Total number of inequality constraints...............:        0
-        inequality constraints with only lower bounds:        0
-   inequality constraints with lower and upper bounds:        0
-        inequality constraints with only upper bounds:        0
-
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  6.0095098e+00 1.09e+00 9.93e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  7.2287463e+00 8.20e-02 2.19e+00  -1.7 9.99e-01    -  7.21e-01 9.25e-01h  1
-   2  5.4389019e+00 6.78e-03 6.58e+00  -2.2 2.58e-01    -  8.93e-01 1.00e+00f  1
-   3  4.9414751e+00 6.02e-03 3.90e+00  -2.3 1.19e-01   0.0 1.00e+00 9.19e-01h  1
-   4  3.5289628e+00 1.69e-02 2.59e+00  -2.1 1.67e-01  -0.5 1.00e+00 1.00e+00f  1
-⋮
-  96  2.4378497e-02 5.92e-06 1.15e+00  -4.1 8.26e-03  -1.9 1.00e+00 1.25e-01h  4
-  97  2.4378797e-02 5.84e-06 1.16e+00  -4.1 2.28e-02  -2.4 1.00e+00 1.56e-02h  7
-  98  2.4387073e-02 5.44e-06 9.96e-01  -4.1 9.19e-03  -2.0 1.00e+00 1.25e-01h  4
-  99  2.4387038e-02 5.38e-06 1.01e+00  -4.1 2.52e-02  -2.5 1.00e+00 1.56e-02h  7
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  2.4390073e-02 5.18e-06 9.23e-01  -4.1 1.02e-02  -2.0 1.00e+00 6.25e-02h  5
-
-Number of Iterations....: 100
-
-                                   (scaled)                 (unscaled)
-Objective...............:   2.4390073153647947e-02    2.4390073153647947e-02
-Dual infeasibility......:   9.2308097489024865e-01    9.2308097489024865e-01
-Constraint violation....:   5.1794478858613324e-06    5.1794478858613324e-06
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   8.4307143501960671e-05    8.4307143501960671e-05
-Overall NLP error.......:   9.2308097489024865e-01    9.2308097489024865e-01
-
-
-Number of objective function evaluations             = 328
-Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 328
-Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 101
-Number of inequality constraint Jacobian evaluations = 0
-Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 136.254
-
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_robust_3691ae1.jld2</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
-    qcp_base,
-    [sys_nominal, sys_high, sys_low];
-    weights = [2.0, 1.0, 1.0],  ## Nominal weighted 2x
-)
-solve!(qcp_weighted; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SamplingProblem
-    systems: 3
-<span class="sgr1">SamplingProblem</span>
-├─ SamplingTrajectory  ·  BilinearIntegrator, BilinearIntegrator, BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
-│
-├─ <span class="sgr1">System</span>
-│    dim=2   drives=2
-│
-├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=12.022   Δt∈[0, Inf]
-│    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Δt   (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
-│    t    (1)                                 <span class="sgr90">·</span>  state
-│    u    (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
-│    du   (2)                                 <span class="sgr90">·</span>  control
-│    ddu  (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
-│
-├─ <span class="sgr1">Goal</span>
-│    sampled ensemble (n=3)
-│
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.5989  @ current x</span>
-│    KnotPointObjective           w=1             7.717e-03
-│    KnotPointObjective           w=1             3.859e-03
-│    KnotPointObjective           w=1             3.859e-03
-│    QuadraticRegularizer(:u)     w=1             7.390e-03
-│    QuadraticRegularizer(:du)    w=1             8.290e-03
-│    QuadraticRegularizer(:ddu)   w=1             0.5678
-│    NullObjective                w=1             0
-│
-├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01212)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01142)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01282)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 6.939e-18)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│
-└─ <span class="sgr1">Status</span>
-     variables: 3200   (2800 bounded)
-     equality:  274433
-     inequality: 0
-
-<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
-
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
-
-Number of nonzeros in equality constraint Jacobian...:   177004
-Number of nonzeros in inequality constraint Jacobian.:        0
-Number of nonzeros in Lagrangian Hessian.............:   152876
-
-Total number of variables............................:     3175
-                     variables with only lower bounds:      100
-                variables with lower and upper bounds:     2776
-                     variables with only upper bounds:        0
-Total number of equality constraints.................:     2871
-Total number of inequality constraints...............:        0
-        inequality constraints with only lower bounds:        0
-   inequality constraints with lower and upper bounds:        0
-        inequality constraints with only upper bounds:        0
-
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  8.0184091e+00 9.77e-01 9.98e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  5.0359523e+00 2.67e-01 8.56e+00  -1.3 7.59e-01    -  6.08e-01 7.28e-01f  1
-   2  4.2790349e+00 2.28e-01 1.00e+01  -4.0 2.05e-01    -  5.73e-01 1.45e-01h  1
-   3  4.1612949e-01 2.00e-02 9.92e+00  -2.1 1.56e-01   0.0 7.35e-01 1.00e+00f  1
-   4  1.4500311e-01 1.37e-03 4.59e-01  -2.3 7.88e-02  -0.5 9.56e-01 1.00e+00h  1
-⋮
-  96  2.8840537e-02 6.53e-05 1.35e-01  -4.1 1.46e-02  -2.8 1.00e+00 3.12e-02h  6
-  97  2.8865797e-02 1.66e-05 1.62e-03  -4.1 6.79e-03  -2.4 1.00e+00 1.00e+00h  1
-  98  2.8874278e-02 1.22e-04 1.26e-02  -4.1 1.96e-02  -2.9 1.00e+00 1.00e+00h  1
-  99  2.8990211e-02 8.91e-06 1.31e-03  -4.1 6.29e-03  -2.5 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  2.8892409e-02 2.11e-04 1.26e-02  -4.1 2.59e-02  -2.9 1.00e+00 1.00e+00h  1
-
-Number of Iterations....: 100
-
-                                   (scaled)                 (unscaled)
-Objective...............:   1.4446483130092606e-02    2.8892408833588616e-02
-Dual infeasibility......:   1.2571821373830044e-02    2.5143157656061094e-02
-Constraint violation....:   2.1149971676832913e-04    2.1149971676832913e-04
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   8.0000472058989303e-05    1.5999785724967548e-04
-Overall NLP error.......:   1.2571821373830044e-02    2.5143157656061094e-02
-
-
-Number of objective function evaluations             = 194
-Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 194
-Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 101
-Number of inequality constraint Jacobian evaluations = 0
-Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 137.895
-
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_weighted_3691ae1.jld2</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
-systems = [QuantumSystem(s * H_drift, H_drives, [1.0, 1.0]) for s in scales]
-
-qcp_dense = SamplingProblem(qcp_base, systems)
-solve!(qcp_dense; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SamplingProblem
-    systems: 3
-<span class="sgr1">SamplingProblem</span>
-├─ SamplingTrajectory  ·  BilinearIntegrator, BilinearIntegrator, BilinearIntegrator, DerivativeIntegrator, DerivativeIntegrator
-│
-├─ <span class="sgr1">System</span>
-│    dim=2   drives=2
-│
-├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=12.119   Δt∈[0, Inf]
-│    Ũ⃗1   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Ũ⃗2   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Ũ⃗3   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
-│    Δt   (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
-│    t    (1)                                 <span class="sgr90">·</span>  state
-│    u    (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
-│    du   (2)                                 <span class="sgr90">·</span>  control
-│    ddu  (2)  ±[1.0, 1.0]                    <span class="sgr32">✓</span>  control
-│
-├─ <span class="sgr1">Goal</span>
-│    sampled ensemble (n=3)
-│
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.976  @ current x</span>
-│    KnotPointObjective           w=1             1.974e-03
-│    KnotPointObjective           w=1             1.974e-03
-│    KnotPointObjective           w=1             1.974e-03
-│    QuadraticRegularizer(:u)     w=1             8.605e-03
-│    QuadraticRegularizer(:du)    w=1             0.01075
-│    QuadraticRegularizer(:ddu)   w=1             0.9507
-│    NullObjective                w=1             0
-│
-├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/17 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01787)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.01669)
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.0155)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
-│    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [bnd]  BoundsConstraint            <span class="sgr32">✓</span>
-│    [eq]   TimeConsistencyConstraint   <span class="sgr32">✓</span>  (no eval)
-│    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
-│
-└─ <span class="sgr1">Status</span>
-     variables: 3200   (2800 bounded)
-     equality:  274433
-     inequality: 0
-
-<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
-
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
-
-Number of nonzeros in equality constraint Jacobian...:   177004
-Number of nonzeros in inequality constraint Jacobian.:        0
-Number of nonzeros in Lagrangian Hessian.............:   152876
-
-Total number of variables............................:     3175
-                     variables with only lower bounds:      100
-                variables with lower and upper bounds:     2776
-                     variables with only upper bounds:        0
-Total number of equality constraints.................:     2871
-Total number of inequality constraints...............:        0
-        inequality constraints with only lower bounds:        0
-   inequality constraints with lower and upper bounds:        0
-        inequality constraints with only upper bounds:        0
-
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  6.0369631e+00 1.21e+00 9.96e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  4.5917700e+00 4.26e-01 9.02e+00  -1.3 1.07e+00    -  5.68e-01 6.52e-01f  1
-   2  9.7101377e-01 7.73e-02 1.13e+01  -2.2 4.33e-01    -  4.87e-01 8.24e-01f  1
-   3  4.7846939e-01 3.82e-02 5.21e+00  -4.0 2.28e-01    -  5.27e-01 5.10e-01h  1
-   4  2.0108767e-01 3.26e-04 2.34e-01  -2.5 3.06e-02   0.0 9.97e-01 1.00e+00h  1
-⋮
-  96  5.7303345e-02 1.81e-04 3.30e-02  -4.0 1.75e-02  -2.4 1.00e+00 1.00e+00h  1
-  97  5.7299403e-02 2.50e-05 4.07e-03  -4.0 6.16e-03  -1.9 1.00e+00 1.00e+00h  1
-  98  5.7231007e-02 5.33e-06 8.13e-04  -4.0 2.75e-03  -1.5 1.00e+00 1.00e+00h  1
-  99  5.7182730e-02 3.91e-05 6.50e-03  -4.0 7.80e-03  -2.0 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  5.7166733e-02 5.82e-06 9.13e-04  -4.0 2.96e-03  -1.6 1.00e+00 1.00e+00h  1
-
-Number of Iterations....: 100
-
-                                   (scaled)                 (unscaled)
-Objective...............:   5.7166733251571920e-02    5.7166733251571920e-02
-Dual infeasibility......:   9.1326929932768837e-04    9.1326929932768837e-04
-Constraint violation....:   5.8154762420103978e-06    5.8154762420103978e-06
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000000000002e-04    1.0000000000000002e-04
-Overall NLP error.......:   9.1326929932768837e-04    9.1326929932768837e-04
-
-
-Number of objective function evaluations             = 105
-Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 105
-Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 101
-Number of inequality constraint Jacobian evaluations = 0
-Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 135.378
-
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_dense_3691ae1.jld2</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_dense_089ad88.jld2</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
 qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
 solve!(qcp_base; max_iter=100)
 
@@ -505,7 +505,7 @@ for (s, sys) in zip(eval_scales, eval_systems)
     qtraj_eval = UnitaryTrajectory(sys, optimized_pulse, GATES[:X])
     fid = fidelity(qtraj_eval)
     println(&quot;Scale $s: Fidelity = $fid&quot;)
-end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 1 October 2026 14:55">Thursday 1 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 2 October 2026 15:00">Friday 2 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./sampling.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/sampling.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

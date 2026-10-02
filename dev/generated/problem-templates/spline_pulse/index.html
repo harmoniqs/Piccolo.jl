@@ -2,13 +2,13 @@
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>SplinePulseProblem · Piccolo.jl</title><meta name="title" content="SplinePulseProblem · Piccolo.jl"/><meta property="og:title" content="SplinePulseProblem · Piccolo.jl"/><meta property="twitter:title" content="SplinePulseProblem · Piccolo.jl"/><meta name="description" content="Documentation for Piccolo.jl."/><meta property="og:description" content="Documentation for Piccolo.jl."/><meta property="twitter:description" content="Documentation for Piccolo.jl."/><meta property="og:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/spline_pulse/"/><meta property="twitter:url" content="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/spline_pulse/"/><link rel="canonical" href="https://docs.harmoniqs.co/Piccolo.jl/generated/problem-templates/spline_pulse/"/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../../"><img class="docs-light-only" src="../../../assets/logo.svg" alt="Piccolo.jl logo"/><img class="docs-dark-only" src="../../../assets/logo-dark.svg" alt="Piccolo.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Piccolo.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../getting-started/installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li></ul></li><li><span class="tocitem">Concepts</span><ul><li><a class="tocitem" href="../../../concepts/">Overview</a></li><li><a class="tocitem" href="../../concepts/trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../concepts/pulses/">Pulses</a></li><li><a class="tocitem" href="../../concepts/objectives/">Objectives</a></li><li><a class="tocitem" href="../../concepts/constraints/">Constraints</a></li><li><a class="tocitem" href="../../concepts/operators/">Operators</a></li><li><a class="tocitem" href="../../concepts/isomorphisms/">Isomorphisms</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../../tutorials/">Overview</a></li><li><a class="tocitem" href="../../first_gate/">Your First Gate</a></li><li><a class="tocitem" href="../../multilevel_transmon/">Multilevel Transmon</a></li><li><a class="tocitem" href="../../state_transfer/">State Transfer</a></li><li><a class="tocitem" href="../../robust_control/">Robust Control</a></li><li><a class="tocitem" href="../../two_qubit_gate_validation/">Two-Qubit Gate Validation</a></li></ul></li><li><span class="tocitem">Problem Templates</span><ul><li><a class="tocitem" href="../../../problem-templates/">Overview</a></li><li><a class="tocitem" href="../smooth_pulse/">SmoothPulseProblem</a></li><li><a class="tocitem" href="../bang_bang_pulse/">BangBangPulseProblem</a></li><li class="is-active"><a class="tocitem" href>SplinePulseProblem</a><ul class="internal"><li><a class="tocitem" href="#When-to-Use"><span>When to Use</span></a></li><li><a class="tocitem" href="#Pulse-Requirements"><span>Pulse Requirements</span></a></li><li><a class="tocitem" href="#Constructor-Variants"><span>Constructor Variants</span></a></li><li><a class="tocitem" href="#Parameter-Reference"><span>Parameter Reference</span></a></li><li><a class="tocitem" href="#Examples"><span>Examples</span></a></li><li><a class="tocitem" href="#Trajectory-Structure"><span>Trajectory Structure</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../minimum_time/">MinimumTimeProblem</a></li><li><a class="tocitem" href="../sampling/">SamplingProblem</a></li><li><a class="tocitem" href="../composition/">Composing Templates</a></li></ul></li><li><span class="tocitem">Quantum Systems</span><ul><li><a class="tocitem" href="../../../systems/">Overview</a></li><li><a class="tocitem" href="../../systems/transmons/">Transmon Qubits</a></li><li><a class="tocitem" href="../../systems/trapped_ions/">Trapped Ions</a></li><li><a class="tocitem" href="../../systems/rydberg_atoms/">Rydberg Atoms</a></li><li><a class="tocitem" href="../../systems/cat_qubits/">Cat Qubits</a></li><li><a class="tocitem" href="../../systems/silicon_spins/">Silicon Spins</a></li></ul></li><li><span class="tocitem">How-To Guides</span><ul><li><a class="tocitem" href="../../../guides/">Overview</a></li><li><a class="tocitem" href="../../guides/saving_loading/">Saving and Loading Pulses</a></li><li><a class="tocitem" href="../../guides/leakage_suppression/">Leakage Suppression</a></li><li><a class="tocitem" href="../../guides/global_variables/">Global Variables</a></li><li><a class="tocitem" href="../../guides/visualization/">Visualization</a></li><li><a class="tocitem" href="../../guides/wigner_bosonic_qubits/">Wigner Bosonic Qubits</a></li><li><a class="tocitem" href="../../guides/custom_objectives/">Custom Objectives</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../../reference/">Overview</a></li><li><a class="tocitem" href="../../../lib/">Library</a></li></ul></li><li><span class="tocitem">Development</span><ul><li><a class="tocitem" href="../../../development/contributing/">Contributing</a></li><li><a class="tocitem" href="../../../development/release-notes/">Release Notes</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Problem Templates</a></li><li class="is-active"><a href>SplinePulseProblem</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>SplinePulseProblem</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/harmoniqs/Piccolo.jl/blob/main/docs/literate/problem-templates/spline_pulse.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="spline-pulse"><a class="docs-heading-anchor" href="#spline-pulse">SplinePulseProblem</a><a id="spline-pulse-1"></a><a class="docs-heading-anchor-permalink" href="#spline-pulse" title="Permalink"></a></h1><p><code>SplinePulseProblem</code> sets up trajectory optimization with spline-based pulses where derivative variables represent spline slopes or tangents. This is ideal for inherently smooth control pulses and warm-starting from previous solutions.</p><h2 id="When-to-Use"><a class="docs-heading-anchor" href="#When-to-Use">When to Use</a><a id="When-to-Use-1"></a><a class="docs-heading-anchor-permalink" href="#When-to-Use" title="Permalink"></a></h2><p>Use <code>SplinePulseProblem</code> when:</p><ul><li>You need inherently smooth control pulses</li><li>You&#39;re warm-starting from a previously optimized solution</li><li>You want cubic spline smoothness without derivative regularization</li><li>You&#39;re working with hardware that expects smooth pulse shapes</li></ul><h2 id="Pulse-Requirements"><a class="docs-heading-anchor" href="#Pulse-Requirements">Pulse Requirements</a><a id="Pulse-Requirements-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Requirements" title="Permalink"></a></h2><p><code>SplinePulseProblem</code> works with spline pulse types:</p><table><tr><th style="text-align: right">Pulse Type</th><th style="text-align: right">Derivative Meaning</th></tr><tr><td style="text-align: right"><code>LinearSplinePulse</code></td><td style="text-align: right"><code>:du</code> represents constrained slope between knots</td></tr><tr><td style="text-align: right"><code>CubicSplinePulse</code></td><td style="text-align: right"><code>:du</code> represents independent Hermite tangents</td></tr></table><pre><code class="language-julia hljs"># Linear spline
 pulse = LinearSplinePulse(controls, times)
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-qcp = SplinePulseProblem(qtraj)  # Works (warns: default PWC integrator)
+qcp = SplinePulseProblem(qtraj)  # spline-faithful default (native SplineIntegrator)
 
-# Cubic spline — the integrator choice must be explicit (#275)
+# Cubic spline — the default is the correct pairing since #334
 pulse = CubicSplinePulse(controls, tangents, times)
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)  # acknowledged PWC
-# or, for spline-faithful dynamics: integrator = Piccolissimo.SplineIntegrator(qtraj, N)</code></pre><h2 id="Constructor-Variants"><a class="docs-heading-anchor" href="#Constructor-Variants">Constructor Variants</a><a id="Constructor-Variants-1"></a><a class="docs-heading-anchor-permalink" href="#Constructor-Variants" title="Permalink"></a></h2><h3 id="Use-Native-Knot-Times-(Recommended-for-Warm-Starting)"><a class="docs-heading-anchor" href="#Use-Native-Knot-Times-(Recommended-for-Warm-Starting)">Use Native Knot Times (Recommended for Warm-Starting)</a><a id="Use-Native-Knot-Times-(Recommended-for-Warm-Starting)-1"></a><a class="docs-heading-anchor-permalink" href="#Use-Native-Knot-Times-(Recommended-for-Warm-Starting)" title="Permalink"></a></h3><pre><code class="language-julia hljs">SplinePulseProblem(qtraj::AbstractQuantumTrajectory{&lt;:AbstractSplinePulse}; kwargs...)</code></pre><p>Uses the pulse&#39;s native knot times without resampling. Best for warm-starting from a previous solution.</p><h3 id="Resample-to-N-Timesteps"><a class="docs-heading-anchor" href="#Resample-to-N-Timesteps">Resample to N Timesteps</a><a id="Resample-to-N-Timesteps-1"></a><a class="docs-heading-anchor-permalink" href="#Resample-to-N-Timesteps" title="Permalink"></a></h3><pre><code class="language-julia hljs">SplinePulseProblem(qtraj::AbstractQuantumTrajectory{&lt;:AbstractSplinePulse}, N::Int; kwargs...)</code></pre><p>Resamples the pulse to <code>N</code> uniformly spaced timesteps.</p><h3 id="Use-Specific-Times"><a class="docs-heading-anchor" href="#Use-Specific-Times">Use Specific Times</a><a id="Use-Specific-Times-1"></a><a class="docs-heading-anchor-permalink" href="#Use-Specific-Times" title="Permalink"></a></h3><pre><code class="language-julia hljs">SplinePulseProblem(qtraj::AbstractQuantumTrajectory{&lt;:AbstractSplinePulse}, times::AbstractVector; kwargs...)</code></pre><p>Resamples the pulse to the specified time points.</p><h2 id="Parameter-Reference"><a class="docs-heading-anchor" href="#Parameter-Reference">Parameter Reference</a><a id="Parameter-Reference-1"></a><a class="docs-heading-anchor-permalink" href="#Parameter-Reference" title="Permalink"></a></h2><h3 id="Objective-Weights"><a class="docs-heading-anchor" href="#Objective-Weights">Objective Weights</a><a id="Objective-Weights-1"></a><a class="docs-heading-anchor-permalink" href="#Objective-Weights" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>Q</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>100.0</code></td><td style="text-align: right">Weight on infidelity objective</td></tr><tr><td style="text-align: right"><code>R</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>1e-2</code></td><td style="text-align: right">Base regularization weight</td></tr><tr><td style="text-align: right"><code>R_u</code></td><td style="text-align: right"><code>Float64</code> or <code>Vector{Float64}</code></td><td style="text-align: right"><code>R</code></td><td style="text-align: right">Regularization on control values</td></tr><tr><td style="text-align: right"><code>R_du</code></td><td style="text-align: right"><code>Float64</code> or <code>Vector{Float64}</code></td><td style="text-align: right"><code>R</code></td><td style="text-align: right">Regularization on derivatives/tangents</td></tr></table><h3 id="Bounds"><a class="docs-heading-anchor" href="#Bounds">Bounds</a><a id="Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#Bounds" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>du_bound</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>Inf</code></td><td style="text-align: right">Uniform maximum derivative/slope bound for all drives.</td></tr><tr><td style="text-align: right"><code>du_bounds</code></td><td style="text-align: right"><code>Vector{Float64}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Per-drive maximum derivative/slope bounds (takes precedence over <code>du_bound</code>).</td></tr><tr><td style="text-align: right"><code>Δt_bounds</code></td><td style="text-align: right"><code>Tuple{Float64, Float64}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Time-step bounds for free-time optimization</td></tr></table><h3 id="Advanced-Options"><a class="docs-heading-anchor" href="#Advanced-Options">Advanced Options</a><a id="Advanced-Options-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Options" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>integrator</code></td><td style="text-align: right"><code>AbstractIntegrator</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Custom integrator. <strong>Defaults to <code>BilinearIntegrator</code>, which is piecewise constant</strong> — a mismatch for every spline pulse; see the warning below.</td></tr><tr><td style="text-align: right"><code>global_names</code></td><td style="text-align: right"><code>Vector{Symbol}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Global parameters to optimize</td></tr><tr><td style="text-align: right"><code>global_bounds</code></td><td style="text-align: right"><code>Dict{Symbol, ...}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Bounds on global variables</td></tr><tr><td style="text-align: right"><code>constraints</code></td><td style="text-align: right"><code>Vector{AbstractConstraint}</code></td><td style="text-align: right"><code>[]</code></td><td style="text-align: right">Additional constraints</td></tr><tr><td style="text-align: right"><code>piccolo_options</code></td><td style="text-align: right"><code>PiccoloOptions</code></td><td style="text-align: right"><code>PiccoloOptions()</code></td><td style="text-align: right">Solver options</td></tr><tr><td style="text-align: right"><code>free_phase</code></td><td style="text-align: right"><code>Bool</code></td><td style="text-align: right"><code>false</code></td><td style="text-align: right">Optimize a per-subsystem frame phase alongside the pulse.</td></tr><tr><td style="text-align: right"><code>initial_phases</code></td><td style="text-align: right"><code>Vector{Float64}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Initial values for the per-subsystem phase variables when <code>free_phase=true</code>.</td></tr></table><h2 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h2><h3 id="Basic-Spline-Optimization"><a class="docs-heading-anchor" href="#Basic-Spline-Optimization">Basic Spline Optimization</a><a id="Basic-Spline-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Spline-Optimization" title="Permalink"></a></h3><pre><code class="language-julia hljs">using Piccolo
+qcp = SplinePulseProblem(qtraj)  # spline-faithful by default
+# PWC escape hatch, when explicitly wanted: qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)</code></pre><h2 id="Constructor-Variants"><a class="docs-heading-anchor" href="#Constructor-Variants">Constructor Variants</a><a id="Constructor-Variants-1"></a><a class="docs-heading-anchor-permalink" href="#Constructor-Variants" title="Permalink"></a></h2><h3 id="Use-Native-Knot-Times-(Recommended-for-Warm-Starting)"><a class="docs-heading-anchor" href="#Use-Native-Knot-Times-(Recommended-for-Warm-Starting)">Use Native Knot Times (Recommended for Warm-Starting)</a><a id="Use-Native-Knot-Times-(Recommended-for-Warm-Starting)-1"></a><a class="docs-heading-anchor-permalink" href="#Use-Native-Knot-Times-(Recommended-for-Warm-Starting)" title="Permalink"></a></h3><pre><code class="language-julia hljs">SplinePulseProblem(qtraj::AbstractQuantumTrajectory{&lt;:AbstractSplinePulse}; kwargs...)</code></pre><p>Uses the pulse&#39;s native knot times without resampling. Best for warm-starting from a previous solution.</p><h3 id="Resample-to-N-Timesteps"><a class="docs-heading-anchor" href="#Resample-to-N-Timesteps">Resample to N Timesteps</a><a id="Resample-to-N-Timesteps-1"></a><a class="docs-heading-anchor-permalink" href="#Resample-to-N-Timesteps" title="Permalink"></a></h3><pre><code class="language-julia hljs">SplinePulseProblem(qtraj::AbstractQuantumTrajectory{&lt;:AbstractSplinePulse}, N::Int; kwargs...)</code></pre><p>Resamples the pulse to <code>N</code> uniformly spaced timesteps.</p><h3 id="Use-Specific-Times"><a class="docs-heading-anchor" href="#Use-Specific-Times">Use Specific Times</a><a id="Use-Specific-Times-1"></a><a class="docs-heading-anchor-permalink" href="#Use-Specific-Times" title="Permalink"></a></h3><pre><code class="language-julia hljs">SplinePulseProblem(qtraj::AbstractQuantumTrajectory{&lt;:AbstractSplinePulse}, times::AbstractVector; kwargs...)</code></pre><p>Resamples the pulse to the specified time points.</p><h2 id="Parameter-Reference"><a class="docs-heading-anchor" href="#Parameter-Reference">Parameter Reference</a><a id="Parameter-Reference-1"></a><a class="docs-heading-anchor-permalink" href="#Parameter-Reference" title="Permalink"></a></h2><h3 id="Objective-Weights"><a class="docs-heading-anchor" href="#Objective-Weights">Objective Weights</a><a id="Objective-Weights-1"></a><a class="docs-heading-anchor-permalink" href="#Objective-Weights" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>Q</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>100.0</code></td><td style="text-align: right">Weight on infidelity objective</td></tr><tr><td style="text-align: right"><code>R</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>1e-2</code></td><td style="text-align: right">Base regularization weight</td></tr><tr><td style="text-align: right"><code>R_u</code></td><td style="text-align: right"><code>Float64</code> or <code>Vector{Float64}</code></td><td style="text-align: right"><code>R</code></td><td style="text-align: right">Regularization on control values</td></tr><tr><td style="text-align: right"><code>R_du</code></td><td style="text-align: right"><code>Float64</code> or <code>Vector{Float64}</code></td><td style="text-align: right"><code>R</code></td><td style="text-align: right">Regularization on derivatives/tangents</td></tr></table><h3 id="Bounds"><a class="docs-heading-anchor" href="#Bounds">Bounds</a><a id="Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#Bounds" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>du_bound</code></td><td style="text-align: right"><code>Float64</code></td><td style="text-align: right"><code>Inf</code></td><td style="text-align: right">Uniform maximum derivative/slope bound for all drives.</td></tr><tr><td style="text-align: right"><code>du_bounds</code></td><td style="text-align: right"><code>Vector{Float64}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Per-drive maximum derivative/slope bounds (takes precedence over <code>du_bound</code>).</td></tr><tr><td style="text-align: right"><code>Δt_bounds</code></td><td style="text-align: right"><code>Tuple{Float64, Float64}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Time-step bounds for free-time optimization</td></tr></table><h3 id="Advanced-Options"><a class="docs-heading-anchor" href="#Advanced-Options">Advanced Options</a><a id="Advanced-Options-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Options" title="Permalink"></a></h3><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Type</th><th style="text-align: right">Default</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>integrator</code></td><td style="text-align: right"><code>AbstractIntegrator</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Custom integrator. If <code>nothing</code>, uses the native spline-faithful <code>SplineIntegrator</code> (the #334 default — globals auto-detected from <code>sys.global_params</code>). <code>integrator_type = :pwc</code> requests the piecewise-constant escape hatch; see below.</td></tr><tr><td style="text-align: right"><code>global_names</code></td><td style="text-align: right"><code>Vector{Symbol}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Global parameters to optimize</td></tr><tr><td style="text-align: right"><code>global_bounds</code></td><td style="text-align: right"><code>Dict{Symbol, ...}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Bounds on global variables</td></tr><tr><td style="text-align: right"><code>constraints</code></td><td style="text-align: right"><code>Vector{AbstractConstraint}</code></td><td style="text-align: right"><code>[]</code></td><td style="text-align: right">Additional constraints</td></tr><tr><td style="text-align: right"><code>piccolo_options</code></td><td style="text-align: right"><code>PiccoloOptions</code></td><td style="text-align: right"><code>PiccoloOptions()</code></td><td style="text-align: right">Solver options</td></tr><tr><td style="text-align: right"><code>free_phase</code></td><td style="text-align: right"><code>Bool</code></td><td style="text-align: right"><code>false</code></td><td style="text-align: right">Optimize a per-subsystem frame phase alongside the pulse.</td></tr><tr><td style="text-align: right"><code>initial_phases</code></td><td style="text-align: right"><code>Vector{Float64}</code></td><td style="text-align: right"><code>nothing</code></td><td style="text-align: right">Initial values for the per-subsystem phase variables when <code>free_phase=true</code>.</td></tr></table><h2 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h2><h3 id="Basic-Spline-Optimization"><a class="docs-heading-anchor" href="#Basic-Spline-Optimization">Basic Spline Optimization</a><a id="Basic-Spline-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Spline-Optimization" title="Permalink"></a></h3><pre><code class="language-julia hljs">using Piccolo
 
 # Define system
 H_drift = PAULIS[:Z]
@@ -24,13 +24,11 @@ pulse = CubicSplinePulse(controls, tangents, times)
 
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
-# Solve using native knot times
-# `integrator_type = :pwc` acknowledges (see the warning below) that Piccolo&#39;s
-# only built-in integrator treats the drive as piecewise constant.
-qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0, integrator_type = :pwc)
+# Solve using native knot times. Since #334 the default integrator is the
+# native spline-faithful SplineIntegrator — the optimized waveform is the
+# spline the pulse object describes.
+qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0)
 solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SplinePulseProblem [UnitaryTrajectory / CubicSplinePulse]
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the dynamics treat the drive as piecewise constant and ignore :du — the optimized waveform differs from the cubic spline the pulse object describes. Acknowledged because you asked for it explicitly.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.ProblemTemplates ~/work/Piccolo.jl/Piccolo.jl/src/control/templates/spline_pulse_problem.jl:358</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
 <span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
 <span class="sgr33"><span class="sgr1">│ </span></span>
@@ -42,7 +40,7 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
 <span class="sgr1">QuantumControlProblem</span>
-├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  BilinearIntegrator
+├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  SplineIntegrator
 │
 ├─ <span class="sgr1">System</span>
 │    dim=2   drives=2
@@ -66,7 +64,7 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 │    NullObjective                     w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/12 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.03268)
+│    [dyn]  SplineIntegrator            <span class="sgr31">✗</span>  (‖c‖∞ = 9.878e-04)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -87,29 +85,11 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.313  (tolerance 0.005)
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
-<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
-<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
-<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
-<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
-<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. Pair a spline pulse with
-<span class="sgr33"><span class="sgr1">│ </span></span>    `Piccolissimo.SplineIntegrator`.
-<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
-<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:711</span>
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
 
-Number of nonzeros in equality constraint Jacobian...:    10986
+Number of nonzeros in equality constraint Jacobian...:     7098
 Number of nonzeros in inequality constraint Jacobian.:        0
-Number of nonzeros in Lagrangian Hessian.............:    14462
+Number of nonzeros in Lagrangian Hessian.............:     5509
 
 Total number of variables............................:      683
                      variables with only lower bounds:       50
@@ -122,60 +102,138 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  9.8296581e+01 3.27e-02 4.64e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  9.6603906e+01 1.93e-03 4.76e+00  -1.2 5.05e-02   2.0 9.96e-01 1.00e+00h  1
-   2  8.2538063e+01 1.91e-02 1.17e+02  -1.5 3.80e-01   1.5 8.66e-01 1.00e+00F  1
-   3  7.1072087e+01 2.12e-03 3.58e+01  -2.2 1.10e-01   1.9 1.00e+00 1.00e+00f  1
-   4  6.7605266e+01 3.66e-04 1.12e+01  -3.3 4.29e-02   2.4 1.00e+00 1.00e+00f  1
+   0  9.8296581e+01 2.36e-02 4.22e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.7041297e+01 1.42e-03 4.79e+00  -1.2 5.37e-02   2.0 9.97e-01 1.00e+00f  1
+   2  9.4907298e+03 6.88e-04 6.04e+06  -1.4 4.06e-01   1.5 8.86e-01 1.00e+00H  1
+   3  4.5140015e+03 1.40e-05 2.37e+06  -2.4 3.78e-02   5.6 1.00e+00 1.00e+00f  1
+   4  1.9694004e+03 2.36e-05 8.74e+05  -3.1 6.84e-02   5.1 1.00e+00 1.00e+00f  1
 ⋮
-  96  6.2994508e-01 1.73e-04 2.57e+02  -4.0 1.95e-02   1.0 1.00e+00 1.00e+00f  1
-  97  4.9259022e+02 3.41e-05 2.59e+09  -4.0 7.01e-03   1.4 1.00e+00 9.25e-01h  1
-  98  4.1630286e+02 2.20e-10 4.02e+10  -4.1 2.20e-05  15.3 1.00e+00 1.00e+00h  1
-  99  3.6694106e+02 7.33e-15 9.78e+07  -4.1 1.61e-07  14.8 1.00e+00 1.00e+00f  1
+  29  1.2043494e+09 7.48e-12 5.37e+15  -4.2 5.10e-05  17.0 1.00e+00 1.00e+00f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  2.6353481e+02 3.79e-14 8.12e+07  -4.1 3.97e-07  14.3 1.00e+00 1.00e+00f  1
+  30  2.6538578e+08 3.98e-11 1.21e+15  -4.2 1.23e-04  16.6 1.00e+00 1.00e+00f  1
+  31  1.2030744e+08 6.83e-13 4.64e+14  -4.2 1.36e-05  17.0 1.00e+00 1.00e+00f  1
+  32  4.3779404e+07 2.20e-12 1.54e+14  -4.2 2.71e-05  16.5 1.00e+00 1.00e+00f  1
+  33 -5.3171882e+13 4.20e-11 1.60e+22  -4.2 2.00e-04  16.0 1.00e+00 7.29e-01f  1
+WARNING: Problem in step computation; switching to emergency mode.
+  34r-5.3171882e+13 4.20e-11 1.75e+02  -4.2 0.00e+00  20.0 0.00e+00 0.00e+00R  1
+  35r 7.5341299e+09 1.19e-01 1.75e+00  -2.5 2.52e+00    -  9.90e-01 3.48e-01f  1
+  36r 8.1238772e+02 3.79e-02 3.36e-01  -2.7 4.04e-01    -  8.08e-01 1.00e+00h  1
+  37r 7.2641665e+01 3.19e-03 8.32e-02  -2.7 8.45e-02    -  1.00e+00 1.00e+00h  1
+  38r 8.0254479e+01 1.01e-02 6.96e-02  -2.7 3.26e-01    -  1.00e+00 1.00e+00h  1
+  39r 7.6083504e+01 7.57e-03 5.00e-02  -4.0 1.39e-01    -  8.85e-01 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40r 7.5819551e+01 3.01e-04 7.25e-03  -4.0 4.55e-02    -  1.00e+00 1.00e+00h  1
+  41r 7.3118752e+01 1.71e-03 8.34e-03  -4.0 1.22e-01    -  1.00e+00 1.00e+00h  1
+  42r 7.2232902e+01 6.75e-04 5.74e-03  -4.0 8.04e-02    -  1.00e+00 1.00e+00h  1
+  43r 7.2019177e+01 2.74e-04 4.06e-03  -4.0 5.50e-02    -  1.00e+00 1.00e+00h  1
+  44r 7.1975096e+01 1.35e-04 2.93e-03  -4.0 3.84e-02    -  1.00e+00 1.00e+00h  1
+  45r 7.1375183e+01 3.74e-04 1.63e-03  -6.0 4.09e-02    -  9.58e-01 1.00e+00f  1
+  46r 7.2551365e+01 1.95e-02 9.55e-03  -4.0 3.56e-01    -  1.00e+00 1.00e+00f  1
+  47r 6.9075539e+01 1.28e-02 4.72e-03  -4.1 3.28e-01    -  1.00e+00 1.00e+00h  1
+  48r 7.2027159e+01 7.04e-04 2.46e-03  -4.1 3.38e-02    -  1.00e+00 1.00e+00h  1
+  49r 7.1398130e+01 5.26e-04 2.27e-03  -6.1 4.37e-02    -  9.30e-01 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50r 7.2678704e+01 2.21e-02 9.36e-03  -4.0 3.90e-01    -  1.00e+00 1.00e+00f  1
+  51r 6.8684794e+01 1.42e-02 4.92e-03  -4.1 3.62e-01    -  1.00e+00 1.00e+00h  1
+  52r 7.2030776e+01 1.16e-03 2.41e-03  -4.1 3.53e-02    -  1.00e+00 1.00e+00h  1
+  53r 7.1908866e+01 1.54e-04 2.10e-03  -4.1 3.18e-02    -  1.00e+00 1.00e+00h  1
+  54r 7.1326673e+01 3.52e-04 1.72e-03  -6.1 3.32e-02    -  9.52e-01 1.00e+00h  1
+  55r 7.2807783e+01 2.39e-02 9.65e-03  -4.0 3.99e-01    -  1.00e+00 1.00e+00f  1
+  56r 6.8539132e+01 1.57e-02 4.58e-03  -4.1 3.70e-01    -  1.00e+00 1.00e+00h  1
+  57r 7.2034753e+01 1.07e-03 2.31e-03  -4.1 3.58e-02    -  1.00e+00 1.00e+00h  1
+  58r 7.1908437e+01 1.47e-04 1.98e-03  -4.1 2.95e-02    -  1.00e+00 1.00e+00h  1
+  59r 7.1325744e+01 3.44e-04 1.74e-03  -6.1 3.24e-02    -  9.51e-01 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60r 7.1309639e+01 3.17e-05 8.15e-05  -6.1 1.72e-02    -  1.00e+00 1.00e+00h  1
+  61r 1.0160282e+02 1.42e-01 3.60e-02  -4.0 7.65e-01    -  1.00e+00 1.00e+00f  1
+  62r 6.6442150e+01 1.04e-01 1.45e-02  -4.1 6.71e-01    -  1.00e+00 9.74e-01h  1
+  63r 7.2019637e+01 5.33e-03 1.63e-02  -4.1 1.40e-01    -  5.41e-01 1.00e+00h  1
+  64r 7.2020720e+01 1.91e-03 7.75e-03  -4.1 1.28e-01    -  1.00e+00 1.00e+00h  1
+  65r 7.1963736e+01 3.48e-04 4.20e-03  -4.1 6.21e-02    -  1.00e+00 1.00e+00h  1
+  66r 7.1930311e+01 1.81e-04 3.03e-03  -4.1 4.45e-02    -  1.00e+00 1.00e+00h  1
+  67r 7.1912140e+01 1.02e-04 2.14e-03  -4.1 3.05e-02    -  1.00e+00 1.00e+00h  1
+  68r 7.1334426e+01 3.47e-04 1.28e-03  -6.1 3.56e-02    -  9.65e-01 1.00e+00f  1
+  69r 7.1318211e+01 3.71e-05 9.21e-05  -6.1 2.04e-02    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70r 1.0499923e+02 1.36e-01 3.34e-02  -4.0 7.46e-01    -  1.00e+00 1.00e+00f  1
+  71r 6.6140730e+01 1.00e-01 1.46e-02  -4.1 6.55e-01    -  1.00e+00 9.91e-01h  1
+  72r 7.2040350e+01 5.10e-03 1.79e-02  -4.1 1.29e-01    -  4.91e-01 1.00e+00h  1
+  73r 7.1997278e+01 2.04e-03 7.24e-03  -4.1 1.22e-01    -  1.00e+00 1.00e+00h  1
+  74r 7.1950410e+01 3.02e-04 3.81e-03  -4.1 5.58e-02    -  1.00e+00 1.00e+00h  1
+  75r 7.1922458e+01 1.07e-04 2.73e-03  -4.1 3.98e-02    -  1.00e+00 1.00e+00h  1
+  76r 7.1340194e+01 3.66e-04 1.77e-03  -6.1 4.08e-02    -  9.50e-01 1.00e+00f  1
+  77r 7.1323118e+01 3.97e-05 1.04e-04  -6.1 2.28e-02    -  1.00e+00 1.00e+00h  1
+  78r 7.1045325e+01 4.95e-04 6.70e-05  -6.1 6.57e-02    -  1.00e+00 1.00e+00h  1
+  79r 7.0987561e+01 8.76e-05 2.37e-05  -6.1 2.57e-02    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80r 4.4626568e+11 1.02e-01 2.45e-02  -4.0 1.22e+00    -  1.00e+00 6.37e-01f  1
+  81r 6.8911705e+01 6.61e-02 1.23e-02  -4.1 6.42e-01    -  9.34e-01 1.00e+00h  1
+  82r 7.2500126e+01 2.57e-03 4.46e-03  -4.1 1.01e-01    -  1.00e+00 1.00e+00h  1
+  83r 7.1997471e+01 9.10e-04 4.66e-03  -4.1 8.41e-02    -  1.00e+00 1.00e+00h  1
+  84r 7.1890832e+01 3.14e-04 3.05e-03  -4.1 5.25e-02    -  1.00e+00 1.00e+00h  1
+  85r 7.1866825e+01 1.64e-04 2.12e-03  -4.1 3.54e-02    -  1.00e+00 1.00e+00h  1
+  86r 7.1307262e+01 3.23e-04 1.16e-03  -6.2 3.82e-02    -  9.63e-01 1.00e+00f  1
+  87r 7.3285043e+01 3.51e-02 1.35e-02  -4.0 4.53e-01    -  1.00e+00 1.00e+00f  1
+  88r 6.7995011e+01 1.96e-02 5.83e-03  -4.1 4.23e-01    -  1.00e+00 9.86e-01h  1
+  89r 7.2048724e+01 2.26e-03 8.41e-03  -4.1 5.33e-02    -  6.39e-01 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  90r 7.1905382e+01 4.69e-04 2.61e-03  -4.1 4.13e-02    -  1.00e+00 1.00e+00h  1
+  91r 7.1326360e+01 3.94e-04 1.91e-03  -6.1 3.57e-02    -  9.47e-01 1.00e+00h  1
+  92r 7.1309920e+01 3.73e-05 9.25e-05  -6.1 1.90e-02    -  1.00e+00 1.00e+00h  1
+  93r 7.1039199e+01 2.28e-04 5.52e-05  -6.1 5.50e-02    -  1.00e+00 1.00e+00h  1
+  94r 2.3626985e+10 1.21e-01 2.87e-02  -4.0 1.13e+00    -  1.00e+00 7.27e-01f  1
+  95r 6.8030004e+01 8.28e-02 1.44e-02  -4.1 6.88e-01    -  1.00e+00 1.00e+00h  1
+  96r 7.2426295e+01 3.51e-03 4.91e-03  -4.1 1.21e-01    -  1.00e+00 1.00e+00h  1
+  97r 7.2017057e+01 1.29e-03 5.67e-03  -4.1 1.01e-01    -  1.00e+00 1.00e+00h  1
+  98r 7.1917828e+01 3.94e-04 3.60e-03  -4.1 6.01e-02    -  1.00e+00 1.00e+00h  1
+  99r 7.1888119e+01 2.11e-04 2.51e-03  -4.1 4.07e-02    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100r 7.1320620e+01 3.58e-04 1.34e-03  -6.2 4.15e-02    -  9.58e-01 1.00e+00f  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.6353480777707244e+02    2.6353480777707244e+02
-Dual infeasibility......:   8.1213412785250053e+07    8.1213412785250053e+07
-Constraint violation....:   3.7858605139717838e-14    3.7858605139717838e-14
+Objective...............:   7.1320619751607978e+01    7.1320619751607978e+01
+Dual infeasibility......:   5.4803203843049928e+01    5.4803203843049928e+01
+Constraint violation....:   3.5828998063387740e-04    3.5828998063387740e-04
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   7.9960222178797387e-05    7.9960222178797387e-05
-Overall NLP error.......:   4.6612434121131650e+04    8.1213412785250053e+07
+Complementarity.........:   1.9713011971222261e-05    1.9713011971222261e-05
+Overall NLP error.......:   5.4803203843049928e+01    5.4803203843049928e+01
 
 
-Number of objective function evaluations             = 119
-Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 119
+Number of objective function evaluations             = 118
+Number of objective gradient evaluations             = 33
+Number of equality constraint evaluations            = 118
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 13.172
+Total seconds in IPOPT                               = 5.326
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to spline_pulse_basic_3691ae1.jld2</code></pre><div class="admonition is-warning" id="The-default-integrator-is-piecewise-constant-—-check-the-divergence-34e7ed4ffdc7227"><header class="admonition-header">The default integrator is piecewise constant — check the divergence<a class="admonition-anchor" href="#The-default-integrator-is-piecewise-constant-—-check-the-divergence-34e7ed4ffdc7227" title="Permalink"></a></header><div class="admonition-body"><p>Every solve on this page uses the <strong>PWC</strong> integrator (<code>integrator_type = :pwc</code>), <code>BilinearIntegrator</code>: it models the drive as <strong>piecewise constant on each interval</strong>. That is not what a spline pulse is, so the optimizer is minimizing against a different waveform than the one your pulse actually produces. For a <code>CubicSplinePulse</code> it is worse still — the Hermite tangents (<code>:du</code>) get no gradient at all, so they simply sit at their initial values and are then integrated for real by the re-rollout. Constructing a cubic-spline problem without declaring the integrator choice is an <strong>error</strong> as of #275 — this page declares <code>:pwc</code> explicitly so you can see exactly what you are getting.</p><p>This is easy to <em>see</em> rather than take on faith. <code>rollout_divergence</code> compares the optimizer&#39;s collocation solution against an ODE re-rollout of the same pulse at the final time, and <code>sync_trajectory!</code> warns automatically when the two part company:</p></div></div><pre><code class="language-julia hljs">rollout_divergence(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.3132542743406853</code></pre><p>Reference points, so you can judge the number above: a <em>correctly</em> paired spline-pulse-plus-spline-integrator problem measures <code>3.5e-7 … 6.4e-4</code>, while a spline pulse under a piecewise-constant integrator measures <code>5.9e-2 … 1.9e-1</code> — roughly a 90× gap, which is why <code>ROLLOUT_DIVERGENCE_RTOL[]</code> defaults to <code>5e-3</code>. Refining the grid does <strong>not</strong> help; the divergence <em>grows</em> with <code>N</code>, because a finer collocation grid gives the optimizer more room to exploit the model.</p><p><code>verify</code> says the same thing in fidelity terms — what the optimizer believes, versus what the pulse achieves:</p><pre><code class="language-julia hljs">verify(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">VerificationReport (FAIL)
-  F_rollout   (physical): 0.9015322178982392
-  F_optimizer           : 0.9999103583176885
-  ΔF          (atol 0.0001): 0.09837814041944926
-  divergence  (rtol 0.005): 0.3132542743406853
-  phases                : none</code></pre><p><strong>This example is itself affected, and not subtly.</strong> At the time of writing it reports <code>F_optimizer ≈ 0.999998</code> against <code>F_rollout ≈ 0.77</code> — the optimizer is confident to six digits about a pulse that misses by roughly 0.23 in absolute fidelity. The <code>F_optimizer</code> figure is the one you would have read off this page before the divergence check existed. Prefer <code>F_rollout</code>.</p><div class="admonition is-info" id="Getting-a-matched-integrator-a779d706782e6477"><header class="admonition-header">Getting a matched integrator<a class="admonition-anchor" href="#Getting-a-matched-integrator-a779d706782e6477" title="Permalink"></a></header><div class="admonition-body"><p>Piccolo ships no spline integrator, so this page cannot demonstrate the correct pairing — <code>SplineIntegrator</code> lives in Piccolissimo, which is not a dependency of these docs. Pass it explicitly:</p><pre><code class="language-julia hljs">using Piccolissimo: SplineIntegrator, MagnusGL4Alg
-integrator = SplineIntegrator(qtraj, N; alg = MagnusGL4Alg(n_steps = 50))
-qcp = SplinePulseProblem(qtraj, N; integrator = integrator, Q = 100.0)</code></pre><p>Without it, treat the fidelity reported by any example on this page as an artifact of the PWC model rather than a property of the pulse, and always prefer <code>verify(qcp).F_rollout</code>.</p></div></div><h3 id="Warm-Starting-from-Previous-Solution"><a class="docs-heading-anchor" href="#Warm-Starting-from-Previous-Solution">Warm-Starting from Previous Solution</a><a id="Warm-Starting-from-Previous-Solution-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-Previous-Solution" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Load previously optimized pulse
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to spline_pulse_basic_089ad88.jld2</code></pre><div class="admonition is-info" id="The-default-integrator-is-spline-faithful-—-the-PWC-path-is-the-escape-hatch-6160c7f927db5a62"><header class="admonition-header">The default integrator is spline-faithful — the PWC path is the escape hatch<a class="admonition-anchor" href="#The-default-integrator-is-spline-faithful-—-the-PWC-path-is-the-escape-hatch-6160c7f927db5a62" title="Permalink"></a></header><div class="admonition-body"><p>Since #334 the default backend is Piccolo&#39;s native <code>SplineIntegrator</code>: the collocation integrates the same interpolated waveform the pulse object describes. The piecewise-constant <code>BilinearIntegrator</code> remains available as the <strong>explicit</strong> <code>integrator_type = :pwc</code> choice — and it <em>warns</em> for <code>CubicSplinePulse</code>, because it never reads the Hermite tangents (<code>:du</code>): the optimizer would minimize against a different waveform than the one your pulse actually produces. Historically that backend was the silent default (measured: optimizer-reported ~1e-8 infidelity for pulses actually achieving ~1e-3, before #275 turned it into an error and #334 replaced it with the correct default). Declare it only when you mean it, and then check the divergence:</p><p>This is easy to <em>see</em> rather than take on faith. <code>rollout_divergence</code> compares the optimizer&#39;s collocation solution against an ODE re-rollout of the same pulse at the final time, and <code>sync_trajectory!</code> warns automatically when the two part company:</p></div></div><pre><code class="language-julia hljs">rollout_divergence(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.0005166366865586361</code></pre><p>Reference points, so you can judge the number above: a <em>correctly</em> paired spline-pulse-plus-spline-integrator problem measures <code>3.5e-7 … 6.4e-4</code>, while a spline pulse under a piecewise-constant integrator measures <code>5.9e-2 … 1.9e-1</code> — roughly a 90× gap, which is why <code>ROLLOUT_DIVERGENCE_RTOL[]</code> defaults to <code>5e-3</code>. Refining the grid does <strong>not</strong> help; the divergence <em>grows</em> with <code>N</code>, because a finer collocation grid gives the optimizer more room to exploit the model.</p><p><code>verify</code> says the same thing in fidelity terms — what the optimizer believes, versus what the pulse achieves:</p><pre><code class="language-julia hljs">verify(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">VerificationReport (FAIL)
+  F_rollout   (physical): 0.2998822593536599
+  F_optimizer           : 0.3003397598453141
+  ΔF          (atol 0.0001): 0.0004575004916541614
+  divergence  (rtol 0.005): 0.0005166366865586361
+  phases                : none</code></pre><p>To see the trap the old default set, declare the PWC backend explicitly and compare — this is the acknowledged escape hatch in action:</p><pre><code class="language-julia hljs">qcp_pwc = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0, integrator_type = :pwc)
+solve!(qcp_pwc; max_iter = 100)
+verify(qcp_pwc)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">VerificationReport (FAIL)
+  F_rollout   (physical): 0.8972633782907857
+  F_optimizer           : 0.9992339684739348
+  ΔF          (atol 0.0001): 0.10197059018314902
+  divergence  (rtol 0.005): 0.3080164204523965
+  phases                : none</code></pre><p>Under the PWC backend the optimizer is confident to six digits (<code>F_optimizer ≈ 0.999998</code>) about a pulse whose rollout misses by roughly <code>0.23</code> in absolute fidelity — the <code>F_optimizer</code> figure is the one the old default would have shown you. Prefer <code>F_rollout</code>, and keep the spline-faithful default unless you specifically need PWC.</p><div class="admonition is-info" id="Spline-integrator-variants-556e95856b7060fb"><header class="admonition-header">Spline-integrator variants<a class="admonition-anchor" href="#Spline-integrator-variants-556e95856b7060fb" title="Permalink"></a></header><div class="admonition-body"><p>The default <code>SplineIntegrator</code> ships in Piccolo (analytic knot-aware sensitivities, adaptive Tsit5 default). Parallel and Magnus-scheme variants (<code>SplineIntegrator(qtraj, N; alg = MagnusGL4Alg(...))</code>, ...) live in the Piccolissimo stack — pass those explicitly via <code>integrator = ...</code>.</p></div></div><h3 id="Warm-Starting-from-Previous-Solution"><a class="docs-heading-anchor" href="#Warm-Starting-from-Previous-Solution">Warm-Starting from Previous Solution</a><a id="Warm-Starting-from-Previous-Solution-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-Previous-Solution" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Load previously optimized pulse
 using JLD2
 @load &quot;optimized_pulse.jld2&quot; saved_pulse
 
 # Create new trajectory with saved pulse
 qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
 
-# Use native knot times (no resampling)
-qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)
-solve!(qcp; max_iter=50)  # Converges quickly from good initial guess</code></pre><h3 id="Resampling-to-Different-Resolution"><a class="docs-heading-anchor" href="#Resampling-to-Different-Resolution">Resampling to Different Resolution</a><a id="Resampling-to-Different-Resolution-1"></a><a class="docs-heading-anchor-permalink" href="#Resampling-to-Different-Resolution" title="Permalink"></a></h3><p>The original pulse above has 50 knots. We can resample to 100 for finer control:</p><pre><code class="language-julia hljs">qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0, integrator_type = :pwc)
+# Use native knot times (no resampling) — spline-faithful default
+qcp = SplinePulseProblem(qtraj)
+solve!(qcp; max_iter=50)  # Converges quickly from good initial guess</code></pre><h3 id="Resampling-to-Different-Resolution"><a class="docs-heading-anchor" href="#Resampling-to-Different-Resolution">Resampling to Different Resolution</a><a id="Resampling-to-Different-Resolution-1"></a><a class="docs-heading-anchor-permalink" href="#Resampling-to-Different-Resolution" title="Permalink"></a></h3><p>The original pulse above has 50 knots. We can resample to 100 for finer control:</p><pre><code class="language-julia hljs">qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
 solve!(qcp_resampled; max_iter = 100)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing SplinePulseProblem [UnitaryTrajectory / CubicSplinePulse]
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the dynamics treat the drive as piecewise constant and ignore :du — the optimized waveform differs from the cubic spline the pulse object describes. Acknowledged because you asked for it explicitly.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.ProblemTemplates ~/work/Piccolo.jl/Piccolo.jl/src/control/templates/spline_pulse_problem.jl:358</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Trajectory has timestep variable :Δt but no bounds on it.
 <span class="sgr33"><span class="sgr1">│ </span></span>Adding default lower bound of 0 to prevent negative timesteps.
 <span class="sgr33"><span class="sgr1">│ </span></span>
@@ -187,13 +245,13 @@ solve!(qcp_resampled; max_iter = 100)</code></pre><pre class="documenter-example
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
 <span class="sgr1">QuantumControlProblem</span>
-├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  BilinearIntegrator
+├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  SplineIntegrator
 │
 ├─ <span class="sgr1">System</span>
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=10.170   Δt∈[0, Inf]
+│    N=100   T=9.955   Δt∈[0, Inf]
 │    Ũ⃗   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt  (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t   (1)                                 <span class="sgr90">·</span>  state
@@ -203,15 +261,15 @@ solve!(qcp_resampled; max_iter = 100)</code></pre><pre class="documenter-example
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 10.34  @ current x</span>
-│    KnotPointObjective                w=1             9.847
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 10.87  @ current x</span>
+│    KnotPointObjective                w=1             10.27
 │    QuadraticRegularizer(:u)          w=1             0
 │    QuadraticRegularizer(:du)         w=1             0
-│    HermiteBendingEnergyRegularizer   w=1             0.4889
+│    HermiteBendingEnergyRegularizer   w=1             0.5982
 │    NullObjective                     w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/12 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.02026)
+│    [dyn]  SplineIntegrator            <span class="sgr31">✗</span>  (‖c‖∞ = 1.209e-03)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -228,33 +286,15 @@ solve!(qcp_resampled; max_iter = 100)</code></pre><pre class="documenter-example
      variables: 1400   (1000 bounded)
      equality:  78415
      inequality: 0
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.901532</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.897263</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.163  (tolerance 0.005)
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
-<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
-<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
-<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
-<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
-<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. Pair a spline pulse with
-<span class="sgr33"><span class="sgr1">│ </span></span>    `Piccolissimo.SplineIntegrator`.
-<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
-<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:711</span>
 This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
 
-Number of nonzeros in equality constraint Jacobian...:    22336
+Number of nonzeros in equality constraint Jacobian...:    14448
 Number of nonzeros in inequality constraint Jacobian.:        0
-Number of nonzeros in Lagrangian Hessian.............:    29512
+Number of nonzeros in Lagrangian Hessian.............:    11259
 
 Total number of variables............................:     1383
                      variables with only lower bounds:      100
@@ -267,45 +307,45 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  1.0335698e+01 2.03e-02 1.38e+01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  5.6101315e+00 4.10e-03 1.14e+02  -1.0 9.91e-02   2.0 9.99e-01 1.00e+00f  1
-   2  5.1163735e+00 8.34e-05 2.56e+01  -2.3 2.11e-02   2.4 1.00e+00 1.00e+00f  1
-   3  3.7709776e+00 4.98e-04 1.07e+01  -3.0 5.14e-02   1.9 1.00e+00 1.00e+00f  1
-   4  2.4141332e+01 1.80e-05 9.14e+03  -3.9 5.93e-02   1.5 9.54e-01 1.00e+00H  1
+   0  1.0871815e+01 5.93e-03 1.46e+01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.0789837e+01 1.27e-06 6.67e+01  -4.0 6.67e-03   4.0 9.87e-01 1.00e+00h  1
+   2  1.0519273e+01 1.02e-05 1.47e+01  -3.4 4.40e-03   3.5 1.00e+00 1.00e+00f  1
+   3  9.7623020e+00 8.51e-05 1.41e+01  -4.0 1.27e-02   3.0 1.00e+00 1.00e+00f  1
+   4  8.1738605e+00 5.20e-04 1.18e+01  -4.0 3.19e-02   2.6 1.00e+00 1.00e+00f  1
 ⋮
-  96  1.5823034e-01 5.31e-10 1.25e+03  -4.0 4.20e-05   4.9 1.00e+00 1.00e+00f  1
-  97  1.5814611e-01 4.59e-12 2.81e+01  -4.0 3.64e-06   4.4 1.00e+00 1.00e+00f  1
-  98  1.5814571e-01 1.20e-11 9.00e-01  -4.0 6.22e-06   4.0 1.00e+00 1.00e+00h  1
-  99  1.5814398e-01 5.97e-11 1.39e-01  -4.1 1.40e-05   3.5 1.00e+00 1.00e+00h  1
+  96  1.1132832e+00 1.75e-08 2.81e-01  -4.0 3.34e-04   2.9 1.00e+00 1.00e+00f  1
+  97  1.1032446e+00 1.96e-07 2.84e-01  -4.0 1.01e-03   2.4 1.00e+00 1.00e+00f  1
+  98  1.0996215e+00 2.16e-08 2.75e-01  -4.0 3.68e-04   2.9 1.00e+00 1.00e+00f  1
+  99  1.0888316e+00 2.48e-07 2.78e-01  -4.0 1.11e-03   2.4 1.00e+00 1.00e+00f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  1.5814104e-01 7.38e-10 5.93e-01  -4.0 4.89e-05   3.0 1.00e+00 1.00e+00h  1
+ 100  1.0849489e+00 2.64e-08 2.68e-01  -4.0 4.03e-04   2.8 1.00e+00 1.00e+00f  1
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.5814103684975142e-01    1.5814103684975142e-01
-Dual infeasibility......:   5.9319609111744631e-01    5.9319609111744631e-01
-Constraint violation....:   7.3846848080982852e-10    7.3846848080982852e-10
+Objective...............:   1.0849489347974568e+00    1.0849489347974568e+00
+Dual infeasibility......:   2.6755379905932003e-01    2.6755379905932003e-01
+Constraint violation....:   2.6406485331698093e-08    2.6406485331698093e-08
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0113532955155004e-04    1.0113532955155004e-04
-Overall NLP error.......:   5.9319609111744631e-01    5.9319609111744631e-01
+Complementarity.........:   1.0000000000000003e-04    1.0000000000000003e-04
+Overall NLP error.......:   2.6755379905932003e-01    2.6755379905932003e-01
 
 
-Number of objective function evaluations             = 108
+Number of objective function evaluations             = 101
 Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 108
+Number of equality constraint evaluations            = 101
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 101
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 11.382
+Total seconds in IPOPT                               = 3.899
 
 EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to spline_pulse_resampled_3691ae1.jld2</code></pre><h3 id="Linear-vs-Cubic-Splines"><a class="docs-heading-anchor" href="#Linear-vs-Cubic-Splines">Linear vs Cubic Splines</a><a id="Linear-vs-Cubic-Splines-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-vs-Cubic-Splines" title="Permalink"></a></h3><p><strong>Linear Splines</strong>: The derivative <code>:du</code> represents the slope between knots. A <code>DerivativeIntegrator</code> constraint enforces <code>du[k] = (u[k+1] - u[k]) / Δt</code>.</p><pre><code class="language-julia hljs">pulse_linear = LinearSplinePulse(controls, times)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to spline_pulse_resampled_089ad88.jld2</code></pre><h3 id="Linear-vs-Cubic-Splines"><a class="docs-heading-anchor" href="#Linear-vs-Cubic-Splines">Linear vs Cubic Splines</a><a id="Linear-vs-Cubic-Splines-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-vs-Cubic-Splines" title="Permalink"></a></h3><p><strong>Linear Splines</strong>: The derivative <code>:du</code> represents the slope between knots. A <code>DerivativeIntegrator</code> constraint enforces <code>du[k] = (u[k+1] - u[k]) / Δt</code>.</p><pre><code class="language-julia hljs">pulse_linear = LinearSplinePulse(controls, times)
 qtraj_linear = UnitaryTrajectory(sys, pulse_linear, GATES[:X])
 qcp_linear = SplinePulseProblem(qtraj_linear)
 # du is constrained to be consistent with u</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">QuantumControlProblem</span>
-├─ UnitaryTrajectory  ·  LinearSplinePulse  ·  BilinearIntegrator, DerivativeIntegrator
+├─ UnitaryTrajectory  ·  LinearSplinePulse  ·  SplineIntegrator, DerivativeIntegrator
 │  
 ├─ <span class="sgr1">System</span>
 │    dim=2   drives=2
@@ -328,7 +368,7 @@ qcp_linear = SplinePulseProblem(qtraj_linear)
 │    NullObjective               w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/10 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.03297)
+│    [dyn]  SplineIntegrator            <span class="sgr31">✗</span>  (‖c‖∞ = 1.521e-03)
 │    [dyn]  DerivativeIntegrator        <span class="sgr32">✓</span>  (‖c‖∞ = 2.776e-17)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -348,9 +388,9 @@ qcp_linear = SplinePulseProblem(qtraj_linear)
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 </code></pre><p><strong>Cubic Splines (Hermite)</strong>: The derivative <code>:du</code> represents independent Hermite tangents at each knot. These are free optimization variables with no inter-knot constraint.</p><pre><code class="language-julia hljs">pulse_cubic = CubicSplinePulse(controls, tangents, times)
 qtraj_cubic = UnitaryTrajectory(sys, pulse_cubic, GATES[:X])
-qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared PWC — see the warning above
+qcp_cubic = SplinePulseProblem(qtraj_cubic)  # spline-faithful default — the correct cubic pairing
 # du (tangents) are independent variables</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">QuantumControlProblem</span>
-├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  BilinearIntegrator
+├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  SplineIntegrator
 │  
 ├─ <span class="sgr1">System</span>
 │    dim=2   drives=2
@@ -374,7 +414,7 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
 │    NullObjective                     w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/12 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.03268)
+│    [dyn]  SplineIntegrator            <span class="sgr31">✗</span>  (‖c‖∞ = 9.878e-04)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -398,15 +438,14 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
     qtraj;
     Q = 100.0,
     du_bounds = [5.0, 2.0],  ## drive 1 allows faster slopes than drive 2
-    integrator_type = :pwc,  ## declared PWC — see the warning above
 )</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">QuantumControlProblem</span>
-├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  BilinearIntegrator
+├─ UnitaryTrajectory  ·  CubicSplinePulse  ·  SplineIntegrator
 │  
 ├─ <span class="sgr1">System</span>
 │    dim=2   drives=2
 │  
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=10.354   Δt∈[0, Inf]
+│    N=100   T=9.884   Δt∈[0, Inf]
 │    Ũ⃗   (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt  (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t   (1)                                 <span class="sgr90">·</span>  state
@@ -416,15 +455,15 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │  
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2.831  @ current x</span>
-│    KnotPointObjective                w=1             2.673
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.085  @ current x</span>
+│    KnotPointObjective                w=1             0.2121
 │    QuadraticRegularizer(:u)          w=1             0
 │    QuadraticRegularizer(:du)         w=1             0
-│    HermiteBendingEnergyRegularizer   w=1             0.1578
+│    HermiteBendingEnergyRegularizer   w=1             0.8729
 │    NullObjective                     w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/12 violated at x₀</span>
-│    [dyn]  BilinearIntegrator          <span class="sgr31">✗</span>  (‖c‖∞ = 0.03606)
+│    [dyn]  SplineIntegrator            <span class="sgr31">✗</span>  (‖c‖∞ = 3.602e-03)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint          <span class="sgr32">✓</span>  (no eval)
@@ -441,10 +480,10 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
      variables: 1400   (1200 bounded)
      equality:  78415
      inequality: 0
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.973271</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.997879</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
-</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bang_bang_pulse/">« BangBangPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 1 October 2026 14:55">Thursday 1 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+</code></pre><h2 id="Trajectory-Structure"><a class="docs-heading-anchor" href="#Trajectory-Structure">Trajectory Structure</a><a id="Trajectory-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Trajectory-Structure" title="Permalink"></a></h2><p>Unlike <code>SmoothPulseProblem</code> which has three derivative levels (<code>:u</code>, <code>:du</code>, <code>:ddu</code>), <code>SplinePulseProblem</code> only has one:</p><table><tr><th style="text-align: right">Variable</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right"><code>:u</code></td><td style="text-align: right">Control values at knot points</td></tr><tr><td style="text-align: right"><code>:du</code></td><td style="text-align: right">Derivatives/tangents (meaning depends on spline type)</td></tr></table><p>The reduced number of variables can lead to faster optimization while maintaining smooth pulses through the spline interpolation.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - For L1-regularized bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> - Detailed pulse type documentation</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bang_bang_pulse/">« BangBangPulseProblem</a><a class="docs-footer-nextpage" href="../minimum_time/">MinimumTimeProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 2 October 2026 15:00">Friday 2 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./spline_pulse.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/spline_pulse.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
@@ -476,13 +515,13 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
 # # Linear spline
 # pulse = LinearSplinePulse(controls, times)
 # qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-# qcp = SplinePulseProblem(qtraj)  # Works (warns: default PWC integrator)
+# qcp = SplinePulseProblem(qtraj)  # spline-faithful default (native SplineIntegrator)
 #
-# # Cubic spline — the integrator choice must be explicit (#275)
+# # Cubic spline — the default is the correct pairing since #334
 # pulse = CubicSplinePulse(controls, tangents, times)
 # qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-# qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)  # acknowledged PWC
-# # or, for spline-faithful dynamics: integrator = Piccolissimo.SplineIntegrator(qtraj, N)
+# qcp = SplinePulseProblem(qtraj)  # spline-faithful by default
+# # PWC escape hatch, when explicitly wanted: qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)
 # ```
 #
 # ## Constructor Variants
@@ -534,7 +573,7 @@ qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared 
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator. **Defaults to `BilinearIntegrator`, which is piecewise constant** — a mismatch for every spline pulse; see the warning below. |
+# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator. If `nothing`, uses the native spline-faithful `SplineIntegrator` (the #334 default — globals auto-detected from `sys.global_params`). `integrator_type = :pwc` requests the piecewise-constant escape hatch; see below. |
 # | `global_names` | `Vector{Symbol}` | `nothing` | Global parameters to optimize |
 # | `global_bounds` | `Dict{Symbol, ...}` | `nothing` | Bounds on global variables |
 # | `constraints` | `Vector{AbstractConstraint}` | `[]` | Additional constraints |
@@ -562,21 +601,24 @@ pulse = CubicSplinePulse(controls, tangents, times)
 
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
-## Solve using native knot times
-## `integrator_type = :pwc` acknowledges (see the warning below) that Piccolo's
-## only built-in integrator treats the drive as piecewise constant.
-qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0, integrator_type = :pwc)
+## Solve using native knot times. Since #334 the default integrator is the
+## native spline-faithful SplineIntegrator — the optimized waveform is the
+## spline the pulse object describes.
+qcp = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0)
 solve!(qcp; max_iter = 100)
 
-# !!! warning "The default integrator is piecewise constant — check the divergence"
-#     Every solve on this page uses the **PWC** integrator (`integrator_type = :pwc`),
-#     `BilinearIntegrator`: it models the drive as **piecewise constant on each interval**. That
-#     is not what a spline pulse is, so the optimizer is minimizing against a different waveform
-#     than the one your pulse actually produces. For a `CubicSplinePulse` it is worse still — the
-#     Hermite tangents (`:du`) get no gradient at all, so they simply sit at their initial values
-#     and are then integrated for real by the re-rollout. Constructing a cubic-spline problem
-#     without declaring the integrator choice is an **error** as of #275 — this page declares
-#     `:pwc` explicitly so you can see exactly what you are getting.
+# !!! note "The default integrator is spline-faithful — the PWC path is the escape hatch"
+#     Since #334 the default backend is Piccolo's native `SplineIntegrator`: the
+#     collocation integrates the same interpolated waveform the pulse object
+#     describes. The piecewise-constant `BilinearIntegrator` remains available as
+#     the **explicit** `integrator_type = :pwc` choice — and it *warns* for
+#     `CubicSplinePulse`, because it never reads the Hermite tangents (`:du`):
+#     the optimizer would minimize against a different waveform than the one your
+#     pulse actually produces. Historically that backend was the silent default
+#     (measured: optimizer-reported ~1e-8 infidelity for pulses actually achieving
+#     ~1e-3, before #275 turned it into an error and #334 replaced it with the
+#     correct default). Declare it only when you mean it, and then check the
+#     divergence:
 #
 #     This is easy to *see* rather than take on faith. `rollout_divergence` compares the
 #     optimizer's collocation solution against an ODE re-rollout of the same pulse at the final
@@ -596,24 +638,24 @@ rollout_divergence(qcp)
 
 verify(qcp)
 
-# **This example is itself affected, and not subtly.** At the time of writing it reports
-# `F_optimizer ≈ 0.999998` against `F_rollout ≈ 0.77` — the optimizer is confident to six digits
-# about a pulse that misses by roughly 0.23 in absolute fidelity. The `F_optimizer` figure is the
-# one you would have read off this page before the divergence check existed. Prefer `F_rollout`.
+# To see the trap the old default set, declare the PWC backend explicitly and
+# compare — this is the acknowledged escape hatch in action:
 
-# !!! note "Getting a matched integrator"
-#     Piccolo ships no spline integrator, so this page cannot demonstrate the correct pairing —
-#     `SplineIntegrator` lives in Piccolissimo, which is not a dependency of these docs. Pass it
-#     explicitly:
-#
-#     ```julia
-#     using Piccolissimo: SplineIntegrator, MagnusGL4Alg
-#     integrator = SplineIntegrator(qtraj, N; alg = MagnusGL4Alg(n_steps = 50))
-#     qcp = SplinePulseProblem(qtraj, N; integrator = integrator, Q = 100.0)
-#     ```
-#
-#     Without it, treat the fidelity reported by any example on this page as an artifact of the
-#     PWC model rather than a property of the pulse, and always prefer `verify(qcp).F_rollout`.
+qcp_pwc = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0, integrator_type = :pwc)
+solve!(qcp_pwc; max_iter = 100)
+verify(qcp_pwc)
+
+# Under the PWC backend the optimizer is confident to six digits
+# (`F_optimizer ≈ 0.999998`) about a pulse whose rollout misses by roughly
+# `0.23` in absolute fidelity — the `F_optimizer` figure is the one the old
+# default would have shown you. Prefer `F_rollout`, and keep the
+# spline-faithful default unless you specifically need PWC.
+
+# !!! note "Spline-integrator variants"
+#     The default `SplineIntegrator` ships in Piccolo (analytic knot-aware
+#     sensitivities, adaptive Tsit5 default). Parallel and Magnus-scheme variants
+#     (`SplineIntegrator(qtraj, N; alg = MagnusGL4Alg(...))`, ...) live in the
+#     Piccolissimo stack — pass those explicitly via `integrator = ...`.
 
 # ### Warm-Starting from Previous Solution
 #
@@ -625,8 +667,8 @@ verify(qcp)
 # # Create new trajectory with saved pulse
 # qtraj = UnitaryTrajectory(sys, saved_pulse, U_goal)
 #
-# # Use native knot times (no resampling)
-# qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)
+# # Use native knot times (no resampling) — spline-faithful default
+# qcp = SplinePulseProblem(qtraj)
 # solve!(qcp; max_iter=50)  # Converges quickly from good initial guess
 # ```
 #
@@ -634,7 +676,7 @@ verify(qcp)
 #
 # The original pulse above has 50 knots. We can resample to 100 for finer control:
 
-qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0, integrator_type = :pwc)
+qcp_resampled = SplinePulseProblem(qtraj, 100; Q = 100.0)
 solve!(qcp_resampled; max_iter = 100)
 
 # ### Linear vs Cubic Splines
@@ -650,7 +692,7 @@ qcp_linear = SplinePulseProblem(qtraj_linear)
 
 pulse_cubic = CubicSplinePulse(controls, tangents, times)
 qtraj_cubic = UnitaryTrajectory(sys, pulse_cubic, GATES[:X])
-qcp_cubic = SplinePulseProblem(qtraj_cubic; integrator_type = :pwc)  # declared PWC — see the warning above
+qcp_cubic = SplinePulseProblem(qtraj_cubic)  # spline-faithful default — the correct cubic pairing
 ## du (tangents) are independent variables
 
 # ### Per-Drive Derivative Bounds
@@ -662,7 +704,6 @@ qcp_per_drive = SplinePulseProblem(
     qtraj;
     Q = 100.0,
     du_bounds = [5.0, 2.0],  ## drive 1 allows faster slopes than drive 2
-    integrator_type = :pwc,  ## declared PWC — see the warning above
 )
 
 # ## Trajectory Structure
