@@ -72,17 +72,20 @@ pkg> add Piccolo
 
 ### Performance guidance
 
-The open stack solves direct-collocation problems with **dense assembled** gradients —
-`BilinearIntegrator` for zero-order holds (spline constraints via `DerivativeIntegrator`) —
-with **Ipopt** as the default NLP solver and **MadNLP** as an alternative. Dense paths are
-fine for small-to-medium problems; on stiff or large ones keep timesteps short and verify
-rollouts independently.
+The open stack solves direct-collocation problems with **dense assembled** gradients — the
+native `HermitianExponentialIntegrator` for zero-order holds (exact PWC with analytic
+Daleckii–Krein derivatives; `NonHermitianExponentialIntegrator` for open systems) and the
+native `SplineIntegrator` for spline pulses — with **Ipopt** as the default NLP solver today
+(the DirectTrajOpt backend default becomes **MadNLP** with its next release; Ipopt stays
+selectable). The legacy `BilinearIntegrator` remains the explicit `integrator_type = :pwc`
+choice. Dense paths are fine for small-to-medium problems; on stiff or large ones keep
+timesteps short and verify rollouts independently.
 
 The **matrix-free / Altissimo surface** — NewtonCG solves driven by JVP/VJP/HVP products
-that never form ∂Φ, the `matrix_free` flag on `HermitianExponentialIntegrator`, the
-spline/Magnus and GPU integrator family, and the opt-in exact inequality HVP — lives in the
-**proprietary Piccolissimo stack**, not in this repository (see
-[docs.harmoniqs.co](https://docs.harmoniqs.co) for that surface).
+that never form ∂Φ (the `matrix_free` flag on the native `HermitianExponentialIntegrator`
+is the entry point), the Magnus and GPU integrator variants, and the opt-in exact
+inequality HVP — lives in the **proprietary Piccolissimo stack**, not in this repository
+(see [docs.harmoniqs.co](https://docs.harmoniqs.co) for that surface).
 
 **2.0 migration:** the `subsystem_levels` kwarg was removed from `SmoothPulseProblem`;
 free-phase now derives levels from the goal — wrap gate targets in

@@ -135,8 +135,8 @@ The problem adds discrete derivative variables (du, ddu) that:
 - `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
-- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator (which does not support global variables). A custom integrator is required when `global_names` is specified.
-- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator (e.g., HermitianExponentialIntegrator from Piccolissimo) that supports global variables.
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, analytic Daleckii–Krein derivatives, globals-aware); open-system `DensityTrajectory` problems use its `NonHermitianExponentialIntegrator` counterpart.
+- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., Piccolo's own `HermitianExponentialIntegrator(qtraj, N; global_names=...)`) that carries those globals in its dynamics.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Bound on discrete first derivative (controls jump rate)
@@ -270,13 +270,15 @@ function _smooth_pulse_problem(
         if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
                 "free_phase=true or global_names requires a custom integrator that supports global variables. " *
-                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native HermitianExponentialIntegrator:\n" *
                 "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = SmoothPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        default_int = BilinearIntegrator(qtraj, N)
+        # #334: the quantum default is the native exact-PWC integrator — analytic
+        # Daleckii–Krein derivatives, global-variables-aware (#328 warp column).
+        # Open-system density trajectories route to the NonHermitian counterpart.
+        default_int = _default_quantum_integrator(qtraj, N)
         if default_int isa AbstractVector
             dynamics_integrators = AbstractIntegrator[default_int...]
         else
@@ -374,8 +376,8 @@ use `SplinePulseProblem` instead.
 - `N::Int`: number of knot points for the discretization
 
 # Keyword Arguments
-- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, the default `BilinearIntegrator` is used. When `global_names` is specified, you must supply a custom integrator here (i.e., do not rely on the default `BilinearIntegrator`) that supports global variables.
-- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., `HermitianExponentialIntegrator` from Piccolissimo) that supports global variables.
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, a single shared-propagator native `HermitianExponentialIntegrator` covers the whole ensemble (exact PWC, globals-aware).
+- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., Piccolo's own `HermitianExponentialIntegrator(qtraj, N; global_names=...)`) that carries those globals in its dynamics.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
 - `du_bound::Float64=Inf`: Bound on discrete first derivative
 - `ddu_bound::Float64=1.0`: Bound on discrete second derivative
@@ -524,19 +526,27 @@ function _smooth_pulse_problem(
         state_leakage_indices = state_leakage_indices,
     )
 
-    # Build integrators: one dynamics integrator per state
+    # Build integrators: the #334 default is a single shared-propagator
+    # integrator over the whole ensemble; per-member dynamics integrators
+    # arrive only via the explicit `integrator` kwarg (vector form).
     if isnothing(integrator)
         # Check for global_names without integrator
         if !isnothing(global_names) && !isempty(global_names)
             error(
                 "global_names requires a custom integrator that supports global variables. " *
-                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native HermitianExponentialIntegrator:\n" *
                 "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$global_names)\n" *
                 "  qcp = SmoothPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        dynamics_integrators = BilinearIntegrator(qtraj, N)
+        # #334: the quantum default is the native exact-PWC integrator — a single
+        # shared-propagator HermitianExponentialIntegrator over the ensemble, a
+        # SCALAR (the explicit per-member shapes arrive via the `integrator`
+        # kwarg below). Wrap before the splat.
+        dynamics_integrators = _default_quantum_integrator(qtraj, N)
+        if !(dynamics_integrators isa AbstractVector)
+            dynamics_integrators = AbstractIntegrator[dynamics_integrators]
+        end
     elseif integrator isa AbstractIntegrator
         dynamics_integrators = AbstractIntegrator[integrator]
     else
@@ -902,7 +912,17 @@ end
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
 
-    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    # Construct with the duration pinned to the trajectory's (T = 10, N = 50)
+    # grid: Δt_bounds = (0.2, 0.2). The free-Δt variant of this cell is a
+    # degenerate non-converger under BOTH integrators — Ipopt reports
+    # ITERATION_LIMIT even at max_iter = 1000 with a thrashing tail (primal
+    # infeasibility oscillating over orders of magnitude at the cutoff,
+    # observed up to 7.5e-2 in one environment) — so the old residual
+    # assertion rode on cutoff luck, not a solver guarantee. With the
+    # duration pinned the cell CONVERGES under the #334 NHE default and the
+    # old Bilinear default to the identical solution (proj_fid ≈ 0.9948,
+    # residual ~1e-12, LOCALLY_SOLVED in ~50 iterations).
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.2, 0.2))
 
     @test qcp isa QuantumControlProblem
     @test qcp.qtraj isa DensityTrajectory
@@ -919,10 +939,19 @@ end
     # Integrators: 1 dynamics + 2 derivatives = 3
     @test length(qcp.prob.integrators) == 3
 
-    # Solve. max_iter raised to 300 to give IPOPT room to drive the dynamics
-    # residual well below tolerance from any deterministic init the optimizer
-    # encounters across Julia versions.
-    solve!(qcp; max_iter = 300, print_level = 1, verbose = false)
+    # #334: the open-system default is the native exact-PWC tier
+    # (NonHermitianExponentialIntegrator), never a silent BilinearIntegrator.
+    @test qcp.prob.integrators[1] isa NonHermitianExponentialIntegrator
+
+    # Solve and REQUIRE convergence — with the duration pinned this cell is a
+    # well-posed converger, so the status is a loud contract: a future
+    # regression back to a thrashing non-converged cutoff fails HERE with a
+    # status, not below with a mystery residual number. Both LOCALLY_SOLVED
+    # and the acceptable-point ALMOST_LOCALLY_SOLVED count as converged;
+    # string-matching the MOI enum keeps this assert working on DTO versions
+    # that predate the C2 solve_status_symbol vocabulary.
+    stats = solve!(qcp; max_iter = 300, print_level = 1, verbose = false)
+    @test occursin("LOCALLY_SOLVED", string(stats.status))
 
     # Check fidelity via compact iso — physics outcome, not solver-internal
     # residual norm. This is what the test should actually assert.
@@ -932,9 +961,11 @@ end
     fid = real(tr(ρ_final * ρg))
     @test fid > 0.9
 
-    # Dynamics constraints should be satisfied to a level meaningful for the
-    # density-matrix iso (looser than 1e-3, which sits inside IPOPT's stochastic
-    # convergence floor for this problem size).
+    # Dynamics constraints at a converged iterate: LOCALLY_SOLVED bounds the
+    # constraint violation at constr_viol_tol (1e-6), so the observed residual
+    # is ~1e-12 and the 1e-2 bound below carries three orders of margin. The
+    # old comment's "IPOPT stochastic convergence floor" reasoning described
+    # the free-Δt variant's non-converged cutoff, not this problem.
     dynamics_integrator = qcp.prob.integrators[1]
     δ = zeros(dynamics_integrator.dim)
     DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
@@ -981,8 +1012,10 @@ end
     @test haskey(qcp.prob.trajectory.components, :du)
     @test haskey(qcp.prob.trajectory.components, :ddu)
 
-    # Check integrators: 2 dynamics + 2 derivatives = 4
-    @test length(qcp.prob.integrators) == 4
+    # Check integrators: the #334 default is ONE shared-propagator
+    # HermitianExponentialIntegrator over both kets + 2 derivatives = 3
+    @test length(qcp.prob.integrators) == 3
+    @test qcp.prob.integrators[1] isa HermitianExponentialIntegrator
 
     # Solve. max_iter=300 gives IPOPT room to drive the constraint residual
     # well below tolerance from the deterministic init across Julia versions.
@@ -997,14 +1030,13 @@ end
         @test fid > 0.9
     end
 
-    # Test dynamics constraints are satisfied for all integrators. Tolerance
-    # 5e-3 absorbs IPOPT's stochastic convergence floor on this problem size
-    # while still catching gross dynamics-wiring bugs.
-    for integrator in qcp.prob.integrators[1:2]  # First 2 are dynamics
-        δ = zeros(integrator.dim)
-        DirectTrajOpt.evaluate!(δ, integrator, traj)
-        @test norm(δ, Inf) < 5e-3
-    end
+    # Test dynamics constraints are satisfied. Tolerance 5e-3 absorbs the
+    # solver's stochastic convergence floor on this problem size while still
+    # catching gross dynamics-wiring bugs.
+    integrator = qcp.prob.integrators[1]  # the single shared dynamics integrator
+    δ = zeros(integrator.dim)
+    DirectTrajOpt.evaluate!(δ, integrator, traj)
+    @test norm(δ, Inf) < 5e-3
 end
 
 @testitem "SmoothPulseProblem honors MultiKetTrajectory weights (coherent)" begin
@@ -1275,13 +1307,16 @@ end
     # Solve
     solve!(sampling_prob; max_iter = 150, verbose = false, print_level = 5)
 
-    # Test dynamics constraints are satisfied
-    for integrator in sampling_prob.prob.integrators
-        if integrator isa BilinearIntegrator
-            δ = zeros(integrator.dim)
-            DirectTrajOpt.evaluate!(δ, integrator, traj)
-            @test norm(δ, Inf) < 1e-2
-        end
+    # Test dynamics constraints are satisfied. The #334 sampling default builds
+    # one HermitianExponentialIntegrator per member — the filter must FIND them
+    # (a silent empty match would be a false pass).
+    dynamics_integrators =
+        filter(i -> i isa HermitianExponentialIntegrator, sampling_prob.prob.integrators)
+    @test !isempty(dynamics_integrators)
+    for integrator in dynamics_integrators
+        δ = zeros(integrator.dim)
+        DirectTrajOpt.evaluate!(δ, integrator, traj)
+        @test norm(δ, Inf) < 1e-2
     end
 end
 
@@ -1318,13 +1353,16 @@ end
     # Solve
     solve!(sampling_prob; max_iter = 50, verbose = false, print_level = 1)
 
-    # Test dynamics constraints are satisfied
-    for integrator in sampling_prob.prob.integrators
-        if integrator isa BilinearIntegrator
-            δ = zeros(integrator.dim)
-            DirectTrajOpt.evaluate!(δ, integrator, traj)
-            @test norm(δ, Inf) < 1e-3
-        end
+    # Test dynamics constraints are satisfied. The #334 sampling default builds
+    # one HermitianExponentialIntegrator per member — the filter must FIND them
+    # (a silent empty match would be a false pass).
+    dynamics_integrators =
+        filter(i -> i isa HermitianExponentialIntegrator, sampling_prob.prob.integrators)
+    @test !isempty(dynamics_integrators)
+    for integrator in dynamics_integrators
+        δ = zeros(integrator.dim)
+        DirectTrajOpt.evaluate!(δ, integrator, traj)
+        @test norm(δ, Inf) < 1e-3
     end
 end
 
@@ -1353,8 +1391,8 @@ end
     @test qcp.qtraj isa MultiKetTrajectory
 
     # TimeConsistencyConstraint is auto-applied via get_trajectory_constraints
-    # Should have: 2 dynamics + 2 derivatives = 4 integrators
-    @test length(qcp.prob.integrators) == 4
+    # #334 default: 1 shared HermitianExponentialIntegrator + 2 derivatives = 3
+    @test length(qcp.prob.integrators) == 3
 
     # Solve and verify
     solve!(qcp; max_iter = 50, print_level = 1, verbose = false)
@@ -1419,15 +1457,18 @@ end
     solve!(sampling_prob; max_iter = 300, verbose = false, print_level = 1)
 
     # Loosened to 5e-2 with explicit reason: the assertion is checking that
-    # IPOPT made the BilinearIntegrator residual small, not that it hit the
-    # optimum. 1e-2 was within IPOPT's stochastic noise floor for time-dependent
-    # SamplingTrajectory at this size.
-    for integrator in sampling_prob.prob.integrators
-        if integrator isa BilinearIntegrator
-            δ = zeros(integrator.dim)
-            DirectTrajOpt.evaluate!(δ, integrator, traj)
-            @test norm(δ, Inf) < 5e-2
-        end
+    # the solver drove the dynamics-integrator residual small, not that it hit
+    # the optimum. 1e-2 was within the solver's stochastic noise floor for
+    # time-dependent SamplingTrajectory at this size. The #334 sampling default
+    # builds one HermitianExponentialIntegrator per member — the filter must
+    # FIND them (a silent empty match would be a false pass).
+    dynamics_integrators =
+        filter(i -> i isa HermitianExponentialIntegrator, sampling_prob.prob.integrators)
+    @test !isempty(dynamics_integrators)
+    for integrator in dynamics_integrators
+        δ = zeros(integrator.dim)
+        DirectTrajOpt.evaluate!(δ, integrator, traj)
+        @test norm(δ, Inf) < 5e-2
     end
 end
 
@@ -1464,7 +1505,7 @@ end
     using DirectTrajOpt
 
     # Test that global_bounds throws an informative error when global doesn't exist
-    # (global_data must come from integrator - e.g., HermitianExponentialIntegrator from Piccolissimo)
+    # (global_data must come from integrator - e.g., Piccolo's native HermitianExponentialIntegrator)
 
     T = 5.0
     N = 10
@@ -1758,7 +1799,9 @@ end
     @test_throws AssertionError SmoothPulseProblem(qtraj_u, N; free_phase = true)
 
     # EmbeddedOperator goal: the θ globals are set up, then construction stops
-    # at the integrator requirement (BilinearIntegrator does not carry globals).
+    # at the integrator requirement — the default construction does not thread
+    # user-specified global_names (or free-phase θ's) into its integrator, so an
+    # explicit globals-carrying integrator must be passed.
     op = EmbeddedOperator(GATES[:X], 1:2, 2)
     qtraj_e = UnitaryTrajectory(sys, pulse, op)
     @test_throws ErrorException SmoothPulseProblem(

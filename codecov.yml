@@ -43,28 +43,49 @@
 # this class can be annotated instead.
 #
 # Behavior-unreachable misses — the E3 census classes (the drift-fill audit,
-# #349), each verified unreachable-in-repo by probe before being accepted:
+# #349), re-verified under the #334/#357 default-integrator flip (misses MOVE
+# when defaults change; each class was re-probed against the new defaults):
 #
-#   (1) Seam-blocked proprietary lanes. The single-trajectory free-phase
-#       objective constructions (SmoothPulseProblem 297/299, and
-#       BangBangPulseProblem's ket free-phase branch 142-145 plus its
-#       free-phase objectives 239/241) sit behind the constructors'
-#       globals-capable-integrator gate. Piccolo ships no integrator that
-#       reads φ/θ globals (BilinearIntegrator has no global_names support),
-#       and the gate's own error text names Piccolissimo's
-#       HermitianExponentialIntegrator as the intended custom integrator.
-#       Driving the lanes with a globals-IGNORANT integrator would construct
-#       a silently-broken problem — false-green testing — so they stay
-#       unmarked until a globals-capable integrator is in Piccolo's test env.
-#       The ensemble free-phase lanes (no such gate) are covered.
+#   (1) Seam-blocked free-phase lanes. The single-trajectory free-phase
+#       objective constructions (SmoothPulseProblem 299/301, and
+#       BangBangPulseProblem's free-phase objectives 241/243) sit behind the
+#       constructors' explicit-integrator gate, an asserted error contract
+#       (the free_phase error-contract testitems). #357 re-verification: the
+#       gate's ORIGINAL rationale — Piccolo ships no globals-capable
+#       integrator (BilinearIntegrator has no global_names support), so the
+#       lanes were unreachable AND untestable without constructing a
+#       silently-broken problem — NO LONGER HOLDS: the #334 default
+#       HermitianExponentialIntegrator is globals-capable and native. The
+#       lanes stay unmarked because the gate (still asserted) blocks the
+#       default path — the default construction does not thread
+#       user-specified global_names or free-phase θ's into its integrator,
+#       and authorizing that threading is a behavior change this campaign
+#       did not make. Lifting the gate would both mark these lanes and
+#       retire the error-contract tests: a deliberate follow-up decision,
+#       not a coverage accident. The ensemble free-phase lanes (no such
+#       gate) are covered.
 #
-#   (2) Defensive default-integrator lanes (smooth 281, bang-bang 227,
-#       spline 381/774): `default_int isa AbstractVector` splat/wrap branches
-#       in the single-trajectory template constructors (whose trajectory
-#       types — Unitary/Ket/Density — always yield a scalar BilinearIntegrator)
-#       and the scalar-wrap in the ensemble spline constructor (whose default
-#       is always a vector). Belt-and-braces mirroring of the sibling
-#       constructor; unreachable by construction.
+#   (2) Defensive default-integrator lanes (smooth 282, bang-bang 228,
+#       spline 371): the `default_int isa AbstractVector` splat branches in
+#       the single-trajectory template constructors. Post-#334 the declared
+#       constructor surfaces (Unitary/Ket/Density — MultiKet routes to the
+#       ensemble method, SamplingTrajectory hits the wrong-pulse
+#       catch-all) still yield a SCALAR from the defaults
+#       (HermitianExponentialIntegrator / NonHermitianExponentialIntegrator /
+#       SplineIntegrator), so the branches remain belt-and-braces mirroring
+#       of the resolver lanes — unreachable by construction, exactly as
+#       pre-flip, with different integrators underneath.
+#
+#       The miss that MOVED and CLOSED (documented per #357): the ensemble
+#       spline constructor's dispatch (spline ~733) was pre-#334 a defensive
+#       scalar-wrap (its Bilinear default over a MultiKetTrajectory always
+#       produced a per-member VECTOR). The #334 default SplineIntegrator
+#       over a MultiKetTrajectory is ONE shared propagator, so the
+#       scalar-wrap branch is now the TAKEN branch — covered by every
+#       default ensemble spline construction — and the vector branch is
+#       exercised by the `integrator_type = :pwc` escape-hatch test. Both
+#       sides of that dispatch are covered as of #357; it is no longer a
+#       doctrine entry.
 #
 #   (3) Best-effort @debug catch lanes (schema.jl 818/837): the
 #       precompile_workload catch handlers exist so a tier-1 warm-up failure

@@ -652,7 +652,19 @@ end
     ω = 2π * 5.0
     H(u, t) = GATES[:Z] + u[1] * cos(ω * t) * GATES[:X]
 
-    T = 5.0
+    # T = 10 gives the smooth stage duration room. At the old T = 5 the
+    # smooth solve (fresh, deterministic init, BOTH integrators — HE and
+    # Bilinear converge on the identical path, ~117 iterations) lands in a
+    # local optimum at proj F ≈ 0.72, dur ≈ 5.36 — that duration sits at the
+    # resonant-drive speed limit, so final_fidelity = 0.85 is unreachable
+    # there and the min-time chain must GROW the duration past any 1.2×
+    # headroom to buy fidelity (the full-suite failure: 5.36 → 6.69, ratio
+    # 1.25). The old test only ever passed mid-flight cutoff luck — its own
+    # history (ebec5042, b97f299) documents the RNG-luck flakiness this
+    # finally explains. From T = 10 the chain compresses: dur ≈ 9.9 →
+    # ≈ 6.5-7.0 (ratio ≈ 0.66-0.70), robustly inside the 1.2× headroom, and
+    # the min-time solve finds the real speed-limit boundary for F ≥ 0.85.
+    T = 10.0
     N = 50
     sys = QuantumSystem(H, [1.0])
 
@@ -720,8 +732,9 @@ end
     qcp_smooth = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3, Δt_bounds = (0.01, 0.5))
 
     # TimeConsistencyConstraint is auto-applied
-    # 2 dynamics + 2 derivatives = 4 integrators
-    @test length(qcp_smooth.prob.integrators) == 4
+    # #334 default: 1 shared HermitianExponentialIntegrator over the ensemble
+    # + 2 derivatives = 3 integrators
+    @test length(qcp_smooth.prob.integrators) == 3
 
     solve!(qcp_smooth; max_iter = 30, verbose = false, print_level = 1)
 
