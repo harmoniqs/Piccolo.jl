@@ -526,7 +526,9 @@ function _smooth_pulse_problem(
         state_leakage_indices = state_leakage_indices,
     )
 
-    # Build integrators: one dynamics integrator per state
+    # Build integrators: the #334 default is a single shared-propagator
+    # integrator over the whole ensemble; per-member dynamics integrators
+    # arrive only via the explicit `integrator` kwarg (vector form).
     if isnothing(integrator)
         # Check for global_names without integrator
         if !isnothing(global_names) && !isempty(global_names)
@@ -910,7 +912,17 @@ end
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
 
-    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    # Construct with the duration pinned to the trajectory's (T = 10, N = 50)
+    # grid: Δt_bounds = (0.2, 0.2). The free-Δt variant of this cell is a
+    # degenerate non-converger under BOTH integrators — Ipopt reports
+    # ITERATION_LIMIT even at max_iter = 1000 with a thrashing tail (primal
+    # infeasibility oscillating over orders of magnitude at the cutoff,
+    # observed up to 7.5e-2 in one environment) — so the old residual
+    # assertion rode on cutoff luck, not a solver guarantee. With the
+    # duration pinned the cell CONVERGES under the #334 NHE default and the
+    # old Bilinear default to the identical solution (proj_fid ≈ 0.9948,
+    # residual ~1e-12, LOCALLY_SOLVED in ~50 iterations).
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.2, 0.2))
 
     @test qcp isa QuantumControlProblem
     @test qcp.qtraj isa DensityTrajectory
@@ -931,10 +943,15 @@ end
     # (NonHermitianExponentialIntegrator), never a silent BilinearIntegrator.
     @test qcp.prob.integrators[1] isa NonHermitianExponentialIntegrator
 
-    # Solve. max_iter raised to 300 to give IPOPT room to drive the dynamics
-    # residual well below tolerance from any deterministic init the optimizer
-    # encounters across Julia versions.
-    solve!(qcp; max_iter = 300, print_level = 1, verbose = false)
+    # Solve and REQUIRE convergence — with the duration pinned this cell is a
+    # well-posed converger, so the status is a loud contract: a future
+    # regression back to a thrashing non-converged cutoff fails HERE with a
+    # status, not below with a mystery residual number. Both LOCALLY_SOLVED
+    # and the acceptable-point ALMOST_LOCALLY_SOLVED count as converged;
+    # string-matching the MOI enum keeps this assert working on DTO versions
+    # that predate the C2 solve_status_symbol vocabulary.
+    stats = solve!(qcp; max_iter = 300, print_level = 1, verbose = false)
+    @test occursin("LOCALLY_SOLVED", string(stats.status))
 
     # Check fidelity via compact iso — physics outcome, not solver-internal
     # residual norm. This is what the test should actually assert.
@@ -944,9 +961,11 @@ end
     fid = real(tr(ρ_final * ρg))
     @test fid > 0.9
 
-    # Dynamics constraints should be satisfied to a level meaningful for the
-    # density-matrix iso (looser than 1e-3, which sits inside IPOPT's stochastic
-    # convergence floor for this problem size).
+    # Dynamics constraints at a converged iterate: LOCALLY_SOLVED bounds the
+    # constraint violation at constr_viol_tol (1e-6), so the observed residual
+    # is ~1e-12 and the 1e-2 bound below carries three orders of margin. The
+    # old comment's "IPOPT stochastic convergence floor" reasoning described
+    # the free-Δt variant's non-converged cutoff, not this problem.
     dynamics_integrator = qcp.prob.integrators[1]
     δ = zeros(dynamics_integrator.dim)
     DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
