@@ -703,54 +703,22 @@ function _spline_pulse_problem(
                    parallel integrator via `integrator = ...` instead." maxlog = 1
         end
 
-        # Spline pulses must not silently land on the PWC default: BilinearIntegrator
-        # never reads :du, so a CubicSplinePulse would optimize a piecewise-constant
-        # waveform while the name promises a spline (issue #275). Explicit
-        # `integrator_type = :pwc` is the acknowledged escape hatch.
-        if qtraj.pulse isa CubicSplinePulse && integrator_type !== :pwc
-            error(
-                "CubicSplinePulse defaults are not allowed: the default PWC backend " *
-                "silently drops :du (a cubic problem would optimize a piecewise-constant " *
-                "waveform, not a spline — issue #275). Either pass a spline-faithful " *
-                "integrator (Piccolissimo.SplineIntegrator) or explicitly request the PWC " *
-                "backend with `integrator_type = :pwc`.",
-            )
-        end
+        # #334: the default backend is spline-faithful, so a CubicSplinePulse on the
+        # default path is the correct pairing — no acknowledgement needed. Explicit
+        # `integrator_type = :pwc` remains the acknowledged PWC escape hatch.
         if qtraj.pulse isa CubicSplinePulse && integrator_type === :pwc
             @warn "CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the " *
                   "dynamics treat the drive as piecewise constant and ignore :du — the " *
                   "optimized waveform differs from the cubic spline the pulse object " *
                   "describes. Acknowledged because you asked for it explicitly." maxlog = 1
-        elseif qtraj.pulse isa AbstractSplinePulse && integrator_type !== :pwc
-            @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): use SplineIntegrator from Piccolissimo for correct spline physics (Bilinear is PWC, ignores :du)." maxlog =
-                1
         end
 
-        # `integrator_type` names what you actually get. `:pwc` is the only backend Piccolo
-        # ships: `BilinearIntegrator`, which models the drive as piecewise constant on each
-        # interval. There is deliberately no `:spline` value — see the errors below.
-        if isnothing(integrator_type) || integrator_type === :pwc
+        # #334: the default backend is the native spline-faithful SplineIntegrator;
+        # `:pwc` remains the acknowledged piecewise-constant escape hatch.
+        if isnothing(integrator_type) || integrator_type === :spline
+            dynamics_integrators = SplineIntegrator(qtraj, N)
+        elseif integrator_type === :pwc
             dynamics_integrators = BilinearIntegrator(qtraj, N)
-        elseif integrator_type === :spline
-            error(
-                """
-                `integrator_type = :spline` is not available in Piccolo.
-
-                It previously accepted this value and silently returned a
-                **piecewise-constant** `BilinearIntegrator` instead — so a spline pulse was
-                optimized against PWC dynamics while the name claimed otherwise. Measured
-                cost of that mismatch: the optimizer reports ~1e-8 infidelity for a pulse
-                that actually achieves ~1e-3 (see `rollout_divergence`).
-
-                Piccolo ships no spline integrator. Either:
-                  • pass one explicitly (requires Piccolissimo):
-                      using Piccolissimo
-                      integrator = SplineIntegrator(qtraj, N; spline_order = $(_get_spline_order(qtraj.pulse)))
-                      SplinePulseProblem(qtraj, N; integrator = integrator, ...)
-                  • or request the PWC backend by its real name, `integrator_type = :pwc`,
-                    accepting that the pulse is integrated as piecewise constant.
-                """,
-            )
         elseif integrator_type === :ensemble
             error("""
                   `integrator_type = :ensemble` was never implemented.
