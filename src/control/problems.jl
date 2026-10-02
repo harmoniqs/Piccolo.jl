@@ -720,8 +720,9 @@ function _warn_on_rollout_divergence(
           Two usual causes:
             • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
               integrator is the common case: the interpolation the optimizer constrained is
-              not the one being integrated. Pair a spline pulse with
-              `Piccolissimo.SplineIntegrator`.
+              not the one being integrated. The #334 default `SplineIntegrator` pairs
+              correctly; the mismatch arises when the explicit `integrator_type = :pwc`
+              escape hatch is requested for a spline pulse.
             • Collocation grid too coarse for the dynamics — increase the number of knots.
 
           Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
@@ -739,8 +740,10 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 - `sync::Bool=true`: If true, call `sync_trajectory!` after solving to update `qtraj.trajectory`
   with physical control values. Set to false to skip synchronization (e.g., for debugging).
 - `verbose::Bool=false`: Controls the solver setup trace (evaluator construction, jacobian/hessian
-  structure, NLP block assembly). Defaults to `false` so the log stays clean. Ipopt's iteration
-  log is controlled separately by `print_level` (passed through to Ipopt).
+  structure, NLP block assembly). Defaults to `false` so the log stays clean. The NLP solver's
+  iteration log is controlled separately by `print_level` (passed through to the backend solver —
+  Ipopt today; the DirectTrajOpt backend default becomes MadNLP with its next release, and Ipopt
+  stays selectable).
 - `check_divergence::Bool=true`: Warn if the optimizer's collocation solution and the ODE
   re-rollout disagree at the final time — see [`rollout_divergence`](@ref). Only has an
   effect when `sync = true`.
@@ -802,15 +805,16 @@ end
 
 # NOTE: the pulse/integrator-pairing regression test does NOT live here.
 #
-# Demonstrating that `rollout_divergence` separates a correct pairing from a mismatch
-# requires BOTH a piecewise-constant and a spline integrator, and public Piccolo ships only
-# the former (`BilinearIntegrator`). Building the comparison here would mean treating
-# `BilinearIntegrator` as the object of study, which it is not — it is the public default,
-# not the integrator this stack actually optimizes against.
-#
-# The pairing test therefore lives in Piccolissimo, where `SplineIntegrator` and
-# `HermitianExponentialIntegrator` both exist. Measured there (3-level X gate, objective /
-# system / goal / grid / seed held fixed, only the pairing varied):
+# Historical note: it was written when public Piccolo shipped ONLY the
+# piecewise-constant `BilinearIntegrator`, then the templates' public default —
+# treating `BilinearIntegrator` as the object of study was impossible here. Since
+# #334 the defaults are the native spline-faithful `SplineIntegrator` and the
+# exact-PWC `HermitianExponentialIntegrator`/`NonHermitianExponentialIntegrator`
+# tier, and `BilinearIntegrator` is demoted to the explicit
+# `integrator_type = :pwc` choice — so the pairing comparison COULD now live in
+# Piccolo. The measured comparison stays in Piccolissimo, where it was first
+# quantified against that stack's integrators; the numbers below are that record
+# (3-level X gate, system / goal / grid / seed held fixed, only the pairing varied):
 #
 #   spline pulse + SplineIntegrator (correct)   divergence 3.5e-7 .. 6.4e-4
 #   spline pulse + HermitianExp     (PWC)       divergence 5.9e-2 .. 1.9e-1

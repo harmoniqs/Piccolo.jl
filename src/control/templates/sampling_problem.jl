@@ -217,7 +217,7 @@ function _validate_sampling_integrator_vector(
             "SamplingProblem $source: every integrator must be an AbstractIntegrator, " *
             "but element $bad is a $(typeof(integrators[bad])). " *
             "Pass integrators built against the sampling trajectory, e.g. " *
-            "`BilinearIntegrator(SamplingTrajectory(qtraj, systems), N)`.",
+            "`HermitianExponentialIntegrator(SamplingTrajectory(qtraj, systems), N)`.",
         )
     end
     if length(integrators) != n_slots
@@ -237,7 +237,9 @@ end
 Resolve the `integrator` keyword of `SamplingProblem` into the dynamics integrator
 vector. Three call shapes, aligned with the other problem templates:
 
-- `nothing` — default `BilinearIntegrator(sampling_qtraj, N)`.
+- `nothing` — the #334 default: `_default_quantum_integrator` (one native
+  `HermitianExponentialIntegrator` per member; density-base ensembles route to
+  its `NonHermitianExponentialIntegrator` counterpart).
 - an `AbstractIntegrator` instance — valid only for single-slot ensembles.
 - a vector of integrators — one per ensemble dynamics slot.
 - a factory `Function` — called as `integrator(sampling_qtraj, N)`, returning an
@@ -245,8 +247,10 @@ vector. Three call shapes, aligned with the other problem templates:
 """
 function _resolve_sampling_integrators(integrator, sampling_qtraj, N::Int, n_slots::Int)
     if isnothing(integrator)
-        # #334: default sampling integrator is the native exact-PWC tier (globals-aware).
-        default_int = HermitianExponentialIntegrator(sampling_qtraj, N)
+        # #334: default sampling integrator is the native exact-PWC tier
+        # (globals-aware) — one per member; density-base ensembles route to the
+        # NonHermitian counterpart via the shared default dispatch.
+        default_int = _default_quantum_integrator(sampling_qtraj, N)
         return AbstractIntegrator[(default_int isa AbstractVector ? default_int :
                                    [default_int])...,]
     elseif integrator isa AbstractIntegrator
@@ -274,7 +278,7 @@ function _resolve_sampling_integrators(integrator, sampling_qtraj, N::Int, n_slo
                     "SamplingProblem integrator factory returned a single integrator, " *
                     "but the ensemble has $n_slots dynamics slots (one per member). " *
                     "Return one integrator per slot, e.g. " *
-                    "`(sq, n) -> BilinearIntegrator(sq, n)`.",
+                    "`(sq, n) -> HermitianExponentialIntegrator(sq, n)`.",
                 )
             end
             return AbstractIntegrator[result]
@@ -315,9 +319,10 @@ fidelity objectives for each system.
 - `Q::Float64=100.0`: Weight on infidelity objective (explicit, not extracted from base problem)
 - `integrator::Union{Nothing, Function, AbstractIntegrator, AbstractVector}=nothing`: Optional
   integrator(s), three call shapes aligned with the other problem templates: `nothing`
-  (default `BilinearIntegrator`), an `AbstractIntegrator` instance (single-slot ensembles
-  only), a vector of integrators (one per ensemble dynamics slot), or a factory function
-  called as `integrator(sampling_qtraj, N)` returning an integrator or vector of integrators.
+  (the #334 default — one native `HermitianExponentialIntegrator` per member), an
+  `AbstractIntegrator` instance (single-slot ensembles only), a vector of integrators
+  (one per ensemble dynamics slot), or a factory function called as
+  `integrator(sampling_qtraj, N)` returning an integrator or vector of integrators.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. SamplingProblem builds a fresh constraint list (rather than inheriting from the base `qcp`), so calibration_target pins set on the base `qcp` are *not* automatically carried over — pass them here explicitly. Default empty: globals stay free.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Options for the solver
 
@@ -648,6 +653,13 @@ end
     @test n_derivative == 2
     @test length(sampling_prob.prob.integrators) == 4
 
+    # #334: the default dynamics integrators are the native HE tier, one per
+    # member — never a silent BilinearIntegrator.
+    @test count(
+        i -> i isa HermitianExponentialIntegrator,
+        sampling_prob.prob.integrators,
+    ) == 2
+
     # Regularizer objectives carried: the smooth base's quadratic regularizers
     # on :u, :du, :ddu survive the rebuild (recursively flatten composites).
     function _regularizer_names(obj)
@@ -873,7 +885,7 @@ end
 
 @testitem "SamplingProblem with DensityTrajectory" tags = [:density, :skip] begin
     # TODO: DensityTrajectory support for SamplingProblem is not yet complete
-    # Needs: BilinearIntegrator dispatch, SamplingTrajectory NamedTrajectory conversion
+    # Needs: NonHermitianExponentialIntegrator dispatch wiring, SamplingTrajectory NamedTrajectory conversion
     @test_skip "DensityTrajectory support not yet implemented"
 end
 
@@ -891,7 +903,9 @@ end
     qtraj = UnitaryTrajectory(sys_nominal, pulse, GATES[:X])
     qcp = SmoothPulseProblem(qtraj, N; Q = 100.0)
 
-    # Custom integrator factory — reimplements default BilinearIntegrator logic
+    # Custom integrator factory — exercises the legacy BilinearIntegrator through
+    # the explicit-factory lane (post-#334 the default is the HE tier; Bilinear
+    # stays selectable exactly this way)
     custom_factory(sqtraj, n) = BilinearIntegrator(sqtraj, n)
 
     sampling_prob =

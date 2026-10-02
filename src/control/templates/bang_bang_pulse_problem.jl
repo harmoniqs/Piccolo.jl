@@ -65,7 +65,7 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 - `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
-- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, globals-aware).
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, globals-aware); open-system `DensityTrajectory` problems use its `NonHermitianExponentialIntegrator` counterpart.
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
@@ -216,15 +216,15 @@ function _bang_bang_pulse_problem(
         if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
                 "free_phase=true or global_names requires a custom integrator that supports global variables. " *
-                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native HermitianExponentialIntegrator:\n" *
                 "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = BangBangPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
         # #334: the quantum default is the native exact-PWC integrator — analytic
         # Daleckii–Krein derivatives, global-variables-aware (#328 warp column).
-        default_int = HermitianExponentialIntegrator(qtraj, N)
+        # Open-system density trajectories route to the NonHermitian counterpart.
+        default_int = _default_quantum_integrator(qtraj, N)
         if default_int isa AbstractVector
             dynamics_integrators = AbstractIntegrator[default_int...]
         else
@@ -424,13 +424,18 @@ function _bang_bang_pulse_problem(
         if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
                 "free_phase=true or global_names requires a custom integrator that supports global variables. " *
-                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native HermitianExponentialIntegrator:\n" *
                 "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = BangBangPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        dynamics_integrators = HermitianExponentialIntegrator(qtraj, N)
+        # #334: a single shared-propagator HermitianExponentialIntegrator over
+        # the ensemble, a SCALAR (the explicit per-member shapes arrive via the
+        # `integrator` kwarg below). Wrap before the splat.
+        dynamics_integrators = _default_quantum_integrator(qtraj, N)
+        if !(dynamics_integrators isa AbstractVector)
+            dynamics_integrators = AbstractIntegrator[dynamics_integrators]
+        end
     elseif integrator isa AbstractIntegrator
         dynamics_integrators = AbstractIntegrator[integrator]
     else
@@ -587,8 +592,10 @@ end
     @test haskey(qcp.prob.trajectory.components, :du)
     @test haskey(qcp.prob.trajectory.components, :s_du)
 
-    # 2 dynamics + 1 derivative = 3 (not 4 like SmoothPulseProblem)
-    @test length(qcp.prob.integrators) == 3
+    # #334 default: 1 shared HermitianExponentialIntegrator + 1 derivative = 2
+    # (not 4 like SmoothPulseProblem's pre-flip per-member layout)
+    @test length(qcp.prob.integrators) == 2
+    @test qcp.prob.integrators[1] isa HermitianExponentialIntegrator
 
     solve!(qcp; max_iter = 200, print_level = 1, verbose = false)
 
@@ -658,13 +665,15 @@ end
 
     # The free-phase branch must honor trajectory weights (issue #263).
     #
-    # The default-integrator guard above rejects free_phase, because coupling the
-    # phase globals into the dynamics needs an integrator Piccolo does not ship
-    # (HermitianExponentialIntegrator lives downstream in Piccolissimo). Passing
-    # an explicit integrator bypasses that guard, which is enough to reach and
-    # exercise the objective-construction branch this test is about. The
-    # resulting problem is NOT a physically valid free-phase problem — its
-    # dynamics ignore θ — so this asserts objective wiring only, never a solve.
+    # The default-integrator guard above rejects free_phase: the default
+    # construction does not thread user global_names (or free-phase θ's) into
+    # its integrator, so an explicit globals-carrying integrator must be passed.
+    # Passing one bypasses that guard, which is enough to reach and exercise
+    # the objective-construction branch this test is about. The explicit
+    # integrator here is a deliberately globals-IGNORING BilinearIntegrator
+    # (Bilinear remains selectable post-#334), so the resulting problem is NOT
+    # a physically valid free-phase problem — its dynamics ignore θ — and this
+    # asserts objective wiring only, never a solve.
     ψp = ComplexF64[1.0, 1.0] / √2
     ψm = ComplexF64[1.0, -1.0] / √2
     times_arr = (0:(N-1)) ./ (N - 1)
@@ -750,7 +759,13 @@ end
     @test haskey(traj.global_components, :δ)
     @test traj.global_data[traj.global_components[:δ]] ≈ [0.1]
 
-    # Ensemble path: the same seeding
+    # #334: the default dynamics integrator is the native HE tier, and it
+    # auto-detects the system global — the globals thread through the DEFAULT
+    # construction path (the #349 permuted-column / extraction fixes).
+    @test qcp.prob.integrators[1] isa HermitianExponentialIntegrator
+    @test :δ ∈ qcp.prob.integrators[1].global_names
+
+    # Ensemble path: the same seeding — one shared-propagator HE, same global
     mkq = MultiKetTrajectory(
         sys,
         pulse,
@@ -759,6 +774,8 @@ end
     )
     qcp_mk = BangBangPulseProblem(mkq, N; piccolo_options = opts)
     @test haskey(get_trajectory(qcp_mk).global_components, :δ)
+    @test qcp_mk.prob.integrators[1] isa HermitianExponentialIntegrator
+    @test :δ ∈ qcp_mk.prob.integrators[1].global_names
 end
 
 @testitem "BangBangPulseProblem integrator kwarg: instance and vector shapes" begin

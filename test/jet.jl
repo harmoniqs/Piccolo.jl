@@ -14,8 +14,9 @@
         #
         # The old note claimed the *single* "remaining finding" was a call to
         # `EnsembleSplineIntegrator`, defined nowhere in Piccolo or its deps. That call was
-        # deleted on 2026-07-25 (`integrator_type` now offers only `:pwc`, with `:spline`
-        # and `:ensemble` raising informative errors). Removing it did clear that finding —
+        # deleted on 2026-07-25 (`integrator_type` then offered only `:pwc`, with `:spline`
+        # and `:ensemble` raising informative errors; #334 later restored `:spline` as the
+        # valid default). Removing it did clear that finding —
         # and revealed that it was never the only one. JET reports **7** findings, none of
         # them `EnsembleSplineIntegrator`:
         #
