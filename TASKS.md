@@ -2,6 +2,16 @@
 
 ## Todo
 
+### Bump shipped Julia env compat bound to admit Piccolo v1.21 (Specs Phase 1)
+<!-- id: #271 -->
+- **Labels:** chore, hitl
+
+The provisioned Julia environment (`~/.amico/julia`) pins `Piccolo ~1.19`,
+which predates `Piccolo.Specs`.  Raise the compat bound to admit v1.21 after
+re-vetting the bundled templates against the 1.20-breaking changes
+(`integrator_type = :spline` rejection, free-phase-aware `fidelity`, and
+`sync_trajectory!` divergence warnings).
+
 ### Improved testing for re-solving problems with global variables
 <!-- id: PVTI_lADOC9ysqc4BETyazgmXCJk -->
 - **Labels:** testing
