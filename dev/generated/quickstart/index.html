@@ -83,14 +83,14 @@ qtraj = UnitaryTrajectory(sys, pulse, U_goal)</code></pre><pre class="documenter
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 </code></pre><h2 id="Step-5:-Solve!"><a class="docs-heading-anchor" href="#Step-5:-Solve!">Step 5: Solve!</a><a id="Step-5:-Solve!-1"></a><a class="docs-heading-anchor-permalink" href="#Step-5:-Solve!" title="Permalink"></a></h2><pre><code class="language-julia hljs">solve!(qcp; max_iter = 20, verbose = false, print_level = 1)</code></pre><h2 id="Step-6:-Analyze-Results"><a class="docs-heading-anchor" href="#Step-6:-Analyze-Results">Step 6: Analyze Results</a><a id="Step-6:-Analyze-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Step-6:-Analyze-Results" title="Permalink"></a></h2><p>After solving, we can check the fidelity and examine the optimized controls.</p><pre><code class="language-julia hljs"># Check final fidelity
-fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999848427424955</code></pre><p>Access the trajectory and check the final unitary:</p><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9995896010400027</code></pre><p>Access the trajectory and check the final unitary:</p><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
 U_final = iso_vec_to_operator(traj[:Ũ⃗][:, end])
 round.(U_final, digits = 3)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×2 Matrix{ComplexF64}:
- 0.002+0.001im   -0.0-1.0im
-   0.0-1.0im    0.002-0.001im</code></pre><h2 id="Visualization"><a class="docs-heading-anchor" href="#Visualization">Visualization</a><a id="Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Visualization" title="Permalink"></a></h2><p>Piccolo provides specialized plotting functions for quantum trajectories:</p><pre><code class="language-julia hljs">using CairoMakie
+ 0.017-0.004im  -0.01-1.0im
+  0.01-1.0im    0.017+0.004im</code></pre><h2 id="Visualization"><a class="docs-heading-anchor" href="#Visualization">Visualization</a><a id="Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Visualization" title="Permalink"></a></h2><p>Piccolo provides specialized plotting functions for quantum trajectories:</p><pre><code class="language-julia hljs">using CairoMakie
 
 # Plot the unitary evolution (state populations over time)
-fig = plot_unitary_populations(traj)</code></pre><img src="29dc52b2.png" alt="Example block output"/><h2 id="Saving-Your-Results"><a class="docs-heading-anchor" href="#Saving-Your-Results">Saving Your Results</a><a id="Saving-Your-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Your-Results" title="Permalink"></a></h2><p>Save the optimized pulse so you can reload it later without re-solving. <code>save</code> writes the pulse under the JLD2 key <code>&quot;pulse&quot;</code>; <code>load_pulse</code> reads it back as the original pulse type:</p><pre><code class="language-julia hljs">optimized_pulse = get_pulse(qcp.qtraj)
+fig = plot_unitary_populations(traj)</code></pre><img src="a2b82abb.png" alt="Example block output"/><h2 id="Saving-Your-Results"><a class="docs-heading-anchor" href="#Saving-Your-Results">Saving Your Results</a><a id="Saving-Your-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Your-Results" title="Permalink"></a></h2><p>Save the optimized pulse so you can reload it later without re-solving. <code>save</code> writes the pulse under the JLD2 key <code>&quot;pulse&quot;</code>; <code>load_pulse</code> reads it back as the original pulse type:</p><pre><code class="language-julia hljs">optimized_pulse = get_pulse(qcp.qtraj)
 save(&quot;quickstart_pulse.jld2&quot;, optimized_pulse)</code></pre><p>Reload in any script with:</p><pre><code class="language-julia hljs">saved_pulse = load_pulse(&quot;quickstart_pulse.jld2&quot;)
 qtraj = UnitaryTrajectory(sys, saved_pulse, GATES[:X])</code></pre><p>To bundle a pulse with metadata (fidelity, gate name, system config), use <code>jldsave</code> with keyword arguments:</p><pre><code class="language-julia hljs">using JLD2
 jldsave(&quot;quickstart_pulse.jld2&quot;; pulse=optimized_pulse, fidelity=fidelity(qcp))</code></pre><p>See the <a href="../guides/saving_loading/#saving-loading">Saving and Loading Pulses</a> guide for warm-starting and other patterns.</p><h2 id="Minimum-Time-Optimization"><a class="docs-heading-anchor" href="#Minimum-Time-Optimization">Minimum Time Optimization</a><a id="Minimum-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Minimum-Time-Optimization" title="Permalink"></a></h2><p>Now let&#39;s find the shortest gate duration that achieves 99% fidelity.</p><p>First, we need to create a new problem with variable timesteps enabled:</p><pre><code class="language-julia hljs"># Create problem with free-time optimization
@@ -124,7 +124,7 @@ solve!(
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=11.431   Δt∈[0.01, 0.5]
+│    N=100   T=11.676   Δt∈[0.01, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.01, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -135,17 +135,17 @@ solve!(
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.8522  @ current x</span>
-│    KnotPointObjective           w=1             1.516e-03
-│    QuadraticRegularizer(:u)     w=1             2.331e-03
-│    QuadraticRegularizer(:du)    w=1             0.01539
-│    QuadraticRegularizer(:ddu)   w=1             0.833
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.441  @ current x</span>
+│    KnotPointObjective           w=1             0.04104
+│    QuadraticRegularizer(:u)     w=1             2.169e-03
+│    QuadraticRegularizer(:du)    w=1             0.02213
+│    QuadraticRegularizer(:ddu)   w=1             1.375
 │    NullObjective                w=1             0
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 6.722e-03)
-│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
-│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.02449)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.735e-18)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 2.220e-16)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -161,7 +161,7 @@ solve!(
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 0
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999985</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999590</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -175,7 +175,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=12.277   Δt∈[0.01, 0.5]
+│    N=100   T=12.541   Δt∈[0.01, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.01, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -186,18 +186,18 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1228  @ current x</span>
-│    KnotPointObjective           w=1             2.048e-04
-│    QuadraticRegularizer(:u)     w=1             1.591e-03
-│    QuadraticRegularizer(:du)    w=1             1.287e-03
-│    QuadraticRegularizer(:ddu)   w=1             1.568e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1254  @ current x</span>
+│    KnotPointObjective           w=1             1.481e-04
+│    QuadraticRegularizer(:u)     w=1             1.580e-03
+│    QuadraticRegularizer(:du)    w=1             1.650e-03
+│    QuadraticRegularizer(:ddu)   w=1             3.290e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             1228
+│    MinimumTimeObjective         w=1             1254
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 1.204e-04)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.528e-04)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.294e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 3.378e-05)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 8.776e-05)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.292e-04)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -208,18 +208,38 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
 │    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
-│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.998e-03)
+│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.999e-03)
 │
 └─ <span class="sgr1">Status</span>
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999998</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999901</span>
 
-<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span></code></pre><p>Compare durations:</p><pre><code class="language-julia hljs">initial_duration = get_duration(get_trajectory(qcp_free))
+<span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
+
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.00855  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
+<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
+<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. The #334 default `SplineIntegrator` pairs
+<span class="sgr33"><span class="sgr1">│ </span></span>    correctly; the mismatch arises when the explicit `integrator_type = :pwc`
+<span class="sgr33"><span class="sgr1">│ </span></span>    escape hatch is requested for a spline pulse.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:711</span></code></pre><p>Compare durations:</p><pre><code class="language-julia hljs">initial_duration = get_duration(get_trajectory(qcp_free))
 minimum_duration = get_duration(get_trajectory(qcp_mintime))
 
-initial_duration</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">12.276699585116411</code></pre><pre><code class="language-julia hljs">minimum_duration</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">10.151148843991114</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9901426918227285</code></pre><p>Plot the time-optimal solution:</p><pre><code class="language-julia hljs">fig_mintime = plot_unitary_populations(get_trajectory(qcp_mintime))</code></pre><img src="c9291c07.png" alt="Example block output"/><h2 id="State-Preparation"><a class="docs-heading-anchor" href="#State-Preparation">State Preparation</a><a id="State-Preparation-1"></a><a class="docs-heading-anchor-permalink" href="#State-Preparation" title="Permalink"></a></h2><p>Instead of synthesizing a full unitary gate, you can prepare a specific quantum state using <code>KetTrajectory</code>:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]  # |0⟩
+initial_duration</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">12.541453028108743</code></pre><pre><code class="language-julia hljs">minimum_duration</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9.31428369657977</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9895948031903204</code></pre><p>Plot the time-optimal solution:</p><pre><code class="language-julia hljs">fig_mintime = plot_unitary_populations(get_trajectory(qcp_mintime))</code></pre><img src="e0172ef2.png" alt="Example block output"/><h2 id="State-Preparation"><a class="docs-heading-anchor" href="#State-Preparation">State Preparation</a><a id="State-Preparation-1"></a><a class="docs-heading-anchor-permalink" href="#State-Preparation" title="Permalink"></a></h2><p>Instead of synthesizing a full unitary gate, you can prepare a specific quantum state using <code>KetTrajectory</code>:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]  # |0⟩
 ψ_goal = ComplexF64[0.0, 1.0]  # |1⟩
 qcp_state = SmoothPulseProblem(KetTrajectory(sys, pulse, ψ_init, ψ_goal), N)
 solve!(
@@ -228,7 +248,7 @@ solve!(
     verbose = false,
     print_level = 1,
 )
-fidelity(qcp_state)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9997925338610834</code></pre><h2 id="Robust-Control"><a class="docs-heading-anchor" href="#Robust-Control">Robust Control</a><a id="Robust-Control-1"></a><a class="docs-heading-anchor-permalink" href="#Robust-Control" title="Permalink"></a></h2><p>To optimize a pulse that works across parameter variations (e.g., uncertain qubit frequency), use <code>SamplingProblem</code>:</p><pre><code class="language-julia hljs"># Perturbed systems: ±10% drift Hamiltonian
+fidelity(qcp_state)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999864031011161</code></pre><h2 id="Robust-Control"><a class="docs-heading-anchor" href="#Robust-Control">Robust Control</a><a id="Robust-Control-1"></a><a class="docs-heading-anchor-permalink" href="#Robust-Control" title="Permalink"></a></h2><p>To optimize a pulse that works across parameter variations (e.g., uncertain qubit frequency), use <code>SamplingProblem</code>:</p><pre><code class="language-julia hljs"># Perturbed systems: ±10% drift Hamiltonian
 sys_low = QuantumSystem(0.9 * H_drift, H_drives, drive_bounds)
 sys_high = QuantumSystem(1.1 * H_drift, H_drives, drive_bounds)
 
@@ -241,9 +261,9 @@ solve!(
     print_level = 1,
 )
 fidelity(qcp_robust)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
- 0.999957923911782
- 0.9998628273454641
- 0.9999540990298159</code></pre><h2 id="Next-Steps"><a class="docs-heading-anchor" href="#Next-Steps">Next Steps</a><a id="Next-Steps-1"></a><a class="docs-heading-anchor-permalink" href="#Next-Steps" title="Permalink"></a></h2><ul><li>See <a href="../../concepts/#concepts-overview">Concepts</a> for the mathematical formulation</li><li>Learn about different <a href="../../problem-templates/#problem-templates-overview">Problem Templates</a></li><li>Read <a href="../guides/saving_loading/#saving-loading">Saving and Loading Pulses</a> to organize and reuse your results</li><li>Explore <a href="../../tutorials/#tutorials-overview">Tutorials</a> for more complex examples</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting-started/installation/">« Installation</a><a class="docs-footer-nextpage" href="../../concepts/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 2 October 2026 15:00">Friday 2 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+ 0.9495155517465396
+ 0.9994821029581369
+ 0.9491292123476965</code></pre><h2 id="Next-Steps"><a class="docs-heading-anchor" href="#Next-Steps">Next Steps</a><a id="Next-Steps-1"></a><a class="docs-heading-anchor-permalink" href="#Next-Steps" title="Permalink"></a></h2><ul><li>See <a href="../../concepts/#concepts-overview">Concepts</a> for the mathematical formulation</li><li>Learn about different <a href="../../problem-templates/#problem-templates-overview">Problem Templates</a></li><li>Read <a href="../guides/saving_loading/#saving-loading">Saving and Loading Pulses</a> to organize and reuse your results</li><li>Explore <a href="../../tutorials/#tutorials-overview">Tutorials</a> for more complex examples</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting-started/installation/">« Installation</a><a class="docs-footer-nextpage" href="../../concepts/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 3 October 2026 09:26">Saturday 3 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./quickstart.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/quickstart.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

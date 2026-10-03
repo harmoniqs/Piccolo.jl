@@ -31,10 +31,10 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 qcp_base = SmoothPulseProblem(qtraj, N; Q = 100.0, Δt_bounds = (0.05, 0.5))
 solve!(qcp_base; max_iter = 100)
 
-get_duration(get_trajectory(qcp_base))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">20.50208661858857</code></pre><pre><code class="language-julia hljs">fidelity(qcp_base)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999984915792663</code></pre><h3 id="Step-2:-Minimize-Time"><a class="docs-heading-anchor" href="#Step-2:-Minimize-Time">Step 2: Minimize Time</a><a id="Step-2:-Minimize-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Minimize-Time" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
+get_duration(get_trajectory(qcp_base))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">20.088305048933215</code></pre><pre><code class="language-julia hljs">fidelity(qcp_base)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999998866945227</code></pre><h3 id="Step-2:-Minimize-Time"><a class="docs-heading-anchor" href="#Step-2:-Minimize-Time">Step 2: Minimize Time</a><a id="Step-2:-Minimize-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Minimize-Time" title="Permalink"></a></h3><pre><code class="language-julia hljs">qcp_mintime = MinimumTimeProblem(qcp_base; final_fidelity = 0.99, D = 100.0)
 solve!(qcp_mintime; max_iter = 100)
 
-get_duration(get_trajectory(qcp_mintime))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11.73033141199277</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9899638378795472</code></pre><h3 id="Exploring-Fidelity-Time-Trade-off"><a class="docs-heading-anchor" href="#Exploring-Fidelity-Time-Trade-off">Exploring Fidelity-Time Trade-off</a><a id="Exploring-Fidelity-Time-Trade-off-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-Fidelity-Time-Trade-off" title="Permalink"></a></h3><pre><code class="language-julia hljs">results = []
+get_duration(get_trajectory(qcp_mintime))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">10.881779881448034</code></pre><pre><code class="language-julia hljs">fidelity(qcp_mintime)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9903460115630468</code></pre><h3 id="Exploring-Fidelity-Time-Trade-off"><a class="docs-heading-anchor" href="#Exploring-Fidelity-Time-Trade-off">Exploring Fidelity-Time Trade-off</a><a id="Exploring-Fidelity-Time-Trade-off-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-Fidelity-Time-Trade-off" title="Permalink"></a></h3><pre><code class="language-julia hljs">results = []
 for target_fidelity in [0.999, 0.99, 0.95, 0.90]
     qcp_mt = MinimumTimeProblem(qcp_base; final_fidelity = target_fidelity)
     solve!(
@@ -66,7 +66,7 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=20.502   Δt∈[0.05, 0.5]
+│    N=100   T=20.088   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -77,18 +77,18 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
-│    KnotPointObjective           w=1             1.742e-04
-│    QuadraticRegularizer(:u)     w=1             9.506e-04
-│    QuadraticRegularizer(:du)    w=1             2.700e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2009  @ current x</span>
+│    KnotPointObjective           w=1             1.649e-06
+│    QuadraticRegularizer(:u)     w=1             8.247e-04
+│    QuadraticRegularizer(:du)    w=1             2.550e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.265e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2050
+│    MinimumTimeObjective         w=1             2009
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 2.935e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.180e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 6.035e-06)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -99,13 +99,13 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 │    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
 │    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
-│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.983e-04)
+│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 1.000e-03)
 │
 └─ <span class="sgr1">Status</span>
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989964</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990346</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -119,7 +119,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=20.502   Δt∈[0.05, 0.5]
+│    N=100   T=20.088   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -130,18 +130,18 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
-│    KnotPointObjective           w=1             1.742e-04
-│    QuadraticRegularizer(:u)     w=1             9.506e-04
-│    QuadraticRegularizer(:du)    w=1             2.700e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2009  @ current x</span>
+│    KnotPointObjective           w=1             1.649e-06
+│    QuadraticRegularizer(:u)     w=1             8.247e-04
+│    QuadraticRegularizer(:du)    w=1             2.550e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.265e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2050
+│    MinimumTimeObjective         w=1             2009
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 2.935e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.180e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 6.035e-06)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -152,13 +152,13 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
 │    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
-│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.998e-03)
+│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 1.000e-02)
 │
 └─ <span class="sgr1">Status</span>
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.998777</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999000</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -172,7 +172,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=20.502   Δt∈[0.05, 0.5]
+│    N=100   T=20.088   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -183,18 +183,18 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
-│    KnotPointObjective           w=1             1.742e-04
-│    QuadraticRegularizer(:u)     w=1             9.506e-04
-│    QuadraticRegularizer(:du)    w=1             2.700e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2009  @ current x</span>
+│    KnotPointObjective           w=1             1.649e-06
+│    QuadraticRegularizer(:u)     w=1             8.247e-04
+│    QuadraticRegularizer(:du)    w=1             2.550e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.265e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2050
+│    MinimumTimeObjective         w=1             2009
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 2.935e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.180e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 6.035e-06)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -211,7 +211,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989964</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990346</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
@@ -225,7 +225,7 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=20.502   Δt∈[0.05, 0.5]
+│    N=100   T=20.088   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -236,18 +236,18 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
-│    KnotPointObjective           w=1             1.742e-04
-│    QuadraticRegularizer(:u)     w=1             9.506e-04
-│    QuadraticRegularizer(:du)    w=1             2.700e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2009  @ current x</span>
+│    KnotPointObjective           w=1             1.649e-06
+│    QuadraticRegularizer(:u)     w=1             8.247e-04
+│    QuadraticRegularizer(:du)    w=1             2.550e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.265e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2050
+│    MinimumTimeObjective         w=1             2009
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 2.935e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.180e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 6.035e-06)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -264,16 +264,16 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.949954</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.952401</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
 Fidelity-Time Trade-off
 ──────────────────────────────────────────────────
-  Target: 0.999  │  Duration: 12.034  │  Achieved: 0.9988
-  Target: 0.990  │  Duration: 11.730  │  Achieved: 0.9900
-  Target: 0.950  │  Duration: 11.570  │  Achieved: 0.9500
-  Target: 0.900  │  Duration: 11.744  │  Achieved: 0.9006</code></pre><h3 id="With-Robust-Optimization"><a class="docs-heading-anchor" href="#With-Robust-Optimization">With Robust Optimization</a><a id="With-Robust-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Robust-Optimization" title="Permalink"></a></h3><p>Chain with <code>SamplingProblem</code> for robust time-optimal control:</p><pre><code class="language-julia hljs"># Base problem
+  Target: 0.999  │  Duration: 11.566  │  Achieved: 0.9990
+  Target: 0.990  │  Duration: 10.882  │  Achieved: 0.9903
+  Target: 0.950  │  Duration: 11.940  │  Achieved: 0.9524
+  Target: 0.900  │  Duration: 11.456  │  Achieved: 0.9036</code></pre><h3 id="With-Robust-Optimization"><a class="docs-heading-anchor" href="#With-Robust-Optimization">With Robust Optimization</a><a id="With-Robust-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Robust-Optimization" title="Permalink"></a></h3><p>Chain with <code>SamplingProblem</code> for robust time-optimal control:</p><pre><code class="language-julia hljs"># Base problem
 qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
 solve!(qcp_base; max_iter=100)
 
@@ -303,7 +303,7 @@ solve!(qcp_y; max_iter = 100)</code></pre><pre class="documenter-example-output"
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=20.502   Δt∈[0.05, 0.5]
+│    N=100   T=20.088   Δt∈[0.05, 0.5]
 │    Ũ⃗    (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt   (1)  [0.05, 0.5]                    <span class="sgr32">✓</span>  timestep
 │    t    (1)                                 <span class="sgr90">·</span>  state
@@ -314,18 +314,18 @@ solve!(qcp_y; max_iter = 100)</code></pre><pre class="documenter-example-output"
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2050  @ current x</span>
-│    KnotPointObjective           w=1             1.742e-04
-│    QuadraticRegularizer(:u)     w=1             9.506e-04
-│    QuadraticRegularizer(:du)    w=1             2.700e-03
-│    QuadraticRegularizer(:ddu)   w=1             9.375e-03
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 2009  @ current x</span>
+│    KnotPointObjective           w=1             1.649e-06
+│    QuadraticRegularizer(:u)     w=1             8.247e-04
+│    QuadraticRegularizer(:du)    w=1             2.550e-03
+│    QuadraticRegularizer(:ddu)   w=1             9.265e-03
 │    NullObjective                w=1             0
-│    MinimumTimeObjective         w=1             2050
+│    MinimumTimeObjective         w=1             2009
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">4/14 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 9.221e-05)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 2.246e-04)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.153e-03)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 2.935e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 1.180e-06)
+│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 6.035e-06)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -342,15 +342,33 @@ solve!(qcp_y; max_iter = 100)</code></pre><pre class="documenter-example-output"
      variables: 1600   (1300 bounded)
      equality:  117617
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.013742</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.000032</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.00691  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
+<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
+<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. The #334 default `SplineIntegrator` pairs
+<span class="sgr33"><span class="sgr1">│ </span></span>    correctly; the mismatch arises when the explicit `integrator_type = :pwc`
+<span class="sgr33"><span class="sgr1">│ </span></span>    escape hatch is requested for a spline pulse.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:711</span>
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
-Number of nonzeros in equality constraint Jacobian...:    19204
-Number of nonzeros in inequality constraint Jacobian.:        8
-Number of nonzeros in Lagrangian Hessian.............:    38584
+Number of nonzeros in constraint Jacobian............:    19313
+Number of nonzeros in Lagrangian Hessian.............:    38944
 
 Total number of variables............................:     1587
                      variables with only lower bounds:        0
@@ -362,42 +380,45 @@ Total number of inequality constraints...............:        1
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:        1
 
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  2.0522117e+03 9.90e-01 2.51e+01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  2.0520222e+03 9.90e-01 1.09e+02  -0.8 1.00e+00   2.0 9.80e-01 9.90e-03h  1
-   2  2.0519238e+03 9.90e-01 5.89e+05   0.3 1.02e+01   1.5 5.39e-01 1.03e-04h  1
-   3  2.0255804e+03 9.05e-01 5.90e+05   2.0 1.93e+02   1.0 3.33e-03 1.49e-03f  2
-   4  2.0128442e+03 8.65e-01 3.79e+03   2.0 1.75e+01   0.6 9.69e-01 4.01e-02f  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  2.0116356e+03 1.00e+00 2.53e+01 1.99e+00  -1.0     -   0.00e+00  1  0
+   1  2.0114301e+03 9.93e-01 9.90e+03 1.38e+03   2.0    2.0  6.92e-03  1  1h
+   2  2.0117772e+03 9.90e-01 1.62e+05 7.17e+02  -4.0     -   3.10e-03  1  1h
+   3  2.0412379e+03 9.00e-01 1.90e+05 1.37e+03   1.8     -   2.69e-03  1  1h
+   4  2.0439932e+03 8.56e-01 6.57e+04 1.11e+03   1.8     -   4.39e-02  1  1h
 ⋮
-  96  1.2642140e+03 2.94e-03 9.44e+00  -2.8 1.22e-01   1.0 1.00e+00 2.46e-01f  1
-  97  1.2601884e+03 7.35e-03 6.81e+00  -1.8 8.05e-01   0.5 3.90e-01 1.48e-01f  1
-  98  1.2564475e+03 5.85e-03 1.49e+01  -2.5 1.94e-01   0.9 1.00e+00 3.30e-01f  1
-  99  1.2502335e+03 2.59e-02 1.28e+01  -2.9 1.33e+00   0.4 4.42e-01 1.87e-01f  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  1.2498269e+03 2.50e-02 2.75e+01  -3.3 1.22e-01   0.9 1.00e+00 3.37e-02f  1
+  96  1.3062139e+03 3.07e-03 5.15e+00 7.80e-02  -1.2    0.4  9.67e-01  1  1h
+  97  1.3033315e+03 6.76e-03 8.89e+00 7.67e-02  -1.2   -0.0  4.62e-01  1  1h
+  98  1.3061513e+03 3.92e-03 1.23e+02 1.81e-01  -0.8    1.3  4.15e-01  1  1h
+  99  1.3329362e+03 6.34e-02 3.69e+01 4.05e-01  -0.4     -   6.89e-01  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+ 100  1.3364710e+03 4.34e-03 5.52e+00 1.07e+00  -0.6    0.8  1.00e+00  1  1h
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.2498090613041143e+03    1.2498268510596481e+03
-Dual infeasibility......:   2.7532788495173719e+01    2.7533180396298182e+01
-Constraint violation....:   2.5020383949882541e-02    2.5020383949882541e-02
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.3373106215519051e-02    1.3373296568027821e-02
-Overall NLP error.......:   2.7532788495173719e+01    2.7533180396298182e+01
+Objective...............:   1.3364599468795420e+03    1.3364709898895505e+03
+Dual infeasibility......:   5.5249724234216302e+00    5.5250180756133860e+00
+Constraint violation....:   4.3427362146827436e-03    4.3427362146827436e-03
+Complementarity.........:   1.0674213494666138e+00    1.0674301694426056e+00
+Overall NLP error.......:   5.5249267716070900e+00    5.5249724234216302e+00
 
+Number of objective function evaluations              = 110
+Number of objective gradient evaluations              = 101
+Number of constraint evaluations                      = 110
+Number of constraint Jacobian evaluations             = 101
+Number of Lagrangian Hessian evaluations              = 100
+Number of KKT factorizations                          = 229
+Number of KKT backsolves                              = 108
 
-Number of objective function evaluations             = 103
-Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 103
-Number of inequality constraint evaluations          = 103
-Number of equality constraint Jacobian evaluations   = 101
-Number of inequality constraint Jacobian evaluations = 101
-Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 6.828
+Total wall secs in initialization                     =  0.004 s
+Total wall secs in linear solver                      =  0.379 s
+Total wall secs in NLP function evaluations           =  6.455 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.162 s
+Total wall secs                                       =  7.000 s
 
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to mintime_y_gate_089ad88.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 2 October 2026 15:00">Friday 2 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to mintime_y_gate_5e8f209.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 3 October 2026 09:26">Saturday 3 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./minimum_time.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/minimum_time.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

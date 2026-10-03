@@ -98,11 +98,10 @@ qcp = SmoothPulseProblem(qtraj, N; ddu_bound = ddu_bound, Q = 100.0, R = 1e-2)</
      <span class="sgr90">F (raw)       = </span><span class="sgr1">0.389387</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
-</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><pre><code class="language-julia hljs">solve!(qcp; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><pre><code class="language-julia hljs">solve!(qcp; max_iter = 50)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
-Number of nonzeros in equality constraint Jacobian...:    56362
-Number of nonzeros in inequality constraint Jacobian.:        0
-Number of nonzeros in Lagrangian Hessian.............:   245385
+Number of nonzeros in constraint Jacobian............:    57183
+Number of nonzeros in Lagrangian Hessian.............:   250386
 
 Total number of variables............................:     2845
                      variables with only lower bounds:       50
@@ -114,43 +113,46 @@ Total number of inequality constraints...............:        0
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:        0
 
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  6.1197140e+01 2.84e+00 3.03e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  2.6174538e+01 2.40e+00 3.27e+01  -0.8 2.44e+00   0.0 1.11e-01 1.55e-01f  1
-   2  2.3939288e+01 3.98e-01 3.88e+02  -0.5 2.32e+00   0.4 2.43e-01 8.34e-01f  1
-   3  2.6439070e+01 3.68e-01 5.60e+02   0.4 3.45e+00   0.9 5.26e-01 7.44e-02f  1
-   4  3.1029765e+01 3.26e-01 2.12e+03   1.0 1.85e+00   1.3 4.29e-01 1.14e-01f  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  6.1197140e+01 2.84e+00 3.03e+00 1.99e+00  -1.0     -   0.00e+00  1  0
+   1  5.9148726e+01 2.83e+00 2.78e+01 2.14e+00   1.8    0.0  1.87e-03  1  1h
+   2  2.7349307e+01 2.61e+00 3.78e+01 1.97e+00  -6.0     -   7.84e-02  1  1h
+   3  3.0456077e+01 1.74e+00 8.85e+02 6.60e+00   0.4    0.4  3.34e-01  1  1h
+   4  3.0830667e+01 1.59e+00 7.93e+02 5.81e+00   0.0    1.8  8.67e-02  1  1h
 ⋮
-  46  3.0212625e-02 2.51e-05 3.83e-03  -4.0 9.32e-03  -0.7 1.00e+00 1.00e+00h  1
-  47  2.5438270e-02 1.44e-04 1.67e-02  -4.0 2.23e-02  -1.2 1.00e+00 1.00e+00h  1
-  48  2.0336821e-02 2.52e-04 1.66e+02  -4.0 5.63e-02  -1.7 1.00e+00 5.00e-01h  2
-  49  1.9656268e-02 2.44e-04 7.54e+03  -3.7 2.77e-01  -2.1 1.00e+00 6.25e-02h  5
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  50  2.4539488e-02 4.55e-07 4.12e-02  -4.0 1.14e-03   0.1 1.00e+00 1.00e+00h  1
+  46  1.3657701e-02 5.71e-05 4.95e-03 1.27e-06  -5.9   -1.1  1.00e+00  2  1h
+  47  1.2826118e-02 1.12e-03 8.16e+00 2.00e-06  -5.9   -1.6  1.00e+00  1  1H
+  48  1.2357295e-02 3.95e-07 5.37e-01 1.25e-08  -9.0   -0.3  1.00e+00  1  1h
+  49  1.2141610e-02 7.55e-06 8.04e-04 5.22e-09  -8.3   -0.8  1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  50  1.1241767e-02 6.13e-05 3.61e-03 5.01e-09  -8.3   -1.2  1.00e+00  1  1h
 
 Number of Iterations....: 50
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.4539488460545732e-02    2.4539488460545732e-02
-Dual infeasibility......:   4.1151446630639868e-02    4.1151446630639868e-02
-Constraint violation....:   4.5503037521266165e-07    4.5503037521266165e-07
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0020364905243218e-04    1.0020364905243218e-04
-Overall NLP error.......:   4.1151446630639868e-02    4.1151446630639868e-02
+Objective...............:   1.1241766908741195e-02    1.1241766908741195e-02
+Dual infeasibility......:   3.6079181262860514e-03    3.6079181262860514e-03
+Constraint violation....:   6.1310875167697176e-05    6.1310875167697176e-05
+Complementarity.........:   5.0061257857365763e-09    5.0061257857365763e-09
+Overall NLP error.......:   3.6079181262860514e-03    3.6079181262860514e-03
 
+Number of objective function evaluations              = 70
+Number of objective gradient evaluations              = 51
+Number of constraint evaluations                      = 70
+Number of constraint Jacobian evaluations             = 51
+Number of Lagrangian Hessian evaluations              = 50
+Number of KKT factorizations                          = 126
+Number of KKT backsolves                              = 64
 
-Number of objective function evaluations             = 71
-Number of objective gradient evaluations             = 51
-Number of equality constraint evaluations            = 71
-Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 51
-Number of inequality constraint Jacobian evaluations = 0
-Number of Lagrangian Hessian evaluations             = 50
-Total seconds in IPOPT                               = 26.348
+Total wall secs in initialization                     =  0.028 s
+Total wall secs in linear solver                      =  1.865 s
+Total wall secs in NLP function evaluations           = 24.431 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  1.792 s
+Total wall secs                                       = 28.117 s
 
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to multilevel_transmon_089ad88.jld2</code></pre><p>After optimization, we can check the fidelity in the subspace:</p><pre><code class="language-julia hljs">fid = fidelity(qcp)
-println(&quot;Fidelity: &quot;, fid)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.9999471434081146</code></pre><h2 id="Leakage-suppression"><a class="docs-heading-anchor" href="#Leakage-suppression">Leakage suppression</a><a id="Leakage-suppression-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppression" title="Permalink"></a></h2><p>As can be seen from multilevel systems, there can be substantial leakage into higher energy levels during the evolution. To mitigate this, Piccolo provides options to add leakage suppression via the <code>PiccoloOptions</code> type.</p><p>To implement leakage suppression, pass <code>leakage_constraint=true</code> and configure the leakage parameters:</p><pre><code class="language-julia hljs"># create a leakage suppression problem
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to multilevel_transmon_5e8f209.jld2</code></pre><p>After optimization, we can check the fidelity in the subspace:</p><pre><code class="language-julia hljs">fid = fidelity(qcp)
+println(&quot;Fidelity: &quot;, fid)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity: 0.9999928208520861</code></pre><h2 id="Leakage-suppression"><a class="docs-heading-anchor" href="#Leakage-suppression">Leakage suppression</a><a id="Leakage-suppression-1"></a><a class="docs-heading-anchor-permalink" href="#Leakage-suppression" title="Permalink"></a></h2><p>As can be seen from multilevel systems, there can be substantial leakage into higher energy levels during the evolution. To mitigate this, Piccolo provides options to add leakage suppression via the <code>PiccoloOptions</code> type.</p><p>To implement leakage suppression, pass <code>leakage_constraint=true</code> and configure the leakage parameters:</p><pre><code class="language-julia hljs"># create a leakage suppression problem
 qcp_leakage = SmoothPulseProblem(
     qtraj,
     N;
@@ -175,7 +177,7 @@ solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-ou
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/XBaPv/src/problems.jl:82</span>
 <span class="sgr1">QuantumControlProblem</span>
 ├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  HermitianExponentialIntegrator, DerivativeIntegrator, DerivativeIntegrator
 │
@@ -183,7 +185,7 @@ solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-ou
 │    dim=5   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=50   T=10.095   Δt∈[0, Inf]
+│    N=50   T=10.132   Δt∈[0, Inf]
 │    Ũ⃗    (50)  ±[1.0, 1.0, 1.0, … (50 total)]  <span class="sgr32">✓</span>  state
 │    Δt   ( 1)  [0.0, Inf]                      <span class="sgr32">✓</span>  timestep
 │    t    ( 1)                                  <span class="sgr90">·</span>  state
@@ -194,18 +196,18 @@ solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-ou
 ├─ <span class="sgr1">Goal</span>
 │    EmbeddedOperator on [5], subspace dim 2
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.09357  @ current x</span>
-│    KnotPointObjective           w=1             5.286e-03
-│    QuadraticRegularizer(:u)     w=1             3.890e-04
-│    QuadraticRegularizer(:du)    w=1             2.446e-03
-│    QuadraticRegularizer(:ddu)   w=1             0.08005
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 0.04216  @ current x</span>
+│    KnotPointObjective           w=1             7.179e-04
+│    QuadraticRegularizer(:u)     w=1             2.551e-04
+│    QuadraticRegularizer(:du)    w=1             1.276e-03
+│    QuadraticRegularizer(:ddu)   w=1             0.03584
 │    NullObjective                w=1             0
-│    KnotPointObjective           w=1             5.408e-03
+│    KnotPointObjective           w=1             4.073e-03
 │
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/14 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.1481)
-│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 3.469e-18)
-│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 2.776e-17)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.1263)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.735e-18)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 5.551e-17)
 │    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -222,13 +224,13 @@ solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-ou
      variables: 2900   (2700 bounded)
      equality:  129659
      inequality: 24
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999947</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999993</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
 <span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.118  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.191  (tolerance 0.005)
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
 <span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
@@ -245,11 +247,10 @@ solve!(qcp_leakage; max_iter = 50)</code></pre><pre class="documenter-example-ou
 <span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
 <span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:711</span>
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
-Number of nonzeros in equality constraint Jacobian...:    56362
-Number of nonzeros in inequality constraint Jacobian.:    31556
-Number of nonzeros in Lagrangian Hessian.............:   245385
+Number of nonzeros in constraint Jacobian............:    88984
+Number of nonzeros in Lagrangian Hessian.............:   250386
 
 Total number of variables............................:     2845
                      variables with only lower bounds:       50
@@ -261,43 +262,46 @@ Total number of inequality constraints...............:     1200
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:     1200
 
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  4.8867329e-02 3.74e-01 1.19e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  7.0405493e-01 3.57e-01 1.66e+02  -1.8 6.75e-01    -  5.18e-01 4.73e-02h  1
-   2  6.8572669e-01 3.47e-01 1.61e+02  -0.6 6.07e+00    -  5.02e-02 2.81e-02f  1
-   3  1.1190457e+00 3.37e-01 1.57e+02  -2.5 4.06e+00    -  5.68e-02 2.68e-02h  1
-   4  1.7231300e+00 3.29e-01 1.53e+02  -0.5 1.08e+01    -  4.52e-02 2.41e-02f  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  3.1159048e-02 2.16e-01 1.00e+00 1.99e+00  -1.0     -   0.00e+00  1  0
+   1  1.1688831e+00 2.16e-01 1.54e+02 2.13e+00   1.9     -   3.40e-04  1  1h
+   2  1.1001040e+00 2.10e-01 1.50e+02 1.56e+00  -6.1     -   2.64e-02  1  1h
+   3  1.7314558e+00 2.11e-01 1.83e+02 1.42e+00  -0.3     -   1.47e-01  2  1h
+   4  4.2839038e+00 1.89e-01 1.74e+02 1.29e+00  -0.3     -   1.28e-01  1  1h
 ⋮
-  46  2.0306347e+01 1.83e-01 1.37e+05   0.9 3.27e+00    -  1.03e-01 4.36e-02h  1
-  47  2.5609923e+01 1.61e-01 1.12e+05   1.2 4.06e+00    -  7.69e-02 1.24e-01h  1
-  48  2.6449875e+01 1.56e-01 1.15e+05   0.2 1.79e+00    -  1.10e-01 3.23e-02h  1
-  49  2.8751417e+01 1.47e-01 1.19e+05   1.7 1.37e+00   2.7 7.50e-02 5.67e-02f  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  50  3.2768800e+01 1.21e-01 9.62e+04   0.6 7.42e-01   2.3 1.32e-01 1.80e-01h  1
+  46  2.1889179e+01 1.49e-02 5.52e-02 4.21e-03  -1.0    0.2  1.00e+00  1  1h
+  47  1.8344577e+01 3.60e-02 3.37e+03 3.81e-03  -2.6   -0.3  5.58e-01  1  1h
+  48  2.1500871e+01 3.84e-02 1.21e-01 4.59e-03  -1.0    0.1  1.00e+00  1  1h
+  49  1.7873257e+01 3.54e-01 9.02e+04 4.71e-03  -2.9   -0.4  4.43e-01  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  50  1.9557707e+01 3.03e-01 1.96e+05 1.75e-02  -0.7   -0.8  1.75e-01  1  1h
 
 Number of Iterations....: 50
 
                                    (scaled)                 (unscaled)
-Objective...............:   3.2768799733997248e+01    3.2768799733997248e+01
-Dual infeasibility......:   9.6157550804420782e+04    9.6157550804420782e+04
-Constraint violation....:   1.2063157767591282e-01    1.2063157767591282e-01
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.3625896382326777e+01    1.3625896382326777e+01
-Overall NLP error.......:   5.2833674328239713e+03    9.6157550804420782e+04
+Objective...............:   1.9557707086774915e+01    1.9557707086774915e+01
+Dual infeasibility......:   1.9611327252271297e+05    1.9611327252271297e+05
+Constraint violation....:   3.0338826725792412e-01    3.0338826725792412e-01
+Complementarity.........:   1.7519558375169997e-02    1.7519558375169997e-02
+Overall NLP error.......:   1.9611327252271297e+05    1.9611327252271297e+05
 
+Number of objective function evaluations              = 56
+Number of objective gradient evaluations              = 51
+Number of constraint evaluations                      = 56
+Number of constraint Jacobian evaluations             = 51
+Number of Lagrangian Hessian evaluations              = 50
+Number of KKT factorizations                          = 113
+Number of KKT backsolves                              = 55
 
-Number of objective function evaluations             = 51
-Number of objective gradient evaluations             = 51
-Number of equality constraint evaluations            = 51
-Number of inequality constraint evaluations          = 51
-Number of equality constraint Jacobian evaluations   = 51
-Number of inequality constraint Jacobian evaluations = 51
-Number of Lagrangian Hessian evaluations             = 50
-Total seconds in IPOPT                               = 23.592
+Total wall secs in initialization                     =  0.034 s
+Total wall secs in linear solver                      =  1.921 s
+Total wall secs in NLP function evaluations           = 21.652 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.421 s
+Total wall secs                                       = 24.028 s
 
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to multilevel_transmon_leakage_089ad88.jld2</code></pre><p>The leakage suppression adds:</p><ul><li>An L1-norm cost on populating leakage levels (drives populations toward zero)</li><li>A constraint that keeps leakage below the specified threshold</li></ul><pre><code class="language-julia hljs">fid_leakage = fidelity(qcp_leakage)
-println(&quot;Fidelity with leakage suppression: &quot;, fid_leakage)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity with leakage suppression: 0.5682896908566627</code></pre><h2 id="Visualizing-Results"><a class="docs-heading-anchor" href="#Visualizing-Results">Visualizing Results</a><a id="Visualizing-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-Results" title="Permalink"></a></h2><p>Piccolo provides plotting utilities to visualize the unitary evolution. First, without leakage suppression:</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp); fig_size = (900, 700))</code></pre><img src="ff68029a.png" alt="Example block output"/><p>And with leakage suppression — you should see the population staying mostly within the computational subspace (first two levels):</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))</code></pre><img src="9df84c51.png" alt="Example block output"/><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>This tutorial demonstrated:</p><ol><li>Using <code>TransmonSystem</code> to create a realistic multilevel transmon system</li><li>Using <code>EmbeddedOperator</code> to define gates on a subspace</li><li>Creating <code>UnitaryTrajectory</code> with <code>ZeroOrderPulse</code></li><li>Using <code>SmoothPulseProblem</code> to set up the optimization</li><li>Adding leakage suppression via <code>PiccoloOptions</code></li></ol><p>For more details on:</p><ul><li>Problem templates: See <a href="../problem-templates/smooth_pulse/#smooth-pulse">SmoothPulseProblem</a></li><li>Leakage suppression: See <a href="../guides/leakage_suppression/#leakage-suppression">Leakage Suppression</a></li><li>Quantum systems: See <a href="../systems/transmons/#transmon-systems">Transmon Qubits</a></li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../first_gate/">« Your First Gate</a><a class="docs-footer-nextpage" href="../state_transfer/">State Transfer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 2 October 2026 15:00">Friday 2 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to multilevel_transmon_leakage_5e8f209.jld2</code></pre><p>The leakage suppression adds:</p><ul><li>An L1-norm cost on populating leakage levels (drives populations toward zero)</li><li>A constraint that keeps leakage below the specified threshold</li></ul><pre><code class="language-julia hljs">fid_leakage = fidelity(qcp_leakage)
+println(&quot;Fidelity with leakage suppression: &quot;, fid_leakage)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Fidelity with leakage suppression: 0.7985034266844115</code></pre><h2 id="Visualizing-Results"><a class="docs-heading-anchor" href="#Visualizing-Results">Visualizing Results</a><a id="Visualizing-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-Results" title="Permalink"></a></h2><p>Piccolo provides plotting utilities to visualize the unitary evolution. First, without leakage suppression:</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp); fig_size = (900, 700))</code></pre><img src="30ddfba3.png" alt="Example block output"/><p>And with leakage suppression — you should see the population staying mostly within the computational subspace (first two levels):</p><pre><code class="language-julia hljs">plot_unitary_populations(get_trajectory(qcp_leakage); fig_size = (900, 700))</code></pre><img src="f2f1574f.png" alt="Example block output"/><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>This tutorial demonstrated:</p><ol><li>Using <code>TransmonSystem</code> to create a realistic multilevel transmon system</li><li>Using <code>EmbeddedOperator</code> to define gates on a subspace</li><li>Creating <code>UnitaryTrajectory</code> with <code>ZeroOrderPulse</code></li><li>Using <code>SmoothPulseProblem</code> to set up the optimization</li><li>Adding leakage suppression via <code>PiccoloOptions</code></li></ol><p>For more details on:</p><ul><li>Problem templates: See <a href="../problem-templates/smooth_pulse/#smooth-pulse">SmoothPulseProblem</a></li><li>Leakage suppression: See <a href="../guides/leakage_suppression/#leakage-suppression">Leakage Suppression</a></li><li>Quantum systems: See <a href="../systems/transmons/#transmon-systems">Transmon Qubits</a></li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../first_gate/">« Your First Gate</a><a class="docs-footer-nextpage" href="../state_transfer/">State Transfer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 3 October 2026 09:26">Saturday 3 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./multilevel_transmon.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/multilevel_transmon.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

@@ -31,7 +31,7 @@ solve!(qcp; max_iter = 200)</code></pre><pre class="documenter-example-output"><
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/XBaPv/src/problems.jl:82</span>
 <span class="sgr1">QuantumControlProblem</span>
 ├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  HermitianExponentialIntegrator, DerivativeIntegrator
 │
@@ -79,11 +79,10 @@ solve!(qcp; max_iter = 200)</code></pre><pre class="documenter-example-output"><
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
-Number of nonzeros in equality constraint Jacobian...:    12894
-Number of nonzeros in inequality constraint Jacobian.:      800
-Number of nonzeros in Lagrangian Hessian.............:    38584
+Number of nonzeros in constraint Jacobian............:    13769
+Number of nonzeros in Lagrangian Hessian.............:    38944
 
 Total number of variables............................:     1587
                      variables with only lower bounds:      300
@@ -95,43 +94,46 @@ Total number of inequality constraints...............:      400
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:      400
 
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  1.2119605e+02 1.35e-01 9.99e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  1.2138548e+02 2.44e-03 2.62e+01  -1.1 1.28e-01   2.0 9.39e-01 1.00e+00f  1
-   2  1.2098217e+02 1.73e-04 2.68e+00  -1.9 2.41e-02   1.5 9.95e-01 1.00e+00f  1
-   3  1.2080751e+02 2.79e-05 1.07e+00  -3.3 1.20e-02   1.9 1.00e+00 1.00e+00f  1
-   4  1.2027931e+02 2.51e-04 1.09e+00  -4.0 3.69e-02   1.5 1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  1.2119605e+02 1.35e-01 9.99e-01 9.84e+00  -1.0     -   0.00e+00  1  0
+   1  1.3629574e+02 1.59e-01 1.21e+03 1.07e+03   2.0    2.0  3.42e-02  1  1h
+   2  1.3600050e+02 9.63e-03 1.45e+03 1.07e+03  -3.1     -   1.00e+00  1  1h
+   3  1.3716805e+02 3.23e-02 7.29e+02 5.63e+02   2.1    1.5  2.06e-01  1  1h
+   4  1.3419614e+02 3.29e-02 9.79e+02 1.50e+02   2.0    2.9  1.00e+00  1  1h
 ⋮
- 196  3.2221397e+00 4.32e-06 3.12e-03  -4.0 6.26e-03  -0.7 1.00e+00 1.00e+00h  1
- 197  3.2220161e+00 7.01e-07 1.36e-03  -4.0 2.23e-03  -0.3 1.00e+00 1.00e+00h  1
- 198  3.2216843e+00 4.91e-06 3.51e-03  -4.0 6.89e-03  -0.8 1.00e+00 1.00e+00h  1
- 199  3.2215566e+00 6.53e-07 1.38e-03  -4.0 2.40e-03  -0.4 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 200  3.2212223e+00 6.75e-06 4.04e-03  -4.0 7.82e-03  -0.8 1.00e+00 1.00e+00h  1
+ 196  3.0491941e+00 5.43e-06 5.45e+00 9.95e-11  -8.2   -2.6  5.00e-01  1  2h
+ 197  3.0491944e+00 4.80e-06 1.49e+01 9.97e-11  -8.2   -3.1  1.25e-01  1  4h
+ 198  3.0491937e+00 1.17e-07 8.75e-06 9.89e-11  -8.2   -2.7  1.00e+00  1  1h
+ 199  3.0491936e+00 1.65e-07 2.26e+01 1.02e-10  -8.2   -3.1  3.12e-02  1  6h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+ 200  3.0491937e+00 3.30e-08 3.77e-06 9.89e-11  -8.2   -2.7  1.00e+00  1  1h
 
 Number of Iterations....: 200
 
                                    (scaled)                 (unscaled)
-Objective...............:   3.2212223454143696e+00    3.2212223454143696e+00
-Dual infeasibility......:   4.0389939316171049e-03    4.0389939316171049e-03
-Constraint violation....:   6.7516026503455784e-06    6.7516026503455784e-06
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000000000000e-04    1.0000000000000000e-04
-Overall NLP error.......:   4.0389939316171049e-03    4.0389939316171049e-03
+Objective...............:   3.0491936644249007e+00    3.0491936644249007e+00
+Dual infeasibility......:   3.7685832528683935e-06    3.7685832528683935e-06
+Constraint violation....:   3.2966350982377435e-08    3.2966350982377435e-08
+Complementarity.........:   9.8941391825465393e-11    9.8941391825465393e-11
+Overall NLP error.......:   3.7685832528683935e-06    3.7685832528683935e-06
 
+Number of objective function evaluations              = 433
+Number of objective gradient evaluations              = 201
+Number of constraint evaluations                      = 433
+Number of constraint Jacobian evaluations             = 202
+Number of Lagrangian Hessian evaluations              = 200
+Number of KKT factorizations                          = 482
+Number of KKT backsolves                              = 247
 
-Number of objective function evaluations             = 201
-Number of objective gradient evaluations             = 201
-Number of equality constraint evaluations            = 201
-Number of inequality constraint evaluations          = 201
-Number of equality constraint Jacobian evaluations   = 201
-Number of inequality constraint Jacobian evaluations = 201
-Number of Lagrangian Hessian evaluations             = 200
-Total seconds in IPOPT                               = 15.229
+Total wall secs in initialization                     =  0.003 s
+Total wall secs in linear solver                      =  1.206 s
+Total wall secs in NLP function evaluations           = 11.098 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  1.935 s
+Total wall secs                                       = 14.243 s
 
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_basic_089ad88.jld2</code></pre><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998639230268022</code></pre><h2 id="Visualize-unitary-populations"><a class="docs-heading-anchor" href="#Visualize-unitary-populations">Visualize unitary populations</a><a id="Visualize-unitary-populations-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-unitary-populations" title="Permalink"></a></h2><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
-fig = plot_unitary_populations(traj)</code></pre><img src="ccc043c5.png" alt="Example block output"/><h2 id="Minimum-Time"><a class="docs-heading-anchor" href="#Minimum-Time">Minimum Time</a><a id="Minimum-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Minimum-Time" title="Permalink"></a></h2><pre><code class="language-julia hljs">qcp_min = MinimumTimeProblem(qcp, final_fidelity = 0.99)
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_basic_5e8f209.jld2</code></pre><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998853315705959</code></pre><h2 id="Visualize-unitary-populations"><a class="docs-heading-anchor" href="#Visualize-unitary-populations">Visualize unitary populations</a><a id="Visualize-unitary-populations-1"></a><a class="docs-heading-anchor-permalink" href="#Visualize-unitary-populations" title="Permalink"></a></h2><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
+fig = plot_unitary_populations(traj)</code></pre><img src="76504a92.png" alt="Example block output"/><h2 id="Minimum-Time"><a class="docs-heading-anchor" href="#Minimum-Time">Minimum Time</a><a id="Minimum-Time-1"></a><a class="docs-heading-anchor-permalink" href="#Minimum-Time" title="Permalink"></a></h2><pre><code class="language-julia hljs">qcp_min = MinimumTimeProblem(qcp, final_fidelity = 0.99)
 solve!(qcp_min; max_iter = 300)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">constructing MinimumTimeProblem [from UnitaryTrajectory]
     final fidelity ≥ 0.99
     min-time weight D = 100.0
@@ -142,7 +144,7 @@ solve!(qcp_min; max_iter = 300)</code></pre><pre class="documenter-example-outpu
 │    dim=2   drives=2
 │
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=10.585   Δt∈[0, Inf]
+│    N=100   T=10.672   Δt∈[0, Inf]
 │    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t     (1)                                 <span class="sgr90">·</span>  state
@@ -153,16 +155,16 @@ solve!(qcp_min; max_iter = 300)</code></pre><pre class="documenter-example-outpu
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1062  @ current x</span>
-│    KnotPointObjective         w=1             0.0136
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1070  @ current x</span>
+│    KnotPointObjective         w=1             0.01147
 │    QuadraticRegularizer(:u)   w=1             0
-│    LinearRegularizer(:s_du)   w=1             3.208
+│    LinearRegularizer(:s_du)   w=1             3.038
 │    NullObjective              w=1             0
-│    MinimumTimeObjective       w=1             1058
+│    MinimumTimeObjective       w=1             1067
 │
-├─ <span class="sgr1">Constraints</span>   <span class="sgr31">3/14 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 6.250e-06)
-│    [dyn]  DerivativeIntegrator             <span class="sgr31">✗</span>  (‖c‖∞ = 6.752e-06)
+├─ <span class="sgr1">Constraints</span>   <span class="sgr31">2/14 violated at x₀</span>
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 3.297e-08)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 7.802e-09)
 │    [ineq] L1SlackConstraint                <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -174,21 +176,20 @@ solve!(qcp_min; max_iter = 300)</code></pre><pre class="documenter-example-outpu
 │    [bnd]  BoundsConstraint                 <span class="sgr32">✓</span>
 │    [eq]   TimeConsistencyConstraint        <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
-│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.864e-03)
+│    [ineq] Terminal fidelity bound on :Ũ⃗    <span class="sgr31">✗</span>  (viol = 9.885e-03)
 │
 └─ <span class="sgr1">Status</span>
      variables: 1600   (1000 bounded)
      equality:  98015
      inequality: 2
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999864</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.999885</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
-Number of nonzeros in equality constraint Jacobian...:    12894
-Number of nonzeros in inequality constraint Jacobian.:      808
-Number of nonzeros in Lagrangian Hessian.............:    38584
+Number of nonzeros in constraint Jacobian............:    13777
+Number of nonzeros in Lagrangian Hessian.............:    38944
 
 Total number of variables............................:     1587
                      variables with only lower bounds:      300
@@ -200,44 +201,47 @@ Total number of inequality constraints...............:      401
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:      401
 
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  1.1483772e+03 4.80e-02 2.08e+01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  1.1342383e+03 4.11e-02 1.98e+01  -0.9 1.37e-01   2.0 9.99e-01 1.43e-01f  1
-   2  1.1116343e+03 3.08e-02 2.24e+01  -4.0 1.81e-01   1.5 5.89e-01 2.50e-01f  1
-   3  1.0542641e+03 1.36e-02 9.54e+00  -2.4 4.17e-01   1.0 3.49e-01 6.13e-01f  1
-   4  1.0433471e+03 1.32e-02 9.87e+01  -0.5 2.49e+00   0.6 3.72e-01 1.15e-01f  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  1.1712986e+05 1.00e+00 1.70e+00 7.43e+06  -1.0     -   0.00e+00  1  0
+   1  1.1979326e+05 1.00e+00 1.79e+02 7.43e+06   5.0     -   2.57e-07  1  1h
+   2  6.8043988e+04 5.82e-01 7.46e+01 2.50e+06  -1.9     -   4.25e-01  1  1h
+   3  2.0597142e+03 6.61e-03 2.61e+01 8.92e+05  -2.4    0.0  9.89e-01  1  1h
+   4  5.7776819e+03 6.61e-03 9.70e+03 1.42e+00   3.1    1.3  7.38e-05  1  1h
 ⋮
- 296  1.2185624e+02 5.61e-08 4.41e-02  -4.0 4.73e-02  -1.5 1.00e+00 1.00e+00h  1
- 297  1.2185547e+02 4.96e-07 1.32e-01  -4.0 1.41e-01  -2.0 1.00e+00 1.00e+00f  1
- 298  1.2185518e+02 7.05e-08 4.95e-02  -4.0 5.31e-02  -1.5 1.00e+00 1.00e+00h  1
- 299  1.2185431e+02 6.24e-07 1.48e-01  -4.0 1.59e-01  -2.0 1.00e+00 1.00e+00f  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 300  1.2185398e+02 8.83e-08 5.56e-02  -4.0 5.96e-02  -1.6 1.00e+00 1.00e+00h  1
+ 296  1.2059259e+02 2.52e-04 9.90e-04 3.96e-09  -8.4  -11.4  1.00e+00  1  1h
+ 297  1.2059207e+02 7.04e-06 2.13e-04 3.96e-09  -8.4  -10.9  1.00e+00  1  1h
+ 298  1.2059210e+02 1.03e-05 9.83e-02 6.12e-09  -8.4  -11.4  7.81e-03  1  8h
+ 299  1.2059189e+02 8.15e-06 2.38e-04 3.98e-09  -8.4  -11.0  1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+ 300  1.2059182e+02 2.47e-06 9.60e-05 3.96e-09  -8.4  -10.6  1.00e+00  1  1h
 
 Number of Iterations....: 300
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.1450224210877860e+02    1.2185398328787686e+02
-Dual infeasibility......:   5.5582582010052797e-02    5.9151322232761344e-02
-Constraint violation....:   8.8331204128877516e-08    8.8331204128877516e-08
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000055356382e-04    1.0642060951667093e-04
-Overall NLP error.......:   5.5582582010052797e-02    5.9151322232761344e-02
+Objective...............:   3.1799224657881714e-03    1.2059181788137290e+02
+Dual infeasibility......:   9.6043118249025672e-05    3.6422316422029377e+00
+Constraint violation....:   2.4694074082787232e-06    2.4694074082787232e-06
+Complementarity.........:   1.0454225209122494e-13    3.9645432744753523e-09
+Overall NLP error.......:   2.4694074082787232e-06    9.6043118249025672e-05
 
+Number of objective function evaluations              = 371
+Number of objective gradient evaluations              = 301
+Number of constraint evaluations                      = 371
+Number of constraint Jacobian evaluations             = 301
+Number of Lagrangian Hessian evaluations              = 300
+Number of KKT factorizations                          = 708
+Number of KKT backsolves                              = 332
 
-Number of objective function evaluations             = 304
-Number of objective gradient evaluations             = 301
-Number of equality constraint evaluations            = 304
-Number of inequality constraint evaluations          = 304
-Number of equality constraint Jacobian evaluations   = 301
-Number of inequality constraint Jacobian evaluations = 301
-Number of Lagrangian Hessian evaluations             = 300
-Total seconds in IPOPT                               = 13.060
+Total wall secs in initialization                     =  0.004 s
+Total wall secs in linear solver                      =  3.490 s
+Total wall secs in NLP function evaluations           = 10.540 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.261 s
+Total wall secs                                       = 14.295 s
 
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_min_time_089ad88.jld2</code></pre><pre><code class="language-julia hljs">before = get_duration(traj)
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_min_time_5e8f209.jld2</code></pre><pre><code class="language-julia hljs">before = get_duration(traj)
 after = duration(get_pulse(qcp_min.qtraj))
-before - after</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9.436292985241922</code></pre><pre><code class="language-julia hljs">fig = plot_unitary_populations(get_trajectory(qcp_min))</code></pre><img src="e56976c2.png" alt="Example block output"/><h3 id="Tuning-the-L1-Weight"><a class="docs-heading-anchor" href="#Tuning-the-L1-Weight">Tuning the L1 Weight</a><a id="Tuning-the-L1-Weight-1"></a><a class="docs-heading-anchor-permalink" href="#Tuning-the-L1-Weight" title="Permalink"></a></h3><p>The <code>R_du</code> parameter controls how aggressively switches are penalized. Higher values produce fewer switches (more bang-bang):</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
+before - after</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">9.532687546470179</code></pre><pre><code class="language-julia hljs">fig = plot_unitary_populations(get_trajectory(qcp_min))</code></pre><img src="1a88c1ba.png" alt="Example block output"/><h3 id="Tuning-the-L1-Weight"><a class="docs-heading-anchor" href="#Tuning-the-L1-Weight">Tuning the L1 Weight</a><a id="Tuning-the-L1-Weight-1"></a><a class="docs-heading-anchor-permalink" href="#Tuning-the-L1-Weight" title="Permalink"></a></h3><p>The <code>R_du</code> parameter controls how aggressively switches are penalized. Higher values produce fewer switches (more bang-bang):</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
     qtraj,
     N;
     Q = 100.0,
@@ -249,7 +253,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    dim=2   drives=2
 │  
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=1.148   Δt∈[0, Inf]
+│    N=100   T=1.139   Δt∈[0, Inf]
 │    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t     (1)                                 <span class="sgr90">·</span>  state
@@ -260,15 +264,15 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │  
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 9  @ current x</span>
-│    KnotPointObjective         w=1             0.9998
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 8.988  @ current x</span>
+│    KnotPointObjective         w=1             1.001
 │    QuadraticRegularizer(:u)   w=1             0
-│    LinearRegularizer(:s_du)   w=1             8.001
+│    LinearRegularizer(:s_du)   w=1             7.988
 │    NullObjective              w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 6.452e-03)
-│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 2.220e-16)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.01117)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
 │    [ineq] L1SlackConstraint                <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -285,7 +289,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
      variables: 1600   (1000 bounded)
      equality:  98015
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990002</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989995</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 </code></pre><h3 id="With-Derivative-Bounds"><a class="docs-heading-anchor" href="#With-Derivative-Bounds">With Derivative Bounds</a><a id="With-Derivative-Bounds-1"></a><a class="docs-heading-anchor-permalink" href="#With-Derivative-Bounds" title="Permalink"></a></h3><p>Constrain the maximum control jump size:</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
@@ -301,7 +305,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    dim=2   drives=2
 │  
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=1.148   Δt∈[0, Inf]
+│    N=100   T=1.139   Δt∈[0, Inf]
 │    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t     (1)                                 <span class="sgr90">·</span>  state
@@ -312,15 +316,15 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │  
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.8  @ current x</span>
-│    KnotPointObjective         w=1             0.9998
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 1.799  @ current x</span>
+│    KnotPointObjective         w=1             1.001
 │    QuadraticRegularizer(:u)   w=1             0
-│    LinearRegularizer(:s_du)   w=1             0.8001
+│    LinearRegularizer(:s_du)   w=1             0.7988
 │    NullObjective              w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 6.452e-03)
-│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 2.220e-16)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.01117)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
 │    [ineq] L1SlackConstraint                <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -337,7 +341,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
      variables: 1600   (1200 bounded)
      equality:  98015
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990002</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989995</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 </code></pre><h3 id="Per-Drive-Regularization"><a class="docs-heading-anchor" href="#Per-Drive-Regularization">Per-Drive Regularization</a><a id="Per-Drive-Regularization-1"></a><a class="docs-heading-anchor-permalink" href="#Per-Drive-Regularization" title="Permalink"></a></h3><p>Apply different L1 weights to different control channels:</p><pre><code class="language-julia hljs">qcp = BangBangPulseProblem(
@@ -353,7 +357,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 │    dim=2   drives=2
 │  
 ├─ <span class="sgr1">Trajectory</span>
-│    N=100   T=1.148   Δt∈[0, Inf]
+│    N=100   T=1.139   Δt∈[0, Inf]
 │    Ũ⃗     (8)  ±[1.0, 1.0, 1.0, … (8 total)]  <span class="sgr32">✓</span>  state
 │    Δt    (1)  [0.0, Inf]                     <span class="sgr32">✓</span>  timestep
 │    t     (1)                                 <span class="sgr90">·</span>  state
@@ -364,15 +368,15 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
 ├─ <span class="sgr1">Goal</span>
 │    U_goal  (2×2)
 │  
-├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 6.306  @ current x</span>
-│    KnotPointObjective         w=1             0.9998
-│    QuadraticRegularizer(:u)   w=1             6.224e-03
-│    LinearRegularizer(:s_du)   w=1             5.3
+├─ <span class="sgr1">Objective</span>   <span class="sgr90">total = 6.294  @ current x</span>
+│    KnotPointObjective         w=1             1.001
+│    QuadraticRegularizer(:u)   w=1             6.179e-03
+│    LinearRegularizer(:s_du)   w=1             5.288
 │    NullObjective              w=1             0
 │  
 ├─ <span class="sgr1">Constraints</span>   <span class="sgr31">1/13 violated at x₀</span>
-│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 6.452e-03)
-│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 2.220e-16)
+│    [dyn]  HermitianExponentialIntegrator   <span class="sgr31">✗</span>  (‖c‖∞ = 0.01117)
+│    [dyn]  DerivativeIntegrator             <span class="sgr32">✓</span>  (‖c‖∞ = 1.110e-16)
 │    [ineq] L1SlackConstraint                <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
 │    [eq]   EqualityConstraint               <span class="sgr32">✓</span>  (no eval)
@@ -389,7 +393,7 @@ before - after</code></pre><pre class="documenter-example-output"><code class="n
      variables: 1600   (1000 bounded)
      equality:  98015
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.990002</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.989995</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 </code></pre><h3 id="State-Transfer"><a class="docs-heading-anchor" href="#State-Transfer">State Transfer</a><a id="State-Transfer-1"></a><a class="docs-heading-anchor-permalink" href="#State-Transfer" title="Permalink"></a></h3><pre><code class="language-julia hljs">ψ_init = ComplexF64[1, 0]  ## |0⟩
@@ -409,7 +413,7 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/XBaPv/src/problems.jl:82</span>
 <span class="sgr1">QuantumControlProblem</span>
 ├─ KetTrajectory  ·  ZeroOrderPulse  ·  HermitianExponentialIntegrator, DerivativeIntegrator
 │
@@ -453,15 +457,14 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
      variables: 1200   (600 bounded)
      equality:  58811
      inequality: 1
-     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.006835</span>
+     <span class="sgr90">F (raw)       = </span><span class="sgr1">0.006836</span>
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
-Number of nonzeros in equality constraint Jacobian...:     8174
-Number of nonzeros in inequality constraint Jacobian.:      800
-Number of nonzeros in Lagrangian Hessian.............:    21862
+Number of nonzeros in constraint Jacobian............:     9017
+Number of nonzeros in Lagrangian Hessian.............:    22056
 
 Total number of variables............................:     1191
                      variables with only lower bounds:      300
@@ -473,42 +476,45 @@ Total number of inequality constraints...............:      400
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:      400
 
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  1.1977285e+02 9.17e-02 1.59e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  1.1969500e+02 9.52e-04 8.42e+00  -1.2 8.39e-02   2.0 9.64e-01 1.00e+00f  1
-   2  1.1546341e+02 3.72e-03 3.93e+00  -1.3 1.18e-01   1.5 9.98e-01 1.00e+00f  1
-   3  1.1242780e+02 1.15e-03 4.97e+00  -2.0 5.59e-02   1.9 1.00e+00 1.00e+00f  1
-   4  1.0302175e+02 1.82e-02 3.77e+01  -1.3 9.88e-01   1.5 1.00e+00 1.82e-01f  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  1.1977270e+02 9.17e-02 1.59e+00 7.61e+00  -1.0     -   0.00e+00  1  0
+   1  1.3689173e+02 1.15e-01 1.07e+03 1.16e+03   2.0    2.0  4.55e-02  1  1h
+   2  1.3819003e+02 1.38e-02 1.37e+03 1.17e+03  -2.9     -   1.00e+00  1  1h
+   3  1.3823972e+02 1.33e-01 9.14e+02 1.10e+03   2.4    1.5  4.45e-02  1  1h
+   4  1.3790335e+02 1.30e-01 9.07e+02 1.10e+03   0.6     -   4.98e-02  1  2h
 ⋮
-  96  3.3335963e+00 2.11e-04 3.98e+02  -4.0 2.18e-02   0.0 1.00e+00 1.00e+00h  1
-  97  3.3221254e+00 1.10e-03 3.45e+02  -4.0 8.22e-02  -0.5 1.00e+00 8.65e-01f  1
-  98  3.3569232e+00 1.52e-04 4.76e+01  -4.0 1.86e-03   2.7 1.00e+00 8.62e-01h  1
-  99  3.3638603e+00 2.64e-06 4.41e-01  -3.7 2.76e-03   2.2 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  3.3418309e+00 9.27e-06 2.55e-01  -4.0 4.80e-03   1.7 1.00e+00 1.00e+00f  1
+  96  1.1080806e+01 1.96e-04 1.55e+00 5.09e-03  -2.3    1.0  5.61e-01  1  1h
+  97  1.0473187e+01 3.05e-04 3.46e+02 6.22e-03  -2.3    0.5  3.62e-01  1  1h
+  98  9.6885420e+00 8.09e-04 9.86e+01 7.80e-03  -2.3    0.0  2.84e-01  1  1h
+  99  9.9719036e+00 6.93e-05 1.36e+00 2.55e-02  -2.0    1.4  1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+ 100  1.0749797e+01 5.29e-04 4.07e-01 2.95e-02  -1.6    0.9  1.00e+00  1  1h
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   3.3418308879652598e+00    3.3418308879652598e+00
-Dual infeasibility......:   2.5542706819650740e-01    2.5542706819650740e-01
-Constraint violation....:   9.2700960919733788e-06    9.2700960919733788e-06
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.1723941822701227e-04    1.1723941822701227e-04
-Overall NLP error.......:   2.5542706819650740e-01    2.5542706819650740e-01
+Objective...............:   1.0749797211614574e+01    1.0749797211614574e+01
+Dual infeasibility......:   4.0690656922911489e-01    4.0690656922911489e-01
+Constraint violation....:   5.2940972899673255e-04    5.2940972899673255e-04
+Complementarity.........:   2.9525508158920733e-02    2.9525508158920733e-02
+Overall NLP error.......:   4.0690656922911489e-01    4.0690656922911489e-01
 
+Number of objective function evaluations              = 106
+Number of objective gradient evaluations              = 101
+Number of constraint evaluations                      = 106
+Number of constraint Jacobian evaluations             = 101
+Number of Lagrangian Hessian evaluations              = 100
+Number of KKT factorizations                          = 252
+Number of KKT backsolves                              = 105
 
-Number of objective function evaluations             = 102
-Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 102
-Number of inequality constraint evaluations          = 102
-Number of equality constraint Jacobian evaluations   = 101
-Number of inequality constraint Jacobian evaluations = 101
-Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 8.779
+Total wall secs in initialization                     =  0.002 s
+Total wall secs in linear solver                      =  0.267 s
+Total wall secs in NLP function evaluations           =  5.594 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  1.653 s
+Total wall secs                                       =  7.516 s
 
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_state_transfer_089ad88.jld2</code></pre><h3 id="Multiple-State-Transfers"><a class="docs-heading-anchor" href="#Multiple-State-Transfers">Multiple State Transfers</a><a id="Multiple-State-Transfers-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-State-Transfers" title="Permalink"></a></h3><p>Use <code>MultiKetTrajectory</code> for gates defined by state mappings:</p><pre><code class="language-julia hljs">ψ0, ψ1 = ComplexF64[1, 0], ComplexF64[0, 1]
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_state_transfer_5e8f209.jld2</code></pre><h3 id="Multiple-State-Transfers"><a class="docs-heading-anchor" href="#Multiple-State-Transfers">Multiple State Transfers</a><a id="Multiple-State-Transfers-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-State-Transfers" title="Permalink"></a></h3><p>Use <code>MultiKetTrajectory</code> for gates defined by state mappings:</p><pre><code class="language-julia hljs">ψ0, ψ1 = ComplexF64[1, 0], ComplexF64[0, 1]
 
 # X gate: |0⟩ → |1⟩ and |1⟩ → |0⟩
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
@@ -525,7 +531,7 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/XBaPv/src/problems.jl:82</span>
 <span class="sgr1">QuantumControlProblem</span>
 ├─ MultiKetTrajectory  ·  ZeroOrderPulse  ·  HermitianExponentialIntegrator, DerivativeIntegrator
 │
@@ -576,11 +582,10 @@ solve!(qcp; max_iter = 100)</code></pre><pre class="documenter-example-output"><
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
-Number of nonzeros in equality constraint Jacobian...:    15270
-Number of nonzeros in inequality constraint Jacobian.:      800
-Number of nonzeros in Lagrangian Hessian.............:    38584
+Number of nonzeros in constraint Jacobian............:    16145
+Number of nonzeros in Lagrangian Hessian.............:    38944
 
 Total number of variables............................:     1587
                      variables with only lower bounds:      300
@@ -592,42 +597,45 @@ Total number of inequality constraints...............:      400
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:      400
 
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  1.2192122e+02 8.08e-02 2.56e+00   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  1.2183748e+02 1.70e-03 2.45e+01  -1.2 7.64e-02   2.0 9.73e-01 1.00e+00f  1
-   2  1.1952418e+02 8.20e-04 2.56e+00  -1.7 7.41e-02   1.5 9.98e-01 9.89e-01f  1
-   3  1.1847377e+02 1.32e-04 2.71e+00  -2.7 3.06e-02   1.9 1.00e+00 1.00e+00f  1
-   4  1.1149519e+02 5.08e-03 4.95e+00  -2.8 1.57e-01   1.5 1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  1.2192122e+02 8.08e-02 2.56e+00 1.06e+01  -1.0     -   0.00e+00  1  0
+   1  1.3713162e+02 1.26e-01 1.14e+03 1.15e+03   2.0    2.0  3.67e-02  1  1h
+   2  1.3766465e+02 9.25e-03 1.20e+03 1.15e+03  -3.1     -   1.00e+00  1  1h
+   3  1.3712672e+02 8.79e-03 1.26e+03 8.31e+02   2.3    3.3  4.15e-02  1  1h
+   4  1.3413985e+02 2.35e-02 7.73e+02 8.18e+01   2.7    2.9  2.36e-01  1  1h
 ⋮
-  96  3.2026092e+00 5.36e-06 5.02e-03  -4.0 9.61e-03  -0.9 1.00e+00 1.00e+00h  1
-  97  3.2025040e+00 1.25e-06 2.09e-03  -4.0 3.66e-03  -0.5 1.00e+00 1.00e+00h  1
-  98  3.2021720e+00 6.14e-06 5.34e-03  -4.0 1.03e-02  -0.9 1.00e+00 1.00e+00h  1
-  99  3.2020680e+00 1.32e-06 2.10e-03  -4.0 3.73e-03  -0.5 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  3.2017462e+00 7.25e-06 5.76e-03  -4.0 1.11e-02  -1.0 1.00e+00 1.00e+00h  1
+  96  3.2641949e+00 3.31e-04 8.43e+01 4.09e-04  -3.4   -7.5  1.00e+00  1  1h
+  97  3.2669918e+00 3.26e-04 1.63e+02 4.09e-04  -3.4   -8.0  1.00e+00  1  1h
+  98  3.2695049e+00 5.09e-04 2.91e+02 4.09e-04  -3.4   -8.5  1.00e+00  1  1h
+  99  3.2696054e+00 5.56e-04 5.06e+02 4.09e-04  -3.4   -9.0  1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+ 100  3.3390350e+00 2.61e-03 1.68e+03 4.85e-04  -3.4     -   1.00e+00  1  1h
 
 Number of Iterations....: 100
 
                                    (scaled)                 (unscaled)
-Objective...............:   3.2017461667119913e+00    3.2017461667119913e+00
-Dual infeasibility......:   5.7632137886061072e-03    5.7632137886061072e-03
-Constraint violation....:   7.2466719559446946e-06    7.2466719559446946e-06
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000000000002e-04    1.0000000000000002e-04
-Overall NLP error.......:   5.7632137886061072e-03    5.7632137886061072e-03
+Objective...............:   3.3390350055060281e+00    3.3390350055060281e+00
+Dual infeasibility......:   1.6803385720016261e+03    1.6803385720016261e+03
+Constraint violation....:   2.6141265162075672e-03    2.6141265162075672e-03
+Complementarity.........:   4.8486687700836386e-04    4.8486687700836386e-04
+Overall NLP error.......:   1.6803385720016261e+03    1.6803385720016261e+03
 
+Number of objective function evaluations              = 105
+Number of objective gradient evaluations              = 101
+Number of constraint evaluations                      = 105
+Number of constraint Jacobian evaluations             = 101
+Number of Lagrangian Hessian evaluations              = 100
+Number of KKT factorizations                          = 235
+Number of KKT backsolves                              = 104
 
-Number of objective function evaluations             = 101
-Number of objective gradient evaluations             = 101
-Number of equality constraint evaluations            = 101
-Number of inequality constraint evaluations          = 101
-Number of equality constraint Jacobian evaluations   = 101
-Number of inequality constraint Jacobian evaluations = 101
-Number of Lagrangian Hessian evaluations             = 100
-Total seconds in IPOPT                               = 10.440
+Total wall secs in initialization                     =  0.004 s
+Total wall secs in linear solver                      =  0.410 s
+Total wall secs in NLP function evaluations           =  6.423 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  1.700 s
+Total wall secs                                       =  8.537 s
 
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_multi_ket_089ad88.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>BangBangPulseProblem</code> internally:</p><ol><li><p><strong>Adds 1 derivative variable</strong>: Creates <code>:du</code> (first derivative) alongside controls <code>:u</code> (compared to 2 in <code>SmoothPulseProblem</code>)</p></li><li><p><strong>Adds slack variables</strong>: Creates <code>:s_du</code> (non-negative, same dimension as <code>:du</code>), initialized at <code>|du|</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic (L2) regularization on <code>u</code> with weight <code>R_u</code></li><li>Linear (L1) regularization on <code>s_du</code> with weight <code>R_du</code></li></ul></li><li><p><strong>Applies constraints</strong>: <code>L1SlackConstraint</code> enforces <code>|du| ≤ s_du</code>, and <code>du_bound</code> as hard constraints</p></li></ol><p>At optimality the slacks satisfy <code>s = |du|</code>, so the linear cost on <code>s</code> equals the exact L1 norm of <code>du</code>.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For smooth (L2-regularized) controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../smooth_pulse/">« SmoothPulseProblem</a><a class="docs-footer-nextpage" href="../spline_pulse/">SplinePulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 2 October 2026 15:00">Friday 2 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to bang_bang_multi_ket_5e8f209.jld2</code></pre><h2 id="How-It-Works"><a class="docs-heading-anchor" href="#How-It-Works">How It Works</a><a id="How-It-Works-1"></a><a class="docs-heading-anchor-permalink" href="#How-It-Works" title="Permalink"></a></h2><p><code>BangBangPulseProblem</code> internally:</p><ol><li><p><strong>Adds 1 derivative variable</strong>: Creates <code>:du</code> (first derivative) alongside controls <code>:u</code> (compared to 2 in <code>SmoothPulseProblem</code>)</p></li><li><p><strong>Adds slack variables</strong>: Creates <code>:s_du</code> (non-negative, same dimension as <code>:du</code>), initialized at <code>|du|</code></p></li><li><p><strong>Sets up integrators</strong>: Uses <code>DerivativeIntegrator</code> to enforce:</p><ul><li><code>du[k] = (u[k+1] - u[k]) / Δt</code></li></ul></li><li><p><strong>Configures objectives</strong>:</p><ul><li>Infidelity objective with weight <code>Q</code></li><li>Quadratic (L2) regularization on <code>u</code> with weight <code>R_u</code></li><li>Linear (L1) regularization on <code>s_du</code> with weight <code>R_du</code></li></ul></li><li><p><strong>Applies constraints</strong>: <code>L1SlackConstraint</code> enforces <code>|du| ≤ s_du</code>, and <code>du_bound</code> as hard constraints</p></li></ol><p>At optimality the slacks satisfy <code>s = |du|</code>, so the linear cost on <code>s</code> equals the exact L1 norm of <code>du</code>.</p><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - For smooth (L2-regularized) controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - For inherently smooth spline-based controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Time-optimal control</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../smooth_pulse/">« SmoothPulseProblem</a><a class="docs-footer-nextpage" href="../spline_pulse/">SplinePulseProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 3 October 2026 09:26">Saturday 3 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./bang_bang_pulse.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/bang_bang_pulse.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

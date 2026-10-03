@@ -37,35 +37,244 @@ solve!(qcp; max_iter = 50, print_level = 1)</code></pre><pre class="documenter-e
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.0688  (tolerance 0.005)
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
-<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
-<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
-<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
-<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
-<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. The #334 default `SplineIntegrator` pairs
-<span class="sgr33"><span class="sgr1">│ </span></span>    correctly; the mismatch arises when the explicit `integrator_type = :pwc`
-<span class="sgr33"><span class="sgr1">│ </span></span>    escape hatch is requested for a spline pulse.
-<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
-<span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
-<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:711</span>
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to visualization_unitary_089ad88.jld2</code></pre><p>Inspect the resulting fidelity:</p><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9959229568576583</code></pre><h2 id="Pulse-Plotting"><a class="docs-heading-anchor" href="#Pulse-Plotting">Pulse Plotting</a><a id="Pulse-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Plotting" title="Permalink"></a></h2><p><code>plot_pulse</code> renders any <code>AbstractPulse</code> with type-appropriate visuals (step functions for <code>ZeroOrderPulse</code>, line segments for <code>LinearSplinePulse</code>, smooth curves with knots for <code>CubicSplinePulse</code>, dense samples for analytic / <code>FunctionPulse</code> types). For per-pulse-type construction and rendering examples — including hardware bounds, tangent whiskers, theming, and the <code>:stacked</code> vs <code>:overlay</code> layouts — see the <a href="../../concepts/pulses/#pulses-concept">Pulses concept page</a>. This guide focuses on plotting <em>workflow</em> pieces specific to optimization output.</p><h3 id="Plot-directly-from-a-QuantumControlProblem"><a class="docs-heading-anchor" href="#Plot-directly-from-a-QuantumControlProblem">Plot directly from a <code>QuantumControlProblem</code></a><a id="Plot-directly-from-a-QuantumControlProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-directly-from-a-QuantumControlProblem" title="Permalink"></a></h3><p>After solving, <code>plot_pulse(qcp)</code> extracts the optimized pulse and renders it in one call. Per-drive labels default to <code>&quot;&lt;drive_name&gt;_&lt;i&gt;&quot;</code>. Pass <code>bounds=true</code> to shade hardware bounds derived from the system, and <code>components=[:du, :ddu]</code> to stack the derivative trajectories beneath the pulse with their own bounded panels (set <code>component_bounds=true</code> to read bounds from the <code>NamedTrajectory</code>).</p><pre><code class="language-julia hljs">fig = plot_pulse(qcp; title = &quot;Optimized Pulse&quot;)</code></pre><img src="1076ad79.png" alt="Example block output"/><p>Add hardware bounds and the smoothness derivatives:</p><pre><code class="language-julia hljs">fig = plot_pulse(
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/XBaPv/src/problems.jl:82</span>
+Logger is initialized.
+Initializing variables.
+Initializing KKT system.
+Initializing iterative solver.
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
+
+Number of nonzeros in constraint Jacobian............:     9653
+Number of nonzeros in Lagrangian Hessian.............:    19344
+
+Total number of variables............................:      787
+                     variables with only lower bounds:       50
+                variables with lower and upper bounds:      588
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      686
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+Initializing variables.
+Evaluating constraint Jacobian.
+Constraint jacobian evaluation started.
+Evaluating objective gradient.
+Initializing constraint duals.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 3.16e-15
+Iterative solver terminated with    1 refinement steps and residual = 3.16e-15
+Evaluating objective.
+Evaluating constraints.
+Evaluating Lagrangian Hessian.
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  9.7505740e+01 2.80e+00 1.58e+00 1.99e+00  -1.0     -   0.00e+00  1  0
+Evaluating termination criteria.
+Updating the barrier parameter.
+Keeping adaptive barrier in free mode.
+sigma=1.0e+00 inf_pr=7.46e-02 inf_du=0.00e+00 inf_cc=3.17e+00 a_pr=3.27e-03 a_du=1.00e+00
+sigma=1.0e+00 inf_pr=7.46e-02 inf_du=0.00e+00 inf_cc=3.17e+00 a_pr=3.27e-03 a_du=1.00e+00
+sigma=1.0e+00 inf_pr=7.46e-02 inf_du=0.00e+00 inf_cc=3.17e+00 a_pr=3.27e-03 a_du=1.00e+00
+sigma=1.0e+02 inf_pr=7.46e-02 inf_du=1.19e-01 inf_cc=8.22e-04 a_pr=3.25e-03 a_du=1.02e-02
+sigma=3.9e+01 inf_pr=7.46e-02 inf_du=1.15e-01 inf_cc=3.20e-03 a_pr=3.26e-03 a_du=2.64e-02
+sigma=6.2e+01 inf_pr=7.46e-02 inf_du=1.17e-01 inf_cc=1.55e-03 a_pr=3.25e-03 a_du=1.65e-02
+sigma=2.4e+01 inf_pr=7.46e-02 inf_du=1.11e-01 inf_cc=6.99e-03 a_pr=3.26e-03 a_du=4.20e-02
+sigma=1.5e+01 inf_pr=7.46e-02 inf_du=1.06e-01 inf_cc=1.58e-02 a_pr=3.27e-03 a_du=6.63e-02
+sigma=9.9e+00 inf_pr=7.46e-02 inf_du=9.75e-02 inf_cc=3.60e-02 a_pr=3.27e-03 a_du=1.03e-01
+sigma=6.5e+00 inf_pr=7.46e-02 inf_du=8.61e-02 inf_cc=8.03e-02 a_pr=3.27e-03 a_du=1.57e-01
+sigma=4.4e+00 inf_pr=7.46e-02 inf_du=7.14e-02 inf_cc=1.71e-01 a_pr=3.27e-03 a_du=2.33e-01
+sigma=3.1e+00 inf_pr=7.46e-02 inf_du=5.44e-02 inf_cc=3.40e-01 a_pr=3.27e-03 a_du=3.30e-01
+sigma=2.3e+00 inf_pr=7.46e-02 inf_du=3.72e-02 inf_cc=6.16e-01 a_pr=3.27e-03 a_du=4.46e-01
+sigma=1.8e+00 inf_pr=7.46e-02 inf_du=2.24e-02 inf_cc=9.98e-01 a_pr=3.27e-03 a_du=5.70e-01
+Computing the Newton step.
+Inertia-based regularization started.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 2.06e-15
+Iterative solver terminated with    1 refinement steps and residual = 2.06e-15
+Backtracking line search initiated.
+Evaluating objective.
+Evaluating constraints.
+Step accepted with type h
+Updating primal-dual variables.
+Evaluating objective gradient.
+Proceeding to the next interior point iteration.
+Evaluating constraint Jacobian.
+Constraint jacobian evaluation started.
+   1  9.2457403e+01 4.48e-03 4.00e+02 1.25e+02   0.3    2.0  1.00e+00  1  1h
+Evaluating termination criteria.
+Evaluating Lagrangian Hessian.
+Updating the barrier parameter.
+Keeping adaptive barrier in free mode.
+sigma=1.0e+00 inf_pr=3.44e+03 inf_du=6.54e-07 inf_cc=5.88e+00 a_pr=1.64e-02 a_du=1.70e-02
+sigma=1.0e+00 inf_pr=3.44e+03 inf_du=6.54e-07 inf_cc=5.88e+00 a_pr=1.64e-02 a_du=1.70e-02
+sigma=1.0e+00 inf_pr=3.44e+03 inf_du=6.54e-07 inf_cc=5.88e+00 a_pr=1.64e-02 a_du=1.70e-02
+sigma=1.0e+02 inf_pr=3.55e+03 inf_du=0.00e+00 inf_cc=5.35e+08 a_pr=1.44e-03 a_du=1.00e+00
+sigma=3.9e+01 inf_pr=3.52e+03 inf_du=0.00e+00 inf_cc=5.13e+07 a_pr=4.63e-03 a_du=1.00e+00
+sigma=6.2e+01 inf_pr=3.54e+03 inf_du=0.00e+00 inf_cc=1.76e+08 a_pr=2.51e-03 a_du=1.00e+00
+sigma=2.4e+01 inf_pr=3.49e+03 inf_du=0.00e+00 inf_cc=1.15e+07 a_pr=9.68e-03 a_du=1.00e+00
+sigma=1.5e+01 inf_pr=3.35e+03 inf_du=0.00e+00 inf_cc=1.15e+06 a_pr=2.97e-02 a_du=1.00e+00
+sigma=9.9e+00 inf_pr=2.81e+03 inf_du=5.40e-07 inf_cc=2.92e+02 a_pr=1.10e-01 a_du=1.07e-01
+sigma=6.5e+00 inf_pr=3.31e+03 inf_du=6.30e-07 inf_cc=2.31e+01 a_pr=3.46e-02 a_du=3.57e-02
+sigma=4.4e+00 inf_pr=3.39e+03 inf_du=6.44e-07 inf_cc=1.18e+01 a_pr=2.43e-02 a_du=2.52e-02
+sigma=3.1e+00 inf_pr=3.41e+03 inf_du=6.49e-07 inf_cc=8.68e+00 a_pr=2.05e-02 a_du=2.13e-02
+sigma=2.3e+00 inf_pr=3.42e+03 inf_du=6.51e-07 inf_cc=7.38e+00 a_pr=1.87e-02 a_du=1.94e-02
+sigma=1.8e+00 inf_pr=3.43e+03 inf_du=6.53e-07 inf_cc=6.74e+00 a_pr=1.77e-02 a_du=1.84e-02
+Computing the Newton step.
+Inertia-based regularization started.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 5.52e-16
+⋮
+   0 1.27e-12
+Iterative solver terminated with    1 refinement steps and residual = 1.27e-12
+Backtracking line search initiated.
+Evaluating objective.
+Evaluating constraints.
+Second-order correction started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 8.33e-12
+Iterative solver terminated with    1 refinement steps and residual = 8.33e-12
+Evaluating constraints.
+Evaluating objective.
+Second-order correction terminated.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step accepted with type h
+Augmenting filter.
+Updating primal-dual variables.
+Evaluating objective gradient.
+Proceeding to the next interior point iteration.
+Evaluating constraint Jacobian.
+Constraint jacobian evaluation started.
+  48  2.7650007e-03 1.84e-08 1.22e+03 2.79e-06  -6.9    0.2  1.29e-02  1  2h
+Evaluating termination criteria.
+Evaluating Lagrangian Hessian.
+Updating the barrier parameter.
+Computing the Newton step.
+Inertia-based regularization started.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 6.13e-12
+Iterative solver terminated with    1 refinement steps and residual = 6.13e-12
+Backtracking line search initiated.
+Evaluating objective.
+Evaluating constraints.
+Second-order correction started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 3.03e-12
+Iterative solver terminated with    1 refinement steps and residual = 3.03e-12
+Evaluating constraints.
+Evaluating objective.
+Second-order correction terminated.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Step rejected; proceed with the next trial step.
+Evaluating objective.
+Evaluating constraints.
+Cannot find an acceptable step at iteration 48. Switching to restoration phase.
+Evaluating constraints.
+Evaluating objective gradient.
+Evaluating objective.
+Evaluating constraint Jacobian.
+Constraint jacobian evaluation started.
+
+Number of Iterations....: 50
+
+                                   (scaled)                 (unscaled)
+Objective...............:   2.7659725781421776e-03    2.7659725781421776e-03
+Dual infeasibility......:   1.2218825436729423e+03    1.2218825436729423e+03
+Constraint violation....:   2.9331237411112099e-08    1.8356127535156137e-08
+Complementarity.........:   2.7854016069397824e-06    2.7854016069397824e-06
+Overall NLP error.......:   1.2218825436729423e+03    1.2218825436729423e+03
+
+Number of objective function evaluations              = 97
+Number of objective gradient evaluations              = 50
+Number of constraint evaluations                      = 97
+Number of constraint Jacobian evaluations             = 50
+Number of Lagrangian Hessian evaluations              = 49
+Number of KKT factorizations                          = 105
+Number of KKT backsolves                              = 70
+
+Total wall secs in initialization                     =  0.002 s
+Total wall secs in linear solver                      =  0.137 s
+Total wall secs in NLP function evaluations           =  1.254 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.037 s
+Total wall secs                                       =  1.431 s
+
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to visualization_unitary_5e8f209.jld2</code></pre><p>Inspect the resulting fidelity:</p><pre><code class="language-julia hljs">fidelity(qcp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9999998993262845</code></pre><h2 id="Pulse-Plotting"><a class="docs-heading-anchor" href="#Pulse-Plotting">Pulse Plotting</a><a id="Pulse-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-Plotting" title="Permalink"></a></h2><p><code>plot_pulse</code> renders any <code>AbstractPulse</code> with type-appropriate visuals (step functions for <code>ZeroOrderPulse</code>, line segments for <code>LinearSplinePulse</code>, smooth curves with knots for <code>CubicSplinePulse</code>, dense samples for analytic / <code>FunctionPulse</code> types). For per-pulse-type construction and rendering examples — including hardware bounds, tangent whiskers, theming, and the <code>:stacked</code> vs <code>:overlay</code> layouts — see the <a href="../../concepts/pulses/#pulses-concept">Pulses concept page</a>. This guide focuses on plotting <em>workflow</em> pieces specific to optimization output.</p><h3 id="Plot-directly-from-a-QuantumControlProblem"><a class="docs-heading-anchor" href="#Plot-directly-from-a-QuantumControlProblem">Plot directly from a <code>QuantumControlProblem</code></a><a id="Plot-directly-from-a-QuantumControlProblem-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-directly-from-a-QuantumControlProblem" title="Permalink"></a></h3><p>After solving, <code>plot_pulse(qcp)</code> extracts the optimized pulse and renders it in one call. Per-drive labels default to <code>&quot;&lt;drive_name&gt;_&lt;i&gt;&quot;</code>. Pass <code>bounds=true</code> to shade hardware bounds derived from the system, and <code>components=[:du, :ddu]</code> to stack the derivative trajectories beneath the pulse with their own bounded panels (set <code>component_bounds=true</code> to read bounds from the <code>NamedTrajectory</code>).</p><pre><code class="language-julia hljs">fig = plot_pulse(qcp; title = &quot;Optimized Pulse&quot;)</code></pre><img src="8b3c411f.png" alt="Example block output"/><p>Add hardware bounds and the smoothness derivatives:</p><pre><code class="language-julia hljs">fig = plot_pulse(
     qcp;
     title = &quot;Optimized Pulse + Smoothness&quot;,
     bounds = true,
     components = [:du, :ddu],
     component_bounds = true,
-)</code></pre><img src="67bdd4fd.png" alt="Example block output"/><h3 id="Manual-extract-plot"><a class="docs-heading-anchor" href="#Manual-extract-plot">Manual extract + plot</a><a id="Manual-extract-plot-1"></a><a class="docs-heading-anchor-permalink" href="#Manual-extract-plot" title="Permalink"></a></h3><p>If you need to manipulate the pulse before plotting (e.g. resample, convert to a different pulse type), reconstruct it explicitly. The higher-level <code>plot_pulse(qcp; ...)</code> calls do this internally.</p><pre><code class="language-julia hljs">optimized_traj = get_trajectory(qcp)
+)</code></pre><img src="81b237cc.png" alt="Example block output"/><h3 id="Manual-extract-plot"><a class="docs-heading-anchor" href="#Manual-extract-plot">Manual extract + plot</a><a id="Manual-extract-plot-1"></a><a class="docs-heading-anchor-permalink" href="#Manual-extract-plot" title="Permalink"></a></h3><p>If you need to manipulate the pulse before plotting (e.g. resample, convert to a different pulse type), reconstruct it explicitly. The higher-level <code>plot_pulse(qcp; ...)</code> calls do this internally.</p><pre><code class="language-julia hljs">optimized_traj = get_trajectory(qcp)
 optimized_pulse = ZeroOrderPulse(optimized_traj)
-fig = plot_pulse(optimized_pulse; title = &quot;Optimized Pulse&quot;)</code></pre><img src="1076ad79-001.png" alt="Example block output"/><h3 id="Pulse-animation"><a class="docs-heading-anchor" href="#Pulse-animation">Pulse animation</a><a id="Pulse-animation-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-animation" title="Permalink"></a></h3><p><code>animate_pulse</code> turns a vector of pulses into a parameter sweep animation. This is useful when comparing candidate pulses from a scan or showing how a waveform responds to parameter changes. Use <code>mode = :record</code> with <code>CairoMakie</code> for documentation-friendly <code>.gif</code> or <code>.mp4</code> output:</p><pre><code class="language-julia hljs">amplitudes = collect(range(0.2, 1.0, length = 24))
+fig = plot_pulse(optimized_pulse; title = &quot;Optimized Pulse&quot;)</code></pre><img src="8b3c411f-001.png" alt="Example block output"/><h3 id="Pulse-animation"><a class="docs-heading-anchor" href="#Pulse-animation">Pulse animation</a><a id="Pulse-animation-1"></a><a class="docs-heading-anchor-permalink" href="#Pulse-animation" title="Permalink"></a></h3><p><code>animate_pulse</code> turns a vector of pulses into a parameter sweep animation. This is useful when comparing candidate pulses from a scan or showing how a waveform responds to parameter changes. Use <code>mode = :record</code> with <code>CairoMakie</code> for documentation-friendly <code>.gif</code> or <code>.mp4</code> output:</p><pre><code class="language-julia hljs">amplitudes = collect(range(0.2, 1.0, length = 24))
 pulse_sweep =
     [GaussianPulse([amp, 0.5 * amp], 1.0, T; center = T / 2) for amp in amplitudes]
 
@@ -78,7 +287,7 @@ animate_pulse(
     parameter_label = &quot;amplitude&quot;,
     title = &quot;Gaussian pulse sweep&quot;,
 )</code></pre><h2 id="Basic-Trajectory-Plotting"><a class="docs-heading-anchor" href="#Basic-Trajectory-Plotting">Basic Trajectory Plotting</a><a id="Basic-Trajectory-Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Trajectory-Plotting" title="Permalink"></a></h2><p>The <code>plot</code> function from NamedTrajectories.jl plots trajectory components directly. This is useful for inspecting the raw optimization state, but it is <strong>not</strong> a faithful picture of the pulse you&#39;ll actually play on hardware.</p><h3 id="Plot-Controls"><a class="docs-heading-anchor" href="#Plot-Controls">Plot Controls</a><a id="Plot-Controls-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls" title="Permalink"></a></h3><div class="admonition is-warning" id="Controls-are-optimization-variables,-not-the-pulse-6da865910b024e10"><header class="admonition-header">Controls are optimization variables, not the pulse<a class="admonition-anchor" href="#Controls-are-optimization-variables,-not-the-pulse-6da865910b024e10" title="Permalink"></a></header><div class="admonition-body"><p><code>plot(traj, [:u])</code> draws the <em>optimization variable</em> <code>:u</code> as a line plot between knot points. The pulse that physics actually sees is determined by the pulse type you chose (e.g. zero-order hold, linear spline, cubic spline) — <code>plot(traj, [:u])</code> doesn&#39;t know about that and won&#39;t reflect the inter-knot shape. For <code>ZeroOrderPulse</code> the difference is a stair vs. a line; for spline pulses it&#39;s the difference between control samples and the smooth waveform between them.</p><p>Unless you are specifically debugging the optimizer state, prefer <a href="../../concepts/pulses/#pulses-concept"><code>plot_pulse</code></a> — it reconstructs the pulse from the trajectory using the correct pulse type and renders the actual waveform.</p></div></div><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
-fig = plot(traj, [:u])</code></pre><img src="a224a881.png" alt="Example block output"/><h3 id="Plot-Controls-and-Derivatives"><a class="docs-heading-anchor" href="#Plot-Controls-and-Derivatives">Plot Controls and Derivatives</a><a id="Plot-Controls-and-Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls-and-Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = plot(traj, [:u, :du, :ddu])</code></pre><img src="31c00fc7.png" alt="Example block output"/><h2 id="Quantum-Specific-Plots"><a class="docs-heading-anchor" href="#Quantum-Specific-Plots">Quantum-Specific Plots</a><a id="Quantum-Specific-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Specific-Plots" title="Permalink"></a></h2><h3 id="Unitary-Populations"><a class="docs-heading-anchor" href="#Unitary-Populations">Unitary Populations</a><a id="Unitary-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Unitary-Populations" title="Permalink"></a></h3><p>For <code>UnitaryTrajectory</code>, visualize how state populations evolve during the gate:</p><pre><code class="language-julia hljs">fig = plot_unitary_populations(traj)</code></pre><img src="35f37684.png" alt="Example block output"/><h3 id="Ket-State-Populations"><a class="docs-heading-anchor" href="#Ket-State-Populations">Ket State Populations</a><a id="Ket-State-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Ket-State-Populations" title="Permalink"></a></h3><p>For <code>KetTrajectory</code>, use <code>plot_state_populations</code>. Set up and solve a <code>|0⟩ → |1⟩</code> transfer on the same <code>sys</code>. As in the unitary example above, pin the time grid with <code>timesteps_all_equal = true</code> so the population plot has a uniform time axis:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]
+fig = plot(traj, [:u])</code></pre><img src="a089db99.png" alt="Example block output"/><h3 id="Plot-Controls-and-Derivatives"><a class="docs-heading-anchor" href="#Plot-Controls-and-Derivatives">Plot Controls and Derivatives</a><a id="Plot-Controls-and-Derivatives-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-Controls-and-Derivatives" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = plot(traj, [:u, :du, :ddu])</code></pre><img src="80c7f6df.png" alt="Example block output"/><h2 id="Quantum-Specific-Plots"><a class="docs-heading-anchor" href="#Quantum-Specific-Plots">Quantum-Specific Plots</a><a id="Quantum-Specific-Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Specific-Plots" title="Permalink"></a></h2><h3 id="Unitary-Populations"><a class="docs-heading-anchor" href="#Unitary-Populations">Unitary Populations</a><a id="Unitary-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Unitary-Populations" title="Permalink"></a></h3><p>For <code>UnitaryTrajectory</code>, visualize how state populations evolve during the gate:</p><pre><code class="language-julia hljs">fig = plot_unitary_populations(traj)</code></pre><img src="447786c6.png" alt="Example block output"/><h3 id="Ket-State-Populations"><a class="docs-heading-anchor" href="#Ket-State-Populations">Ket State Populations</a><a id="Ket-State-Populations-1"></a><a class="docs-heading-anchor-permalink" href="#Ket-State-Populations" title="Permalink"></a></h3><p>For <code>KetTrajectory</code>, use <code>plot_state_populations</code>. Set up and solve a <code>|0⟩ → |1⟩</code> transfer on the same <code>sys</code>. As in the unitary example above, pin the time grid with <code>timesteps_all_equal = true</code> so the population plot has a uniform time axis:</p><pre><code class="language-julia hljs">ψ_init = ComplexF64[1.0, 0.0]
 ψ_goal = ComplexF64[0.0, 1.0]
 
 pulse_ket = ZeroOrderPulse(0.1 * randn(2, N), times)
@@ -100,10 +309,191 @@ solve!(qcp_ket; max_iter = 50, print_level = 1)</code></pre><pre class="document
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to visualization_ket_089ad88.jld2</code></pre><p>Plot the populations:</p><pre><code class="language-julia hljs">traj_ket = get_trajectory(qcp_ket)
-fig = plot_state_populations(traj_ket)</code></pre><img src="16ac3821.png" alt="Example block output"/><h3 id="Bloch-Sphere-Visualization"><a class="docs-heading-anchor" href="#Bloch-Sphere-Visualization">Bloch Sphere Visualization</a><a id="Bloch-Sphere-Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Bloch-Sphere-Visualization" title="Permalink"></a></h3><p>When <code>QuantumToolbox.jl</code> is loaded, <code>plot_bloch</code> renders a two-level state trajectory on the Bloch sphere. The path connects the Bloch vector at every timestep; pass <code>index=k</code> to also drop a vector arrow at frame <code>k</code>.</p><pre><code class="language-julia hljs">using QuantumToolbox
-fig = plot_bloch(traj_ket)</code></pre><img src="1ffec111.png" alt="Example block output"/><p>Show a vector arrow at a specific timestep:</p><pre><code class="language-julia hljs">fig = plot_bloch(traj_ket; index = N)</code></pre><img src="dd683d63.png" alt="Example block output"/><p>For multi-level systems, restrict to the qubit subspace via <code>subspace=1:2</code>. For density-matrix trajectories, pass <code>state_name=:ρ̃⃗, state_type=:density</code>.</p><h3 id="Wigner-Function-Visualization"><a class="docs-heading-anchor" href="#Wigner-Function-Visualization">Wigner Function Visualization</a><a id="Wigner-Function-Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Wigner-Function-Visualization" title="Permalink"></a></h3><p>For bosonic / oscillator systems, <code>plot_wigner(traj, idx)</code> renders the Wigner quasi-probability distribution at a chosen timestep. To keep this guide fast we build a small synthetic trajectory of coherent states rotating in phase space — no solver involved — to illustrate the call:</p><pre><code class="language-julia hljs">dim_cavity = 20
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/XBaPv/src/problems.jl:82</span>
+Logger is initialized.
+Initializing variables.
+Initializing KKT system.
+Initializing iterative solver.
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
+
+Number of nonzeros in constraint Jacobian............:     6517
+Number of nonzeros in Lagrangian Hessian.............:    10956
+
+Total number of variables............................:      591
+                     variables with only lower bounds:       50
+                variables with lower and upper bounds:      392
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      490
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+Initializing variables.
+Evaluating constraint Jacobian.
+Constraint jacobian evaluation started.
+Evaluating objective gradient.
+Initializing constraint duals.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 1.53e-15
+Iterative solver terminated with    1 refinement steps and residual = 1.53e-15
+Evaluating objective.
+Evaluating constraints.
+Evaluating Lagrangian Hessian.
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  9.3315962e+01 3.33e+00 3.60e+00 1.99e+00  -1.0     -   0.00e+00  1  0
+Evaluating termination criteria.
+Updating the barrier parameter.
+Keeping adaptive barrier in free mode.
+sigma=1.0e+00 inf_pr=4.18e-01 inf_du=0.00e+00 inf_cc=3.28e+00 a_pr=2.85e-03 a_du=1.00e+00
+sigma=1.0e+00 inf_pr=4.18e-01 inf_du=0.00e+00 inf_cc=3.28e+00 a_pr=2.85e-03 a_du=1.00e+00
+sigma=1.0e+00 inf_pr=4.18e-01 inf_du=0.00e+00 inf_cc=3.28e+00 a_pr=2.85e-03 a_du=1.00e+00
+sigma=1.0e+02 inf_pr=4.18e-01 inf_du=1.62e-01 inf_cc=8.47e-04 a_pr=2.84e-03 a_du=1.04e-02
+sigma=3.9e+01 inf_pr=4.18e-01 inf_du=1.56e-01 inf_cc=3.33e-03 a_pr=2.84e-03 a_du=2.68e-02
+sigma=6.2e+01 inf_pr=4.18e-01 inf_du=1.60e-01 inf_cc=1.61e-03 a_pr=2.84e-03 a_du=1.67e-02
+sigma=2.4e+01 inf_pr=4.18e-01 inf_du=1.51e-01 inf_cc=7.30e-03 a_pr=2.84e-03 a_du=4.27e-02
+sigma=1.5e+01 inf_pr=4.18e-01 inf_du=1.44e-01 inf_cc=1.65e-02 a_pr=2.84e-03 a_du=6.74e-02
+sigma=9.9e+00 inf_pr=4.18e-01 inf_du=1.32e-01 inf_cc=3.77e-02 a_pr=2.84e-03 a_du=1.05e-01
+sigma=6.5e+00 inf_pr=4.18e-01 inf_du=1.17e-01 inf_cc=8.43e-02 a_pr=2.85e-03 a_du=1.60e-01
+sigma=4.4e+00 inf_pr=4.18e-01 inf_du=9.63e-02 inf_cc=1.80e-01 a_pr=2.85e-03 a_du=2.36e-01
+sigma=3.1e+00 inf_pr=4.18e-01 inf_du=7.29e-02 inf_cc=3.58e-01 a_pr=2.85e-03 a_du=3.36e-01
+sigma=2.3e+00 inf_pr=4.18e-01 inf_du=4.93e-02 inf_cc=6.47e-01 a_pr=2.85e-03 a_du=4.54e-01
+sigma=1.8e+00 inf_pr=4.18e-01 inf_du=2.92e-02 inf_cc=1.05e+00 a_pr=2.85e-03 a_du=5.79e-01
+Computing the Newton step.
+Inertia-based regularization started.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 3.52e-14
+Iterative solver terminated with    1 refinement steps and residual = 3.52e-14
+Backtracking line search initiated.
+Evaluating objective.
+Evaluating constraints.
+Step accepted with type h
+Updating primal-dual variables.
+Evaluating objective gradient.
+Proceeding to the next interior point iteration.
+Evaluating constraint Jacobian.
+Constraint jacobian evaluation started.
+   1  8.5414835e+01 5.20e-03 7.25e+02 1.21e+02   0.3    2.0  1.00e+00  1  1h
+Evaluating termination criteria.
+Evaluating Lagrangian Hessian.
+Updating the barrier parameter.
+Keeping adaptive barrier in free mode.
+sigma=1.0e+00 inf_pr=5.84e+03 inf_du=4.03e-07 inf_cc=6.15e+00 a_pr=1.68e-02 a_du=1.76e-02
+sigma=1.0e+00 inf_pr=5.84e+03 inf_du=4.03e-07 inf_cc=6.15e+00 a_pr=1.68e-02 a_du=1.76e-02
+sigma=1.0e+00 inf_pr=5.84e+03 inf_du=4.03e-07 inf_cc=6.15e+00 a_pr=1.68e-02 a_du=1.76e-02
+sigma=1.0e+02 inf_pr=6.02e+03 inf_du=0.00e+00 inf_cc=9.23e+08 a_pr=1.29e-03 a_du=1.00e+00
+sigma=3.9e+01 inf_pr=5.99e+03 inf_du=0.00e+00 inf_cc=9.70e+07 a_pr=3.97e-03 a_du=1.00e+00
+sigma=6.2e+01 inf_pr=6.01e+03 inf_du=0.00e+00 inf_cc=3.13e+08 a_pr=2.21e-03 a_du=1.00e+00
+sigma=2.4e+01 inf_pr=5.95e+03 inf_du=0.00e+00 inf_cc=2.50e+07 a_pr=7.85e-03 a_du=1.00e+00
+sigma=1.5e+01 inf_pr=5.80e+03 inf_du=0.00e+00 inf_cc=4.05e+06 a_pr=1.98e-02 a_du=1.00e+00
+sigma=9.9e+00 inf_pr=4.93e+03 inf_du=0.00e+00 inf_cc=5.28e+04 a_pr=9.67e-02 a_du=1.00e+00
+sigma=6.5e+00 inf_pr=5.48e+03 inf_du=3.79e-07 inf_cc=4.55e+01 a_pr=4.71e-02 a_du=4.73e-02
+sigma=4.4e+00 inf_pr=5.70e+03 inf_du=3.94e-07 inf_cc=1.55e+01 a_pr=2.82e-02 a_du=2.88e-02
+sigma=3.1e+00 inf_pr=5.77e+03 inf_du=3.98e-07 inf_cc=1.01e+01 a_pr=2.26e-02 a_du=2.32e-02
+sigma=2.3e+00 inf_pr=5.80e+03 inf_du=4.00e-07 inf_cc=8.14e+00 a_pr=2.00e-02 a_du=2.07e-02
+sigma=1.8e+00 inf_pr=5.82e+03 inf_du=4.01e-07 inf_cc=7.26e+00 a_pr=1.86e-02 a_du=1.94e-02
+Computing the Newton step.
+Inertia-based regularization started.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 2.46e-15
+⋮
+  48  6.6698409e-03 4.57e-07 3.86e+02 9.09e-10  -9.0    0.4  1.00e+00  1  1h
+Evaluating termination criteria.
+Evaluating Lagrangian Hessian.
+Updating the barrier parameter.
+Computing the Newton step.
+Inertia-based regularization started.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 5.90e-15
+Iterative solver terminated with    1 refinement steps and residual = 5.90e-15
+Backtracking line search initiated.
+Evaluating objective.
+Evaluating constraints.
+Step accepted with type h
+Augmenting filter.
+Updating primal-dual variables.
+Evaluating objective gradient.
+Proceeding to the next interior point iteration.
+Evaluating constraint Jacobian.
+Constraint jacobian evaluation started.
+  49  4.7109319e-03 4.31e-07 2.04e-01 9.09e-10  -9.0    1.8  1.00e+00  1  1h
+Evaluating termination criteria.
+Evaluating Lagrangian Hessian.
+Updating the barrier parameter.
+Computing the Newton step.
+Inertia-based regularization started.
+Factorization started.
+Primal-dual perturbed.
+Factorization started.
+Iterative solver initiated
+iterator.cnt.ir ||res||
+   0 1.08e-14
+Iterative solver terminated with    1 refinement steps and residual = 1.08e-14
+Backtracking line search initiated.
+Evaluating objective.
+Evaluating constraints.
+Step accepted with type h
+Augmenting filter.
+Updating primal-dual variables.
+Evaluating objective gradient.
+Proceeding to the next interior point iteration.
+Evaluating constraint Jacobian.
+Constraint jacobian evaluation started.
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  50  4.4151772e-03 1.67e-07 2.83e-02 9.09e-10  -9.0    1.3  1.00e+00  1  1h
+Evaluating termination criteria.
+
+Number of Iterations....: 50
+
+                                   (scaled)                 (unscaled)
+Objective...............:   4.4151772255479086e-03    4.4151772255479086e-03
+Dual infeasibility......:   2.8301807128117060e-02    2.8301807128117060e-02
+Constraint violation....:   1.6720401896375137e-07    1.6720401896375137e-07
+Complementarity.........:   9.0909090909090920e-10    9.0909090909090920e-10
+Overall NLP error.......:   2.8301807128117060e-02    2.8301807128117060e-02
+
+Number of objective function evaluations              = 78
+Number of objective gradient evaluations              = 51
+Number of constraint evaluations                      = 78
+Number of constraint Jacobian evaluations             = 51
+Number of Lagrangian Hessian evaluations              = 50
+Number of KKT factorizations                          = 123
+Number of KKT backsolves                              = 64
+
+Total wall secs in initialization                     =  0.002 s
+Total wall secs in linear solver                      =  0.093 s
+Total wall secs in NLP function evaluations           =  1.441 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.038 s
+Total wall secs                                       =  1.573 s
+
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to visualization_ket_5e8f209.jld2</code></pre><p>Plot the populations:</p><pre><code class="language-julia hljs">traj_ket = get_trajectory(qcp_ket)
+fig = plot_state_populations(traj_ket)</code></pre><img src="ea629936.png" alt="Example block output"/><h3 id="Bloch-Sphere-Visualization"><a class="docs-heading-anchor" href="#Bloch-Sphere-Visualization">Bloch Sphere Visualization</a><a id="Bloch-Sphere-Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Bloch-Sphere-Visualization" title="Permalink"></a></h3><p>When <code>QuantumToolbox.jl</code> is loaded, <code>plot_bloch</code> renders a two-level state trajectory on the Bloch sphere. The path connects the Bloch vector at every timestep; pass <code>index=k</code> to also drop a vector arrow at frame <code>k</code>.</p><pre><code class="language-julia hljs">using QuantumToolbox
+fig = plot_bloch(traj_ket)</code></pre><img src="d5043549.png" alt="Example block output"/><p>Show a vector arrow at a specific timestep:</p><pre><code class="language-julia hljs">fig = plot_bloch(traj_ket; index = N)</code></pre><img src="e907da6d.png" alt="Example block output"/><p>For multi-level systems, restrict to the qubit subspace via <code>subspace=1:2</code>. For density-matrix trajectories, pass <code>state_name=:ρ̃⃗, state_type=:density</code>.</p><h3 id="Wigner-Function-Visualization"><a class="docs-heading-anchor" href="#Wigner-Function-Visualization">Wigner Function Visualization</a><a id="Wigner-Function-Visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Wigner-Function-Visualization" title="Permalink"></a></h3><p>For bosonic / oscillator systems, <code>plot_wigner(traj, idx)</code> renders the Wigner quasi-probability distribution at a chosen timestep. To keep this guide fast we build a small synthetic trajectory of coherent states rotating in phase space — no solver involved — to illustrate the call:</p><pre><code class="language-julia hljs">dim_cavity = 20
 N_cav = 30
 ω_cav = 2π
 times_cav = range(0, 2π / ω_cav, length = N_cav)
@@ -184,7 +574,7 @@ for i = 1:size(traj[:u], 1)
 end
 
 axislegend(ax, position = :rt)
-fig</code></pre><img src="0027c20d.png" alt="Example block output"/><h3 id="Subplot-Layouts"><a class="docs-heading-anchor" href="#Subplot-Layouts">Subplot Layouts</a><a id="Subplot-Layouts-1"></a><a class="docs-heading-anchor-permalink" href="#Subplot-Layouts" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = Figure(size = (1000, 500))
+fig</code></pre><img src="279a7eb1.png" alt="Example block output"/><h3 id="Subplot-Layouts"><a class="docs-heading-anchor" href="#Subplot-Layouts">Subplot Layouts</a><a id="Subplot-Layouts-1"></a><a class="docs-heading-anchor-permalink" href="#Subplot-Layouts" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = Figure(size = (1000, 500))
 
 # Controls
 ax1 = Axis(fig[1, 1], xlabel = &quot;Time&quot;, ylabel = &quot;Amplitude&quot;, title = &quot;Controls&quot;)
@@ -198,7 +588,7 @@ lines!(ax2, plot_times, traj[:du][1, :], label = &quot;du_x&quot;, linewidth = 2
 lines!(ax2, plot_times, traj[:du][2, :], label = &quot;du_y&quot;, linewidth = 2)
 axislegend(ax2, position = :rt)
 
-fig</code></pre><img src="6993fe95.png" alt="Example block output"/><h3 id="Phase-Space-Plot"><a class="docs-heading-anchor" href="#Phase-Space-Plot">Phase Space Plot</a><a id="Phase-Space-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-Space-Plot" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = Figure(size = (500, 500))
+fig</code></pre><img src="3b6d67b6.png" alt="Example block output"/><h3 id="Phase-Space-Plot"><a class="docs-heading-anchor" href="#Phase-Space-Plot">Phase Space Plot</a><a id="Phase-Space-Plot-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-Space-Plot" title="Permalink"></a></h3><pre><code class="language-julia hljs">fig = Figure(size = (500, 500))
 ax = Axis(fig[1, 1], xlabel = &quot;u_x&quot;, ylabel = &quot;u_y&quot;, title = &quot;Control Phase Space&quot;)
 lines!(ax, traj[:u][1, :], traj[:u][2, :], linewidth = 2)
 scatter!(
@@ -218,7 +608,7 @@ scatter!(
     label = &quot;End&quot;,
 )
 axislegend(ax, position = :rt)
-fig</code></pre><img src="a339f4a3.png" alt="Example block output"/><h2 id="Fidelity-Evolution"><a class="docs-heading-anchor" href="#Fidelity-Evolution">Fidelity Evolution</a><a id="Fidelity-Evolution-1"></a><a class="docs-heading-anchor-permalink" href="#Fidelity-Evolution" title="Permalink"></a></h2><p>Track fidelity during the pulse:</p><pre><code class="language-julia hljs">using LinearAlgebra
+fig</code></pre><img src="a3325ca2.png" alt="Example block output"/><h2 id="Fidelity-Evolution"><a class="docs-heading-anchor" href="#Fidelity-Evolution">Fidelity Evolution</a><a id="Fidelity-Evolution-1"></a><a class="docs-heading-anchor-permalink" href="#Fidelity-Evolution" title="Permalink"></a></h2><p>Track fidelity during the pulse:</p><pre><code class="language-julia hljs">using LinearAlgebra
 
 U_goal = GATES[:X]
 fidelities = Float64[]
@@ -233,7 +623,7 @@ ax = Axis(fig[1, 1], xlabel = &quot;Timestep&quot;, ylabel = &quot;Fidelity&quot
 lines!(ax, 1:length(fidelities), fidelities, linewidth = 2)
 hlines!(ax, [0.99], color = :red, linestyle = :dash, label = &quot;99% target&quot;)
 axislegend(ax, position = :rb)
-fig</code></pre><img src="e7b7f642.png" alt="Example block output"/><h2 id="Comparing-Solutions"><a class="docs-heading-anchor" href="#Comparing-Solutions">Comparing Solutions</a><a id="Comparing-Solutions-1"></a><a class="docs-heading-anchor-permalink" href="#Comparing-Solutions" title="Permalink"></a></h2><p>Compare solutions with different regularization weights:</p><pre><code class="language-julia hljs">fig = Figure(size = (800, 400))
+fig</code></pre><img src="6d4f94bd.png" alt="Example block output"/><h2 id="Comparing-Solutions"><a class="docs-heading-anchor" href="#Comparing-Solutions">Comparing Solutions</a><a id="Comparing-Solutions-1"></a><a class="docs-heading-anchor-permalink" href="#Comparing-Solutions" title="Permalink"></a></h2><p>Compare solutions with different regularization weights:</p><pre><code class="language-julia hljs">fig = Figure(size = (800, 400))
 ax = Axis(fig[1, 1], xlabel = &quot;Time&quot;, ylabel = &quot;u_x&quot;, title = &quot;Effect of Regularization&quot;)
 
 for (R, label) in [(1e-3, &quot;R=1e-3&quot;), (1e-2, &quot;R=1e-2&quot;), (1e-1, &quot;R=1e-1&quot;)]
@@ -252,7 +642,7 @@ for (R, label) in [(1e-3, &quot;R=1e-3&quot;), (1e-2, &quot;R=1e-2&quot;), (1e-1
 end
 
 axislegend(ax, position = :rt)
-fig</code></pre><img src="ce4e78ac.png" alt="Example block output"/><h2 id="Saving-Figures"><a class="docs-heading-anchor" href="#Saving-Figures">Saving Figures</a><a id="Saving-Figures-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Figures" title="Permalink"></a></h2><pre><code class="language-julia hljs"># PNG (raster)
+fig</code></pre><img src="561d04e1.png" alt="Example block output"/><h2 id="Saving-Figures"><a class="docs-heading-anchor" href="#Saving-Figures">Saving Figures</a><a id="Saving-Figures-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-Figures" title="Permalink"></a></h2><pre><code class="language-julia hljs"># PNG (raster)
 # save(&quot;controls.png&quot;, fig)
 
 # PDF (vector graphics)
@@ -299,7 +689,7 @@ band!(
 )
 lines!(ax, plot_times, traj[:u][1, :], label = &quot;u_x&quot;, linewidth = 2)
 axislegend(ax, position = :rt)
-fig</code></pre><img src="4acc0803.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../../lib/#lib-visualizations">Visualizations API</a> - Complete API reference</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Generating solutions to plot</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> - Understanding trajectory structure</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../global_variables/">« Global Variables</a><a class="docs-footer-nextpage" href="../wigner_bosonic_qubits/">Wigner Bosonic Qubits »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 2 October 2026 15:00">Friday 2 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+fig</code></pre><img src="54a5f8fd.png" alt="Example block output"/><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../../lib/#lib-visualizations">Visualizations API</a> - Complete API reference</li><li><a href="../../../problem-templates/#problem-templates-overview">Problem Templates</a> - Generating solutions to plot</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> - Understanding trajectory structure</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../global_variables/">« Global Variables</a><a class="docs-footer-nextpage" href="../wigner_bosonic_qubits/">Wigner Bosonic Qubits »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 3 October 2026 09:26">Saturday 3 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./visualization.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/guides/visualization.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton

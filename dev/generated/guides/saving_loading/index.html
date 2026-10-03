@@ -26,7 +26,7 @@ save(&quot;my_pulse.jld2&quot;, optimized_pulse)</code></pre><pre class="documen
 <span class="sgr33"><span class="sgr1">│ </span></span>  NamedTrajectory(qtraj, N; Δt_bounds=(1e-3, 0.5))
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Or use timesteps_all_equal=true in problem options to fix timesteps.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/KFMSZ/src/problems.jl:66</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ DirectTrajOpt.Problems ~/.julia/packages/DirectTrajOpt/XBaPv/src/problems.jl:82</span>
 <span class="sgr1">QuantumControlProblem</span>
 ├─ UnitaryTrajectory  ·  ZeroOrderPulse  ·  HermitianExponentialIntegrator, DerivativeIntegrator, DerivativeIntegrator
 │
@@ -75,11 +75,10 @@ save(&quot;my_pulse.jld2&quot;, optimized_pulse)</code></pre><pre class="documen
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
-This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
-Number of nonzeros in equality constraint Jacobian...:    19204
-Number of nonzeros in inequality constraint Jacobian.:        0
-Number of nonzeros in Lagrangian Hessian.............:    38584
+Number of nonzeros in constraint Jacobian............:    19305
+Number of nonzeros in Lagrangian Hessian.............:    38944
 
 Total number of variables............................:     1587
                      variables with only lower bounds:      100
@@ -91,42 +90,45 @@ Total number of inequality constraints...............:        0
    inequality constraints with lower and upper bounds:        0
         inequality constraints with only upper bounds:        0
 
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-   0  1.0030786e+02 7.45e+00 9.95e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
-   1  1.0021747e+02 5.49e+00 1.11e+02  -0.5 4.21e+00   2.0 8.96e-01 2.63e-01f  1
-   2  1.0014282e+02 3.72e+00 1.32e+02  -0.1 3.14e+00   1.5 8.69e-01 3.23e-01f  1
-   3  1.0011058e+02 2.67e+00 1.54e+02  -0.2 2.10e+00   1.9 9.97e-01 2.83e-01f  1
-   4  9.9988006e+01 9.46e-01 1.78e+02   0.1 1.52e+00   1.5 9.63e-01 6.45e-01f  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  1.0030786e+02 7.45e+00 9.95e-01 1.99e+00  -1.0     -   0.00e+00  1  0
+   1  1.0015661e+02 5.44e+00 2.55e+02 3.45e+01   0.3    2.0  2.71e-01  1  1h
+   2  9.9946334e+01 1.87e+00 1.08e+02 1.61e+01  -1.2    1.5  6.57e-01  1  1h
+   3  9.9839882e+01 6.11e-01 1.81e+02 4.09e+00   0.2    1.9  6.73e-01  1  1h
+   4  9.9840016e+01 1.84e-02 7.05e+01 3.37e+00   0.1    2.4  1.00e+00  1  1h
 ⋮
-  46  8.3166537e-02 5.28e-05 1.44e+00  -3.9 1.40e-02  -0.5 1.00e+00 1.00e+00h  1
-  47  8.3087377e-02 1.32e-07 5.34e-02  -4.0 3.93e-04   1.7 1.00e+00 1.00e+00h  1
-  48  8.2608332e-02 1.25e-07 1.08e-02  -4.0 6.10e-04   1.2 1.00e+00 1.00e+00h  1
-  49  8.2115736e-02 2.36e-07 5.72e-03  -4.0 7.26e-04   0.8 1.00e+00 1.00e+00h  1
-iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  50  8.1758270e-02 1.80e-06 2.35e-02  -4.0 2.14e-03   0.3 1.00e+00 1.00e+00h  1
+  46  2.9386886e-02 2.97e-05 7.66e-03 7.93e-04  -3.1   -1.4  1.00e+00  1  1h
+  47  2.7058223e-02 4.69e-04 1.44e-01 1.72e-04  -4.7   -1.8  1.00e+00  1  1h
+  48  2.5744616e-02 3.92e-03 6.54e-02 5.51e-05  -4.7   -2.3  1.00e+00  1  1h
+  49  2.5342140e-02 6.62e-04 1.52e-02 2.72e-05  -4.7   -1.9  1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  50  2.5222982e-02 1.17e-04 6.42e-02 2.24e-05  -4.7   -1.5  1.00e+00  1  1h
 
 Number of Iterations....: 50
 
                                    (scaled)                 (unscaled)
-Objective...............:   8.1758270243176639e-02    8.1758270243176639e-02
-Dual infeasibility......:   2.3543453175005346e-02    2.3543453175005346e-02
-Constraint violation....:   1.7998763413573649e-06    1.7998763413573649e-06
-Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000000000000e-04    1.0000000000000000e-04
-Overall NLP error.......:   2.3543453175005346e-02    2.3543453175005346e-02
+Objective...............:   2.5222981737755848e-02    2.5222981737755848e-02
+Dual infeasibility......:   6.4197202698258682e-02    6.4197202698258682e-02
+Constraint violation....:   1.1748859413684976e-04    1.1748859413684976e-04
+Complementarity.........:   2.2400552440751689e-05    2.2400552440751689e-05
+Overall NLP error.......:   6.4197202698258682e-02    6.4197202698258682e-02
 
+Number of objective function evaluations              = 59
+Number of objective gradient evaluations              = 51
+Number of constraint evaluations                      = 59
+Number of constraint Jacobian evaluations             = 51
+Number of Lagrangian Hessian evaluations              = 50
+Number of KKT factorizations                          = 123
+Number of KKT backsolves                              = 54
 
-Number of objective function evaluations             = 51
-Number of objective gradient evaluations             = 51
-Number of equality constraint evaluations            = 51
-Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 51
-Number of inequality constraint Jacobian evaluations = 0
-Number of Lagrangian Hessian evaluations             = 50
-Total seconds in IPOPT                               = 4.336
+Total wall secs in initialization                     =  0.004 s
+Total wall secs in linear solver                      =  0.193 s
+Total wall secs in NLP function evaluations           =  2.511 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.065 s
+Total wall secs                                       =  2.772 s
 
-EXIT: Maximum Number of Iterations Exceeded.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to saving_loading_base_089ad88.jld2</code></pre><p>Bundling a pulse with metadata — fidelity, gate name, system parameters, anything you want to remember — uses <code>jldsave</code> from JLD2 directly:</p><div class="admonition is-warning" id="Record-the-duration-with-get_duration,-not-sum(get_timesteps)-2aee5aeb152fe024"><header class="admonition-header">Record the duration with `get_duration`, not `sum(get_timesteps)`<a class="admonition-anchor" href="#Record-the-duration-with-get_duration,-not-sum(get_timesteps)-2aee5aeb152fe024" title="Permalink"></a></header><div class="admonition-body"><p><code>get_timesteps</code> returns one Δt <strong>per knot</strong>, including a padded final one, so <code>sum(get_timesteps(traj))</code> overshoots the real end time by exactly one timestep — <strong>+10% at the common <code>N = 11</code></strong>. The cumulative end time is <code>get_duration(traj) == get_times(traj)[end]</code>, which sums only the <code>N-1</code> intervals between knots and is correct whether Δt is fixed or a minimum-time variable. <code>duration(pulse)</code> is equivalent and is the better choice when you have the pulse rather than the trajectory. A duration saved into metadata propagates into pulse catalogs and papers, so it is worth getting right at the source.</p></div></div><pre><code class="language-julia hljs">using JLD2
+<span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to saving_loading_base_5e8f209.jld2</code></pre><p>Bundling a pulse with metadata — fidelity, gate name, system parameters, anything you want to remember — uses <code>jldsave</code> from JLD2 directly:</p><div class="admonition is-warning" id="Record-the-duration-with-get_duration,-not-sum(get_timesteps)-2aee5aeb152fe024"><header class="admonition-header">Record the duration with `get_duration`, not `sum(get_timesteps)`<a class="admonition-anchor" href="#Record-the-duration-with-get_duration,-not-sum(get_timesteps)-2aee5aeb152fe024" title="Permalink"></a></header><div class="admonition-body"><p><code>get_timesteps</code> returns one Δt <strong>per knot</strong>, including a padded final one, so <code>sum(get_timesteps(traj))</code> overshoots the real end time by exactly one timestep — <strong>+10% at the common <code>N = 11</code></strong>. The cumulative end time is <code>get_duration(traj) == get_times(traj)[end]</code>, which sums only the <code>N-1</code> intervals between knots and is correct whether Δt is fixed or a minimum-time variable. <code>duration(pulse)</code> is equivalent and is the better choice when you have the pulse rather than the trajectory. A duration saved into metadata propagates into pulse catalogs and papers, so it is worth getting right at the source.</p></div></div><pre><code class="language-julia hljs">using JLD2
 
 jldsave(
     &quot;my_pulse_with_metadata.jld2&quot;;
@@ -137,17 +139,17 @@ jldsave(
     system_drift = H_drift,
 )</code></pre><h2 id="Loading-a-Pulse"><a class="docs-heading-anchor" href="#Loading-a-Pulse">Loading a Pulse</a><a id="Loading-a-Pulse-1"></a><a class="docs-heading-anchor-permalink" href="#Loading-a-Pulse" title="Permalink"></a></h2><p><code>load_pulse</code> reads back a pulse written with <code>save</code>:</p><pre><code class="language-julia hljs">loaded_pulse = load_pulse(&quot;my_pulse.jld2&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ZeroOrderPulse
   drives: 2
-  duration: 10.616075188392651</code></pre><p>It is also the right loader for a metadata bundle saved with <code>jldsave(...; pulse=...)</code>:</p><pre><code class="language-julia hljs">loaded_with_metadata = load_pulse(&quot;my_pulse_with_metadata.jld2&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ZeroOrderPulse
+  duration: 11.280586166323623</code></pre><p>It is also the right loader for a metadata bundle saved with <code>jldsave(...; pulse=...)</code>:</p><pre><code class="language-julia hljs">loaded_with_metadata = load_pulse(&quot;my_pulse_with_metadata.jld2&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ZeroOrderPulse
   drives: 2
-  duration: 10.616075188392651</code></pre><p>To inspect every key in a metadata bundle, use <code>JLD2.load</code>:</p><pre><code class="language-julia hljs">bundle = load(&quot;my_pulse_with_metadata.jld2&quot;)
+  duration: 11.280586166323623</code></pre><p>To inspect every key in a metadata bundle, use <code>JLD2.load</code>:</p><pre><code class="language-julia hljs">bundle = load(&quot;my_pulse_with_metadata.jld2&quot;)
 keys(bundle)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">KeySet for a Dict{String, Any} with 5 entries. Keys:
   &quot;system_drift&quot;
   &quot;pulse&quot;
   &quot;duration&quot;
   &quot;fidelity&quot;
-  &quot;gate&quot;</code></pre><p>The loaded pulse is a regular pulse object — you can evaluate it, check its duration, and pass it to any trajectory constructor:</p><pre><code class="language-julia hljs">duration(loaded_pulse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">10.616075188392651</code></pre><pre><code class="language-julia hljs">n_drives(loaded_pulse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2</code></pre><pre><code class="language-julia hljs">loaded_pulse(5.0)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Float64}:
-  0.16427802190927188
- -0.11447581054382798</code></pre><h2 id="Warm-Starting-from-a-Saved-Pulse"><a class="docs-heading-anchor" href="#Warm-Starting-from-a-Saved-Pulse">Warm-Starting from a Saved Pulse</a><a id="Warm-Starting-from-a-Saved-Pulse-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-a-Saved-Pulse" title="Permalink"></a></h2><p>The most common use case: load a previously optimized pulse and use it as the starting point for a new optimization. This works because the pulse already carries good control values — the optimizer just needs to refine them.</p><pre><code class="language-julia hljs"># Load the saved pulse
+  &quot;gate&quot;</code></pre><p>The loaded pulse is a regular pulse object — you can evaluate it, check its duration, and pass it to any trajectory constructor:</p><pre><code class="language-julia hljs">duration(loaded_pulse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11.280586166323623</code></pre><pre><code class="language-julia hljs">n_drives(loaded_pulse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2</code></pre><pre><code class="language-julia hljs">loaded_pulse(5.0)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Float64}:
+  0.01971285096182178
+ -0.0971328428110169</code></pre><h2 id="Warm-Starting-from-a-Saved-Pulse"><a class="docs-heading-anchor" href="#Warm-Starting-from-a-Saved-Pulse">Warm-Starting from a Saved Pulse</a><a id="Warm-Starting-from-a-Saved-Pulse-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-from-a-Saved-Pulse" title="Permalink"></a></h2><p>The most common use case: load a previously optimized pulse and use it as the starting point for a new optimization. This works because the pulse already carries good control values — the optimizer just needs to refine them.</p><pre><code class="language-julia hljs"># Load the saved pulse
 loaded = load_pulse(&quot;my_pulse.jld2&quot;)
 
 # Build a new trajectory using the loaded pulse
@@ -156,7 +158,7 @@ qtraj_warm = UnitaryTrajectory(sys, loaded, GATES[:X])
 # Optimize — starting from a good initial guess converges faster
 qcp_warm = SmoothPulseProblem(qtraj_warm, N; Q = 1000.0, R = 1e-3, ddu_bound = 1.0)
 solve!(qcp_warm; max_iter = 20)
-fidelity(qcp_warm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.960415586610349</code></pre><h3 id="Warm-Starting-for-Minimum-Time-Optimization"><a class="docs-heading-anchor" href="#Warm-Starting-for-Minimum-Time-Optimization">Warm-Starting for Minimum-Time Optimization</a><a id="Warm-Starting-for-Minimum-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-for-Minimum-Time-Optimization" title="Permalink"></a></h3><p>A particularly powerful pattern: solve a fixed-duration problem first, save the pulse, then load it for time-optimal compression.</p><pre><code class="language-julia hljs"># Step 1: Solve and save (in one script)
+fidelity(qcp_warm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9998226657928653</code></pre><h3 id="Warm-Starting-for-Minimum-Time-Optimization"><a class="docs-heading-anchor" href="#Warm-Starting-for-Minimum-Time-Optimization">Warm-Starting for Minimum-Time Optimization</a><a id="Warm-Starting-for-Minimum-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Warm-Starting-for-Minimum-Time-Optimization" title="Permalink"></a></h3><p>A particularly powerful pattern: solve a fixed-duration problem first, save the pulse, then load it for time-optimal compression.</p><pre><code class="language-julia hljs"># Step 1: Solve and save (in one script)
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.01, 0.5))
 solve!(qcp; max_iter=200)
 save(&quot;gate_pulse.jld2&quot;, get_pulse(qcp.qtraj))
@@ -169,8 +171,8 @@ qcp_mintime = MinimumTimeProblem(qcp; final_fidelity=0.999)
 solve!(qcp_mintime; max_iter=100)</code></pre><h2 id="Saving-and-Loading-Trajectories"><a class="docs-heading-anchor" href="#Saving-and-Loading-Trajectories">Saving and Loading Trajectories</a><a id="Saving-and-Loading-Trajectories-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-and-Loading-Trajectories" title="Permalink"></a></h2><p>If you need to save the full optimization state (controls, quantum states at every timestep, and timesteps), save the <code>NamedTrajectory</code> instead. The trajectory-aware <code>save</code> writes under the JLD2 key <code>&quot;traj&quot;</code> and pairs with <code>load_traj</code>:</p><pre><code class="language-julia hljs">traj = get_trajectory(qcp)
 save(&quot;my_trajectory.jld2&quot;, traj)</code></pre><p>Load it back:</p><pre><code class="language-julia hljs">loaded_traj = load_traj(&quot;my_trajectory.jld2&quot;)
 typeof(loaded_traj)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">NamedTrajectory{Float64, (:Ũ⃗, :Δt, :t, :u, :du, :ddu), NTuple{6, Int64}, (:Ũ⃗, :u, :du, :ddu, :Δt), NTuple{5, Tuple{Vector{Float64}, Vector{Float64}}}, (:Ũ⃗, :u), Tuple{Vector{Float64}, Vector{Float64}}, (:u,), Tuple{Vector{Float64}}, (:Ũ⃗,), Tuple{Vector{Float64}}, (:Ũ⃗, :Δt, :t, :u, :du, :ddu), NTuple{6, UnitRange{Int64}}, NTuple{6, Symbol}, Tuple{Symbol, Symbol}, NTuple{4, Symbol}, (), Tuple{}, (), Tuple{}, Tuple{}}</code></pre><p>The trajectory contains all NLP decision variables. You can inspect controls, states, and timesteps:</p><pre><code class="language-julia hljs">loaded_traj[:u][:, 1:3]  # First 3 timesteps of controls</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×3 Matrix{Float64}:
- 0.0  0.0684438  0.0674071
- 0.0  0.0789532  0.0780432</code></pre><h2 id="Organizing-Saved-Pulses"><a class="docs-heading-anchor" href="#Organizing-Saved-Pulses">Organizing Saved Pulses</a><a id="Organizing-Saved-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Organizing-Saved-Pulses" title="Permalink"></a></h2><p>For projects with many gates, use a consistent directory structure:</p><pre><code class="nohighlight hljs">my_project/
+ 0.0  -0.246331  -0.246031
+ 0.0  -0.185175  -0.188694</code></pre><h2 id="Organizing-Saved-Pulses"><a class="docs-heading-anchor" href="#Organizing-Saved-Pulses">Organizing Saved Pulses</a><a id="Organizing-Saved-Pulses-1"></a><a class="docs-heading-anchor-permalink" href="#Organizing-Saved-Pulses" title="Permalink"></a></h2><p>For projects with many gates, use a consistent directory structure:</p><pre><code class="nohighlight hljs">my_project/
 ├── scripts/
 │   ├── optimize_X.jl
 │   ├── optimize_CZ.jl
@@ -203,4 +205,4 @@ smooth_pulse = CubicSplinePulse(ctrl, tgts, times)
 save(&quot;data/CZ_smooth.jld2&quot;, smooth_pulse)</code></pre><pre><code class="language-julia hljs"># Clean up temporary files
 rm(&quot;my_pulse.jld2&quot;; force = true)
 rm(&quot;my_pulse_with_metadata.jld2&quot;; force = true)
-rm(&quot;my_trajectory.jld2&quot;; force = true)</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> — Pulse types and conversions</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> — Full trajectory structure</li><li><a href="../../problem-templates/spline_pulse/#spline-pulse">SplinePulseProblem</a> — Warm-starting with spline pulses</li><li><a href="../../problem-templates/minimum_time/#minimum-time">MinimumTimeProblem</a> — Time-optimal control from saved solutions</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../../guides/">« Overview</a><a class="docs-footer-nextpage" href="../leakage_suppression/">Leakage Suppression »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 2 October 2026 15:00">Friday 2 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+rm(&quot;my_trajectory.jld2&quot;; force = true)</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../../concepts/pulses/#pulses-concept">Pulses</a> — Pulse types and conversions</li><li><a href="../../concepts/trajectories/#trajectories-concept">Trajectories</a> — Full trajectory structure</li><li><a href="../../problem-templates/spline_pulse/#spline-pulse">SplinePulseProblem</a> — Warm-starting with spline pulses</li><li><a href="../../problem-templates/minimum_time/#minimum-time">MinimumTimeProblem</a> — Time-optimal control from saved solutions</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../../guides/">« Overview</a><a class="docs-footer-nextpage" href="../leakage_suppression/">Leakage Suppression »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 3 October 2026 09:27">Saturday 3 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
