@@ -352,11 +352,24 @@ end
 
     # Create and solve smooth pulse problem
     sys = QuantumSystem(0.1 * GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
-    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+    # Deterministic small smooth init + converging budgets (#358 hardening):
+    # the old randn init at 50/50 iterations cut BOTH stages mid-flight
+    # (ITERATION_LIMIT under both backends), so the strict duration assertion
+    # below compared two arbitrary cutoff iterates. With the budgets below the
+    # min-time stage CONVERGES — LOCALLY_SOLVED in ~152 (MadNLP) / ~194
+    # (Ipopt) iterations, ratio ~0.61-0.65 — so the assertion compares against
+    # a solver-guaranteed duration. The smooth stage remains a free-Δt
+    # warm-start producer (ITERATION_LIMIT by design of this cell) and its
+    # status is deliberately not asserted.
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
     qcp_smooth = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
 
-    solve!(qcp_smooth; max_iter = 50, verbose = false, print_level = 1)
+    solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
     duration_before = get_duration(get_trajectory(qcp_smooth))
 
     # Convert to minimum-time problem
@@ -371,8 +384,9 @@ end
     @test get_system(qcp_mintime) === sys
     @test qtraj.goal === GATES[:H]
 
-    # Solve minimum-time problem
-    solve!(qcp_mintime; max_iter = 50, verbose = false, print_level = 1)
+    # Solve minimum-time problem and REQUIRE convergence (see above)
+    stats = solve!(qcp_mintime; max_iter = 300, verbose = false, print_level = 1)
+    @test occursin("LOCALLY_SOLVED", string(stats.status))
     duration_after = get_duration(get_trajectory(qcp_mintime))
 
     # Duration should decrease (or stay same if already optimal)
@@ -557,9 +571,14 @@ end
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     ensemble_qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
-    # Create and solve smooth pulse problem. max_iter raised so the base solve
-    # has actually converged before being handed to MinimumTimeProblem — the
-    # comparison is meaningful only when both solves reach their optima.
+    # Create and solve smooth pulse problem. max_iter = 100 gives the base
+    # solve a long warm start — under Ipopt it reaches LOCALLY_SOLVED (~94
+    # iters); under the DTO 0.11 MadNLP default it is still ITERATION_LIMIT at
+    # the cutoff (free-Δt family, #358 audit). The assertions below are
+    # backed by the min-time stage's own outcome under BOTH backends —
+    # MadNLP converges it (LOCALLY_SOLVED, ~48 iters) while Ipopt cuts it
+    # mid-compression — with ratio ~0.18-0.49 against the 1.2× headroom and
+    # fids ~0.976 against the 0.89 floor, so no status assert is made here.
     qcp_smooth =
         SmoothPulseProblem(ensemble_qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.01, 0.5))
     solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
@@ -627,7 +646,13 @@ end
     # TimeConsistencyConstraint is auto-applied
     @test length(qcp_smooth.prob.integrators) == 3  # dynamics + 2 derivatives
 
-    solve!(qcp_smooth; max_iter = 30, verbose = false, print_level = 1)
+    # #358 hardening: the old 30/30 budgets cut BOTH stages mid-flight
+    # (ITERATION_LIMIT under both backends), leaving the 1.2× headroom
+    # assertion comparing two arbitrary cutoff iterates. At 200/200 both
+    # stages CONVERGE under both backends — smooth LOCALLY_SOLVED in ~92-95
+    # iterations, min-time in ~25 (Ipopt) / ~69 (MadNLP), ratio ~0.83.
+    stats_smooth = solve!(qcp_smooth; max_iter = 200, verbose = false, print_level = 1)
+    @test occursin("LOCALLY_SOLVED", string(stats_smooth.status))
 
     duration_before = get_duration(get_trajectory(qcp_smooth))
 
@@ -636,8 +661,9 @@ end
 
     @test qcp_mintime isa SmoothPulseProblem{<:UnitaryTrajectory}
 
-    # Solve minimum-time problem
-    solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
+    # Solve minimum-time problem and REQUIRE convergence
+    stats_mintime = solve!(qcp_mintime; max_iter = 200, verbose = false, print_level = 1)
+    @test occursin("LOCALLY_SOLVED", string(stats_mintime.status))
 
     duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
@@ -694,8 +720,14 @@ end
 
     @test qcp_mintime isa SmoothPulseProblem{<:KetTrajectory}
 
-    # Solve minimum-time problem
-    solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
+    # Solve minimum-time problem. #358 hardening on top of the T = 10 fix:
+    # under the DTO 0.11 MadNLP default the min-time stage needs ~81
+    # iterations to declare (Ipopt ~61 at the old budget's scale), so the old
+    # max_iter = 30 cut it mid-flight — the ratio below passed by cutoff luck
+    # under the new backend. Budget raised to 200 and the convergence status
+    # asserted loudly: LOCALLY_SOLVED, ratio ~0.65 under both backends.
+    stats = solve!(qcp_mintime; max_iter = 200, verbose = false, print_level = 1)
+    @test occursin("LOCALLY_SOLVED", string(stats.status))
 
     duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
@@ -710,7 +742,19 @@ end
     ω = 2π * 5.0
     H(u, t) = GATES[:Z] + u[1] * cos(ω * t) * GATES[:X] + u[2] * sin(ω * t) * GATES[:Y]
 
-    T = 5.0
+    # T = 10 gives the smooth stage duration room (#358 hardening, mirroring
+    # the time-dependent KetTrajectory sibling): at the old T = 5 with 30/30
+    # budgets BOTH stages were cut mid-flight (ITERATION_LIMIT under both
+    # backends) and the chain never moved — duration_after/duration_before
+    # ≈ 1.01, so the 1.2× headroom assertion passed only because nothing
+    # happened. From T = 10 the chain compresses: the min-time stage
+    # CONVERGES — LOCALLY_SOLVED in ~79-87 (MadNLP) / ~84 (Ipopt) iterations —
+    # to the real ensemble speed-limit boundary for F ≥ 0.80, ratio ~0.60-0.74,
+    # robustly inside the 1.2× headroom. The smooth stage remains a free-Δt
+    # warm-start producer (ITERATION_LIMIT even at 300 iterations, duration
+    # drifting 11.3-11.6 at the cutoff) and its status is deliberately not
+    # asserted; the ratio is backed by the min-time stage's own convergence.
+    T = 10.0
     N = 50
     sys = QuantumSystem(H, [1.0, 1.0])
 
@@ -736,7 +780,7 @@ end
     # + 2 derivatives = 3 integrators
     @test length(qcp_smooth.prob.integrators) == 3
 
-    solve!(qcp_smooth; max_iter = 30, verbose = false, print_level = 1)
+    solve!(qcp_smooth; max_iter = 100, verbose = false, print_level = 1)
 
     duration_before = get_duration(get_trajectory(qcp_smooth))
 
@@ -745,8 +789,9 @@ end
 
     @test qcp_mintime isa SmoothPulseProblem{<:MultiKetTrajectory}
 
-    # Solve minimum-time problem
-    solve!(qcp_mintime; max_iter = 30, verbose = false, print_level = 1)
+    # Solve minimum-time problem and REQUIRE convergence (see above)
+    stats = solve!(qcp_mintime; max_iter = 200, verbose = false, print_level = 1)
+    @test occursin("LOCALLY_SOLVED", string(stats.status))
 
     duration_after = get_duration(get_trajectory(qcp_mintime))
     @test duration_after <= duration_before * 1.2
@@ -819,7 +864,17 @@ end
     H1(u, t) = GATES[:Z] + u[1] * cos(ω * t) * GATES[:X]
     H2(u, t) = 1.1 * GATES[:Z] + u[1] * cos(ω * t) * GATES[:X]  # Perturbed
 
-    T = 1.0
+    # T = 5 gives the sampling stage duration room (#358 hardening, the
+    # latent speed-limit shape behind the time-dependent MultiKet cell): at
+    # the old T = 1.0 with 100/30 budgets BOTH stages were cut mid-flight
+    # (the sampling stage needs ~77-121 iterations to declare; the min-time
+    # stage, once actually given room, must GROW the duration past any 1.2×
+    # headroom to buy F ≥ 0.60 at that scale — converged ratio 1.87), so the
+    # headroom assertion passed only via double cutoff luck. From T = 5 both
+    # stages CONVERGE under both backends — sampling LOCALLY_SOLVED in
+    # ~77 (MadNLP) / ~121 (Ipopt) iterations, min-time LOCALLY_SOLVED in
+    # ~149-157, ratio ~0.82-0.83 — robustly inside the 1.2× headroom.
+    T = 5.0
     N = 50
     sys_nominal = QuantumSystem(H1, [1.0])
     sys_perturbed = QuantumSystem(H2, [1.0])
@@ -845,8 +900,10 @@ end
     @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:KetTrajectory}
 
-    # Solve sampling problem first
-    solve!(sampling_prob; max_iter = 100, verbose = false, print_level = 1)
+    # Solve sampling problem first and REQUIRE convergence (see above —
+    # both stages converge under both backends from T = 5)
+    stats_sampling = solve!(sampling_prob; max_iter = 200, verbose = false, print_level = 1)
+    @test occursin("LOCALLY_SOLVED", string(stats_sampling.status))
 
     duration_before = get_duration(get_trajectory(sampling_prob))
 
@@ -857,8 +914,10 @@ end
     @test inner(sampling_mintime) isa SmoothPulseProblem
     @test quantum_trajectory(sampling_mintime) isa SamplingTrajectory
 
-    # Solve minimum-time problem
-    solve!(sampling_mintime; max_iter = 30, verbose = false, print_level = 1)
+    # Solve minimum-time problem and REQUIRE convergence
+    stats_mintime =
+        solve!(sampling_mintime; max_iter = 300, verbose = false, print_level = 1)
+    @test occursin("LOCALLY_SOLVED", string(stats_mintime.status))
 
     duration_after = get_duration(get_trajectory(sampling_mintime))
     @test duration_after <= duration_before * 1.2
