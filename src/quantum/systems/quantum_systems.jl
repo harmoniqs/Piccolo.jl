@@ -474,15 +474,6 @@ _normalize_drift_entry(H::AbstractMatrix) = DriftTerm(sparse(ComplexF64.(H)))
 _normalize_drift_entry(p::Pair{<:AbstractMatrix,<:Function}) =
     DriftTerm(sparse(ComplexF64.(p.first)), p.second)
 
-"""Normalize a single drive input into an AbstractDrive."""
-_normalize_drive(H::AbstractMatrix, index::Int) = LinearDrive(sparse(ComplexF64.(H)), index)
-function _normalize_drive(p::Pair{<:AbstractMatrix,<:Function}, index::Int)
-    return ModulatedDrive(LinearDrive(sparse(ComplexF64.(p.first)), index), p.second)
-end
-_normalize_drive(d::AbstractDrive, ::Int) = d
-_normalize_drive(p::Pair{<:AbstractDrive,<:Function}, ::Int) =
-    ModulatedDrive(p.first, p.second)
-
 """Check if any drift_terms or drives have non-identity modulation."""
 function _has_any_modulation(drift_terms, drives)
     any(has_modulation, drift_terms) || any(has_modulation, drives)
@@ -1158,4 +1149,19 @@ end
     @test sys_gp.global_params isa NamedTuple
     @test all(v -> v isa Float64, values(sys_gp.global_params))
     @test sys_gp.global_params == (δ = 1.0, Ω = 2.0)
+end
+
+@testitem "QuantumSystem: driveless H/G evaluation is constant in controls and time" begin
+    using Piccolo
+    using LinearAlgebra
+
+    sys = QuantumSystem(PAULIS.Z)
+    @test sys.n_drives == 0
+
+    # No drives: H and G must ignore controls and time and equal the drift
+    u = rand(0)
+    @test sys.H(u, 0.0) ≈ PAULIS.Z
+    @test sys.H(u, 17.3) ≈ sys.H(u, 0.0)
+    @test sys.G(u, 0.0) ≈ Piccolo.Isomorphisms.G(PAULIS.Z)
+    @test sys.G((), 0.9) ≈ sys.G((), 0.1)
 end

@@ -2146,3 +2146,46 @@ end
     @test size(HS) == (length(vec(traj)), length(vec(traj)))
     @test any(!iszero, HS[T_col, :])
 end
+
+
+@testitem "HermitianExponentialIntegrator{MultiKet} explicit globals and the matrix-free seam" begin
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(90_350)
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys = QuantumSystem(
+        H,
+        [1.0, 1.0];
+        time_dependent = true,
+        global_params = (b = 0.2, a = 0.1),
+    )
+    initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]]
+    goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
+    N = 6
+    qtraj = MultiKetTrajectory(sys, initials, goals, 2.0)
+
+    # Explicit global_names resolution + unknown-name 0.0 default
+    ℰ = HermitianExponentialIntegrator(qtraj, N; global_names = [:b, :a, :ζ])
+    @test ℰ.global_names == [:b, :a, :ζ]
+    @test ℰ.global_dim == 3
+
+    traj =
+        NamedTrajectory(qtraj, N; global_data = Dict(:b => [0.2], :a => [0.1], :ζ => [0.0]))
+    traj.datavec .= 0.3 .* randn(length(traj.datavec))
+    δ = zeros(ℰ.dim)
+    DirectTrajOpt.evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
+
+    # matrix_free = true builds affine directions but the concrete jacobian op
+    # lives in Piccolissimo (the declared forward-reference hook): Piccolo-side
+    # eval_jacobian must fail LOUDLY rather than silently assemble the dense path
+    ℰmf = HermitianExponentialIntegrator(qtraj, N; matrix_free = true)
+    @test ℰmf.matrix_free
+    @test !isnothing(ℰmf.H_dirs)
+    @test_throws MethodError DirectTrajOpt.CommonInterface.eval_jacobian(ℰmf, traj)
+end

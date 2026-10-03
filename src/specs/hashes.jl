@@ -435,3 +435,24 @@ end
     @test cj(Any[1, 2.0, true, nothing]) == "[1,2,true,null]"
     @test cj(:CZ) == "\"CZ\""
 end
+
+@testitem "canonical_json: string escaping ladder" begin
+    using Piccolo.Specs
+
+    cj = Specs.canonical_json
+
+    # every special character in the canonical wire escaping ladder
+    @test cj("plain") == "\"plain\""
+    @test cj("a\"b") == "\"a\\\"b\""
+    @test cj("back\\slash") == "\"back\\\\slash\""
+    @test cj("bell\b") == "\"bell\\b\""
+    @test cj("tab\tsep") == "\"tab\\tsep\""
+    @test cj("new\nline") == "\"new\\nline\""
+    @test cj("form\ffeed") == "\"form\\ffeed\""
+    @test cj("carriage\rreturn") == "\"carriage\\rreturn\""
+    # other C0 controls render as \\uXXXX
+    @test cj("ctrl\x07") == "\"ctrl\\u0007\""
+    @test cj("ctrl\x1b") == "\"ctrl\\u001b\""
+    # printable text passes through untouched
+    @test cj("é=mc²") == "\"é=mc²\""
+end

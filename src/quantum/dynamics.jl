@@ -1117,12 +1117,179 @@ end
         dissipators = [diss],
         global_params = (γ = 0.1,),
     )
+    # The dissipator's rate function is live: it reads the second control
+    @test diss.rate([1.0, 7.0]) == 7.0
+    @test diss.rate_jac([1.0, 7.0], 2) == 1.0  # ∂u[2]/∂u[2] = 1
     # Reconstruct with a new global_params value
     new_gp = (γ = 0.3,)
     new_sys = Piccolo.Quantum.Rollouts._reconstruct_system(sys, new_gp)
     @test new_sys.global_params.γ == 0.3
     @test length(new_sys.dissipators) == 1
     @test new_sys.dissipators[1] === diss  # same object, preserved by reference
+end
+
+@testitem "update_global_params!: multi-dimensional globals" begin
+    using Piccolo
+    using NamedTrajectories
+
+    # A global component spanning several indices propagates as a vector,
+    # while scalar components stay scalar (the update is per-key).
+    sys = QuantumSystem(
+        [PAULIS[:X], PAULIS[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.5, Ω = 1.0),
+    )
+    pulse = ZeroOrderPulse([0.5 0.3; 0.5 0.3], [0.0, 1.0])
+    qtraj = UnitaryTrajectory(sys, pulse, PAULIS[:X])
+
+    traj = NamedTrajectory(
+        (u = rand(2, 10), Δt = fill(0.1, 10));
+        timestep = :Δt,
+        global_data = [0.8, 1.5, 2.0],
+        global_components = (δ = 1:2, Ω = 3:3),
+    )
+    Rollouts.update_global_params!(qtraj, traj)
+
+    @test qtraj.system.global_params.δ == [0.8, 1.5]  # multi-dim global → vector
+    @test qtraj.system.global_params.Ω == 2.0
+    # Reconstructed system keeps its structure
+    @test qtraj.system.n_drives == 2
+    @test qtraj.system.levels == 2
+end
+
+@testitem "Rollout interpolation dispatch lanes (:constant/:linear/:cubic/error)" begin
+    using Piccolo
+    using NamedTrajectories
+    using OrdinaryDiffEqLinear
+
+    T = 1.0
+    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    X_gate = ComplexF64[0 1; 1 0]
+    I_gate = ComplexF64[1 0; 0 1]
+
+    # :cubic needs a :du component for the Hermite spline tangent
+    utraj = NamedTrajectory(
+        (Ũ⃗ = randn(8, 11), u = randn(2, 11), du = randn(2, 11), Δt = fill(T / 10, 11));
+        controls = (:u, :du),
+        timestep = :Δt,
+        initial = (Ũ⃗ = operator_to_iso_vec(I_gate),),
+        goal = (Ũ⃗ = operator_to_iso_vec(X_gate),),
+    )
+
+    for interp in (:constant, :linear, :cubic)
+        fid = unitary_rollout_fidelity(utraj, sys; state_name = :Ũ⃗, interpolation = interp)
+        @test fid isa Float64
+        @test 0.0 <= fid <= 1.0
+    end
+    @test_throws ErrorException unitary_rollout_fidelity(
+        utraj,
+        sys;
+        state_name = :Ũ⃗,
+        interpolation = :quintic,
+    )
+
+    ktraj = NamedTrajectory(
+        (ψ̃ = randn(4, 11), u = randn(2, 11), du = randn(2, 11), Δt = fill(T / 10, 11));
+        controls = (:u, :du),
+        timestep = :Δt,
+        initial = (ψ̃ = ket_to_iso(ComplexF64[1, 0]),),
+        goal = (ψ̃ = ket_to_iso(ComplexF64[0, 1]),),
+    )
+
+    for interp in (:constant, :linear, :cubic)
+        ψ̃_traj = ket_rollout(ktraj, sys; state_name = :ψ̃, interpolation = interp)
+        @test size(ψ̃_traj) == (4, 11)
+        @test all(isfinite, ψ̃_traj)
+    end
+    @test_throws ErrorException ket_rollout(
+        ktraj,
+        sys;
+        state_name = :ψ̃,
+        interpolation = :bogus,
+    )
+
+    # ket_rollout_fidelity delegates to rollout_fidelity with the same lanes
+    for interp in (:constant, :linear, :cubic)
+        fid = ket_rollout_fidelity(ktraj, sys; state_name = :ψ̃, interpolation = interp)
+        @test fid isa Float64
+        @test 0.0 <= fid <= 1.0
+    end
+end
+
+@testitem "PiccoloRolloutSystem symbolic interface surface" begin
+    using Piccolo
+    using SymbolicIndexingInterface
+
+    sys = QuantumSystem([PAULIS.X], [1.0])
+    ψ0 = ComplexF64[1, 0]
+    prob = KetODEProblem(sys, t -> [0.0], ψ0, [0.0, 0.1, 1.0])
+    rsys = prob.f.sys
+
+    @test SymbolicIndexingInterface.constant_structure(rsys) === true
+    @test SymbolicIndexingInterface.is_time_dependent(rsys) === true
+    @test SymbolicIndexingInterface.is_independent_variable(rsys, :t) === true
+    @test SymbolicIndexingInterface.is_independent_variable(rsys, :ψ) === false
+    @test SymbolicIndexingInterface.independent_variable_symbols(rsys) == [:t]
+    @test SymbolicIndexingInterface.is_variable(rsys, :ψ) === true
+    @test SymbolicIndexingInterface.is_variable(rsys, :ψ_1) === true
+    @test SymbolicIndexingInterface.is_variable(rsys, :u) === false
+    @test SymbolicIndexingInterface.variable_index(rsys, :ψ) == 1:2
+    @test SymbolicIndexingInterface.variable_index(rsys, :ψ_1) == 1
+    @test :ψ ∈ SymbolicIndexingInterface.variable_symbols(rsys)
+    @test :u ∉ SymbolicIndexingInterface.variable_symbols(rsys)
+    @test SymbolicIndexingInterface.is_parameter(rsys, :ψ) === false
+    @test SymbolicIndexingInterface.parameter_index(rsys, :ψ) === nothing
+    @test SymbolicIndexingInterface.parameter_symbols(rsys) == Symbol[]
+    @test SymbolicIndexingInterface.is_observed(rsys, :ψ) === false
+    @test isempty(SymbolicIndexingInterface.default_values(rsys))
+    @test Rollouts._name(:x) === :x
+    @test Rollouts._name("x") === nothing
+end
+
+@testitem "unitary_rollout dispatch lanes (:constant/:linear/:cubic/error)" begin
+    using Piccolo
+    using NamedTrajectories
+    using OrdinaryDiffEqLinear
+
+    # The raw NamedTrajectory + AbstractQuantumSystem rollout carries its own
+    # interpolation dispatch, separate from unitary_rollout_fidelity's — all
+    # three lanes plus the unknown-kind refusal
+    T = 1.0
+    sys = QuantumSystem([PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    X_gate = ComplexF64[0 1; 1 0]
+    I_gate = ComplexF64[1 0; 0 1]
+    utraj = NamedTrajectory(
+        (Ũ⃗ = randn(8, 11), u = randn(2, 11), du = randn(2, 11), Δt = fill(T / 10, 11));
+        controls = (:u, :du),
+        timestep = :Δt,
+        initial = (Ũ⃗ = operator_to_iso_vec(I_gate),),
+        goal = (Ũ⃗ = operator_to_iso_vec(X_gate),),
+    )
+
+    for interp in (:constant, :linear, :cubic)
+        Ũ⃗_traj = unitary_rollout(utraj, sys; interpolation = interp)
+        @test size(Ũ⃗_traj) == (8, 11)
+        @test all(isfinite, Ũ⃗_traj)
+    end
+
+    err = try
+        unitary_rollout(utraj, sys; interpolation = :bogus)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("Unknown interpolation", sprint(showerror, err))
+
+    # a missing state name refuses loudly too
+    err2 = try
+        unitary_rollout(utraj, sys; state_name = :ψ̃)
+        nothing
+    catch e
+        e
+    end
+    @test err2 isa ErrorException
+    @test occursin("does not contain", sprint(showerror, err2))
 end
 
 @testitem "extract_globals utility" begin

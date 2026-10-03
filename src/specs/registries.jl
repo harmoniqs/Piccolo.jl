@@ -53,9 +53,10 @@ end
 Base.:(==)(a::ConstFactory, b::ConstFactory) = a.value == b.value
 Base.hash(f::ConstFactory, h::UInt) = hash(f.value, hash(ConstFactory, h))
 
-# `bilinear` sentinel: the templates build BilinearIntegrator internally when
-# `integrator=nothing`, so this factory is never actually constructed — it only
-# marks "pass integrator=nothing" (we never construct BilinearIntegrator here).
+# `bilinear` sentinel: since #334 the templates build the native exponential /
+# spline integrators internally when `integrator=nothing`, so this factory is
+# never actually constructed — it only marks "pass integrator=nothing" (we never
+# construct BilinearIntegrator here; it remains the explicit `:pwc` choice).
 _bilinear_integrator_factory(args...; kwargs...) = nothing
 
 # MultiTransmonSystem takes POSITIONAL (ωs, δs, gs); the materializer calls

@@ -811,3 +811,26 @@ end
     rollout!(sampling; n_save = 21)
     @test length(get_solution(sampling.base_trajectory).t) == 21
 end
+
+@testitem "SamplingTrajectory delegates the trajectory interface to its base" begin
+    using LinearAlgebra
+
+    sys_nom = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    sys_var = QuantumSystem(1.05 * PAULIS.Z, [PAULIS.X], [1.0])
+    times = collect(range(0.0, 1.0, length = 11))
+    pulse = LinearSplinePulse(zeros(1, 11), times)
+    base = KetTrajectory(sys_nom, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+
+    sampling = SamplingTrajectory(base, [sys_nom, sys_var]; weights = [0.6, 0.4])
+
+    @test get_system(sampling) === sys_nom
+    @test get_pulse(sampling) === get_pulse(base)
+    @test get_initial(sampling) ≈ get_initial(base)
+    @test get_goal(sampling) ≈ get_goal(base)
+    @test duration(sampling) ≈ duration(base)
+    @test state_name(sampling) == state_name(base)
+    @test drive_name(sampling) == drive_name(base)
+    @test timestep_name(sampling) == :Δt
+    @test length(sampling) == length(sampling.systems)
+    @test sampling(0.5) == base(0.5)
+end

@@ -134,7 +134,7 @@ Base.copy(op::AbstractDynamicsOperator) = op  # default: immutable operators ret
 # AbstractDrive ↔ AbstractDynamicsOperator bridge
 # ---------------------------------------------------------------------------- #
 
-using ..Quantum.QuantumSystems: AbstractDrive
+using ..Quantum.QuantumSystems: AbstractDrive, ModulatedDrive
 
 """
     dynamics_operator(d::AbstractDrive) → AbstractDynamicsOperator
@@ -153,6 +153,9 @@ This is the canonical way for spline / exponential integrators to consume
 `sys.H_drives::Vector{AbstractDrive}` without materializing dense matrices.
 """
 dynamics_operator(d::AbstractDrive) = _dyn_op(d.H)
+# ModulatedDrive carries no `.H` of its own — everything delegates to the base
+# drive (the drive_matrix/drive_dim/G convention), and the operator bridge does too.
+dynamics_operator(d::ModulatedDrive) = dynamics_operator(d.base)
 
 _dyn_op(H::AbstractDynamicsOperator) = H
 _dyn_op(H::AbstractMatrix) = MatrixOperator(H)
@@ -164,3 +167,65 @@ _dyn_op(::Any) = error("""
                        """)
 
 # ── Tests ───────────────────────────────────────────────────────────────────
+
+@testitem "AbstractDynamicsOperator: LinearAlgebra interop via MatrixOperator" begin
+    using Piccolo
+    using LinearAlgebra
+
+    H = ComplexF64[0 1; 1 0]
+    op = MatrixOperator(H)
+    x = ComplexF64[1.0, 0.0]
+
+    # 5-arg mul! delegates to apply! (the BLAS-style interface)
+    y = zeros(ComplexF64, 2)
+    mul!(y, op, x, -im, false)
+    @test y ≈ -im * (H * x)
+
+    # 3-arg mul! overwrites: y = op * x
+    mul!(y, op, x)
+    @test y ≈ H * x
+
+    # α/β accumulation: y = α * (op * x) + β * y   (y holds H*x going in)
+    mul!(y, op, x, 2.0, 3.0)
+    @test y ≈ 5 * (H * x)
+
+    # Matrix operands go through the same adapter
+    X = ComplexF64[1.0 0.0; 0.0 0.0]
+    Y = zeros(ComplexF64, 2, 2)
+    mul!(Y, op, X)
+    @test Y ≈ H * X
+
+    # Base surface: size (both forms), Matrix, *, copy, eltype, state_dim, materialize
+    @test size(op) == (2, 2)
+    @test size(op, 1) == 2
+    @test Matrix(op) == H
+    @test op * x ≈ H * x
+    @test op * X ≈ H * X
+    @test copy(op) === op      # immutable operators return self by contract
+    @test eltype(op) == ComplexF64
+    @test state_dim(op) == 2
+    @test Piccolo.Quantum.materialize(op) == H
+    @test Piccolo.Quantum._to_operator(op) === op
+    @test Piccolo.Quantum._to_operator(H) isa MatrixOperator
+end
+
+@testitem "dynamics_operator bridges AbstractDrive payloads to operators" begin
+    using Piccolo
+    using LinearAlgebra
+    using SparseArrays
+
+    H = sparse(ComplexF64[0 1; 1 0])
+
+    # AbstractDrive with a matrix payload wraps into a MatrixOperator
+    ld = LinearDrive(H, 1)
+    op = dynamics_operator(ld)
+    @test op isa MatrixOperator
+    @test Piccolo.Quantum.materialize(op) == H
+    y = zeros(ComplexF64, 2)
+    mul!(y, op, ComplexF64[1.0, 0.0])
+    @test y ≈ H * ComplexF64[1.0, 0.0]
+
+    # ModulatedDrive unwraps to its base drive's payload
+    md = ModulatedDrive(ld, t -> cos(t))
+    @test Piccolo.Quantum.materialize(dynamics_operator(md)) == H
+end

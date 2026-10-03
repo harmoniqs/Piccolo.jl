@@ -1353,4 +1353,85 @@ end
     gradient!(∇, obj, traj)
 end
 
+@testitem "DensityMatrixPureStateInfidelityObjective" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    N = 6
+    # compact iso of |0⟩⟨0| is [ρ11, Re ρ12, Im ρ12, ρ22] = [1, 0, 0, 0]
+    ψ_goal = ComplexF64[1.0, 0.0]
+    ρ̃_goal = density_to_compact_iso(ψ_goal * ψ_goal')
+
+    traj_on = NamedTrajectory(
+        (ρ̃ = repeat(ρ̃_goal, 1, N), u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+    obj_on = DensityMatrixPureStateInfidelityObjective(:ρ̃, ψ_goal, traj_on; Q = 100.0)
+    @test objective_value(obj_on, traj_on) < 1e-10
+
+    # orthogonal target state: infidelity saturates at 1 (times Q)
+    ψ_ortho = ComplexF64[0.0, 1.0]
+    obj_off = DensityMatrixPureStateInfidelityObjective(:ρ̃, ψ_ortho, traj_on; Q = 100.0)
+    @test objective_value(obj_off, traj_on) ≈ 100.0
+
+    # gradient at the imperfect state is nonzero
+    ρ̃_other = density_to_compact_iso(ψ_ortho * ψ_ortho')
+    traj_off = NamedTrajectory(
+        (ρ̃ = repeat(ρ̃_other, 1, N), u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+    ∇ = zeros(traj_off.dim * traj_off.N + traj_off.global_dim)
+    gradient!(∇, obj_on, traj_off)
+    @test !all(∇ .== 0)
+end
+
+@testitem "UnitaryFreePhaseInfidelityObjective: single-θ convenience equals list form" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    N = 5
+    X_gate = ComplexF64[0 1; 1 0]
+    Ũ⃗_goal = operator_to_iso_vec(X_gate)
+
+    # goal steered by one global phase: diag(1, e^{iθ}) * X
+    U_goal = θ -> ComplexF64[1 0; 0 exp(im * θ[1])] * X_gate
+
+    Ũ⃗ = repeat(Ũ⃗_goal, 1, N)
+    traj = NamedTrajectory(
+        (Ũ⃗ = Ũ⃗, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+        global_data = [0.0],
+        global_components = (φ = 1:1,),
+    )
+
+    obj_single = UnitaryFreePhaseInfidelityObjective(U_goal, :Ũ⃗, :φ, traj; Q = 100.0)
+    obj_list = UnitaryFreePhaseInfidelityObjective(U_goal, :Ũ⃗, [:φ], traj; Q = 100.0)
+
+    @test objective_value(obj_single, traj) ≈ objective_value(obj_list, traj)
+    @test objective_value(obj_single, traj) < 1e-10  # θ=0 reproduces X exactly
+end
+
+@testitem "Hermite bending segment kernel matches the analytic curvature integral" begin
+    using LinearAlgebra
+
+    K = Piccolo.Control.QuantumObjectives._bending_seg_kernel
+
+    # y1=0, y2=1, m1=m2=0, Δt=1: f(τ) = 3τ² - 2τ³, f''(τ) = 6 - 12τ,
+    # a_s = f''(0) = 6, a_e = f''(1) = -6 ⇒ (Δt/6)·(36 + 36 - 36) = 6.0,
+    # which is exactly the closed-form segment J = (R/2)·∫f''² = 6.0.
+    @test K([0.0, 1.0, 0.0, 0.0, 1.0], 1.0) ≈ 6.0 atol = 1e-12
+
+    # straight-line segment carries no bending energy
+    @test K([0.3, 0.3, 0.0, 0.0, 0.5], 2.0) ≈ 0.0 atol = 1e-14
+
+    # kernel is linear in the weight R_d
+    z = [0.2, -0.7, 0.4, -0.1, 0.25]
+    @test K(z, 3.0) ≈ 3.0 * K(z, 1.0)
+end
+
 end
