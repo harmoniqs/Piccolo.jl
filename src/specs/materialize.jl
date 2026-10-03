@@ -27,11 +27,11 @@ by looking up the registered system/template factories and calling the existing
 Piccolo template function with mapped keyword arguments.
 
 Phase-1 scope (wire-format-first): `system.kind ∈ {:template, :raw}` (`:composite`
-deferred); solver backend execution is `ipopt`-only (backend dispatch is the
-runner's concern, Task 12); the `:robust` wrapper is schema-only and returns a
-structured "deferred" [`SpecError`](@ref). All trait/compatibility violations are
-collected and thrown as a [`SpecValidationError`](@ref) *before* any Piccolo
-object is constructed.
+deferred); solver backend dispatch is the runner's concern (Task 12 — `:madnlp`
+the default, `:ipopt` selectable, since #360); the `:robust` wrapper is
+schema-only and returns a structured "deferred" [`SpecError`](@ref). All
+trait/compatibility violations are collected and thrown as a
+[`SpecValidationError`](@ref) *before* any Piccolo object is constructed.
 """
 function materialize(spec::ProblemSpec; piccolo_options = nothing)
     errs = SpecError[]

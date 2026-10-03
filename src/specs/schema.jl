@@ -13,10 +13,11 @@
 # * Enums are reflected from the registries: template/system/integrator/wrapper/
 #   objective-term/solver/strategy names come straight from the registry `keys`.
 #   With Piccolissimo NOT loaded, this is the OSS variant (Piccolo-only names:
-#   `bilinear`, `sampling`, `ipopt`, `direct`, the six objective terms, seven
-#   systems, three templates). Loading Piccolissimo augments the same registries
-#   and the schema grows the exponential/spline integrators, hermite_* terms, the
-#   robust wrapper, and the altissimo solver — no code change here.
+#   `bilinear`, `sampling`, `madnlp`, `ipopt`, `direct`, the six objective terms,
+#   seven systems, three templates). Loading Piccolissimo augments the same
+#   registries and the schema grows the exponential/spline integrators,
+#   hermite_* terms, the robust wrapper, and the altissimo solver — no code
+#   change here.
 # * Per-block `properties` mirror the parser's allowed-key sets (`_CONTROL_KEYS`,
 #   `_PROBLEM_KEYS`, …) so the schema's `additionalProperties:false` whitelist is
 #   byte-for-byte the strict field set `parse_spec` accepts.
@@ -655,7 +656,8 @@ end
 # ---------------------------------------------------------------------------
 
 # Tiny tier-1 specs: one per base template/pulse pairing on the smallest usable
-# TransmonSystem instance. Kept minimal so a single Ipopt step is cheap.
+# TransmonSystem instance. Kept minimal so a single default-backend solve step
+# is cheap (MadNLP under the DTO-0.11 default, #360).
 function _tier1_specs()
     return String[
         # cubic_spline + SplinePulseProblem
@@ -768,8 +770,9 @@ Two sweeps:
    `QuantumControlProblem{Tag, QT}` (and `SamplingProblem{…}`) a spec can name is
    compiled. This is the "same `structure_hash` ⇒ same concrete types ⇒ no JIT on a
    warm worker" guarantee.
-2. **The tier-1 spec path**: `parse_spec` → `materialize` → one Ipopt step, so the
-   declarative entry point is warm too.
+2. **The tier-1 spec path**: `parse_spec` → `materialize` → one default-backend
+   solve step (MadNLP since DTO 0.11, #360), so the declarative entry point is
+   warm too.
 
 Wired to `PrecompileTools.@compile_workload` in `Piccolo.jl`. Best-effort: each
 combination is guarded so one failure never aborts the sweep. Returns `nothing`.
@@ -828,8 +831,9 @@ function _precompile_workload(tier1_only::Bool)
         try
             spec = parse_spec(src; format = :toml)
             qcp = materialize(spec; piccolo_options = opts)
-            # Ipopt prints its EPL banner unconditionally on first solve; keep
-            # precompilation output clean.
+            # Ipopt prints its EPL banner unconditionally on first solve, and a
+            # backend's first-solve notices can print even under `print_level=0`
+            # — keep precompilation output clean either way.
             redirect_stdout(devnull) do
                 solve!(qcp; max_iter = 1, print_level = 0, verbose = false)
             end

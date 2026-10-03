@@ -191,10 +191,11 @@ end
     register_all!()
 
 Register Piccolo's own systems, problem templates, the `bilinear` integrator
-sentinel, the `sampling` wrapper, Piccolo-side objective terms, the `ipopt`
-solver, the `direct` strategy, and the `control`/`rollout` kinds. Idempotent —
-safe to call repeatedly (re-registering a value-identical entry is a no-op).
-Piccolissimo augments these at load time via `register_all_piccolissimo!`.
+sentinel, the `sampling` wrapper, Piccolo-side objective terms, the `madnlp`
+(default) and `ipopt` solvers, the `direct` strategy, and the `control`/`rollout`
+kinds. Idempotent — safe to call repeatedly (re-registering a value-identical
+entry is a no-op). Piccolissimo augments these at load time via
+`register_all_piccolissimo!`.
 """
 function register_all!()
     # systems (factory = the template constructor; params/compat hand-declared)
@@ -245,7 +246,9 @@ function register_all!()
     for k in (:time, :reg_u, :reg_du, :reg_ddu, :leakage, :sensitivity)
         register_objective_term!(k, RegistryEntry(; factory = ConstFactory(k)))
     end
-    # solvers
+    # solvers — the inherited DTO-0.11 default (madnlp, #360) plus selectable
+    # ipopt; altissimo registers on the Piccolissimo side (schema-only there too).
+    register_solver!(:madnlp, RegistryEntry(; factory = ConstFactory(:madnlp)))
     register_solver!(:ipopt, RegistryEntry(; factory = ConstFactory(:ipopt)))
     # strategies
     register_strategy!(:direct, RegistryEntry(; factory = ConstFactory(:direct)))

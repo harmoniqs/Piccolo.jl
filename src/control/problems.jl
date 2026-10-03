@@ -742,8 +742,8 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 - `verbose::Bool=false`: Controls the solver setup trace (evaluator construction, jacobian/hessian
   structure, NLP block assembly). Defaults to `false` so the log stays clean. The NLP solver's
   iteration log is controlled separately by `print_level` (passed through to the backend solver —
-  Ipopt today; the DirectTrajOpt backend default becomes MadNLP with its next release, and Ipopt
-  stays selectable).
+  MadNLP, the DirectTrajOpt default since DTO 0.11 (#155, inherited by Piccolo in #360); Ipopt
+  stays selectable via `solve!(prob; options = IpoptOptions(...))`).
 - `check_divergence::Bool=true`: Warn if the optimizer's collocation solution and the ODE
   re-rollout disagree at the final time — see [`rollout_divergence`](@ref). Only has an
   effect when `sync = true`.
