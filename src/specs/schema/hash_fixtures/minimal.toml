@@ -1,0 +1,17 @@
+# Minimal control fixture: only the required blocks (system + problem + solver),
+# NO goal / pulse / trajectory / integrator. Exercises the omission paths of
+# full_dict (goal/pulse absent) and structure_fields (no pulse_kind; no
+# trajectory_kind since neither trajectory nor goal is present).
+schema_version = 1
+kind = "control"
+
+[system]
+kind = "template"
+template = "TransmonSystem"
+
+[problem]
+template = "SplinePulseProblem"
+N = 50
+
+[solver]
+backend = "ipopt"

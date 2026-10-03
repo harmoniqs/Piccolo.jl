@@ -1,0 +1,47 @@
+[smooth-ket-zo]
+problem_hash = "c6a1afb57c61ac1c815722d3434928dddc7000cc9ab4f0c3e07f153ba606188d"
+structure_hash = "a73aadebd0717f5a0d6311950adf8032d70d40bf6f81562600be923a5c1ec94f"
+
+[transmon-globals-unpinned]
+problem_hash = "792329b9f5e5bdbb1398d78da71422ae10a499c2da013dde061e4306aa81dd25"
+structure_hash = "2e52e71ddad8a57f2393c760e910c354e23cdce97c41980c37c6f5e356c6bd36"
+
+[bangbang-ket-zo-freephase]
+problem_hash = "6c89407918dc7ac9d32050623740705517749bf651ecf05c0f52522c87629253"
+structure_hash = "95f38f237458a18b85e47092f595fc3d5ef15198dd2e599b0c9e4199f90c00a7"
+
+[smooth-unitary-zo]
+problem_hash = "b2559c27a6ee61351b7cd6b155d4b8618fe81a534b6784609d23aca1c036a8e5"
+structure_hash = "4e3d48c5bac41a5c839771a1cf5bbd7469d42495595899979cc3cb327a88c71a"
+
+[spline-ket-cubic]
+problem_hash = "236cdd95e829b460610dff6eb2e1585bd773530253e5d1d1fa576a07d249914e"
+structure_hash = "a3bcf1bd8ffdbe15a55201153ff0e46c1ead6a0b8e002383f6b960e2aa581938"
+
+[sampling-wrapped]
+problem_hash = "61bcd5fa3122c6ebf96479b41c7fe9a85d5cdba7ed9fd7d49c6086957d336999"
+structure_hash = "9ad9e8211ff5da44ac250c3830e58b4a46a49952dc9518c7185924616354af72"
+
+[bangbang-unitary-zo]
+problem_hash = "4b5bde53dca6340c0633cb52c71e54d91bd1ce019b2ac40a18d4507d735a68f6"
+structure_hash = "3aae90fcb4df61e8dcbabdfe82dac87e6cb5aeba6e9eea3a47f9d9cafe81cb83"
+
+[spline-unitary-cubic-freephase]
+problem_hash = "b467db6653daa75b1f78a5e12d4acea830e411dbac695744490e4452c825d861"
+structure_hash = "f035cea46af39222c9b3e54d4deebc2064abfa45674765de8251951218fb021b"
+
+[smooth-unitary-inline-matrix]
+problem_hash = "dcb0d552ce2f4ddf703a484098598a2dc0eb47a08d0c54cce8431dd1b2ce4736"
+structure_hash = "5a9306a6187c8bca67bcad7499ede71af0f05d30372a707c6a9a327faf6555b2"
+
+[spline-unitary-linear-freephase]
+problem_hash = "18a8cf695f3601d354b3f6cdbe7842a8d937c70cf7a93f9315fc37c8a4a9d016"
+structure_hash = "519732a503d93fd5912a9a5d641ef2cffde775b74cf1f03aeca764c3b3cd8b1b"
+
+[rydberg-chain-cz-3level]
+problem_hash = "6cefc3a1d0d7f251c47ebe8c83431e6cd33f55ebf5143725ef0f49939804e944"
+structure_hash = "039631671788663bd7b3ab15f2a2d92cd5ef681698917ab1b08493e30ea9a465"
+
+[smooth-mintime-recipe]
+problem_hash = "5d15b6b84f389259c67b96544c702a048b8ee749e4eba1961b2fe9ae70433fca"
+structure_hash = "af3f7a601bb3ccecdac21391bc568c0257cba8061871202f895798a922464432"

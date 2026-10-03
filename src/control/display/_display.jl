@@ -7,7 +7,7 @@ using UnicodePlots
 using NamedTrajectories
 using DirectTrajOpt
 
-using ..QuantumControlProblems: QuantumControlProblem
+using ..QuantumControlProblems: QuantumControlProblem, AbstractQuantumControlProblem
 using ..QuantumControlProblems
 using ..QuantumObjectives
 using ...Quantum
