@@ -76,7 +76,8 @@ layer's anti-drift property is preserved unchanged. Explicitly out of Phase 1:
   (`Piccolo.jl`). `precompile_workload(; tier1_only=true)` now sweeps the
   **registry-enumerated type universe** (`type_universe()` =
   `TEMPLATE_DECLARATIONS` × `pulse_kinds` × `trajectory_kinds`, plus the `sampling`
-  wrapper) as well as the parse → materialize → one-Ipopt-step path, and is wired
+  wrapper) as well as the parse → materialize → one-default-backend-solve-step
+  path (MadNLP under the DTO-0.11 default, #360), and is wired
   to `@compile_workload`. Cost: package precompilation ~16 s → ~65 s. The sysimage
   build is still Phase 4 (cloud).
 
@@ -85,16 +86,17 @@ systems (`template` + `raw` only), the `robust` wrapper (register-for-schema-onl
 once Piccolissimo loads; `materialize` returns a structured "deferred" error),
 the `tuning`/`compile` kinds, warm-start catalog resolution, and GPU ensemble
 backends. The `altissimo` solver is **register-for-schema-only** — `solve_spec`
-executes the `ipopt` backend only; `solver.backend = "altissimo"` raises a
-structured `SpecValidationError`.
+executes the `madnlp` (default, inherited from DTO 0.11 in #360) and `ipopt`
+backends; `solver.backend = "altissimo"` raises a structured
+`SpecValidationError`.
 
 ## Closed subset + the script-tier escape hatch
 
 The spec covers a **closed subset** of problems: the `control` and `rollout`
 kinds, the three base templates, the composition algebra (`goal_treatment`,
 `[[objectives]]`, `free_dt`, the min-time recipe), the `sampling` wrapper, and the
-`ipopt` solver. Anything outside the subset is a *strict* error — the parser
-rejects unknown fields (with dotted field paths) and `materialize` rejects
+`madnlp`/`ipopt` solvers. Anything outside the subset is a *strict* error — the
+parser rejects unknown fields (with dotted field paths) and `materialize` rejects
 incompatible combinations via `compat` queries, rather than silently doing
 something surprising. The escape hatch for out-of-subset work is the ordinary
 **script tier**: call the template functions directly in Julia. The spec layer is
@@ -137,8 +139,9 @@ Julia's native `repr`/Ryu float formatting — it does not match JS.
 loaded:
 
 - **OSS variant** (Piccolo only, Piccolissimo NOT loaded): Piccolo-only names —
-  integrator `bilinear`; wrapper `sampling`; solver `ipopt`; strategy `direct`;
-  the six Piccolo objective terms; seven systems; three templates.
+  integrator `bilinear`; wrapper `sampling`; solvers `madnlp` (the default) and
+  `ipopt`; strategy `direct`; the six Piccolo objective terms; seven systems;
+  three templates.
 - **Full variant** (Piccolissimo loaded): the same registries gain the
   `exponential`/`spline` integrators, the `hermite_*` objective terms, the
   `robust` wrapper, and the `altissimo` solver — with **no code change** in
