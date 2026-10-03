@@ -6,16 +6,20 @@
 # `show_problem(io, qcp; detail=:full)`).
 
 """
-    pulse_lineplot(qcp::QuantumControlProblem; height=12, width=72) -> String
+    pulse_lineplot(qcp::AbstractQuantumControlProblem; height=12, width=72) -> String
 
-Render the current control pulse `u(t)` from a `QuantumControlProblem` as an
+Render the current control pulse `u(t)` from a control problem as an
 ASCII line plot via `UnicodePlots`. Returns the plot as a string suitable for
 embedding in `show` output.
 
 Each drive channel is one labeled line. For a `CubicSplinePulse`, the plot uses
 the knot values directly; tangent (`du`) information is not separately rendered.
 """
-function pulse_lineplot(qcp::QuantumControlProblem; height::Int = 8, width::Int = 64)
+function pulse_lineplot(
+    qcp::AbstractQuantumControlProblem;
+    height::Int = 8,
+    width::Int = 64,
+)
     traj = qcp.prob.trajectory
     qtraj = qcp.qtraj
     control_sym = drive_name(qtraj)
