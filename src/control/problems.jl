@@ -720,8 +720,9 @@ function _warn_on_rollout_divergence(
           Two usual causes:
             • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
               integrator is the common case: the interpolation the optimizer constrained is
-              not the one being integrated. Pair a spline pulse with
-              `Piccolissimo.SplineIntegrator`.
+              not the one being integrated. The #334 default `SplineIntegrator` pairs
+              correctly; the mismatch arises when the explicit `integrator_type = :pwc`
+              escape hatch is requested for a spline pulse.
             • Collocation grid too coarse for the dynamics — increase the number of knots.
 
           Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
@@ -739,8 +740,10 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 - `sync::Bool=true`: If true, call `sync_trajectory!` after solving to update `qtraj.trajectory`
   with physical control values. Set to false to skip synchronization (e.g., for debugging).
 - `verbose::Bool=false`: Controls the solver setup trace (evaluator construction, jacobian/hessian
-  structure, NLP block assembly). Defaults to `false` so the log stays clean. Ipopt's iteration
-  log is controlled separately by `print_level` (passed through to Ipopt).
+  structure, NLP block assembly). Defaults to `false` so the log stays clean. The NLP solver's
+  iteration log is controlled separately by `print_level` (passed through to the backend solver —
+  MadNLP, the DirectTrajOpt default since DTO 0.11 (#155, inherited by Piccolo in #360); Ipopt
+  stays selectable via `solve!(prob; options = IpoptOptions(...))`).
 - `check_divergence::Bool=true`: Warn if the optimizer's collocation solution and the ODE
   re-rollout disagree at the final time — see [`rollout_divergence`](@ref). Only has an
   effect when `sync = true`.
@@ -802,15 +805,16 @@ end
 
 # NOTE: the pulse/integrator-pairing regression test does NOT live here.
 #
-# Demonstrating that `rollout_divergence` separates a correct pairing from a mismatch
-# requires BOTH a piecewise-constant and a spline integrator, and public Piccolo ships only
-# the former (`BilinearIntegrator`). Building the comparison here would mean treating
-# `BilinearIntegrator` as the object of study, which it is not — it is the public default,
-# not the integrator this stack actually optimizes against.
-#
-# The pairing test therefore lives in Piccolissimo, where `SplineIntegrator` and
-# `HermitianExponentialIntegrator` both exist. Measured there (3-level X gate, objective /
-# system / goal / grid / seed held fixed, only the pairing varied):
+# Historical note: it was written when public Piccolo shipped ONLY the
+# piecewise-constant `BilinearIntegrator`, then the templates' public default —
+# treating `BilinearIntegrator` as the object of study was impossible here. Since
+# #334 the defaults are the native spline-faithful `SplineIntegrator` and the
+# exact-PWC `HermitianExponentialIntegrator`/`NonHermitianExponentialIntegrator`
+# tier, and `BilinearIntegrator` is demoted to the explicit
+# `integrator_type = :pwc` choice — so the pairing comparison COULD now live in
+# Piccolo. The measured comparison stays in Piccolissimo, where it was first
+# quantified against that stack's integrators; the numbers below are that record
+# (3-level X gate, system / goal / grid / seed held fixed, only the pairing varied):
 #
 #   spline pulse + SplineIntegrator (correct)   divergence 3.5e-7 .. 6.4e-4
 #   spline pulse + HermitianExp     (PWC)       divergence 5.9e-2 .. 1.9e-1
@@ -1155,6 +1159,137 @@ end
 
     # Original trajectory unchanged (access underlying data via .u)
     @test all(qtraj.pulse.controls.u .≈ 0.0)
+end
+
+@testitem "template params equality and hash are value-based" begin
+    using Piccolo
+
+    # Julia's struct fallback == is identity-based, which would flag two
+    # separately built but value-identical params as different — the
+    # field-wise comparison keeps extract_spec verification phantom-free
+    PT = Piccolo.Control.ProblemTemplates
+    a = PT.SmoothPulseParams(Q = 100.0)
+    b = PT.SmoothPulseParams(Q = 100.0)
+    c = PT.SmoothPulseParams(Q = 50.0)
+
+    @test a !== b                    # distinct objects...
+    @test a == b                     # ...but value-equal
+    @test hash(a) == hash(b)
+    @test a != c                     # different values differ
+    @test a != PT.SplinePulseParams(Q = 100.0)   # cross-type comparison is false
+end
+
+@testitem "problem accessors: type tag, goal, state name, getproperty forwarding" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(49)
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, 1.0, length = 11))
+    pulse = ZeroOrderPulse(0.05 .* randn(1, 11), times)
+    ψg = ComplexF64[0.0, 1.0]
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ψg)
+    qcp = SmoothPulseProblem(
+        qtraj,
+        11;
+        Q = 100.0,
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+
+    # The type-level tag extraction recovers the constructing template
+    @test Piccolo.Control.template_tag(typeof(qcp)) ===
+          Piccolo.Control.ProblemTemplates.SmoothPulseTemplate
+    @test Piccolo.Control.template_tag(typeof(qcp)) <:
+          Piccolo.Control.AbstractProblemTemplate
+
+    # The delegation accessors forward to the quantum trajectory
+    @test get_goal(qcp) ≈ ψg
+    @test state_name(qcp) === state_name(qtraj)
+
+    # Common DirectTrajOptProblem fields forward through getproperty...
+    @test qcp.objective === qcp.prob.objective
+    @test qcp.trajectory === qcp.prob.trajectory
+    # ...and anything else falls back to default field behavior
+    @test_throws FieldError qcp.bogus_field
+end
+
+@testitem "supports_free_phase: the generic default allows it until a template opts out" begin
+    using Piccolo
+
+    # The default: any template/type pair without a generated override allows
+    # free phase
+    @test Piccolo.Control.supports_free_phase(
+        Piccolo.Control.ProblemTemplates.SmoothPulseTemplate(),
+        UnitaryTrajectory,
+    ) === true
+    # ...and SmoothPulseTemplate's declaration (ket_free_phase = false) overrides
+    # the default for ket trajectories
+    @test Piccolo.Control.supports_free_phase(
+        Piccolo.Control.ProblemTemplates.SmoothPulseTemplate(),
+        KetTrajectory,
+    ) === false
+end
+
+@testitem "rollout_divergence covers MultiDensity and placeholder RolloutStates" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using NamedTrajectories
+    using Random
+
+    Random.seed!(50)
+    times = collect(range(0.0, 1.0, length = 11))
+
+    # ── MultiDensityTrajectory: the ensemble-of-Lindblad rollout is a full
+    #    citizen of the divergence check ──
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    osys = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    pulse = ZeroOrderPulse(0.05 .* randn(1, 11), times)
+    mdt =
+        MultiDensityTrajectory(osys, pulse, [ComplexF64[1 0; 0 0]], [ComplexF64[0 0; 0 1]])
+    mtraj = NamedTrajectory(mdt, 11)
+    mqcp = QuantumControlProblem(
+        mdt,
+        DirectTrajOptProblem(
+            mtraj,
+            QuadraticRegularizer(:u, mtraj, 1.0),
+            AbstractIntegrator[],
+        ),
+    )
+    ε_m = rollout_divergence(mqcp)
+    @test ε_m isa Float64
+    @test ε_m ≥ 0.0
+
+    # ── MultiKet with rollout = :none (RolloutStates): the tiled placeholder
+    #    is a warm-start guess, not solved dynamics — divergence there means
+    #    not-applicable (nothing), never a fake zero ──
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+    qt = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0]; rollout = :none)
+    ktraj = NamedTrajectory(
+        (ψ̃1 = randn(4, 11), ψ̃2 = randn(4, 11), u = randn(1, 11), Δt = fill(0.1, 11));
+        controls = :u,
+        timestep = :Δt,
+        initial = (ψ̃1 = ket_to_iso(ψ0), ψ̃2 = ket_to_iso(ψ1)),
+        goal = (ψ̃1 = ket_to_iso(ψ1), ψ̃2 = ket_to_iso(ψ0)),
+        bounds = (u = (-1.0, 1.0),),
+    )
+    kqcp = QuantumControlProblem(
+        qt,
+        DirectTrajOptProblem(
+            ktraj,
+            QuadraticRegularizer(:u, ktraj, 1.0),
+            AbstractIntegrator[],
+        ),
+    )
+    @test rollout_divergence(kqcp) === nothing
+
+    # ...until a real rollout flips real_states = true, at which point the
+    # comparison applies to the refreshed states
+    qt.solution.real_states = true
+    ε_k = rollout_divergence(kqcp)
+    @test ε_k isa Float64
+    @test ε_k ≥ 0.0
 end
 
 end

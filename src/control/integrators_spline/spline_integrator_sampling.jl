@@ -57,6 +57,10 @@ function SplineIntegrator(
     # Expanded sampling trajectory. The sampling conversion does not attach
     # globals, so attach them here — mirroring the non-sampling conversions (which
     # auto-attach sys.global_params) and SamplingProblem's own propagation.
+    # NamedTrajectory takes globals as a FLAT vector + global_components ranges
+    # (the same final shape `_add_global_data_to_kwargs` hands downstream), NOT
+    # the Dict form — the Dict form is only the conversion layer's INPUT
+    # vocabulary and was a construction-time TypeError here.
     traj = NamedTrajectory(qtraj, N)
     if !isempty(resolved_global_names)
         global_data = Dict{Symbol,Vector{Float64}}(
@@ -65,6 +69,16 @@ function SplineIntegrator(
                 nominal_sys.global_params[name] : 0.0,
             ] for name in resolved_global_names
         )
+        # Consistent ordering (mirrors _add_global_data_to_kwargs)
+        global_names_sorted = sort(collect(keys(global_data)))
+        global_vec = vcat([global_data[name] for name in global_names_sorted]...)
+        offset = 0
+        global_comps = map(global_names_sorted) do name
+            len = length(global_data[name])
+            range = (offset+1):(offset+len)
+            offset += len
+            return name => range
+        end
         traj = NamedTrajectory(
             traj.datavec,
             traj.components,
@@ -75,7 +89,8 @@ function SplineIntegrator(
             initial = traj.initial,
             final = isnothing(traj.final_) ? NamedTuple() : traj.final_,
             goal = traj.goal,
-            global_data = global_data,
+            global_data = global_vec,
+            global_components = NamedTuple(global_comps),
         )
     end
 
@@ -544,6 +559,37 @@ function _spline_multidensity(
                 @inbounds for j = 1:n_cols
                     col = @view xₖ[((j-1)*n²+1):(j*n²)]
                     d_col = @view dx[((j-1)*n²+1):(j*n²)]
+                    compact_iso_to_density!(M_kk, col, n)
+                    lindblad_apply!(dM_kk, M_kk, H_eff_kk, Δtₖ, Ls, Ks, tmp_kk)
+                    density_to_compact_iso!(d_col, dM_kk, n)
+                end
+                return nothing
+            end
+        elseif !isempty(H_drives) && order == 3
+            (dx, xₖ, p, τ) -> begin
+                uₖ=@view p[1:u_dim]
+                uₖ₊₁=@view p[(u_dim+1):2u_dim]
+                duₖ=@view p[(2u_dim+1):3u_dim]
+                duₖ₊₁=@view p[(3u_dim+1):4u_dim]
+                Δtₖ=p[end-1]
+                τ2=τ*τ
+                τ3=τ2*τ
+                h00=2τ3-3τ2+1
+                h10=(τ3-2τ2+τ)*Δtₖ
+                h01=-2τ3+3τ2
+                h11=(τ3-τ2)*Δtₖ
+                @inbounds for i = 1:u_dim
+                    u_interp_kk[i]=h00*uₖ[i]+h10*duₖ[i]+h01*uₖ₊₁[i]+h11*duₖ₊₁[i]
+                end
+                @. H_eff_kk = H_drift
+                @inbounds for t_idx = 1:n_terms
+                    c=drive_coeff(drives[t_idx], u_interp_kk)
+                    @. H_eff_kk+=c*H_drives[t_idx]
+                end
+                n_cols=length(xₖ)÷n²
+                @inbounds for j = 1:n_cols
+                    col=@view xₖ[((j-1)*n²+1):(j*n²)]
+                    d_col=@view dx[((j-1)*n²+1):(j*n²)]
                     compact_iso_to_density!(M_kk, col, n)
                     lindblad_apply!(dM_kk, M_kk, H_eff_kk, Δtₖ, Ls, Ks, tmp_kk)
                     density_to_compact_iso!(d_col, dM_kk, n)

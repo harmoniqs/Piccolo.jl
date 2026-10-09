@@ -13,10 +13,11 @@
 # * Enums are reflected from the registries: template/system/integrator/wrapper/
 #   objective-term/solver/strategy names come straight from the registry `keys`.
 #   With Piccolissimo NOT loaded, this is the OSS variant (Piccolo-only names:
-#   `bilinear`, `sampling`, `ipopt`, `direct`, the six objective terms, seven
-#   systems, three templates). Loading Piccolissimo augments the same registries
-#   and the schema grows the exponential/spline integrators, hermite_* terms, the
-#   robust wrapper, and the altissimo solver — no code change here.
+#   `bilinear`, `sampling`, `madnlp`, `ipopt`, `direct`, the six objective terms,
+#   seven systems, three templates). Loading Piccolissimo augments the same
+#   registries and the schema grows the exponential/spline integrators,
+#   hermite_* terms, the robust wrapper, and the altissimo solver — no code
+#   change here.
 # * Per-block `properties` mirror the parser's allowed-key sets (`_CONTROL_KEYS`,
 #   `_PROBLEM_KEYS`, …) so the schema's `additionalProperties:false` whitelist is
 #   byte-for-byte the strict field set `parse_spec` accepts.
@@ -655,7 +656,8 @@ end
 # ---------------------------------------------------------------------------
 
 # Tiny tier-1 specs: one per base template/pulse pairing on the smallest usable
-# TransmonSystem instance. Kept minimal so a single Ipopt step is cheap.
+# TransmonSystem instance. Kept minimal so a single default-backend solve step
+# is cheap (MadNLP under the DTO-0.11 default, #360).
 function _tier1_specs()
     return String[
         # cubic_spline + SplinePulseProblem
@@ -768,8 +770,9 @@ Two sweeps:
    `QuantumControlProblem{Tag, QT}` (and `SamplingProblem{…}`) a spec can name is
    compiled. This is the "same `structure_hash` ⇒ same concrete types ⇒ no JIT on a
    warm worker" guarantee.
-2. **The tier-1 spec path**: `parse_spec` → `materialize` → one Ipopt step, so the
-   declarative entry point is warm too.
+2. **The tier-1 spec path**: `parse_spec` → `materialize` → one default-backend
+   solve step (MadNLP since DTO 0.11, #360), so the declarative entry point is
+   warm too.
 
 Wired to `PrecompileTools.@compile_workload` in `Piccolo.jl`. Best-effort: each
 combination is guarded so one failure never aborts the sweep. Returns `nothing`.
@@ -828,8 +831,9 @@ function _precompile_workload(tier1_only::Bool)
         try
             spec = parse_spec(src; format = :toml)
             qcp = materialize(spec; piccolo_options = opts)
-            # Ipopt prints its EPL banner unconditionally on first solve; keep
-            # precompilation output clean.
+            # Ipopt prints its EPL banner unconditionally on first solve, and a
+            # backend's first-solve notices can print even under `print_level=0`
+            # — keep precompilation output clean either way.
             redirect_stdout(devnull) do
                 solve!(qcp; max_iter = 1, print_level = 0, verbose = false)
             end
@@ -1056,4 +1060,57 @@ end
         delete!(Specs.TEMPLATES, :HandDeclaredTmpl)
     end
     @test !haskey(Specs.TEMPLATES, :HandDeclaredTmpl)
+end
+
+@testitem "_json_default: the value → JSON-default ladder" begin
+    using Piccolo.Specs
+
+    @test Specs._json_default(true) === true
+    @test Specs._json_default(7) === 7
+    @test Specs._json_default(1.5) === 1.5
+    @test Specs._json_default(Inf) === nothing            # non-finite Real is refused
+    @test Specs._json_default(:ω) == "ω"                  # Symbol → string
+    @test Specs._json_default([:a, :b]) == ["a", "b"]     # Symbol vector → string vector
+    @test Specs._json_default([1, 2.0]) == [1.0, 2.0]     # Real vector → Float64 vector
+    @test Specs._json_default("str") === nothing          # everything else → no default
+    @test Specs._json_default(nothing) === nothing
+
+    # unknown hand-declared params types stay unconstrained rather than crash
+    @test Specs._json_type_of("junk") === nothing
+end
+
+@testitem "schema conditional queries: the negative lanes" begin
+    using Piccolo, Piccolo.Specs, JSON3
+
+    Specs.register_all!()
+    sch = JSON3.read(Specs.emit_schema())
+
+    # a template/pulse pair the schema carries NO branch for → false
+    @test Specs.schema_has_conditional(sch, "SmoothPulseProblem", "cubic_spline") === false
+    @test Specs.schema_has_conditional(sch, "NoSuchTemplate", "zero_order") === false
+
+    # a schema with no free_phase ∨ globals branch at all → false
+    bare = JSON3.read("""{"allOf": []}""")
+    @test Specs.schema_free_phase_requires_nonbilinear(bare) === false
+end
+
+@testitem "_workload_pulse/_workload_trajectory: every kind lane including the fallthrough" begin
+    using Piccolo, Piccolo.Specs
+    using Random
+
+    Random.seed!(52)
+    times = collect(range(0.0, 1.0, length = 11))
+
+    # the three constructible pulse kinds, plus the unknown-kind fallthrough
+    @test Specs._workload_pulse(:zero_order, 1, 11, times) isa ZeroOrderPulse
+    @test Specs._workload_pulse(:linear_spline, 1, 11, times) isa LinearSplinePulse
+    @test Specs._workload_pulse(:cubic_spline, 1, 11, times) isa CubicSplinePulse
+    @test Specs._workload_pulse(:bogus, 1, 11, times) === nothing
+
+    # the two trajectory kinds, plus the unknown-kind fallthrough
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    zp = ZeroOrderPulse(0.05 .* randn(1, 11), times)
+    @test Specs._workload_trajectory(:unitary, sys, zp) isa UnitaryTrajectory
+    @test Specs._workload_trajectory(:ket, sys, zp) isa KetTrajectory
+    @test Specs._workload_trajectory(:bogus, sys, zp) === nothing
 end

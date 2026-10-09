@@ -433,7 +433,7 @@ function get_jacobian_structure(
     # Global columns: all knot points contribute to the same global columns
     if global_dim > 0
         g_cols_local = (2z_dim+1):(2z_dim+global_dim)
-        g_cols_full = (z_dim*N+1):(z_dim*N+global_dim)
+        g_cols_full = _global_full_cols(ℰ, traj)
         for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ∂ℰ_k[:, g_cols_local]
         end
@@ -497,7 +497,7 @@ end
     # Global columns: copy from per-knot ∂ℰ to fixed global positions in ∂F
     if traj.global_dim > 0
         g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+traj.global_dim)
-        g_cols_full = (z_dim*N+1):(z_dim*N+traj.global_dim)
+        g_cols_full = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ℰ.∂ℰs[k][:, g_cols_local]
         end
@@ -558,7 +558,7 @@ end
     global_dim = traj.global_dim
     if global_dim > 0
         g_can = (2*knot_dim+1):(2*knot_dim+global_dim)
-        g_traj = (z_dim*N+1):(z_dim*N+global_dim)
+        g_traj = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             μ∂²F[slice(k, traj_comps, z_dim), g_traj] .=
                 ℰ.μ∂²ℰs[k][canonical_comps, collect(g_can)]
@@ -729,4 +729,166 @@ end
 
     @test !isapprox(ℰ.G(u_base), ℰ.G(u_θ2); atol = 1e-10)
     @test !isapprox(ℰ.G(u_base), ℰ.G(u_γ2); atol = 1e-10)
+end
+
+
+@testitem "NonHermitianExponentialIntegrator{Density} globals end-to-end: jacobian, hessian, structure" begin
+    using LinearAlgebra, NamedTrajectories, Piccolo, DirectTrajOpt
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
+    using SparseArrays
+
+    # The extended-u globals pattern (open_quantum_systems.jl L611 mirror):
+    # θ and γ enter the drive/dissipator coefficients through the pulse's
+    # extended u slots. The trajectory ADDITIONALLY carries θ/γ as global
+    # slots — exercising the integrator's global Jacobian/Hessian/structure
+    # lanes. The generator never reads the traj global slots (coefficients
+    # read u[1..3]), so the assembled global columns are exactly zero —
+    # and must match FD.
+    drive_global = NonlinearDrive(PAULIS.X, u -> u[1] * u[2]; active_controls = [1, 2])
+    diss_global = NonlinearDissipator(PAULIS.Z / sqrt(2), u -> u[3]; active_controls = [3])
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        AbstractDrive[drive_global],
+        [1.0, 1.0, 1.0];
+        dissipators = [diss_global],
+        global_params = (θ = 1.0, γ = 0.1),
+    )
+    ρ0 = ComplexF64[1 0; 0 0]
+    ρg = ComplexF64[0 0; 0 1]
+    N = 8
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(repeat([0.3, 1.0, 0.1], 1, N), times)
+    qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
+
+    ℰ = NonHermitianExponentialIntegrator(qtraj, N)
+    @test ℰ.global_names == [:θ, :γ]
+    @test ℰ.global_dim == 2
+
+    # Single-state accessors
+    @test ExponentialIntegrators.x_name(ℰ) == :ρ⃗̃
+    @test ExponentialIntegrators.single_state_dim(ℰ) == 4
+
+    traj = NamedTrajectory(qtraj, N; global_data = Dict(:θ => [1.0], :γ => [0.1]))
+    @test traj.global_dim == 2
+
+    # The full integrator oracle (evaluate! + jacobian + hessian vs FD)
+    test_integrator(ℰ, traj; atol = 1e-3)
+
+    # The assembled global columns are exactly zero for this pattern
+    J = DirectTrajOpt.CommonInterface.eval_jacobian(ℰ, traj)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    @test all(iszero, Matrix(J)[:, (Z_dim-1):Z_dim])
+
+    # get_jacobian_structure: full-width, global columns declared, and the
+    # Jacobian's support fits inside it
+    S = DirectTrajOpt.Integrators.get_jacobian_structure(ℰ, traj)
+    @test size(S) == size(J)
+    Jn, Sn = Matrix(J), Matrix(S)
+    @test all(iszero(Jn[i, j]) || !iszero(Sn[i, j]) for i = 1:size(J, 1), j = 1:size(J, 2))
+    @test any(!iszero, Sn[:, (Z_dim-1):Z_dim])
+end
+
+@testitem "NonHermitianExponentialIntegrator{Density} global columns respect trajectory order" begin
+    # Regression for the permuted-global-column defect (same class as the
+    # hermitian ket permuted-∂c/∂θ bug): the integrator fills its per-knot
+    # global-derivative block in `global_names` order, but the assembled
+    # Jacobian indexes global columns in the trajectory's `global_components`
+    # order — and NamedTrajectory sorts globals alphabetically. A naive
+    # contiguous placement SWAPS ∂c/∂θ and ∂c/∂γ for a system whose
+    # global_names are not alphabetical. Synthetic generator with DISTINCT
+    # sensitivity per global makes the swap observable.
+    using LinearAlgebra, NamedTrajectories, Piccolo, DirectTrajOpt
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
+    using Random
+
+    Random.seed!(90_354)
+    N = 5
+    statedim = 4  # n=2 density compact iso
+    A0 = 0.1 * Matrix(I, statedim, statedim)
+    A1 = randn(statedim, statedim)
+    A2 = randn(statedim, statedim)
+    A3 = 0.3 .* randn(statedim, statedim)
+    Aθ = randn(statedim, statedim)
+    Aγ = 0.5 .* randn(statedim, statedim)
+    # extended control [u(3); θ; γ] in global_names order
+    G = ue -> A0 + ue[1] * A1 + ue[2] * A2 + ue[3] * A3 + ue[4] * Aθ + ue[5] * Aγ
+
+    traj = NamedTrajectory(
+        (ρ⃗̃ = 0.3 .* randn(statedim, N), u = 0.3 .* randn(3, N), Δt = fill(0.2, 1, N)),
+        (γ = [0.1], θ = [0.3]);  # alphabetical global order: γ before θ
+        timestep = :Δt,
+        controls = :u,
+    )
+    # The trajectory sorts globals alphabetically: γ lands BEFORE θ, so
+    # global_names = [:θ, :γ] genuinely mismatches the column order.
+    @test traj.global_components[:γ][1] < traj.global_components[:θ][1]
+
+    x, u = :ρ⃗̃, :u
+    x_dim = traj.dims[x]
+    u_dim = traj.dims[u]
+    z_dim = traj.dim
+    global_names = [:θ, :γ]
+    global_dim = 2
+    ∂ℰ_template = DirectTrajOpt.CommonInterface.jacobian_structure(
+        DensityTrajectory,
+        x,
+        u,
+        statedim,
+        traj,
+    )
+    μ∂²ℰ_template =
+        DirectTrajOpt.CommonInterface.hessian_structure(x_dim, u_dim, global_dim)
+    nthr = Threads.maxthreadid()
+    ℰ = ExponentialIntegrators.NonHermitianExponentialIntegrator{DensityTrajectory}(
+        G,
+        [x],
+        u,
+        x_dim,
+        u_dim,
+        2 * x_dim + u_dim + 1,
+        x_dim * (N - 1),
+        statedim,
+        [copy(∂ℰ_template) for _ = 1:(N-1)],
+        [copy(μ∂²ℰ_template) for _ = 1:(N-1)],
+        z_dim,
+        [
+            collect(traj.components[x]);
+            collect(traj.components[u]);
+            traj.components[traj.timestep][1]
+        ],
+        nothing,
+        nothing,
+        nothing,
+        [zeros(statedim, statedim) for _ = 1:nthr],
+        [zeros(statedim, statedim) for _ = 1:nthr],
+        global_names,
+        global_dim,
+        false,
+    )
+
+    δ = zeros(ℰ.dim)
+    DirectTrajOpt.evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
+
+    # Each global's assembled column, at its trajectory position, must match a
+    # central finite difference of the forward residual in that global.
+    J = DirectTrajOpt.CommonInterface.eval_jacobian(ℰ, traj)
+    Z_dim = z_dim * N + global_dim
+    for nm in (:θ, :γ)
+        col = z_dim * N + traj.global_components[nm][1]
+        base = traj.global_data[traj.global_components[nm]][1]
+        h = 1e-6
+        resid(v) = begin
+            t2 = deepcopy(traj)
+            t2.global_data[t2.global_components[nm]] .= v
+            d = zeros(ℰ.dim)
+            DirectTrajOpt.evaluate!(d, ℰ, t2)
+            return d
+        end
+        fd = (resid(base + h) .- resid(base - h)) ./ (2h)
+        @test norm(fd) > 1e-3                       # genuinely distinct sensitivity
+        rel = norm(Vector(J[:, col]) .- fd) / max(norm(fd), eps())
+        @test rel < 1e-5
+    end
 end

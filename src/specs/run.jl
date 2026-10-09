@@ -2,17 +2,20 @@
 # solve_spec / run_spec — the single vetted generic runner (Task 12)
 #
 # One code path takes a declarative `control` spec end-to-end: parse → validate →
-# materialize → solve (ipopt) → save the pulse (never the trajectory) → write the
-# amicode `result/v1` artifact (`result.toml`). Per-iteration progress is streamed
-# as `AMICODE_ITER k=v …` lines and a terminal `DONE fidelity=…`, the exact
-# contract amico-run's `telemetry.classifyLine` parses (`AMICODE_ITER` prefix +
-# whitespace-split k=v tokens; `^DONE(\s|$)`). No per-problem scripts.
+# materialize → solve (the declared backend) → save the pulse (never the
+# trajectory) → write the amicode `result/v1` artifact (`result.toml`).
+# Per-iteration progress is streamed as `AMICODE_ITER k=v …` lines and a terminal
+# `DONE fidelity=…`, the exact contract amico-run's `telemetry.classifyLine`
+# parses (`AMICODE_ITER` prefix + whitespace-split k=v tokens; `^DONE(\s|$)`).
+# No per-problem scripts.
 # ===========================================================================
 
 export solve_spec
 
 import JLD2
+import MadNLP
 import Pkg
+using DirectTrajOpt: IpoptOptions, MadNLPOptions
 
 # Stack packages whose versions the learning-loops ledger (Plan 3) reads from
 # `params.versions`. Restricted to the optimal-control stack.
@@ -56,15 +59,15 @@ function _piccolo_options(spec::ProblemSpec)
     return PiccoloOptions(; kw...)
 end
 
-# AMICODE_ITER telemetry callback. DirectTrajOpt's raw `callback` (forwarded via
-# `solve!(qcp; callback=…)`) is an Ipopt CallbackFunction *factory*:
-# `callback(optimizer) -> (optimizer_state... -> Bool)`, where `optimizer_state`
-# is the 11-tuple `(alg_mod, iter_count, obj_value, inf_pr, inf_du, …)`. We emit
-# one `AMICODE_ITER k=v …` line per *main-loop* iteration (`alg_mod == 0`, i.e.
-# skipping Ipopt's restoration phase) — the shape `telemetry.classifyLine`
-# parses. Returns `(factory, iter_ref)` so the runner can read the final iter.
-function _amicode_iter_callback()
-    iter_ref = Ref(0)
+# AMICODE_ITER telemetry, Ipopt arm (`solver.backend = "ipopt"`). DirectTrajOpt's
+# raw `callback` (forwarded via `solve!(qcp; callback=…)`) is an Ipopt
+# CallbackFunction *factory*: `callback(optimizer) -> (optimizer_state... -> Bool)`,
+# where `optimizer_state` is the 11-tuple `(alg_mod, iter_count, obj_value,
+# inf_pr, inf_du, …)`. We emit one `AMICODE_ITER k=v …` line per *main-loop*
+# iteration (`alg_mod == 0`, i.e. skipping Ipopt's restoration phase) — the shape
+# `telemetry.classifyLine` parses. The factory writes the final iteration into
+# `iter_ref` so the runner can read it.
+function _amicode_iter_callback(iter_ref::Base.RefValue{Int})
     factory = function (optimizer)
         return function (optimizer_state...)
             optimizer_state[1] == 0 || return true      # main IPM loop only
@@ -84,20 +87,50 @@ function _amicode_iter_callback()
             return true
         end
     end
-    return factory, iter_ref
+    return factory
+end
+
+# AMICODE_ITER telemetry, MadNLP arm — the default backend (DirectTrajOpt's
+# MadNLP-default flip since DTO 0.11, inherited by Piccolo #360). The MadNLP
+# backend does not wire the raw `callback` kwarg; per-iteration emission rides
+# `MadNLPOptions.intermediate_callback` as a raw `MadNLP.AbstractUserCallback`.
+# The `UserCallbackRegular` filter is the MadNLP analogue of the Ipopt arm's
+# `alg_mod == 0` — restoration/robust phases fire without advancing `cnt.k` and
+# are skipped, keeping the emitted iters monotone (mirrors DirectTrajOpt's own
+# telemetry-parity audit, DTO #155). The agnostic `(primal, iter)` callback form
+# cannot carry the obj/inf_pr/inf_du columns the Inspector's stats row reads.
+mutable struct _AmicodeIterCallbackMadNLP <: MadNLP.AbstractUserCallback
+    iter_ref::Base.RefValue{Int}
+end
+function (cb::_AmicodeIterCallbackMadNLP)(solver, mode)
+    mode isa MadNLP.UserCallbackRegular || return true  # main IPM loop only
+    it = Int(MadNLP.get_cnt(solver).k)
+    @printf(
+        "AMICODE_ITER iter=%d obj=%.8e inf_pr=%.6e inf_du=%.6e\n",
+        it,
+        Float64(MadNLP.get_obj_val(solver)),
+        Float64(MadNLP.get_inf_pr(solver)),
+        Float64(MadNLP.get_inf_du(solver)),
+    )
+    flush(stdout)
+    cb.iter_ref[] = max(cb.iter_ref[], it)
+    return true
 end
 
 """
     solve_spec(src::AbstractString; run_dir, format=:toml, max_iter=nothing, kwargs...) -> Dict
 
 Run a `control` spec end-to-end: parse `src` (a spec string, or a path to one),
-materialize it, solve with Ipopt, save the optimized pulse as
-`pulse-<problem_hash>.jld2`, and write the amicode `result/v1` artifact
-`result.toml` into `run_dir`. Emits `AMICODE_ITER …` progress lines and a
-terminal `DONE fidelity=…`. Returns the `result.toml` payload as a `Dict`.
+materialize it, solve with the declared solver backend — `:madnlp` (the default,
+inherited from DirectTrajOpt's MadNLP-default flip in DTO 0.11) or explicitly
+selected `:ipopt` — save the optimized pulse as `pulse-<problem_hash>.jld2`,
+and write the amicode `result/v1` artifact `result.toml` into `run_dir`. Emits
+`AMICODE_ITER …` progress lines and a terminal `DONE fidelity=…`. Returns the
+`result.toml` payload as a `Dict`.
 
-Phase-1 scope: executes the `ipopt` backend only. `solver.backend = "altissimo"`
-is registered for schema/emit purposes but its backend dispatch is deferred, so
+Backend scope: the spec's `solver.backend` declares the executed backend;
+both `:madnlp` and `:ipopt` execute. `solver.backend = "altissimo"` is
+registered for schema/emit purposes but its backend dispatch is deferred, so
 it raises a structured [`SpecValidationError`](@ref) here.
 """
 function solve_spec(
@@ -144,27 +177,32 @@ function _run_control(
     max_iter::Union{Nothing,Int} = nothing,
     kwargs...,
 )
-    # Backend gate: Phase 1 executes ipopt only (altissimo is schema-only).
+    # Backend gate: the spec names its backend, and the runner executes exactly
+    # that one (declared == executed — the coherence the Phase-1 Ipopt pin was
+    # invented for, kept as the permanent contract now that the pin is retired).
+    # `:madnlp` is the inherited DTO-0.11 default (#360); `:ipopt` stays fully
+    # selectable; `:altissimo` remains register-for-schema-only (its dispatch is
+    # deferred with Piccolissimo's matrix-free arm).
     if spec.solver.backend === :altissimo
         throw(
             SpecValidationError([
                 SpecError(
                     "solver.backend",
-                    "the altissimo backend is deferred in Phase 1 (registered for schema only); " *
-                    "solve_spec executes the ipopt backend",
+                    "the altissimo backend is registered for schema only (dispatch deferred); " *
+                    "solve_spec executes the madnlp and ipopt backends",
                     "altissimo",
-                    ["ipopt"],
+                    ["madnlp", "ipopt"],
                 ),
             ]),
         )
-    elseif spec.solver.backend !== :ipopt
+    elseif spec.solver.backend !== :madnlp && spec.solver.backend !== :ipopt
         throw(
             SpecValidationError([
                 SpecError(
                     "solver.backend",
                     "unknown solver backend",
                     string(spec.solver.backend),
-                    ["ipopt", "altissimo"],
+                    ["madnlp", "ipopt", "altissimo"],
                 ),
             ]),
         )
@@ -182,23 +220,53 @@ function _run_control(
     # not pollute the telemetry stream.
     qcp = materialize(spec; piccolo_options = _piccolo_options(spec))
 
-    # Solve, streaming AMICODE_ITER per iteration.
+    # Solve, streaming AMICODE_ITER per main-loop iteration. `options` pins the
+    # executed backend to the declared one on both arms — a bare `solve!` would
+    # ride DirectTrajOpt's own default instead of the spec's declaration. The
+    # arms carry telemetry differently: Ipopt composes the raw `callback`
+    # factory into its single CallbackFunction, while the MadNLP backend does
+    # not wire `callback`, so its emission rides `intermediate_callback`.
     mi = max_iter === nothing ? spec.solver.max_iter : max_iter
-    cb_factory, iter_ref = _amicode_iter_callback()
-    wall = @elapsed solve!(
-        qcp;
-        max_iter = mi,
-        print_level = 0,
-        verbose = false,
-        callback = cb_factory,
-        kwargs...,
+    iter_ref = Ref(0)
+    wall = @elapsed begin
+        stats = if spec.solver.backend === :madnlp
+            solve!(
+                qcp;
+                options = MadNLPOptions(
+                    intermediate_callback = _AmicodeIterCallbackMadNLP(iter_ref),
+                ),
+                max_iter = mi,
+                print_level = 0,
+                verbose = false,
+                kwargs...,
+            )
+        else
+            solve!(
+                qcp;
+                options = IpoptOptions(),
+                max_iter = mi,
+                print_level = 0,
+                verbose = false,
+                callback = _amicode_iter_callback(iter_ref),
+                kwargs...,
+            )
+        end
+    end
+
+    # Declared == executed coherence: the backend symbol the solver reported
+    # must be the one the spec declared — a mismatch means the options plumbing
+    # above has broken, which is exactly what this gate exists to make loud.
+    stats.solver === spec.solver.backend || error(
+        "backend coherence violated: spec declared $(spec.solver.backend), " *
+        "solver executed $(stats.solver)",
     )
 
     fid = Float64(fidelity(qcp))
     iters = iter_ref[]
-    # `converged` proxy: Ipopt's termination status is not surfaced through the
-    # `solve!` interface in Phase 1, so we approximate it as "stopped before the
-    # iteration cap". Documented heuristic; refine when the status is exposed.
+    # `converged` proxy: the backend's SolveStats now surfaces the termination
+    # status, but the result/v1 `converged` field keeps its documented heuristic
+    # — "stopped before the iteration cap" — so historical result.toml files
+    # stay comparable. (The status is in `stats.status` when a caller wants it.)
     converged = iters < mi
 
     # Save the pulse (never the trajectory) as the single run artifact JLD2.
@@ -321,7 +389,7 @@ end
     @test occursin(r"(?m)^AMICODE_PULSE_META ", out)
 end
 
-@testitem "solve_spec: altissimo backend is deferred (schema-only) in Phase 1" begin
+@testitem "solve_spec: altissimo backend is deferred (schema-only)" begin
     using Piccolo, Piccolo.Specs
 
     ALT_TOML = """
@@ -349,4 +417,76 @@ end
         run_dir = dir,
         format = :toml,
     )
+end
+
+@testitem "solve_spec: explicitly declared ipopt backend executes and telemetries" begin
+    using Piccolo, Piccolo.Specs
+
+    IPOPT_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    [solver]
+    backend = "ipopt"
+    """
+    dir = mktempdir()
+    out = mktemp() do path, io
+        redirect_stdout(io) do
+            Specs.solve_spec(IPOPT_TOML; run_dir = dir, format = :toml, max_iter = 12)
+        end
+        flush(io)
+        read(path, String)
+    end
+    # The selectable Ipopt arm keeps the full telemetry contract — the raw
+    # `callback` factory path, identical lines to the default MadNLP arm.
+    @test occursin(r"(?m)^AMICODE_ITER iter=\d+ obj=\S+ inf_pr=\S+ inf_du=\S+", out)
+    @test occursin(r"(?m)^DONE fidelity=", out)
+    @test isfile(joinpath(dir, "result.toml"))
+end
+
+@testitem "solve_spec: unknown backend names the live allowed set" begin
+    using Piccolo, Piccolo.Specs
+
+    BOGUS_TOML = """
+    schema_version = 1
+    kind = "control"
+    [system]
+    kind = "template"
+    template = "TransmonSystem"
+    params = { levels = 3, drive_bounds = [0.02, 0.02] }
+    [goal]
+    kind = "unitary"
+    gate = "X"
+    [pulse]
+    kind = "cubic_spline"
+    T = 10.0
+    [problem]
+    template = "SplinePulseProblem"
+    N = 11
+    [solver]
+    backend = "gurobi"
+    """
+    dir = mktempdir()
+    err = try
+        Specs.solve_spec(BOGUS_TOML; run_dir = dir, format = :toml)
+        nothing
+    catch e
+        e isa Specs.SpecValidationError ? e : rethrow()
+    end
+    @test err !== nothing
+    # The structured error names every registered backend, madnlp first (the
+    # default) — the retirement of the "ipopt only" pin (#360).
+    @test err.errors[1].allowed == ["madnlp", "ipopt", "altissimo"]
 end

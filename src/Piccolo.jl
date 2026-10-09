@@ -41,7 +41,8 @@ include("docs_cache.jl")
 # `Specs.precompile_workload()` sweeps the **registry-enumerated type universe**:
 # one tiny problem per `(template, pulse_kind, trajectory_kind)` triple the
 # registered templates admit, plus the `sampling` wrapper, plus the declarative
-# parse → materialize → one-Ipopt-step path.
+# parse → materialize → one-solve-step path (the DTO-default backend — MadNLP
+# since DTO 0.11, #360).
 #
 # This is the point of the parametric-type rewrite. A template is a constrained
 # alias of `QuantumControlProblem{Tag, QT}`, so the set of concrete problem types a

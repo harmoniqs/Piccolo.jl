@@ -1113,3 +1113,102 @@ end
     @test traj_g.global_components[:ω] == 1:1   # the (ω=4.0,) single global maps to component slot 1
     @test traj_g.global_data == [4.0]           # and its value is the recorded 4.0
 end
+
+@testitem "conversion: cubic resampling, free boundaries, GaussianPulse" begin
+    using Piccolo
+    using ForwardDiff
+    using NamedTrajectories
+
+    sys = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [1.0])
+    times = collect(range(0.0, 1.0; length = 11))
+
+    # ── Cubic resampling: non-native times interpolate u and compute du via
+    #    ForwardDiff on the pulse (the native-knot lane stores tangents exactly;
+    #    the resample lane must reproduce both from the interpolant alone) ──
+    cp = CubicSplinePulse(0.1 .* randn(1, 11), 0.1 .* randn(1, 11), times)
+    cq = KetTrajectory(sys, cp, ComplexF64[1, 0], ComplexF64[0, 1])
+    dense = collect(range(0.0, 1.0; length = 21))
+    dtraj = NamedTrajectory(cq, dense)
+    @test size(dtraj[:u]) == (1, 21)
+    @test size(dtraj[:du]) == (1, 21)
+    for (i, t) in enumerate(dense)
+        @test dtraj[:u][1, i] ≈ cp(t)[1] atol = 1e-10
+        @test dtraj[:du][1, i] ≈
+              ForwardDiff.derivative(s -> cp(s)[1], clamp(t, 1e-10, 1.0 - 1e-10)) atol =
+            1e-8
+    end
+
+    # ── Free boundaries: initial_value/final_value = :free drops the control
+    #    boundary constraints; pinned (default) keeps them ──
+    fp = CubicSplinePulse(
+        0.1 .* randn(1, 11),
+        0.1 .* randn(1, 11),
+        times;
+        initial_value = :free,
+        final_value = :free,
+    )
+    fq = KetTrajectory(sys, fp, ComplexF64[1, 0], ComplexF64[0, 1])
+    ftraj = NamedTrajectory(fq, 11)
+    @test :u ∉ keys(ftraj.initial)
+    @test :u ∉ keys(ftraj.final)
+
+    pp = CubicSplinePulse(0.1 .* randn(1, 11), 0.1 .* randn(1, 11), times)
+    pq = KetTrajectory(sys, pp, ComplexF64[1, 0], ComplexF64[0, 1])
+    ptraj = NamedTrajectory(pq, 11)
+    @test :u ∈ keys(ptraj.initial)
+    @test :u ∈ keys(ptraj.final)
+
+    # ── GaussianPulse: parametric pulse converts with u sampled at the times,
+    #    no :du component, and no control boundary constraints; the custom
+    #    drive_name threads through (regression guard for the FieldError fixed
+    #    alongside this fill) ──
+    T = 0.5
+    gp = GaussianPulse([1.0], [T / 4], [T / 2], T)
+    @test drive_name(gp) == :u
+    gq = KetTrajectory(sys, gp, ComplexF64[1, 0], ComplexF64[0, 1])
+    gtraj = NamedTrajectory(gq, 11)
+    @test haskey(gtraj.components, :u)
+    @test !haskey(gtraj.components, :du)
+    @test :u ∉ keys(gtraj.initial)
+    @test :u ∉ keys(gtraj.final)
+    @test gtraj[:u][1, 6] ≈ gp(T / 2)[1]
+
+    gp2 = GaussianPulse([1.0, 2.0], 0.1, 1.0; drive_name = :Ω)
+    @test drive_name(gp2) == :Ω
+    sys2 = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    gq2 = KetTrajectory(sys2, gp2, ComplexF64[1, 0], ComplexF64[0, 1])
+    gtraj2 = NamedTrajectory(gq2, 11)
+    @test haskey(gtraj2.components, :Ω)
+end
+
+@testitem "conversion: MultiDensityTrajectory globals auto-populate and Δt_bounds" begin
+    using Piccolo
+    using LinearAlgebra
+    using NamedTrajectories
+
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    system = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (γ = 0.05,),
+    )
+    T = 0.5
+    times = collect(range(0.0, T; length = 11))
+    pulse = ZeroOrderPulse(0.1 .* randn(1, 11), times)
+    ρ0 = [ComplexF64[1 0; 0 0]]
+    ρg = [ComplexF64[0 0; 0 1]]
+    qtraj = MultiDensityTrajectory(system, pulse, ρ0, ρg)
+
+    # global_data omitted → auto-populated from the system's global_params
+    traj = NamedTrajectory(qtraj, 11)
+    @test traj.global_components[:γ] == 1:1
+    @test traj.global_data == [0.05]
+    @test haskey(traj.components, :ρ⃗̃1)
+
+    # Δt_bounds threading through the multi-density conversion
+    traj_b = NamedTrajectory(qtraj, 11; Δt_bounds = (1e-3, 0.1))
+    @test traj_b.bounds[:Δt] == ([1e-3], [0.1])
+    @test traj_b.global_components[:γ] == 1:1
+end

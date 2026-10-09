@@ -305,6 +305,30 @@ function setup_free_phase_globals!(
 end
 
 """
+    _default_quantum_integrator(qtraj, N::Int)
+
+#334 default: the native exact-PWC exponential tier, dispatched by system kind —
+closed-system trajectories (unitary/ket/multi-ket, and sampling ensembles over
+them) get the `HermitianExponentialIntegrator`; open-system density
+trajectories get its `NonHermitianExponentialIntegrator` counterpart (the
+Lindbladian generator is not Hermitian, so the closed-system eigensolver does
+not apply). Both auto-detect `sys.global_params` and thread them into the
+dynamics. `BilinearIntegrator` survives as the explicit `integrator_type =
+:pwc` / `integrator = BilinearIntegrator(...)` choice — never as a default.
+"""
+function _default_quantum_integrator(qtraj, N::Int)
+    if _is_open_system_trajectory(qtraj)
+        return NonHermitianExponentialIntegrator(qtraj, N)
+    end
+    return HermitianExponentialIntegrator(qtraj, N)
+end
+
+_is_open_system_trajectory(::Union{DensityTrajectory,MultiDensityTrajectory}) = true
+_is_open_system_trajectory(qtraj::SamplingTrajectory) =
+    _is_open_system_trajectory(qtraj.base_trajectory)
+_is_open_system_trajectory(::AbstractQuantumTrajectory) = false
+
+"""
     _make_free_phase_goal(op::EmbeddedOperator)
 
 Build a function `θ -> EmbeddedOperator` that applies single-qubit Z-phase rotations

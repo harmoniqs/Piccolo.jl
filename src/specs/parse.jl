@@ -431,7 +431,7 @@ end
 
 function _parse_solver(raw::AbstractDict, path, errs)
     _strict_fields(raw, _SOLVER_KEYS, path, errs)
-    backend = Symbol(get(raw, "backend", "ipopt"))
+    backend = Symbol(get(raw, "backend", "madnlp"))
     device = Symbol(get(raw, "device", "cpu"))
     precision = Symbol(get(raw, "precision", "f64"))
     max_iter = _int(get(raw, "max_iter", 500), "$path.max_iter", errs)
@@ -552,6 +552,9 @@ _parse_referee(raw, path, errs) =
     @test spec.system.template == :TransmonSystem
     @test spec.goal.gate == :CZ
     @test spec.problem.N == 100
+    # An omitted [solver] block declares the inherited default backend —
+    # DirectTrajOpt's MadNLP default since DTO 0.11 (#360).
+    @test spec.solver.backend == :madnlp
 
     bad = toml * "\nnonsense_field = true\n"
     @test_throws Specs.SpecValidationError Specs.parse_spec(bad; format = :toml)
