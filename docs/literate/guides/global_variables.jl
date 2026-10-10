@@ -28,33 +28,42 @@
 #
 # Global variable optimization requires:
 # 1. A `QuantumSystem` with `global_params`
-# 2. A **custom integrator** that supports globals (e.g., from Piccolissimo)
+# 2. A **globals-aware integrator** — since #334 this is the DEFAULT:
+#    Piccolo's native `HermitianExponentialIntegrator` (open-system density
+#    trajectories: its `NonHermitianExponentialIntegrator` counterpart) auto-detects
+#    `sys.global_params` and threads them into the dynamics, with global-aware
+#    Jacobian columns and Hessian blocks
 # 3. **Global bounds** specification
 #
-# Piccolo's built-in `BilinearIntegrator` does **not** support global variables —
-# it has no global-aware Jacobian columns or Hessian blocks. A custom integrator
-# from Piccolissimo handles the extended control vector `[controls..., globals...]`
-# and provides the correct derivative information to the optimizer.
+# The explicit-legacy `BilinearIntegrator` still stores globals in the
+# trajectory but does **not** couple them to the dynamics — if you request it
+# explicitly (`integrator = BilinearIntegrator(qtraj, N)`), globals become slack
+# variables. The `global_names` keyword also requires passing an explicit
+# integrator configured for those names, e.g.
+# `integrator = HermitianExponentialIntegrator(qtraj, N; global_names = [:δ])`.
 #
-# This guide demonstrates the global variable API using Piccolo's built-in
-# integrator. The globals are stored in the trajectory and bounded, but are not
-# coupled to the dynamics. For full global optimization, use a Piccolissimo
-# integrator.
+# This guide demonstrates the API. Note the matrix-based system used below:
+# its Hamiltonian operators do not *depend* on the global, so even the
+# globals-aware default integrator has no dynamics channel for it — δ is
+# stored and bounded but nothing in H reads it. For genuinely coupled global
+# optimization, use a function-based Hamiltonian that reads the globals
+# (next section).
 
 # ## Defining a System with Global Parameters
 #
 # Global parameters are stored on the `QuantumSystem` via the `global_params`
-# keyword argument. With a custom integrator from Piccolissimo, the Hamiltonian
-# function receives `u = [controls..., globals...]`:
+# keyword argument. With a function-based Hamiltonian, the function receives
+# `u = [controls..., globals...]` and the default integrator couples them for real:
 #
 # ```julia
-# ## Function-based system (requires Piccolissimo integrator for dynamics)
+# ## Function-based system: the global δ is u[3], coupled into the dynamics
+# ## by the default HermitianExponentialIntegrator (auto-detected).
 # H = (u, t) -> u[3] * PAULIS[:Z] + u[1] * PAULIS[:X] + u[2] * PAULIS[:Y]
-# sys = QuantumSystem(H, [1.0, 1.0]; time_dependent=true, global_params=(δ=0.5,))
+# sys = QuantumSystem(H, [1.0, 1.0]; time_dependent = true, global_params = (δ = 0.5,))
 # ```
 #
-# For this guide we use a matrix-based system, which works with the built-in
-# `BilinearIntegrator`:
+# This guide's executable cells use a matrix-based system, which exercises the
+# storage/bounds API:
 
 using Piccolo
 
@@ -105,10 +114,13 @@ optimized_δ = traj.global_data[traj.global_components[:δ]][1]
 optimized_δ
 
 # !!! note
-#     With the built-in `BilinearIntegrator`, the global variable is not coupled
-#     to the dynamics, so its value will remain near the initial value. To
-#     actually optimize globals through the Hamiltonian, use a Piccolissimo
-#     integrator that provides global-aware Jacobians and Hessians.
+#     This matrix-based example's Hamiltonian operators do not depend on δ,
+#     so the global has no dynamics channel: its value will remain near the
+#     initial value even though the default integrator is globals-aware. To
+#     actually optimize globals through the Hamiltonian, use a function-based
+#     `H(u, t)` that reads them (see above) — the default
+#     `HermitianExponentialIntegrator` then provides global-aware Jacobians
+#     and Hessians out of the box.
 
 # ## Global Bounds Format
 #
@@ -203,10 +215,12 @@ optimized_global_data = traj_multi.global_data
 
 # ## Limitations
 #
-# - Full global optimization requires a custom integrator from Piccolissimo that
-#   provides global-aware Jacobians and Hessians
-# - Piccolo's built-in `BilinearIntegrator` stores globals in the trajectory but
-#   does not couple them to the dynamics
+# - The explicit `BilinearIntegrator` (`integrator = BilinearIntegrator(qtraj, N)`)
+#   stores globals in the trajectory but does not couple them to the dynamics —
+#   they act as slack variables under it
+# - Passing `global_names` explicitly still requires an integrator configured
+#   for those names (`HermitianExponentialIntegrator(qtraj, N; global_names = ...)`);
+#   the default auto-detects `sys.global_params` instead
 # - More complex optimization landscape
 # - Convergence can be slower
 

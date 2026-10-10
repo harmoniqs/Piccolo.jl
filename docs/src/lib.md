@@ -90,6 +90,12 @@ Modules = [Piccolo.Quantum.Isomorphisms]
 Modules = [Piccolo.Control.QuantumControlProblems]
 ```
 
+## [Verification](@id lib-verification)
+
+```@autodocs
+Modules = [Piccolo.Control.Verification]
+```
+
 ## [Problem Templates](@id lib-problem-templates)
 
 ```@autodocs

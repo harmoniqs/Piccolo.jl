@@ -659,6 +659,9 @@ end
         active_controls = [1, 2],
     )
     @test active_controls(d3) == [1, 2]
+    @test drive_coeff(d3, [3.0, 4.0, 0.0]) == 25.0
+    @test drive_coeff_jac(d3, [3.0, 4.0, 0.0], 1) == 6.0
+    @test drive_coeff_hess(d3, [3.0, 4.0, 0.0], 2, 2) == 2.0
 end
 
 @testitem "NonlinearDrive auto-Jacobian" begin
@@ -731,6 +734,9 @@ end
     )
 
     u = [3.0, 4.0]
+    @test drive_coeff(d, u) == 25.0
+    @test drive_coeff_jac(d, u, 1) == 6.0
+    @test drive_coeff_jac(d, u, 2) == 8.0
     @test drive_coeff_hess(d, u, 1, 1) == 2.0
     @test drive_coeff_hess(d, u, 2, 2) == 2.0
     @test drive_coeff_hess(d, u, 1, 2) == 0.0
@@ -742,6 +748,8 @@ end
         (u, j) -> j == 1 ? 3u[1]^2 : 0.0;
         coeff_hess = (u, i, j) -> (i == 1 && j == 1) ? 6u[1] : 0.0,
     )
+    @test drive_coeff(d2, [2.0]) == 8.0
+    @test drive_coeff_jac(d2, [2.0], 1) == 12.0
     @test drive_coeff_hess(d2, [2.0], 1, 1) == 12.0
     @test drive_coeff_hess(d2, [5.0], 1, 1) == 30.0
 end
@@ -790,6 +798,9 @@ end
         (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0;
         coeff_hess = (u, i, j) -> (i == j && i <= 2) ? 2.0 : 0.0,
     )
+    # The explicit jac/hess are live and consistent with the coeff
+    @test drive_coeff_jac(d_correct, [3.0, 4.0], 1) == 6.0
+    @test drive_coeff_hess(d_correct, [3.0, 4.0], 2, 2) == 2.0
     validate_drive_hessian(d_correct, 2)
 
     # Wrong explicit Hessian should fail
@@ -799,6 +810,10 @@ end
         (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0;
         coeff_hess = (u, i, j) -> 0.0,  # wrong: should be 2.0 on diagonal
     )
+    # ... and the failure is in the hessian, not the coeff/jac
+    @test drive_coeff(d_wrong, [3.0, 4.0]) == 25.0
+    @test drive_coeff_jac(d_wrong, [3.0, 4.0], 2) == 8.0
+    @test drive_coeff_hess(d_wrong, [3.0, 4.0], 1, 1) == 0.0
     @test_throws AssertionError validate_drive_hessian(d_wrong, 2)
 end
 
@@ -902,6 +917,7 @@ end
     # G on NonlinearDrive
     nd = NonlinearDrive(H, u -> u[1]^2)
     @test Piccolo.Isomorphisms.G(nd) == Piccolo.Isomorphisms.G(H)
+    @test drive_coeff(nd, [0.7]) ≈ 0.49
 
     # Broadcasting over Vector{AbstractDrive}
     drives = AbstractDrive[ld, nd]
@@ -978,6 +994,10 @@ end
 
     @test drive_matrix(mnd) == drive_matrix(nd)
     @test active_controls(mnd) == [1]
+
+    # The wrapped coefficient chain rule is live: d/dt[u₁² · sin(ωt)] = 2u₁² · ωcos(ωt)
+    @test drive_coeff(mnd, [0.5], pi / (2 * omega)) ≈ 0.25
+    @test drive_coeff_dt(mnd, [0.5], 0.0) ≈ 0.25 * omega
 
     # has_nonlinear_drives detects wrapped NonlinearDrive
     drives = AbstractDrive[md, mnd]
@@ -1110,6 +1130,16 @@ end
     for p in (i, j), q in (i, j)
         @test drive_coeff_hess(baked, u, p, q) ≈ drive_coeff_hess(trilinear, u, p, q)
     end
+
+    # The trilinear Hessian's g-cross terms (the branches the (i,j) block never
+    # touches): ∂²(u_i u_j u_g)/∂u_p∂u_q picks up u of the third index. The
+    # BAKED form has no such terms by design — baking removes the gauge
+    # direction — so assert the trilinear closure itself, against AD.
+    @test drive_coeff_hess(trilinear, u, i, g) ≈ u[j]
+    @test drive_coeff_hess(trilinear, u, g, i) ≈ u[j]
+    @test drive_coeff_hess(trilinear, u, j, g) ≈ u[i]
+    @test drive_coeff_hess(trilinear, u, g, j) ≈ u[i]
+    validate_drive_hessian(trilinear, 5)
 end
 
 @testitem "coupling_drive: AD cross-check + QuantumSystem integration" begin
@@ -1132,4 +1162,106 @@ end
     sys = QuantumSystem(zeros(ComplexF64, 2, 2), drives, [(-1.0, 1.0), (-1.0, 1.0)])
     u = [0.3, -0.8]
     @test sys.H(u, 0.0) ≈ 0.3 * σz + 0.5 * 0.3 * (-0.8) * H
+end
+
+# Minimal non-matrix Hamiltonian: exercises the generic NonlinearDrive
+# constructors (H stored as-is) and the _ensure_matrix fallbacks through the
+# generic drive_matrix / drive_dim / G methods.
+@testitem "drives: generic (non-matrix) Hamiltonians, ModulatedDrive Hessian, has_modulation" begin
+    using Piccolo
+    using SparseArrays
+    using LinearAlgebra
+
+    struct WrapOp
+        M::Matrix{ComplexF64}
+    end
+    Base.Matrix(w::WrapOp) = w.M
+
+    struct WrappedDrive <: AbstractDrive
+        H::WrapOp
+    end
+
+    H = sparse(ComplexF64[0 1; 1 0])
+
+    # ── generic NonlinearDrive constructors: H is not an AbstractMatrix ──
+    w = WrapOp(ComplexF64[1 0; 0 -1])
+
+    # 2-arg (auto Jacobian + Hessian via ForwardDiff)
+    d1 = NonlinearDrive(w, u -> u[1]^2)
+    @test d1.H === w                       # stored as-is, not sparsified
+    @test drive_coeff(d1, [3.0]) == 9.0
+    @test drive_coeff_jac(d1, [3.0], 1) ≈ 6.0
+    @test drive_coeff_hess(d1, [3.0], 1, 1) ≈ 2.0
+
+    # 3-arg (explicit Jacobian; Hessian still auto-generated)
+    d2 = NonlinearDrive(w, u -> u[1]^2, (u, j) -> j == 1 ? 2u[1] : 0.0)
+    @test d2.H === w
+    @test drive_coeff_jac(d2, [3.0], 1) ≈ 6.0
+    @test drive_coeff_hess(d2, [3.0], 1, 1) ≈ 2.0
+
+    # auto-generated derivatives agree with AD for the generic constructors too
+    validate_drive_jacobian(d1, 1)
+    validate_drive_hessian(d1, 1)
+
+    # ── generic drive_matrix / drive_dim / _ensure_matrix via a custom subtype ──
+    d = WrappedDrive(WrapOp(ComplexF64[0 1; 1 0]))
+    @test drive_matrix(d) == ComplexF64[0 1; 1 0]      # Base.Matrix fallback
+    @test drive_dim(d) == 2
+    @test Piccolo.Isomorphisms.G(d) == Piccolo.Isomorphisms.G(ComplexF64[0 1; 1 0])
+
+    # ── ModulatedDrive Hessian: base Hessian scaled by the modulation at t=0 ──
+    nd = NonlinearDrive(H, u -> u[1]^2 + u[2]^2)
+    md = ModulatedDrive(nd, t -> 2 + cos(3t))
+    u = [3.0, 4.0, 0.0]
+    @test drive_coeff_hess(md, u, 1, 1) ≈ 2.0 * (2 + cos(0.0))
+    @test drive_coeff_hess(md, u, 1, 2) ≈ 0.0
+    # wrapping a linear drive: zero base Hessian stays zero
+    ld = LinearDrive(H, 2)
+    md_l = ModulatedDrive(ld, t -> 2 + cos(3t))
+    @test drive_coeff_hess(md_l, u, 1, 1) == 0.0
+    @test drive_coeff_hess(md_l, u, 2, 2) == 0.0
+
+    # ── has_modulation across the drive types ──
+    @test !has_modulation(DriftTerm(H))                    # identity modulation
+    @test has_modulation(DriftTerm(H, t -> cos(2t)))
+    @test has_modulation(md_l)                             # ModulatedDrive always
+    @test !has_modulation(ld)
+    @test !has_modulation(nd)
+end
+
+@testitem "Drive interface contracts: dt, hess, dim, classification" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse(ComplexF64[1 0; 0 -1])
+    ld = LinearDrive(H, 1)
+    nd = NonlinearDrive(H, u -> u[1]^2)
+    md = ModulatedDrive(ld, t -> 1 + sin(2t))
+
+    # Unmodulated drives: zero time-derivative coefficient — the contract the
+    # time-derivative machinery relies on (no modulation → no d/dt chain term)
+    @test drive_coeff_dt(ld, [0.5], 0.7) == 0.0
+    @test drive_coeff_dt(nd, [0.5], 0.7) == 0.0
+    # Modulated: d/dt[u₁ · (1 + sin 2t)] = u₁ · 2cos(2t)
+    @test drive_coeff_dt(md, [0.5], pi / 6) ≈ 0.5 * 2 * cos(pi / 3) atol = 1e-12
+
+    # LinearDrive's coefficient Hessian is zero in every direction
+    @test drive_coeff_hess(ld, [0.5, 0.2], 1, 1) == 0.0
+    @test drive_coeff_hess(ld, [0.5, 0.2], 1, 2) == 0.0
+
+    # drive_dim reads the operator size across the drive families
+    @test drive_dim(ld) == 2
+    @test drive_dim(nd) == 2
+    @test drive_dim(md) == 2
+
+    # _is_nonlinear classifies wrapped drives by their base
+    @test !Piccolo.Quantum.QuantumSystems._is_nonlinear(ld)
+    @test Piccolo.Quantum.QuantumSystems._is_nonlinear(nd)
+    @test !Piccolo.Quantum.QuantumSystems._is_nonlinear(md)
+    @test Piccolo.Quantum.QuantumSystems._is_nonlinear(ModulatedDrive(nd, t -> 1.0))
+
+    # _ensure_matrix: matrices pass through unchanged, non-matrices densify
+    M = ComplexF64[1 0; 0 -1]
+    @test Piccolo.Quantum.QuantumSystems._ensure_matrix(M) == M
+    @test Piccolo.Quantum.QuantumSystems._ensure_matrix(H) == M
 end
