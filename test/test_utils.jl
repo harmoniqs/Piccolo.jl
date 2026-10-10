@@ -88,12 +88,8 @@ function named_trajectory_type_1(; free_time = true)
             Δt = ([0.1], [0.30000000000000004]),
         )
     else
-        components = (
-            Ũ⃗ = data[1:8, :],
-            a = data[9:10, :],
-            da = data[11:12, :],
-            dda = data[13:14, :],
-        )
+        components =
+            (Ũ⃗ = data[1:8, :], a = data[9:10, :], da = data[11:12, :], dda = data[13:14, :])
         controls = (:dda,)
         timestep = 0.2
         bounds = (a = ([-1.0, -1.0], [1.0, 1.0]), dda = ([-1.0, -1.0], [1.0, 1.0]))

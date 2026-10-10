@@ -1,0 +1,47 @@
+# Structure-carve-out fixture: exercises the structure_hash subset (free_dt arm
+# free-vs-fixed, free_phase, sorted objective_kinds, options.leakage_constraint,
+# system.params.levels, integrator kind/alg) alongside the full_dict wire shape
+# (objectives array, options + params passthrough via _wireval, wrappers omitted).
+schema_version = 1
+kind = "control"
+
+[system]
+kind = "template"
+template = "MultiTransmonSystem"
+params = { levels = 3, drive_bounds = [0.02, 0.02] }
+
+[goal]
+kind = "unitary"
+gate = "CZ"
+subsystem_levels = [3, 3]
+
+[pulse]
+kind = "cubic_spline"
+T = 100.0
+
+[problem]
+template = "SplinePulseProblem"
+N = 100
+goal_treatment = "both"
+free_dt = [0.01, 2.0]
+free_phase = true
+R_du = 0.001
+
+[[problem.objectives]]
+kind = "reg_du"
+weight = 0.5
+
+[[problem.objectives]]
+kind = "hermite_bending_energy"
+weight = 1.0
+
+[problem.options]
+leakage_constraint = true
+
+[integrator]
+kind = "spline"
+alg = "magnus_adapt4"
+
+[solver]
+backend = "ipopt"
+strategy = "direct"

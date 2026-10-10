@@ -67,7 +67,7 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator. If `nothing`, uses `BilinearIntegrator`. |
+# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator. If `nothing`, uses the native `HermitianExponentialIntegrator` (exact PWC, globals-aware; open-system density trajectories use its `NonHermitianExponentialIntegrator` counterpart). |
 # | `global_names` | `Vector{Symbol}` | `nothing` | Names of global parameters to optimize (requires custom integrator). |
 # | `global_bounds` | `Dict{Symbol, ...}` | `nothing` | Bounds on global variables. Values can be `Float64` (symmetric ±) or `Tuple{Float64, Float64}`. |
 # | `constraints` | `Vector{AbstractConstraint}` | `[]` | Additional constraints to add to the problem. |

@@ -34,9 +34,7 @@ end
 Returns the direct sum of two iso_vec operators.
 """
 function direct_sum(Ã⃗::AbstractVector, B̃⃗::AbstractVector)
-    return operator_to_iso_vec(
-        direct_sum(iso_vec_to_operator(Ã⃗), iso_vec_to_operator(B̃⃗)),
-    )
+    return operator_to_iso_vec(direct_sum(iso_vec_to_operator(Ã⃗), iso_vec_to_operator(B̃⃗)))
 end
 
 """
