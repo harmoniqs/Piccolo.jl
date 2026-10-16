@@ -5,6 +5,7 @@ on:
     branches:
       - main
     tags: ["*"]
+  workflow_dispatch:
   repository_dispatch:
     types: [tagbot-release-created]
 concurrency:
@@ -20,7 +21,10 @@ jobs:
       contents: write
       statuses: write
     env:
-      DOC_TEMPLATE_VERSION: "v0.8.0" # Change this to the specific tag version you want
+      # Pin by full commit SHA, not tag name — Pkg ≥ 1.13 (which unpinned setup-julia resolves since ~Sep 10)
+      # fetches non-SHA revs via a shallow +refs/heads/<rev> fetch that exits 128 for tag-only names.
+      # SHA revs resolve on every Pkg version. To bump: update the SHA and the tag comment together.
+      DOC_TEMPLATE_VERSION: "25a2d70315d234cddee6bdf955406555cd9175d8" # PiccoloDocsTemplate v0.8.0
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v3

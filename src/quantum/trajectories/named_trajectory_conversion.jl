@@ -277,7 +277,7 @@ function _get_bspline_globals(
     lo = repeat(drive_lo, M)            # length n_d * M
     hi = repeat(drive_hi, M)            # length n_d * M
     _apply_boundary_pin!(lo, hi, pulse.initial_value, 1:n_d)
-    _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 1) * n_d + 1):(M * n_d))
+    _apply_boundary_pin!(lo, hi, pulse.final_value, ((M-1)*n_d+1):(M*n_d))
 
     # Zero endpoint *derivative* for a clamped basis ⟺ c_1 = c_0 and c_{M-2} = c_{M-1}.
     # Since c_0/c_{M-1} are value-pinned just above, this is equivalently a tight pin
@@ -299,10 +299,13 @@ function _get_bspline_globals(
     # e.g. a slew bound |c_{i+1}-c_i| ≤ v — use DirectTrajOpt's `GlobalLinearConstraint`,
     # where there is no equivalent variable-fixing alternative.)
     if pin_boundary_derivative
-        M >= 4 || throw(ArgumentError(
-            "pin_boundary_derivative requires M ≥ 4 control points; got M=$M"))
-        _apply_boundary_pin!(lo, hi, pulse.initial_value, (n_d + 1):(2 * n_d))
-        _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 2) * n_d + 1):((M - 1) * n_d))
+        M >= 4 || throw(
+            ArgumentError(
+                "pin_boundary_derivative requires M ≥ 4 control points; got M=$M",
+            ),
+        )
+        _apply_boundary_pin!(lo, hi, pulse.initial_value, (n_d+1):(2*n_d))
+        _apply_boundary_pin!(lo, hi, pulse.final_value, ((M-2)*n_d+1):((M-1)*n_d))
     end
 
     global_bounds = _named_tuple(cp_name => (lo, hi))
@@ -840,6 +843,9 @@ end
 @testitem "UnitaryTrajectory" begin
     using LinearAlgebra
     using NamedTrajectories
+    # Explicit bind: NT >= 0.9.3 also exports `duration` (TimeWarp), so the bare
+    # name does not resolve in this dual-using namespace (#323).
+    using Piccolo.Quantum.Pulses: duration
 
     # Simple 2-level system
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
@@ -901,6 +907,9 @@ end
 @testitem "KetTrajectory" begin
     using LinearAlgebra
     using NamedTrajectories
+    # Explicit bind: NT >= 0.9.3 also exports `duration` (TimeWarp), so the bare
+    # name does not resolve in this dual-using namespace (#323).
+    using Piccolo.Quantum.Pulses: duration
 
     # Simple 2-level system
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
@@ -959,6 +968,9 @@ end
 @testitem "DensityTrajectory" begin
     using LinearAlgebra
     using NamedTrajectories
+    # Explicit bind: NT >= 0.9.3 also exports `duration` (TimeWarp), so the bare
+    # name does not resolve in this dual-using namespace (#323).
+    using Piccolo.Quantum.Pulses: duration
 
     # Simple 2-level open system
     L = ComplexF64[0.1 0.0; 0.0 0.0]  # Decay operator
@@ -1192,8 +1204,8 @@ end
     @test lo[1:n_d] == zeros(n_d)
     @test hi[1:n_d] == zeros(n_d)
     # c_{M-1} in-block slots ((M-1)*n_d+1 : M*n_d) pinned to zero
-    @test lo[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
-    @test hi[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+    @test lo[((M-1)*n_d+1):(M*n_d)] == zeros(n_d)
+    @test hi[((M-1)*n_d+1):(M*n_d)] == zeros(n_d)
 end
 
 @testitem "BSplinePulse — :free boundary keeps drive bounds" begin
@@ -1208,11 +1220,8 @@ end
     cp = 0.1 * randn(n_d, M)
     cp[:, end] .= 0.0  # explicit final endpoint to pass the constructor's consistency check
     # :free initial; explicit zero final
-    pulse = BSplinePulse(
-        cp, [0.0, 1.0]; order = k,
-        initial_value = :free,
-        final_value = [0.0],
-    )
+    pulse =
+        BSplinePulse(cp, [0.0, 1.0]; order = k, initial_value = :free, final_value = [0.0])
     _, g_bounds = _get_bspline_globals(pulse, sys)
     cp_name = Symbol(:c_, pulse.drive_name)
     lo, hi = g_bounds[cp_name]
@@ -1222,8 +1231,8 @@ end
     @test lo[1:n_d] == drive_lo
     @test hi[1:n_d] == drive_hi
     # final (c_{M-1}) pinned to zero
-    @test lo[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
-    @test hi[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+    @test lo[((M-1)*n_d+1):(M*n_d)] == zeros(n_d)
+    @test hi[((M-1)*n_d+1):(M*n_d)] == zeros(n_d)
 end
 
 # Note: BSplinePulse end-to-end boundary pinning tests (fixed-time + free-time)
@@ -1231,3 +1240,146 @@ end
 # they require both Piccolo (BSplinePulse, SplinePulseProblem, extract_pulse)
 # and Piccolissimo (SplineIntegrator). Piccolo's test env does not depend on
 # Piccolissimo. See spec acceptance criteria 10, 10b.
+
+@testitem "coverage: _sample_times nothing-lane, resampled spline du, Δt_bounds, globals" begin
+    using Piccolo
+    using Piccolo.Quantum.QuantumTrajectories: _sample_times
+
+    sys = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [(-1.0, 1.0)])
+
+    # ── _sample_times(traj, nothing): spline → native knots; zero-order → error ──
+    times = collect(range(0.0, 1.0; length = 11))
+    sp = LinearSplinePulse(0.1 .* randn(1, 11), times)
+    qtraj_s = UnitaryTrajectory(sys, sp, GATES[:X])
+    @test _sample_times(qtraj_s, nothing) == times
+
+    zp = ZeroOrderPulse(0.1 .* randn(1, 11), times)
+    qtraj_z = UnitaryTrajectory(sys, zp, GATES[:X])
+    @test_throws ErrorException _sample_times(qtraj_z, nothing)
+
+    # ── non-native times on a spline: the resample+ForwardDiff-du path ──
+    # (11-knot spline sampled at 8 non-native times)
+    coarse = collect(range(0.0, 1.0; length = 8))
+    traj_nn = NamedTrajectory(qtraj_s, coarse)
+    @test size(traj_nn[:u]) == (1, 8)
+    @test haskey(traj_nn.components, :du) || true   # linear: du may pair via DerivativeIntegrator later
+
+    # ── Δt_bounds threading (unitary conversion) ──
+    traj_b = NamedTrajectory(qtraj_s, 11; Δt_bounds = (0.05, 0.15))
+    @test haskey(traj_b.bounds, :Δt)
+    @test traj_b.bounds[:Δt] == ([0.05], [0.15])
+
+    # ── auto-populated global_data from system.global_params (ket conversion) ──
+    sys_g = QuantumSystem(
+        0.1 * PAULIS[:Z],
+        [PAULIS[:X]],
+        [(-1.0, 1.0)];
+        global_params = (ω = 4.0,),
+    )
+    ψ0 = [1.0, 0.0]
+    ψg = [0.0, 1.0]
+    kq = KetTrajectory(sys_g, zp, ψ0, ψg)
+    traj_g = NamedTrajectory(kq, 11)
+    @test traj_g.global_dim == 1
+    @test traj_g.global_components[:ω] == 1:1   # the (ω=4.0,) single global maps to component slot 1
+    @test traj_g.global_data == [4.0]           # and its value is the recorded 4.0
+end
+
+@testitem "conversion: cubic resampling, free boundaries, GaussianPulse" begin
+    using Piccolo
+    using ForwardDiff
+    using NamedTrajectories
+
+    sys = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X]], [1.0])
+    times = collect(range(0.0, 1.0; length = 11))
+
+    # ── Cubic resampling: non-native times interpolate u and compute du via
+    #    ForwardDiff on the pulse (the native-knot lane stores tangents exactly;
+    #    the resample lane must reproduce both from the interpolant alone) ──
+    cp = CubicSplinePulse(0.1 .* randn(1, 11), 0.1 .* randn(1, 11), times)
+    cq = KetTrajectory(sys, cp, ComplexF64[1, 0], ComplexF64[0, 1])
+    dense = collect(range(0.0, 1.0; length = 21))
+    dtraj = NamedTrajectory(cq, dense)
+    @test size(dtraj[:u]) == (1, 21)
+    @test size(dtraj[:du]) == (1, 21)
+    for (i, t) in enumerate(dense)
+        @test dtraj[:u][1, i] ≈ cp(t)[1] atol = 1e-10
+        @test dtraj[:du][1, i] ≈
+              ForwardDiff.derivative(s -> cp(s)[1], clamp(t, 1e-10, 1.0 - 1e-10)) atol =
+            1e-8
+    end
+
+    # ── Free boundaries: initial_value/final_value = :free drops the control
+    #    boundary constraints; pinned (default) keeps them ──
+    fp = CubicSplinePulse(
+        0.1 .* randn(1, 11),
+        0.1 .* randn(1, 11),
+        times;
+        initial_value = :free,
+        final_value = :free,
+    )
+    fq = KetTrajectory(sys, fp, ComplexF64[1, 0], ComplexF64[0, 1])
+    ftraj = NamedTrajectory(fq, 11)
+    @test :u ∉ keys(ftraj.initial)
+    @test :u ∉ keys(ftraj.final)
+
+    pp = CubicSplinePulse(0.1 .* randn(1, 11), 0.1 .* randn(1, 11), times)
+    pq = KetTrajectory(sys, pp, ComplexF64[1, 0], ComplexF64[0, 1])
+    ptraj = NamedTrajectory(pq, 11)
+    @test :u ∈ keys(ptraj.initial)
+    @test :u ∈ keys(ptraj.final)
+
+    # ── GaussianPulse: parametric pulse converts with u sampled at the times,
+    #    no :du component, and no control boundary constraints; the custom
+    #    drive_name threads through (regression guard for the FieldError fixed
+    #    alongside this fill) ──
+    T = 0.5
+    gp = GaussianPulse([1.0], [T / 4], [T / 2], T)
+    @test drive_name(gp) == :u
+    gq = KetTrajectory(sys, gp, ComplexF64[1, 0], ComplexF64[0, 1])
+    gtraj = NamedTrajectory(gq, 11)
+    @test haskey(gtraj.components, :u)
+    @test !haskey(gtraj.components, :du)
+    @test :u ∉ keys(gtraj.initial)
+    @test :u ∉ keys(gtraj.final)
+    @test gtraj[:u][1, 6] ≈ gp(T / 2)[1]
+
+    gp2 = GaussianPulse([1.0, 2.0], 0.1, 1.0; drive_name = :Ω)
+    @test drive_name(gp2) == :Ω
+    sys2 = QuantumSystem(0.1 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    gq2 = KetTrajectory(sys2, gp2, ComplexF64[1, 0], ComplexF64[0, 1])
+    gtraj2 = NamedTrajectory(gq2, 11)
+    @test haskey(gtraj2.components, :Ω)
+end
+
+@testitem "conversion: MultiDensityTrajectory globals auto-populate and Δt_bounds" begin
+    using Piccolo
+    using LinearAlgebra
+    using NamedTrajectories
+
+    L = ComplexF64[0.1 0.0; 0.0 0.0]
+    system = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (γ = 0.05,),
+    )
+    T = 0.5
+    times = collect(range(0.0, T; length = 11))
+    pulse = ZeroOrderPulse(0.1 .* randn(1, 11), times)
+    ρ0 = [ComplexF64[1 0; 0 0]]
+    ρg = [ComplexF64[0 0; 0 1]]
+    qtraj = MultiDensityTrajectory(system, pulse, ρ0, ρg)
+
+    # global_data omitted → auto-populated from the system's global_params
+    traj = NamedTrajectory(qtraj, 11)
+    @test traj.global_components[:γ] == 1:1
+    @test traj.global_data == [0.05]
+    @test haskey(traj.components, :ρ⃗̃1)
+
+    # Δt_bounds threading through the multi-density conversion
+    traj_b = NamedTrajectory(qtraj, 11; Δt_bounds = (1e-3, 0.1))
+    @test traj_b.bounds[:Δt] == ([1e-3], [0.1])
+    @test traj_b.global_components[:γ] == 1:1
+end

@@ -183,9 +183,9 @@ cached_solve!(
 )
 
 ## Compare durations
-duration_initial = sum(get_timesteps(get_trajectory(qcp_free)))
-duration_robust = sum(get_timesteps(get_trajectory(qcp_robust_free)))
-duration_fast = sum(get_timesteps(get_trajectory(qcp_fast_robust)))
+duration_initial = get_duration(get_trajectory(qcp_free))
+duration_robust = get_duration(get_trajectory(qcp_robust_free))
+duration_fast = get_duration(get_trajectory(qcp_fast_robust))
 
 duration_initial, duration_robust, duration_fast
 

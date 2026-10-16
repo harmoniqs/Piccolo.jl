@@ -5,6 +5,7 @@ export display_level
 export DISPLAY_SILENT, DISPLAY_COMPACT, DISPLAY_STANDARD, DISPLAY_DETAILED
 
 using ExponentialAction
+using TestItems
 
 
 # TODO: Add duration and symmetry options
@@ -66,9 +67,6 @@ Options for the Piccolo quantum optimal control library.
   `Δt_bounds`, letting the optimizer choose a non-uniform grid (concentrating
   samples where the pulse is changing fast). Set to `true` to force uniform
   spacing — useful when the target hardware has a fixed sample-rate.
-- `rollout_integrator::Function = expv`: Integrator to use for rollout
-- `geodesic = true`: Use the geodesic to initialize the optimization.
-- `zero_initial_and_final_derivative::Bool=false`: Zero the initial and final control pulse derivatives.
 - `complex_control_norm_constraint_name::Union{Nothing, Symbol} = nothing`: Name of the complex control norm constraint.
 - `complex_control_norm_constraint_radius::Float64 = 1.0`: Radius of the complex control norm constraint.
 - `bound_state::Bool = true`: Keep the default [-1, 1] box bounds on each component
@@ -86,9 +84,6 @@ Options for the Piccolo quantum optimal control library.
 mutable struct PiccoloOptions
     display::Symbol
     timesteps_all_equal::Bool
-    rollout_integrator::Function
-    geodesic::Bool
-    zero_initial_and_final_derivative::Bool
     complex_control_norm_constraint_name::Union{Nothing,Symbol}
     complex_control_norm_constraint_radius::Float64
     bound_state::Bool
@@ -102,9 +97,6 @@ function PiccoloOptions(;
     display::Union{Symbol,Nothing} = nothing,
     verbose = nothing,
     timesteps_all_equal::Bool = false,
-    rollout_integrator::Function = expv,
-    geodesic::Bool = true,
-    zero_initial_and_final_derivative::Bool = false,
     complex_control_norm_constraint_name::Union{Nothing,Symbol} = nothing,
     complex_control_norm_constraint_radius::Float64 = 1.0,
     bound_state::Bool = true,
@@ -133,9 +125,6 @@ function PiccoloOptions(;
     return PiccoloOptions(
         display,
         timesteps_all_equal,
-        rollout_integrator,
-        geodesic,
-        zero_initial_and_final_derivative,
         complex_control_norm_constraint_name,
         complex_control_norm_constraint_radius,
         bound_state,
@@ -144,6 +133,14 @@ function PiccoloOptions(;
         leakage_constraint_value,
         leakage_cost,
     )
+end
+
+@testitem "PiccoloOptions constructor is quiet on defaults" begin
+    using Piccolo
+
+    # Defaults, and consulted fields, produce no warning.
+    @test_logs min_level = Base.CoreLogging.Warn PiccoloOptions()
+    @test_logs min_level = Base.CoreLogging.Warn PiccoloOptions(bound_state = false)
 end
 
 end
