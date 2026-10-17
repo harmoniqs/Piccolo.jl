@@ -11,6 +11,7 @@ export get_leakage_indices
 export get_iso_vec_leakage_indices
 export get_iso_vec_subspace_indices
 
+using ..DualRailEncodings
 using ..Gates
 using ..Isomorphisms
 using ..LiftedOperators
@@ -209,6 +210,51 @@ function EmbeddedOperator(
         subsystem_indices,
         subspaces,
         composite_system.subsystem_levels,
+    )
+end
+
+@doc raw"""
+    EmbeddedOperator(
+        subspace_operator::AbstractMatrix{<:Number},
+        enc::DualRailEncoding;
+        qubit_indices::AbstractVector{Int} = 1:enc.n_qubits,
+    )
+
+Embed a logical-qubit operator into the full space of a dual-rail encoding `enc`.
+
+The `subspace_operator` is a `2^k × 2^k` logical unitary acting on the `k` logical
+qubits selected by `qubit_indices` (all qubits by default). It is lifted to the full
+`2^n_qubits`-dimensional logical register, then embedded at the encoded
+logical-state indices of the full tensor-product space spanned by
+`enc.subspace_levels`.
+
+The resulting operator's `subspace` is ordered by logical basis state
+`|0…0⟩, …, |1…1⟩`, so `unembed` returns the operator in the logical basis.
+
+A `Symbol` key of `GATES` may be used in place of the matrix, e.g.
+`EmbeddedOperator(:CX, enc; qubit_indices = [1, 2])`.
+"""
+function EmbeddedOperator(
+    subspace_operator::AbstractMatrix{<:Number},
+    enc::DualRailEncoding;
+    qubit_indices::AbstractVector{Int} = 1:enc.n_qubits,
+)
+    all(1 .≤ qubit_indices .≤ enc.n_qubits) ||
+        throw(ArgumentError("qubit_indices must be within 1:$(enc.n_qubits)"))
+    allunique(qubit_indices) || throw(ArgumentError("qubit_indices must be unique"))
+    size(subspace_operator, 1) == size(subspace_operator, 2) ||
+        throw(ArgumentError("subspace_operator must be square"))
+    size(subspace_operator, 1) == 2^length(qubit_indices) || throw(
+        ArgumentError(
+            "operator dimension $(size(subspace_operator, 1)) does not match " *
+            "2^$(length(qubit_indices)) for the selected logical qubits",
+        ),
+    )
+    lifted_operator = lift_operator(subspace_operator, qubit_indices, fill(2, enc.n_qubits))
+    return EmbeddedOperator(
+        lifted_operator,
+        DualRailEncodings.logical_state_indices(enc),
+        enc.subspace_levels,
     )
 end
 

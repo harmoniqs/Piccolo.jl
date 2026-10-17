@@ -294,7 +294,7 @@ length(Δts)
 # # For SplinePulseProblem
 # pulse = CubicSplinePulse(controls, tangents, times)
 # qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-# qcp = SplinePulseProblem(qtraj)  # ✓
+# qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)  # ✓ (cubic requires the declaration)
 # ```
 #
 # ### 2. Initialize with Reasonable Controls
