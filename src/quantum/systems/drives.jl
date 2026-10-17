@@ -659,6 +659,9 @@ end
         active_controls = [1, 2],
     )
     @test active_controls(d3) == [1, 2]
+    @test drive_coeff(d3, [3.0, 4.0, 0.0]) == 25.0
+    @test drive_coeff_jac(d3, [3.0, 4.0, 0.0], 1) == 6.0
+    @test drive_coeff_hess(d3, [3.0, 4.0, 0.0], 2, 2) == 2.0
 end
 
 @testitem "NonlinearDrive auto-Jacobian" begin
@@ -731,6 +734,9 @@ end
     )
 
     u = [3.0, 4.0]
+    @test drive_coeff(d, u) == 25.0
+    @test drive_coeff_jac(d, u, 1) == 6.0
+    @test drive_coeff_jac(d, u, 2) == 8.0
     @test drive_coeff_hess(d, u, 1, 1) == 2.0
     @test drive_coeff_hess(d, u, 2, 2) == 2.0
     @test drive_coeff_hess(d, u, 1, 2) == 0.0
@@ -742,6 +748,8 @@ end
         (u, j) -> j == 1 ? 3u[1]^2 : 0.0;
         coeff_hess = (u, i, j) -> (i == 1 && j == 1) ? 6u[1] : 0.0,
     )
+    @test drive_coeff(d2, [2.0]) == 8.0
+    @test drive_coeff_jac(d2, [2.0], 1) == 12.0
     @test drive_coeff_hess(d2, [2.0], 1, 1) == 12.0
     @test drive_coeff_hess(d2, [5.0], 1, 1) == 30.0
 end
@@ -790,6 +798,9 @@ end
         (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0;
         coeff_hess = (u, i, j) -> (i == j && i <= 2) ? 2.0 : 0.0,
     )
+    # The explicit jac/hess are live and consistent with the coeff
+    @test drive_coeff_jac(d_correct, [3.0, 4.0], 1) == 6.0
+    @test drive_coeff_hess(d_correct, [3.0, 4.0], 2, 2) == 2.0
     validate_drive_hessian(d_correct, 2)
 
     # Wrong explicit Hessian should fail
@@ -799,6 +810,10 @@ end
         (u, j) -> j == 1 ? 2u[1] : j == 2 ? 2u[2] : 0.0;
         coeff_hess = (u, i, j) -> 0.0,  # wrong: should be 2.0 on diagonal
     )
+    # ... and the failure is in the hessian, not the coeff/jac
+    @test drive_coeff(d_wrong, [3.0, 4.0]) == 25.0
+    @test drive_coeff_jac(d_wrong, [3.0, 4.0], 2) == 8.0
+    @test drive_coeff_hess(d_wrong, [3.0, 4.0], 1, 1) == 0.0
     @test_throws AssertionError validate_drive_hessian(d_wrong, 2)
 end
 
@@ -902,6 +917,7 @@ end
     # G on NonlinearDrive
     nd = NonlinearDrive(H, u -> u[1]^2)
     @test Piccolo.Isomorphisms.G(nd) == Piccolo.Isomorphisms.G(H)
+    @test drive_coeff(nd, [0.7]) ≈ 0.49
 
     # Broadcasting over Vector{AbstractDrive}
     drives = AbstractDrive[ld, nd]
@@ -978,6 +994,10 @@ end
 
     @test drive_matrix(mnd) == drive_matrix(nd)
     @test active_controls(mnd) == [1]
+
+    # The wrapped coefficient chain rule is live: d/dt[u₁² · sin(ωt)] = 2u₁² · ωcos(ωt)
+    @test drive_coeff(mnd, [0.5], pi / (2 * omega)) ≈ 0.25
+    @test drive_coeff_dt(mnd, [0.5], 0.0) ≈ 0.25 * omega
 
     # has_nonlinear_drives detects wrapped NonlinearDrive
     drives = AbstractDrive[md, mnd]
@@ -1207,4 +1227,41 @@ end
     @test has_modulation(md_l)                             # ModulatedDrive always
     @test !has_modulation(ld)
     @test !has_modulation(nd)
+end
+
+@testitem "Drive interface contracts: dt, hess, dim, classification" begin
+    using Piccolo
+    using SparseArrays
+
+    H = sparse(ComplexF64[1 0; 0 -1])
+    ld = LinearDrive(H, 1)
+    nd = NonlinearDrive(H, u -> u[1]^2)
+    md = ModulatedDrive(ld, t -> 1 + sin(2t))
+
+    # Unmodulated drives: zero time-derivative coefficient — the contract the
+    # time-derivative machinery relies on (no modulation → no d/dt chain term)
+    @test drive_coeff_dt(ld, [0.5], 0.7) == 0.0
+    @test drive_coeff_dt(nd, [0.5], 0.7) == 0.0
+    # Modulated: d/dt[u₁ · (1 + sin 2t)] = u₁ · 2cos(2t)
+    @test drive_coeff_dt(md, [0.5], pi / 6) ≈ 0.5 * 2 * cos(pi / 3) atol = 1e-12
+
+    # LinearDrive's coefficient Hessian is zero in every direction
+    @test drive_coeff_hess(ld, [0.5, 0.2], 1, 1) == 0.0
+    @test drive_coeff_hess(ld, [0.5, 0.2], 1, 2) == 0.0
+
+    # drive_dim reads the operator size across the drive families
+    @test drive_dim(ld) == 2
+    @test drive_dim(nd) == 2
+    @test drive_dim(md) == 2
+
+    # _is_nonlinear classifies wrapped drives by their base
+    @test !Piccolo.Quantum.QuantumSystems._is_nonlinear(ld)
+    @test Piccolo.Quantum.QuantumSystems._is_nonlinear(nd)
+    @test !Piccolo.Quantum.QuantumSystems._is_nonlinear(md)
+    @test Piccolo.Quantum.QuantumSystems._is_nonlinear(ModulatedDrive(nd, t -> 1.0))
+
+    # _ensure_matrix: matrices pass through unchanged, non-matrices densify
+    M = ComplexF64[1 0; 0 -1]
+    @test Piccolo.Quantum.QuantumSystems._ensure_matrix(M) == M
+    @test Piccolo.Quantum.QuantumSystems._ensure_matrix(H) == M
 end

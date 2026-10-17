@@ -450,7 +450,7 @@ function get_jacobian_structure(
 
     if global_dim > 0
         g_cols_local = (2z_dim+1):(2z_dim+global_dim)
-        g_cols_full = (z_dim*N+1):(z_dim*N+global_dim)
+        g_cols_full = _global_full_cols(ℰ, traj)
         for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ∂ℰ_k[:, g_cols_local]
         end
@@ -526,7 +526,7 @@ end
 
     if traj.global_dim > 0
         g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+traj.global_dim)
-        g_cols_full = (z_dim*N+1):(z_dim*N+traj.global_dim)
+        g_cols_full = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ℰ.∂ℰs[k][:, g_cols_local]
         end
@@ -582,7 +582,7 @@ end
     global_dim = traj.global_dim
     if global_dim > 0
         g_can = (2*knot_dim+1):(2*knot_dim+global_dim)
-        g_traj = (z_dim*N+1):(z_dim*N+global_dim)
+        g_traj = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             μ∂²F[slice(k, traj_comps, z_dim), g_traj] .=
                 ℰ.μ∂²ℰs[k][canonical_comps, collect(g_can)]
@@ -702,4 +702,52 @@ end
         !isapprox(integ.G([0.3, 0.1]), integ.G([0.3, 0.5]); atol = 1e-10) for
         integ in integrators
     )
+end
+
+
+@testitem "NonHermitianExponentialIntegrator{MultiDensity} globals end-to-end" begin
+    using LinearAlgebra, NamedTrajectories, Piccolo, DirectTrajOpt
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
+    using SparseArrays
+
+    drive_global = NonlinearDrive(PAULIS.X, u -> u[1] * u[2]; active_controls = [1, 2])
+    diss_global = NonlinearDissipator(PAULIS.Z / sqrt(2), u -> u[3]; active_controls = [3])
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        AbstractDrive[drive_global],
+        [1.0, 1.0, 1.0];
+        dissipators = [diss_global],
+        global_params = (θ = 1.0, γ = 0.1),
+    )
+    ρa = ComplexF64[1 0; 0 0]
+    ρb = ComplexF64[0 0; 0 1]
+    ρc = ComplexF64[0 1; 1 0] / 2
+    N = 8
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(repeat([0.3, 1.0, 0.1], 1, N), times)
+    qtraj = MultiDensityTrajectory(sys, pulse, [ρa, ρc], [ρb, ρb])
+
+    ℰs = NonHermitianExponentialIntegrator(qtraj, N)
+    @test length(ℰs) == 2
+    for ℰ in ℰs
+        @test ℰ.global_names == [:θ, :γ]
+        @test ℰ.global_dim == 2
+    end
+
+    traj = NamedTrajectory(qtraj, N; global_data = Dict(:θ => [1.0], :γ => [0.1]))
+    @test traj.global_dim == 2
+
+    # Full oracle on the globals-carrying trajectory, one integrator per density
+    for ℰ in ℰs
+        test_integrator(ℰ, traj; atol = 1e-3)
+    end
+
+    J = DirectTrajOpt.CommonInterface.eval_jacobian(ℰs[1], traj)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    @test all(iszero, Matrix(J)[:, (Z_dim-1):Z_dim])
+
+    S = DirectTrajOpt.Integrators.get_jacobian_structure(ℰs[1], traj)
+    @test size(S) == size(J)
+    Jn, Sn = Matrix(J), Matrix(S)
+    @test all(iszero(Jn[i, j]) || !iszero(Sn[i, j]) for i = 1:size(J, 1), j = 1:size(J, 2))
 end

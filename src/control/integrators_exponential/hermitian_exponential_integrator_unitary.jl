@@ -83,8 +83,12 @@ function _hermitian_exp_unitary(
     # Get ketdim from system - need to sample with extended control if globals present
     sample_controls = traj[1][u]
     if global_dim > 0 && !isempty(sys.global_params)
-        # Build sample extended control from sys.global_params
-        sample_globals = [sys.global_params[name] for name in global_names]
+        # Build sample extended control from sys.global_params; unknown names
+        # fall back to 0.0 — the same default the ctor's global_data uses
+        sample_globals = [
+            haskey(sys.global_params, name) ? sys.global_params[name] : 0.0 for
+            name in global_names
+        ]
         sample_u = vcat(sample_controls, sample_globals)
     else
         sample_u = sample_controls
@@ -849,6 +853,7 @@ end
     using DirectTrajOpt
     using Piccolo
     using LinearAlgebra
+    using Random
 
     include("../../../test/test_utils.jl")
 
@@ -934,6 +939,7 @@ end
     using NamedTrajectories
     using SparseArrays
     using LinearAlgebra
+    using Random
 
     T = 1.0
     N = 10
@@ -984,6 +990,7 @@ end
 
 @testitem "HermitianExponentialIntegrator{UnitaryTrajectory} forward pass minimal alloc" begin
     using LinearAlgebra
+    using Random
     using NamedTrajectories
     using Piccolo
     using BenchmarkTools
@@ -1024,6 +1031,7 @@ end
     using Piccolo
     using SparseArrays
     using LinearAlgebra
+    using Random
 
     include("../../../test/test_utils.jl")
 
@@ -1060,6 +1068,7 @@ end
     using Piccolo
     using SparseArrays
     using LinearAlgebra
+    using Random
     using NamedTrajectories
 
     include("../../../test/test_utils.jl")
@@ -1121,6 +1130,7 @@ end
     using DirectTrajOpt
     using Piccolo
     using LinearAlgebra
+    using Random
     using SparseArrays
 
     include("../../../test/test_utils.jl")
@@ -1689,4 +1699,50 @@ end
     HS = get_hessian_of_lagrangian_structure(ℰ, traj)
     @test size(HS) == (length(vec(traj)), length(vec(traj)))
     @test any(!iszero, HS[T_col, :])
+end
+
+
+@testitem "HermitianExponentialIntegrator{Unitary} explicit globals with unknown-name default" begin
+    using Piccolo
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(90_351)
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys = QuantumSystem(
+        H,
+        [1.0, 1.0];
+        time_dependent = true,
+        global_params = (b = 0.2, a = 0.1),
+    )
+    N = 6
+    qtraj = UnitaryTrajectory(sys, GATES.H, 2.0)
+
+    ℰ = HermitianExponentialIntegrator(qtraj, N; global_names = [:b, :a, :ζ])
+    @test ℰ.global_names == [:b, :a, :ζ]
+    @test ℰ.global_dim == 3
+
+    # The UnitaryTrajectory conversion attaches only the system's globals;
+    # add the unknown ζ through the low-level reconstruction (packed vector +
+    # components NamedTuple, alphabetical ordering)
+    traj0 = NamedTrajectory(qtraj, N)
+    traj = NamedTrajectory(
+        traj0.datavec,
+        traj0.components,
+        traj0.N;
+        timestep = traj0.timestep,
+        controls = traj0.control_names,
+        bounds = traj0.bounds,
+        initial = traj0.initial,
+        final = isnothing(traj0.final_) ? NamedTuple() : traj0.final_,
+        goal = traj0.goal,
+        global_data = vcat([0.1], [0.2], [0.0]),    # alphabetical: a, b, ζ
+        global_components = (a = 1:1, b = 2:2, ζ = 3:3),
+    )
+    traj.datavec .= 0.3 .* randn(length(traj.datavec))
+    δ = zeros(ℰ.dim)
+    DirectTrajOpt.evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
 end

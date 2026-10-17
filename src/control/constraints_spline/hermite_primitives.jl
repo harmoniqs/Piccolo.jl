@@ -407,3 +407,77 @@ end
         @test all(isapprox.(collect(dh), dh_ad; atol = 1e-12))
     end
 end
+
+@testitem "Hermite primitives: acceleration gradients vs FD, extrema, linear critical-point lane" begin
+    using Piccolo:
+        evaluate_hermite_spline,
+        hermite_accel_end,
+        hermite_accel_start,
+        hermite_accel_start_gradient,
+        hermite_accel_end_gradient,
+        hermite_accel_jump_gradient
+    using Piccolo.SplineConstraints: find_cubic_critical_points, find_hermite_extrema
+    using ForwardDiff
+    using Random
+
+    Random.seed!(0x330E48)
+
+    u_k, u_kp1, du_k, du_kp1 = randn(), randn(), randn(), randn()
+    Δt = 0.23
+
+    # start-gradient: analytic NTuple{5} order is (u_k, u_{k+1}, du_k, du_{k+1}, Δt)
+    g = hermite_accel_start_gradient(u_k, u_kp1, du_k, du_kp1, Δt)
+    @test length(g) == 5
+    g_fd = ForwardDiff.gradient(
+        p -> hermite_accel_start(p[1], p[2], p[3], p[4], p[5]),
+        [u_k, u_kp1, du_k, du_kp1, Δt],
+    )
+    @test all(isapprox.(collect(g), g_fd; atol = 1e-10))
+
+    # end-gradient: same column order, different functional
+    g_end = hermite_accel_end_gradient(u_k, u_kp1, du_k, du_kp1, Δt)
+    g_end_fd = ForwardDiff.gradient(
+        p -> hermite_accel_end(p[1], p[2], p[3], p[4], p[5]),
+        [u_k, u_kp1, du_k, du_kp1, Δt],
+    )
+    @test all(isapprox.(collect(g_end), g_end_fd; atol = 1e-10))
+
+    # jump-gradient: analytic NTuple{8} order is
+    # (u_{k-1}, u_k, u_{k+1}, du_{k-1}, du_k, du_{k+1}, Δt_{k-1}, Δt_k), and the
+    # functional is accel_end(k-1) − accel_start(k)
+    u_km1, du_km1, Δt_km1 = randn(), randn(), 0.31
+    jump(p) =
+        hermite_accel_end(p[1], p[2], p[4], p[5], p[7]) -
+        hermite_accel_start(p[2], p[3], p[5], p[6], p[8])
+    g_jump =
+        hermite_accel_jump_gradient(u_km1, u_k, u_kp1, du_km1, du_k, du_kp1, Δt_km1, Δt)
+    @test length(g_jump) == 8
+    g_jump_fd =
+        ForwardDiff.gradient(jump, [u_km1, u_k, u_kp1, du_km1, du_k, du_kp1, Δt_km1, Δt])
+    @test all(isapprox.(collect(g_jump), g_jump_fd; atol = 1e-10))
+
+    # Linear critical-point lane: a ≈ 0 forces the bτ + c = 0 root.
+    # u_k = u_{k+1} = 0 and du_{k+1} = −du_k gives a = 0, b = −2Δt·du_k ≠ 0,
+    # τ* = −c/b = 1/2 ∈ (0,1).
+    τ_lin = find_cubic_critical_points(0.0, 0.0, 1.0, -1.0, 0.5)
+    @test length(τ_lin) == 1
+    @test τ_lin[1] ≈ 0.5
+    # Same lane with the root OUTSIDE (0,1): a = 0 via 2(u_k − u_{k+1}) =
+    # −Δt(du_k + du_{k+1}) with (−1, 1, 3, 1, Δt=1) → bτ + c = −2τ + 3 = 0
+    # at τ = 1.5 → no interior critical point.
+    τ_out = find_cubic_critical_points(-1.0, 1.0, 3.0, 1.0, 1.0)
+    @test isempty(τ_out)
+
+    # find_hermite_extrema: endpoints always present, interior critical values
+    # appended in τ order, and every returned value lies on the spline
+    ext = find_hermite_extrema(0.4, -1.2, 3.0, -2.0, 0.7)
+    @test ext[1] ≈ 0.4
+    @test ext[2] ≈ -1.2
+    @test length(ext) >= 2
+    for u_val in ext
+        @test isfinite(u_val)
+    end
+    # a degenerate constant spline: no interior criticals, just the two endpoints
+    ext_flat = find_hermite_extrema(1.0, 1.0, 0.0, 0.0, 1.0)
+    @test ext_flat == [1.0, 1.0]
+end

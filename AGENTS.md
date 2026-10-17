@@ -24,12 +24,15 @@ family, solved through DirectTrajOpt backends.
    `EmbeddedOperator(:CNOT, sys)`. Evidence: failed CNOT solve
    r20260713-212934Z-0d81.
 
-2. **`BilinearIntegrator` is the default-reliable integrator.** For
-   standard transmon gate optimization, the Piccolissimo `MagnusGL4`
-   path matched baseline fidelity (F = 0.999981) only with substantially
-   more complexity (variable time, D tuning); a minimal variant reached
-   F = 0.9775. Reserve Magnus-series paths for strong-drive /
-   variable-time regimes that specifically need them.
+2. **The default integrators are the native exponential/spline tier (#334).**
+   Templates construct with `HermitianExponentialIntegrator`
+   (`NonHermitianExponentialIntegrator` for density) / `SplineIntegrator` by
+   default; `BilinearIntegrator` survives as the explicit
+   `integrator_type = :pwc` choice. For standard transmon gate optimization,
+   the Piccolissimo `MagnusGL4` path matched baseline fidelity (F = 0.999981)
+   only with substantially more complexity (variable time, D tuning); a
+   minimal variant reached F = 0.9775. Reserve Magnus-series paths for
+   strong-drive / variable-time regimes that specifically need them.
 
 3. **Smooth parameterization reliably reaches F > 0.9999** for
    transmon X-class gates. When a smooth solve will not converge,

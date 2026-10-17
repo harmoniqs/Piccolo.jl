@@ -652,3 +652,87 @@ end
     ∂g = jacobian_structure(constraint)
     @test size(∂g, 1) == length(segments)
 end
+
+@testitem "NonlinearSegmentConstraint - custom sparsity, single-name ctor, params Hessian, eval accessors" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using DirectTrajOpt.CommonInterface: evaluate!
+    using Piccolo: NonlinearSegmentConstraint
+    using TrajectoryIndexingUtils
+    using LinearAlgebra
+    using SparseArrays
+    using ForwardDiff
+
+    N = 5
+    traj = NamedTrajectory(
+        (u = randn(1, N), du = 0.1 * randn(1, N), Δt = fill(0.5, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    # Single-variable-name convenience constructor
+    g_mono = (uₖ, uₖ₊₁) -> [uₖ₊₁[1] - uₖ[1]]
+    c_mono = NonlinearSegmentConstraint(
+        g_mono,
+        :u,
+        traj,
+        [nothing for _ = 1:(N-1)];
+        equality = false,
+    )
+    δ = zeros(c_mono.dim)
+    evaluate!(δ, c_mono, traj)
+    @test all(δ .≈ [traj.u[1, k+1] - traj.u[1, k] for k = 1:(N-1)])
+
+    # Custom sparsity: g(vₖ, vₖ₊₁, p) = p·uₖ² + duₖ₊₁ has Jacobian
+    # [2p·uₖ, 0, 0, 1] in local (uₖ, duₖ, uₖ₊₁, duₖ₊₁) order — declare it.
+    g_sparse = (vₖ, vₖ₊₁, p) -> [p[1] * vₖ[1]^2 + vₖ₊₁[2]]
+    js = sparse([1, 1], [1, 4], [1.0, 1.0], 1, 4)
+    hs = sparse([1], [1], [1.0], 4, 4)
+    params = [0.7 for _ = 1:(N-1)]
+    c_sparse = NonlinearSegmentConstraint(
+        g_sparse,
+        [:u, :du],
+        traj,
+        params;
+        equality = false,
+        jacobian_structure = js,
+        hessian_structure = hs,
+    )
+
+    # Declared patterns are replicated per segment
+    @test nnz(c_sparse.∂g_full) == 2 * (N - 1)
+    @test nnz(c_sparse.μ∂²g_full) == (N - 1)
+
+    Z⃗ = vec(traj)
+    U_SLICE(k) = slice(k, traj.components[:u], traj.dim)
+    DU_SLICE(k) = slice(k, traj.components[:du], traj.dim)
+    ĝ(Z) = vcat(
+        [
+            g_sparse(
+                vcat(Z[U_SLICE(k)], Z[DU_SLICE(k)]),
+                vcat(Z[U_SLICE(k+1)], Z[DU_SLICE(k+1)]),
+                params[k],
+            ) for k = 1:(N-1)
+        ]...,
+    )
+
+    # eval_jacobian: the assembled Jacobian matches forward-mode AD on the
+    # declared pattern (AD has exactly the declared support)
+    ∂g_eval = DirectTrajOpt.CommonInterface.eval_jacobian(c_sparse, traj)
+    ∂g_fd = ForwardDiff.jacobian(ĝ, Z⃗)
+    @test ∂g_eval ≈ ∂g_fd
+
+    # eval_hessian_of_lagrangian with a ZERO multiplier block on segment 1:
+    # the zero-μ skip must leave segment 1's curvature out of the total
+    μ = vcat(zeros(1), ones(N - 2))
+    μ∂²g_eval = DirectTrajOpt.CommonInterface.eval_hessian_of_lagrangian(c_sparse, traj, μ)
+    H_fd = ForwardDiff.hessian(Z -> dot(μ, ĝ(Z)), Z⃗)
+    @test μ∂²g_eval[1:length(Z⃗), 1:length(Z⃗)] ≈ H_fd
+    # the params-weighted uₖ² curvature is 2·p·μ per segment; segment 1's block
+    # must be exactly zero (skipped), every other block exactly 2p
+    z_dim = traj.dim
+    @test iszero(μ∂²g_eval[1, 1])
+    for k = 2:(N-1)
+        @test μ∂²g_eval[(k-1)*z_dim+1, (k-1)*z_dim+1] ≈ 2 * params[k]
+    end
+end
