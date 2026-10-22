@@ -304,9 +304,10 @@ end
     # Compact iso: state dim should be n²
     @test qcp.prob.trajectory.dims[:ρ⃗̃] == n^2
 
-    # Pipeline-smoke solve. max_iter=50 gives IPOPT enough to drive the
-    # constraint residual below the tolerance from the cat warmstart on any
-    # Julia version (was 20 — too tight to converge reproducibly).
+    # Pipeline-smoke solve. max_iter=50 gives the default backend (MadNLP since
+    # DTO 0.11, #360) enough to drive the constraint residual below the
+    # tolerance from the cat warmstart on any Julia version (was 20 — too
+    # tight to converge reproducibly).
     solve!(qcp; max_iter = 50, print_level = 1, verbose = false)
 
     # Dynamics constraints should be satisfied. Tolerance loosened from 1e-2

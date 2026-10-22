@@ -35,14 +35,20 @@ H_coupling = 0.1 * kron(PAULIS[:Z], PAULIS[:Z])
 csys = CompositeQuantumSystem(H_coupling, [sys1, sys2], Float64[])
 ```
 """
-struct CompositeQuantumSystem{F1<:Function,F2<:Function} <: AbstractQuantumSystem
+struct CompositeQuantumSystem{
+    F1<:Function,
+    F2<:Function,
+    DD<:AbstractVector{<:AbstractDrive},
+} <: AbstractQuantumSystem
     H::F1
     G::F2
     H_drift::SparseMatrixCSC{ComplexF64,Int}
     # Parity with QuantumSystem: drives are AbstractDrive, not raw matrices,
     # so Piccolissimo's SplineIntegrator can call dynamics_operator(::AbstractDrive)
-    # on each entry.
-    H_drives::Vector{AbstractDrive}
+    # on each entry. Parametric `DD` preserves the concrete eltype (e.g.
+    # Vector{LinearDrive} or Vector{Union{LinearDrive,NonlinearDrive}}) for
+    # type-stable iteration in hot per-substep RHS loops.
+    H_drives::DD
     drive_bounds::Vector{Tuple{Float64,Float64}}
     n_drives::Int
     levels::Int
@@ -128,11 +134,11 @@ function CompositeQuantumSystem(
 
     # Wrap each drive matrix in a LinearDrive so Piccolissimo's SplineIntegrator
     # (and anything else consuming the AbstractDrive interface) works uniformly
-    # across QuantumSystem and CompositeQuantumSystem.
-    H_drives_wrapped =
-        AbstractDrive[LinearDrive(H_drive_matrices[idx], idx) for idx = 1:n_drives]
+    # across QuantumSystem and CompositeQuantumSystem. Use concrete eltype
+    # LinearDrive (not AbstractDrive) for type-stable iteration.
+    H_drives_wrapped = [LinearDrive(H_drive_matrices[idx], idx) for idx = 1:n_drives]
 
-    return CompositeQuantumSystem{typeof(H),typeof(G)}(
+    return CompositeQuantumSystem{typeof(H),typeof(G),typeof(H_drives_wrapped)}(
         H,
         G,
         H_drift,
