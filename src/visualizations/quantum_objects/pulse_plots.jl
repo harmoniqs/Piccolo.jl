@@ -530,6 +530,82 @@ function _plot_pulse_type!(
 end
 
 # ---------------------------------------------------------------------------- #
+# BSplinePulse — dense-sampled smooth curve + breakpoint markers + optional
+# control polygon (control points at Greville abscissae, connected dashed).
+# ---------------------------------------------------------------------------- #
+
+function _plot_pulse_type!(
+    ax,
+    pulse::BSplinePulse;
+    drive_indices,
+    n_samples,
+    show_knots,
+    show_tangents,  # repurposed → show control polygon
+    tangent_scale,  # unused
+    colors,
+    t_max = nothing,
+    kwargs...,
+)
+    # Dense smooth curve. With a `t_max` playhead Observable, reveal through
+    # `_reveal_xy` exactly as the analytic fallback does (`pulse(t)` dispatches
+    # to the B-spline evaluation); `t_max` must never reach `lines!` itself —
+    # it is not a Makie.Lines attribute.
+    controls, times = sample(pulse, n_samples)
+    for (ci, i) in enumerate(drive_indices)
+        if isnothing(t_max)
+            lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        else
+            xs = @lift(_reveal_xy(pulse, times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, times, i, $t_max)[2])
+            lines!(ax, xs, ys; color = colors[ci], linewidth = 2, kwargs...)
+        end
+    end
+
+    # Breakpoint scatter (integration nodes). Values evaluated, not stored.
+    if show_knots
+        knot_times = collect(get_knot_times(pulse))
+        knot_vals = sample(pulse, knot_times)
+
+        for (ci, i) in enumerate(drive_indices)
+            scatter!(
+                ax,
+                knot_times,
+                knot_vals[i, :];
+                color = colors[ci],
+                markersize = 6,
+                strokewidth = 1,
+                strokecolor = _theme_neutral(),
+            )
+        end
+    end
+
+    # Control polygon (B-spline analog of CubicSplinePulse's tangent whiskers)
+    if show_tangents
+        cp = get_control_points(pulse)
+        τ_star = greville_abscissae(get_basis(pulse))
+
+        for (ci, i) in enumerate(drive_indices)
+            lines!(
+                ax,
+                τ_star,
+                collect(cp[i, :]);
+                color = (colors[ci], 0.5),
+                linewidth = 1.5,
+                linestyle = :dash,
+            )
+            scatter!(
+                ax,
+                τ_star,
+                collect(cp[i, :]);
+                color = (colors[ci], 0.7),
+                marker = :diamond,
+                markersize = 7,
+            )
+        end
+    end
+end
+
+# ---------------------------------------------------------------------------- #
 # Fallback for analytic pulses (Gaussian, Erf, Composite, FunctionPulse, …)
 # ---------------------------------------------------------------------------- #
 

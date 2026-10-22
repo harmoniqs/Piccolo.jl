@@ -56,6 +56,33 @@ function extract_pulse(
     return CubicSplinePulse(u, du, times; drive_name = u_name)
 end
 
+# Layout A: all M control points live in the single matrix-valued global :c_<drive>.
+function extract_pulse(
+    qtraj::AbstractQuantumTrajectory{<:BSplinePulse},
+    traj::NamedTrajectory,
+)
+    pulse = qtraj.pulse
+    M = pulse.basis.M
+    n_d = pulse.n_drives
+    drive = drive_name(qtraj)
+    cp_name = Symbol(:c_, drive)
+
+    # Layout A: all M control points live in the single matrix-valued
+    # global :c_<drive> of length n_d * M (column-major matches vec(control_points)).
+    g_range = traj.global_components[cp_name]
+    cp_matrix = reshape(copy(traj.global_data[g_range]), n_d, M)
+
+    τ = pulse.basis.knot_vector
+    return BSplinePulse(
+        cp_matrix,
+        [τ[1], τ[end]];
+        order = get_order(pulse),
+        drive_name = drive,
+        initial_value = :free,   # avoid constructor consistency-check on
+        final_value = :free,     # optimized control_points[:, 1] / [:, end]
+    )
+end
+
 # SamplingTrajectory delegates to base_trajectory
 function extract_pulse(qtraj::SamplingTrajectory, traj::NamedTrajectory)
     return extract_pulse(qtraj.base_trajectory, traj)
