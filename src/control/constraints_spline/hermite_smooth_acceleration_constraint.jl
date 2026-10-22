@@ -727,10 +727,12 @@ algebraic constraints (its inequality path passes
             add_hess!(
                 dt_k_v,
                 dt_k_v,
-                μ_fwd * (-(
-                    36 * inv_Δt_k_4 * (u_kp1_val - u_k_val) -
-                    4 * inv_Δt_k_3 * (2*du_k_val + du_kp1_val)
-                )),
+                μ_fwd * (
+                    -(
+                        36 * inv_Δt_k_4 * (u_kp1_val - u_k_val) -
+                        4 * inv_Δt_k_3 * (2*du_k_val + du_kp1_val)
+                    )
+                ),
             )
 
             # ∂²a_end(k-1)/∂var∂Δt_{k-1}
@@ -761,10 +763,12 @@ algebraic constraints (its inequality path passes
             add_hess!(
                 dt_k_v,
                 dt_k_v,
-                -μ_bwd * (-(
-                    36 * inv_Δt_k_4 * (u_kp1_val - u_k_val) -
-                    4 * inv_Δt_k_3 * (2*du_k_val + du_kp1_val)
-                )),
+                -μ_bwd * (
+                    -(
+                        36 * inv_Δt_k_4 * (u_kp1_val - u_k_val) -
+                        4 * inv_Δt_k_3 * (2*du_k_val + du_kp1_val)
+                    )
+                ),
             )
             add_hess!(u_km1_v, dt_km1_v, -μ_bwd * (-12*inv_Δt_km1_3))
             add_hess!(u_k_v, dt_km1_v, -μ_bwd * (12*inv_Δt_km1_3))

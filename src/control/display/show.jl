@@ -449,7 +449,7 @@ end
     end
     @test PD._subsystem_levels(LevelsVecSys([2, 3])) == [2, 3]
     struct LevelsAnySys
-        levels
+        levels::Any
     end
     @test PD._subsystem_levels(LevelsAnySys("not-levels")) === nothing
 
@@ -805,7 +805,11 @@ end
     qtraj_k = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
     ψ_end = ComplexF64[1.0, 1.0] / √2
     traj_ket = NamedTrajectory(
-        (ψ̃ = hcat([ket_to_iso(ψ_end) for _ = 1:5]...), u = randn(1, 5), Δt = fill(0.25, 5));
+        (
+            ψ̃ = hcat([ket_to_iso(ψ_end) for _ = 1:5]...),
+            u = randn(1, 5),
+            Δt = fill(0.25, 5),
+        );
         controls = :u,
         timestep = :Δt,
         global_data = [0.3],

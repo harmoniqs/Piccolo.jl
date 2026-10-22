@@ -591,8 +591,8 @@ end
 
     U_exact = exp(-im * T * (0.3 * ComplexF64.(PAULIS.Z) + a * ComplexF64.(PAULIS.X)))
     Ũ⃗_roll = traj.Ũ⃗[:, end]
-    @test norm(Ũ⃗_roll - operator_to_iso_vec(U_exact)) / norm(operator_to_iso_vec(U_exact)) <
-          1e-10
+    @test norm(Ũ⃗_roll - operator_to_iso_vec(U_exact)) /
+          norm(operator_to_iso_vec(U_exact)) < 1e-10
 
     # Δt is the uniform grid step (with the final step repeated)
     @test all(dt -> abs(dt - T / (samples - 1)) < 1e-12, diff(vec(collect(traj.t))))

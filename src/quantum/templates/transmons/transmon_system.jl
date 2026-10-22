@@ -440,8 +440,8 @@ function TransmonCavitySystem(;
 
     # Drift Hamiltonian
     H_drift =
-        Δ̃ * b̂' * b̂ - χ * â' * â * b̂' * b̂ - χ′ * b̂'^2 * b̂^2 * â' * â - K_q * â'^2 * â^2 -
-        K_c * b̂'^2 * b̂^2
+        Δ̃ * b̂' * b̂ - χ * â' * â * b̂' * b̂ - χ′ * b̂'^2 * b̂^2 * â' * â -
+        K_q * â'^2 * â^2 - K_c * b̂'^2 * b̂^2
 
     # Drive operators
     H_drives = [

@@ -1057,7 +1057,12 @@ function HermiteAccelerationJumpPenalty(
     n_drives = traj.dims[control_name]
     R_vec = R isa Real ? fill(Float64(R), n_drives) : Vector{Float64}(R)
     @assert length(R_vec) == n_drives "R must be scalar or length-$n_drives vector (got length $(length(R_vec)))"
-    return HermiteAccelerationJumpPenalty(R_vec, control_name, derivative_name, timestep_name)
+    return HermiteAccelerationJumpPenalty(
+        R_vec,
+        control_name,
+        derivative_name,
+        timestep_name,
+    )
 end
 
 # The jump at interior knot k, drive d, over the 8-column stencil
@@ -1079,8 +1084,9 @@ function DirectTrajOpt.objective_value(
     J = 0.0
     @inbounds for k = 2:(N-1), d = 1:n_drives
         pen.R[d] == 0.0 && continue
-        Δa = _bending_a_end(u[d,k-1], u[d,k], du[d,k-1], du[d,k], Δt[k-1]) -
-             _bending_a_start(u[d,k], u[d,k+1], du[d,k], du[d,k+1], Δt[k])
+        Δa =
+            _bending_a_end(u[d, k-1], u[d, k], du[d, k-1], du[d, k], Δt[k-1]) -
+            _bending_a_start(u[d, k], u[d, k+1], du[d, k], du[d, k+1], Δt[k])
         J += pen.R[d] * inv_nint * Δa^2
     end
     return J
@@ -1119,18 +1125,19 @@ function DirectTrajOpt.gradient!(
 
         for d = 1:n_drives
             pen.R[d] == 0.0 && continue
-            u_km1, u_k, u_kp1 = u[d,k-1], u[d,k], u[d,k+1]
-            du_km1, du_k, du_kp1 = du[d,k-1], du[d,k], du[d,k+1]
-            Δa = _bending_a_end(u_km1, u_k, du_km1, du_k, h1) -
-                 _bending_a_start(u_k, u_kp1, du_k, du_kp1, h2)
+            u_km1, u_k, u_kp1 = u[d, k-1], u[d, k], u[d, k+1]
+            du_km1, du_k, du_kp1 = du[d, k-1], du[d, k], du[d, k+1]
+            Δa =
+                _bending_a_end(u_km1, u_k, du_km1, du_k, h1) -
+                _bending_a_start(u_k, u_kp1, du_k, du_kp1, h2)
             ws = 2.0 * pen.R[d] * Δa / (N - 2)
 
-            ∇J[base_km1 + u_comps[d]] += ws * 6 * i1_2
-            ∇J[base_k + u_comps[d]] += ws * (-6 * i1_2 + 6 * i2_2)
-            ∇J[base_kp1 + u_comps[d]] += ws * -6 * i2_2
-            ∇J[base_km1 + du_comps[d]] += ws * 2 * i1
-            ∇J[base_k + du_comps[d]] += ws * (4 * i1 + 4 * i2)
-            ∇J[base_kp1 + du_comps[d]] += ws * 2 * i2
+            ∇J[base_km1+u_comps[d]] += ws * 6 * i1_2
+            ∇J[base_k+u_comps[d]] += ws * (-6 * i1_2 + 6 * i2_2)
+            ∇J[base_kp1+u_comps[d]] += ws * -6 * i2_2
+            ∇J[base_km1+du_comps[d]] += ws * 2 * i1
+            ∇J[base_k+du_comps[d]] += ws * (4 * i1 + 4 * i2)
+            ∇J[base_kp1+du_comps[d]] += ws * 2 * i2
             ∇J[idx_dt_km1] +=
                 ws * (12 * (u_k - u_km1) * i1_3 - 2 * (du_km1 + 2 * du_k) * i1_2)
             ∇J[idx_dt_k] +=
@@ -1142,7 +1149,12 @@ end
 
 const _JP_STEN = 8
 
-function _jump_stencil_cols(pen::HermiteAccelerationJumpPenalty, traj::NamedTrajectory, k, d)
+function _jump_stencil_cols(
+    pen::HermiteAccelerationJumpPenalty,
+    traj::NamedTrajectory,
+    k,
+    d,
+)
     D = traj.dim
     u_comps = traj.components[pen.control_name]
     du_comps = traj.components[pen.derivative_name]
@@ -1211,8 +1223,8 @@ function DirectTrajOpt.Objectives.get_full_hessian(
         pen.R[d] == 0.0 && continue
         h1, h2 = Δt[k-1], Δt[k]
         i1, i2 = 1.0 / h1, 1.0 / h2
-        u_km1, u_k, u_kp1 = u[d,k-1], u[d,k], u[d,k+1]
-        du_km1, du_k, du_kp1 = du[d,k-1], du[d,k], du[d,k+1]
+        u_km1, u_k, u_kp1 = u[d, k-1], u[d, k], u[d, k+1]
+        du_km1, du_k, du_kp1 = du[d, k-1], du[d, k], du[d, k+1]
         # analytic ∇Δa over the stencil — identical coefficients to gradient!
         g[1] = 6 * i1^2
         g[2] = -6 * i1^2 + 6 * i2^2
@@ -1258,7 +1270,8 @@ end
     u2 = reshape(f.(times), 1, N)
     du2 = reshape(f′.(times), 1, N)
     Δt2 = fill(Δt_val, N)
-    traj2 = NamedTrajectory((; u = u2, du = du2, Δt = Δt2); timestep = :Δt, controls = (:u,))
+    traj2 =
+        NamedTrajectory((; u = u2, du = du2, Δt = Δt2); timestep = :Δt, controls = (:u,))
     pen2 = HermiteAccelerationJumpPenalty(traj2; R = 1.0)
     @test DirectTrajOpt.objective_value(pen2, traj2) < 1e-20
 end
@@ -1295,27 +1308,38 @@ end
     end
     ε = 1e-6
     ε_h = 1e-4   # second-difference step: balances roundoff (eps·|J|/ε²) vs truncation
-    max_gerr = 0.0
-    max_hrel = 0.0
-    u_comps = traj.components[:u]
-    du_comps = traj.components[:du]
-    D = traj.dim
-    for k = 1:N, d = 1:n_drives
-        for (arr, comps) in ((u, u_comps), (du, du_comps))
-            idx = D * (k - 1) + comps[d]
-            up, um = copy(arr), copy(arr)
-            up[d, k] += ε
-            um[d, k] -= ε
-            FD_∇ = (val_at(arr === u ? up : u, arr === du ? up : du) -
-                    val_at(arr === u ? um : u, arr === du ? um : du)) / 2ε
-            max_gerr = max(max_gerr, abs(FD_∇ - ∇[idx]))
-            up2, um2 = copy(arr), copy(arr)
-            up2[d, k] += ε_h
-            um2[d, k] -= ε_h
-            FD_H_ii = (val_at(arr === u ? up2 : u, arr === du ? up2 : du) - 2 * val_at(u, du) +
-                       val_at(arr === u ? um2 : u, arr === du ? um2 : du)) / ε_h^2
-            max_hrel = max(max_hrel, abs(FD_H_ii - H[idx, idx]) / max(abs(H[idx, idx]), 1.0))
+    # Accumulate inside a let block: TestItemRunner's strict scope makes bare
+    # `max_gerr = max(max_gerr, …)` inside the for a fresh loop-local (UndefVarError
+    # on the read); closures over enclosing locals are scope-safe.
+    max_gerr, max_hrel = let mg = 0.0, mh = 0.0
+        u_comps = traj.components[:u]
+        du_comps = traj.components[:du]
+        D = traj.dim
+        for k = 1:N, d = 1:n_drives
+            for (arr, comps) in ((u, u_comps), (du, du_comps))
+                idx = D * (k - 1) + comps[d]
+                up, um = copy(arr), copy(arr)
+                up[d, k] += ε
+                um[d, k] -= ε
+                FD_∇ =
+                    (
+                        val_at(arr === u ? up : u, arr === du ? up : du) -
+                        val_at(arr === u ? um : u, arr === du ? um : du)
+                    ) / 2ε
+                mg = max(mg, abs(FD_∇ - ∇[idx]))
+                up2, um2 = copy(arr), copy(arr)
+                up2[d, k] += ε_h
+                um2[d, k] -= ε_h
+                FD_H_ii =
+                    (
+                        val_at(arr === u ? up2 : u, arr === du ? up2 : du) -
+                        2 * val_at(u, du) +
+                        val_at(arr === u ? um2 : u, arr === du ? um2 : du)
+                    ) / ε_h^2
+                mh = max(mh, abs(FD_H_ii - H[idx, idx]) / max(abs(H[idx, idx]), 1.0))
+            end
         end
+        mg, mh
     end
     @test max_gerr < 1e-5
     @test max_hrel < 1e-3
@@ -1335,8 +1359,8 @@ end
     # drive 2 columns must not appear in the structure
     u_comps = traj.components[:u]
     D = traj.dim
-    @test S[D * 0 + u_comps[1], D * 1 + u_comps[1]] != 0.0
-    @test all(iszero, S[:, D * 0 + u_comps[2]])
+    @test S[D*0+u_comps[1], D*1+u_comps[1]] != 0.0
+    @test all(iszero, S[:, D*0+u_comps[2]])
     # scalar R broadcasts
     pen_s = HermiteAccelerationJumpPenalty(traj; R = 2.0)
     @test pen_s.R == [2.0, 2.0]
@@ -1357,8 +1381,11 @@ end
     u = randn(1, N)
     Δt = fill(0.1, N)
 
-    traj =
-        NamedTrajectory((ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt); timestep = :Δt, controls = :u)
+    traj = NamedTrajectory(
+        (ψ̃1 = ψ̃1, ψ̃2 = ψ̃2, u = u, Δt = Δt);
+        timestep = :Δt,
+        controls = :u,
+    )
 
     # Goal states for X gate: |0⟩→|1⟩ and |1⟩→|0⟩
     ψ0 = ComplexF64[1.0, 0.0]
@@ -1458,7 +1485,8 @@ end
     @test objective_value(obj_w1, traj_asym) != objective_value(obj_w2, traj_asym)
 
     # Uniform weights leave the unweighted value exactly where it is
-    obj_unweighted = CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj_asym; Q = 100.0)
+    obj_unweighted =
+        CoherentKetInfidelityObjective(goals, [:ψ̃1, :ψ̃2], traj_asym; Q = 100.0)
     obj_uniform = CoherentKetInfidelityObjective(
         goals,
         [:ψ̃1, :ψ̃2],
@@ -1507,8 +1535,10 @@ end
     ψ̃s = [ket_to_iso(ψ1), ket_to_iso(0.5 * ψ0)]
 
     # Weighted mean of overlaps, normalized by the weight sum
-    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1]) ≈ abs2(0.9 * 1 + 0.1 * 0.5)
-    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.1, 0.9]) ≈ abs2(0.1 * 1 + 0.9 * 0.5)
+    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1]) ≈
+          abs2(0.9 * 1 + 0.1 * 0.5)
+    @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.1, 0.9]) ≈
+          abs2(0.1 * 1 + 0.9 * 0.5)
 
     # Distinct weights give distinct fidelities
     @test coherent_ket_fidelity(ψ̃s, goals; weights = [0.9, 0.1]) !=
