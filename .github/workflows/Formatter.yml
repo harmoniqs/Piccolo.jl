@@ -16,7 +16,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install JuliaFormatter and format
         run: |
-          julia --color=yes -e 'using Pkg; Pkg.add(PackageSpec(name="JuliaFormatter"))'
+          # Pin: JuliaFormatter floats by default and normalization rules have shifted
+          # across releases (2.x drift). Tree verified format-clean under 2.13.0;
+          # pinning makes the check deterministic — bump deliberately with a
+          # repo-wide format pass when needed.
+          julia --color=yes -e 'using Pkg; Pkg.add(PackageSpec(name="JuliaFormatter", version="2.13"))'
           julia --color=yes -e 'using JuliaFormatter; format(".", verbose=true)'
       - name: Commit formatted code
         if: github.event_name == 'workflow_dispatch'

@@ -1,6 +1,7 @@
 module QuantumTrajectories
 
 using Distributions: Uniform
+using Random: AbstractRNG, default_rng
 using LinearAlgebra
 using OrdinaryDiffEqLinear
 using OrdinaryDiffEqTsit5
