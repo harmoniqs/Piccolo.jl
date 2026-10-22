@@ -277,7 +277,7 @@ function _get_bspline_globals(
     lo = repeat(drive_lo, M)            # length n_d * M
     hi = repeat(drive_hi, M)            # length n_d * M
     _apply_boundary_pin!(lo, hi, pulse.initial_value, 1:n_d)
-    _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 1) * n_d + 1):(M * n_d))
+    _apply_boundary_pin!(lo, hi, pulse.final_value, ((M-1)*n_d+1):(M*n_d))
 
     # Zero endpoint *derivative* for a clamped basis ⟺ c_1 = c_0 and c_{M-2} = c_{M-1}.
     # Since c_0/c_{M-1} are value-pinned just above, this is equivalently a tight pin
@@ -299,10 +299,13 @@ function _get_bspline_globals(
     # e.g. a slew bound |c_{i+1}-c_i| ≤ v — use DirectTrajOpt's `GlobalLinearConstraint`,
     # where there is no equivalent variable-fixing alternative.)
     if pin_boundary_derivative
-        M >= 4 || throw(ArgumentError(
-            "pin_boundary_derivative requires M ≥ 4 control points; got M=$M"))
-        _apply_boundary_pin!(lo, hi, pulse.initial_value, (n_d + 1):(2 * n_d))
-        _apply_boundary_pin!(lo, hi, pulse.final_value, ((M - 2) * n_d + 1):((M - 1) * n_d))
+        M >= 4 || throw(
+            ArgumentError(
+                "pin_boundary_derivative requires M ≥ 4 control points; got M=$M",
+            ),
+        )
+        _apply_boundary_pin!(lo, hi, pulse.initial_value, (n_d+1):(2*n_d))
+        _apply_boundary_pin!(lo, hi, pulse.final_value, ((M-2)*n_d+1):((M-1)*n_d))
     end
 
     global_bounds = _named_tuple(cp_name => (lo, hi))
@@ -1343,8 +1346,8 @@ end
     @test lo[1:n_d] == zeros(n_d)
     @test hi[1:n_d] == zeros(n_d)
     # c_{M-1} in-block slots ((M-1)*n_d+1 : M*n_d) pinned to zero
-    @test lo[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
-    @test hi[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+    @test lo[((M-1)*n_d+1):(M*n_d)] == zeros(n_d)
+    @test hi[((M-1)*n_d+1):(M*n_d)] == zeros(n_d)
 end
 
 @testitem "BSplinePulse — :free boundary keeps drive bounds" begin
@@ -1359,11 +1362,8 @@ end
     cp = 0.1 * randn(n_d, M)
     cp[:, end] .= 0.0  # explicit final endpoint to pass the constructor's consistency check
     # :free initial; explicit zero final
-    pulse = BSplinePulse(
-        cp, [0.0, 1.0]; order = k,
-        initial_value = :free,
-        final_value = [0.0],
-    )
+    pulse =
+        BSplinePulse(cp, [0.0, 1.0]; order = k, initial_value = :free, final_value = [0.0])
     _, g_bounds = _get_bspline_globals(pulse, sys)
     cp_name = Symbol(:c_, pulse.drive_name)
     lo, hi = g_bounds[cp_name]
@@ -1373,8 +1373,8 @@ end
     @test lo[1:n_d] == drive_lo
     @test hi[1:n_d] == drive_hi
     # final (c_{M-1}) pinned to zero
-    @test lo[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
-    @test hi[((M - 1) * n_d + 1):(M * n_d)] == zeros(n_d)
+    @test lo[((M-1)*n_d+1):(M*n_d)] == zeros(n_d)
+    @test hi[((M-1)*n_d+1):(M*n_d)] == zeros(n_d)
 end
 
 # Note: BSplinePulse end-to-end boundary pinning tests (fixed-time + free-time)

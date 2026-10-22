@@ -30,6 +30,10 @@ Base.@kwdef struct SplinePulseParams <: AbstractTemplateParams
     coherent::Bool = true
     integrator_type::Symbol = :spline
     spline_interior_bound_constraints::Bool = false
+    # BSplinePulse-only (Layout A): tight-pin the boundary-adjacent control
+    # points so the played pulse has zero endpoint derivative. Reachable only
+    # through this params struct — the template kwargs gate rejects unknowns.
+    pin_endpoint_derivatives::Bool = false
     parallel_backend::Symbol = :manual
     global_names::Union{Nothing,Vector{Symbol}} = nothing
     global_bounds::Union{Nothing,AbstractDict} = nothing
@@ -93,8 +97,8 @@ function bspline_slew_constraint(
     M = pulse.basis.M
     n_d = pulse.n_drives
     k = get_order(pulse)
-    length(v_max) == n_d || throw(ArgumentError(
-        "v_max length $(length(v_max)) ≠ n_drives $n_d"))
+    length(v_max) == n_d ||
+        throw(ArgumentError("v_max length $(length(v_max)) ≠ n_drives $n_d"))
     M >= 2 || throw(ArgumentError("slew bound needs M ≥ 2 control points; got M=$M"))
     τ = pulse.basis.knot_vector            # 1-based storage of 0-based knots τ_0 … τ_{M+k-1}
     cp_name = Symbol(:c_, drive_name(pulse))
@@ -105,22 +109,23 @@ function bspline_slew_constraint(
     rows = Vector{Float64}[]
     lb = Float64[]
     ub = Float64[]
-    for ch in 1:n_d
+    for ch = 1:n_d
         isfinite(v_max[ch]) || continue
-        for i in 0:(M - 2)                 # 0-based derivative control-point index
-            denom = τ[i + k + 1] - τ[i + 2]    # τ_{i+k} - τ_{i+1}
+        for i = 0:(M-2)                 # 0-based derivative control-point index
+            denom = τ[i+k+1] - τ[i+2]    # τ_{i+k} - τ_{i+1}
             denom > 0 || continue          # skip degenerate clamped-knot spans
             coef = (k - 1) / denom
             row = zeros(gdim)
-            row[(i + 1) * n_d + ch] = coef     # +coef · c_{i+1}
-            row[i * n_d + ch]       = -coef    # -coef · c_i
+            row[(i+1)*n_d+ch] = coef     # +coef · c_{i+1}
+            row[i*n_d+ch] = -coef    # -coef · c_i
             push!(rows, row)
             push!(lb, -v_max[ch])
             push!(ub, v_max[ch])
         end
     end
-    isempty(rows) && throw(ArgumentError(
-        "bspline_slew_constraint: every channel is Inf (nothing to bound)"))
+    isempty(rows) && throw(
+        ArgumentError("bspline_slew_constraint: every channel is Inf (nothing to bound)"),
+    )
     A = reduce(vcat, (r' for r in rows))
     return GlobalLinearConstraint(cp_name, A, lb, ub; label = label)
 end
@@ -335,8 +340,12 @@ function _spline_pulse_problem(
     # c_0, c_{M-1}) into global_data / global_bounds. Layout A — uniform globals.
     if is_bspline
         bspline_globals, bspline_global_bounds = _get_bspline_globals(
-            qtraj.pulse, sys; pin_boundary_derivative = pin_endpoint_derivatives)
-        global_data = isnothing(global_data) ? Dict{Symbol,Vector{Float64}}() :
+            qtraj.pulse,
+            sys;
+            pin_boundary_derivative = pin_endpoint_derivatives,
+        )
+        global_data =
+            isnothing(global_data) ? Dict{Symbol,Vector{Float64}}() :
             Dict{Symbol,Vector{Float64}}(global_data)
         for (k, v) in pairs(bspline_globals)
             global_data[k] = Vector{Float64}(v)
@@ -521,8 +530,8 @@ function _spline_pulse_problem(
             J += GlobalObjective(g -> sum(R_u_vec .* abs2.(g)), control_sym, traj; Q = 1.0)
         end
         # R_u === nothing: no control-point magnitude regularization (B-spline default)
-        r_du_active = (R_du isa Real && R_du > 0) ||
-                      (R_du isa AbstractVector && any(>(0), R_du))
+        r_du_active =
+            (R_du isa Real && R_du > 0) || (R_du isa AbstractVector && any(>(0), R_du))
         if r_du_active
             @info "BSplinePulse: R_du has no analog; ignored (control-point smoothness regularization is deferred)"
         end

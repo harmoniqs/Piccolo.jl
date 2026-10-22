@@ -501,12 +501,7 @@ struct ClampedUniformBSplineBasis{Order,T<:Real}
     M::Int
 end
 
-function ClampedUniformBSplineBasis(
-    M::Int,
-    t_start::Real,
-    t_end::Real;
-    order::Int = 4,
-)
+function ClampedUniformBSplineBasis(M::Int, t_start::Real, t_end::Real; order::Int = 4)
     M >= order || throw(
         ArgumentError(
             "BSplinePulse requires M >= order; got M=$M, order=$order. " *
@@ -514,9 +509,8 @@ function ClampedUniformBSplineBasis(
         ),
     )
     order >= 1 || throw(ArgumentError("order must be >= 1; got $order"))
-    t_end > t_start || throw(
-        ArgumentError("times[end] must exceed times[1]; got [$t_start, $t_end]"),
-    )
+    t_end > t_start ||
+        throw(ArgumentError("times[end] must exceed times[1]; got [$t_start, $t_end]"))
 
     T = float(promote_type(typeof(t_start), typeof(t_end)))
     ts = T(t_start)
@@ -529,11 +523,7 @@ function ClampedUniformBSplineBasis(
     knot_vector = vcat(fill(ts, order), interior_knots, fill(te, order))
     distinct_breakpoints = vcat([ts], interior_knots, [te])
 
-    return ClampedUniformBSplineBasis{order,T}(
-        knot_vector,
-        distinct_breakpoints,
-        M,
-    )
+    return ClampedUniformBSplineBasis{order,T}(knot_vector, distinct_breakpoints, M)
 end
 
 """
@@ -620,15 +610,11 @@ function BSplinePulse(
     t_end = last(times)
     basis = ClampedUniformBSplineBasis(M, t_start, t_end; order = order)
 
-    T = float(
-        promote_type(eltype(control_points), typeof(t_start), typeof(t_end)),
-    )
+    T = float(promote_type(eltype(control_points), typeof(t_start), typeof(t_end)))
     cp = Matrix{T}(control_points)
 
-    init_val =
-        _resolve_bspline_boundary!(cp, 1, initial_value, n_d, "initial_value")
-    final_val =
-        _resolve_bspline_boundary!(cp, M, final_value, n_d, "final_value")
+    init_val = _resolve_bspline_boundary!(cp, 1, initial_value, n_d, "initial_value")
+    final_val = _resolve_bspline_boundary!(cp, M, final_value, n_d, "final_value")
 
     N = M - order + 2
     if length(times) != N
@@ -708,20 +694,19 @@ function _deboor_evaluate(
     p_work = Matrix{Tout}(undef, n_d, k)
 
     # Initialize: p_work[:, r+1] = c_{ℓ - r} (0-based ℓ = j - 1)
-    @inbounds for r = 0:(k - 1)
-        @views p_work[:, r + 1] .= control_points[:, j - r]
+    @inbounds for r = 0:(k-1)
+        @views p_work[:, r+1] .= control_points[:, j-r]
     end
 
     # de Boor: P_i^level uses knots τ_i and τ_{i + k - level} where i = ℓ - r.
     # In 1-based: knot_low = knot_vector[j - r], knot_high = knot_vector[j + k - level - r].
-    @inbounds for level = 1:(k - 1)
-        for r = 0:(k - 1 - level)
-            knot_low = knot_vector[j - r]
-            knot_high = knot_vector[j + k - level - r]
+    @inbounds for level = 1:(k-1)
+        for r = 0:(k-1-level)
+            knot_low = knot_vector[j-r]
+            knot_high = knot_vector[j+k-level-r]
             denom = knot_high - knot_low
             α = denom > zero(denom) ? Tout((t - knot_low) / denom) : zero(Tout)
-            @views @. p_work[:, r + 1] =
-                (one(Tout) - α) * p_work[:, r + 2] + α * p_work[:, r + 1]
+            @views @. p_work[:, r+1] = (one(Tout) - α) * p_work[:, r+2] + α * p_work[:, r+1]
         end
     end
 
@@ -752,16 +737,14 @@ and control point index `j` (0-based),
 
 Used for control-polygon visualization (see `plot_pulse` for `BSplinePulse`).
 """
-function greville_abscissae(
-    basis::ClampedUniformBSplineBasis{Order,T},
-) where {Order,T}
+function greville_abscissae(basis::ClampedUniformBSplineBasis{Order,T}) where {Order,T}
     M = basis.M
     k = Order
     τ = basis.knot_vector
     if k == 1
         return collect(τ[1:M])
     end
-    return T[sum(τ[J + i] for i = 1:(k - 1)) / (k - 1) for J = 1:M]
+    return T[sum(τ[J+i] for i = 1:(k-1)) / (k - 1) for J = 1:M]
 end
 
 # ============================================================================ #
@@ -2265,14 +2248,17 @@ end
         # overwrites control_points[:, 1] and [:, end] to zero, and the test's
         # reference sum would diverge from the stored control points.
         pulse = BSplinePulse(
-            cp, [0.0, 1.0]; order = k,
-            initial_value = :free, final_value = :free,
+            cp,
+            [0.0, 1.0];
+            order = k,
+            initial_value = :free,
+            final_value = :free,
         )
         kv = pulse.basis.knot_vector
 
         for t in rand(20) .* 0.999  # avoid right endpoint edge
             de_boor_val = pulse(t)[1]
-            cox_val = sum(cp[1, j] * cox_de_boor(kv, j, k, t) for j in 1:M)
+            cox_val = sum(cp[1, j] * cox_de_boor(kv, j, k, t) for j = 1:M)
             @test isapprox(de_boor_val, cox_val; atol = 1e-10)
         end
     end
@@ -2291,9 +2277,14 @@ end
     c_test = randn(n_d * M)
     J = ForwardDiff.jacobian(
         c -> BSplinePulse(
-            reshape(c, n_d, M), [0.0, 1.0]; order = k,
-            initial_value = :free, final_value = :free,
-        )(t_query),
+            reshape(c, n_d, M),
+            [0.0, 1.0];
+            order = k,
+            initial_value = :free,
+            final_value = :free,
+        )(
+            t_query,
+        ),
         c_test,
     )
 
@@ -2302,8 +2293,8 @@ end
     # For each control point j, the (n_d × n_d) sub-block is the basis weight
     # times the identity — basis is shared across drives, so off-diagonal entries
     # of each sub-block should be zero.
-    for j in 1:M
-        sub = J[:, ((j - 1) * n_d + 1):(j * n_d)]
+    for j = 1:M
+        sub = J[:, ((j-1)*n_d+1):(j*n_d)]
         @test sub ≈ Diagonal(fill(sub[1, 1], n_d)) atol = 1e-12
     end
 end
@@ -2328,8 +2319,10 @@ end
     # that, when an explicit initial_value vector is supplied, it agrees with
     # control_points[:, 1] within 1e-12).
     @test_throws ArgumentError BSplinePulse(
-        reshape([0.5; randn(M - 1)], 1, M), [0.0, 1.0];
-        order = k, initial_value = [0.1],
+        reshape([0.5; randn(M - 1)], 1, M),
+        [0.0, 1.0];
+        order = k,
+        initial_value = [0.1],
     )
 
     # get_knot_values / get_knot_derivatives are intentionally NOT defined for
