@@ -267,11 +267,7 @@ end
     # ∂gℰ: Global variable derivatives
     if !isnothing(globals) && ℰ.global_dim > 0
         g_cols = (2*ℰ.z_dim+1):(2*ℰ.z_dim+ℰ.global_dim)
-        ForwardDiff.jacobian!(
-            ∂ℰ[:, g_cols],
-            g -> -expv(Δtₖ, ℰ.G(vcat(aₖ, g)), ρ⃗ₖ),
-            globals,
-        )
+        ForwardDiff.jacobian!(∂ℰ[:, g_cols], g -> -expv(Δtₖ, ℰ.G(vcat(aₖ, g)), ρ⃗ₖ), globals)
     end
 
     # ∂ρ⃗ₖ₊₁ℰ: Identity (already in sparsity pattern)

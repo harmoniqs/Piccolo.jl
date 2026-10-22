@@ -71,7 +71,7 @@ placeholder must never be silently reported as a physical fidelity. Direct `roll
 # Computed (not hand-written) so the shims are guaranteed to be stored as VIEWS —
 # a Matrix-typed field would silently convert-and-COPY, leaving the shims stale
 # after an in-place `states .= ...` refresh (review-caught failure mode).
-const _KetStatesView = typeof(view(zeros(ComplexF64, 1, 1, 1),:,1,:))
+const _KetStatesView = typeof(view(zeros(ComplexF64, 1, 1, 1), :, 1, :))
 
 mutable struct RolloutStates
     states::Array{ComplexF64,3}   # (ketdim, K, N_knots) — shared storage
@@ -84,7 +84,7 @@ mutable struct RolloutStates
         times::Vector{Float64},
         real_states::Bool,
     )
-        shims = [PerKetStates(view(states,:,k,:), times) for k in axes(states, 2)]
+        shims = [PerKetStates(view(states, :, k, :), times) for k in axes(states, 2)]
         return new(states, times, real_states, shims)
     end
 end
