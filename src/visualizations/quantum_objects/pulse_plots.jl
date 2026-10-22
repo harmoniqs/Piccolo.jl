@@ -543,12 +543,22 @@ function _plot_pulse_type!(
     show_tangents,  # repurposed → show control polygon
     tangent_scale,  # unused
     colors,
+    t_max = nothing,
     kwargs...,
 )
-    # Dense smooth curve
+    # Dense smooth curve. With a `t_max` playhead Observable, reveal through
+    # `_reveal_xy` exactly as the analytic fallback does (`pulse(t)` dispatches
+    # to the B-spline evaluation); `t_max` must never reach `lines!` itself —
+    # it is not a Makie.Lines attribute.
     controls, times = sample(pulse, n_samples)
     for (ci, i) in enumerate(drive_indices)
-        lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        if isnothing(t_max)
+            lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        else
+            xs = @lift(_reveal_xy(pulse, times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, times, i, $t_max)[2])
+            lines!(ax, xs, ys; color = colors[ci], linewidth = 2, kwargs...)
+        end
     end
 
     # Breakpoint scatter (integration nodes). Values evaluated, not stored.
