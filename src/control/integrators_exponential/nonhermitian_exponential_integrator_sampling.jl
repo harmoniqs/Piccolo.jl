@@ -222,6 +222,15 @@ function NonHermitianExponentialIntegrator(
                 nominal_sys.global_params[name] : 0.0,
             ] for name in resolved_global_names
         )
+        # The low-level (datavec, comps, N) constructor takes the packed
+        # global vector + a components NamedTuple, not a Dict. Sort the names
+        # so the layout matches the qtraj conversions' alphabetical ordering.
+        sorted_names = sort(collect(keys(global_data)))
+        global_vec = vcat((global_data[nm] for nm in sorted_names)...)
+        offsets = cumsum([0; [length(global_data[nm]) for nm in sorted_names]])
+        gcomps = NamedTuple{tuple(sorted_names...)}(
+            Tuple((offsets[i]+1):offsets[i+1] for i in eachindex(sorted_names)),
+        )
         traj = NamedTrajectory(
             traj.datavec,
             traj.components,
@@ -232,7 +241,8 @@ function NonHermitianExponentialIntegrator(
             initial = traj.initial,
             final = isnothing(traj.final_) ? NamedTuple() : traj.final_,
             goal = traj.goal,
-            global_data = global_data,
+            global_data = global_vec,
+            global_components = gcomps,
         )
     end
 
@@ -434,4 +444,97 @@ end
     @test F1 ≈ F1_saved
     evaluate!(F2, ℰs[2], expanded_traj)
     @test F1 ≈ F1_saved
+end
+
+
+@testitem "NonHermitianExponentialIntegrator sampling: globals resolution, per-base count fallback, closed-base error" begin
+    using DirectTrajOpt, NamedTrajectories, Piccolo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
+    using LinearAlgebra
+
+    L = ComplexF64[0 0.1; 0 0]
+    sys1 = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (θ = 1.0,),
+    )
+    sys2 = OpenQuantumSystem(
+        0.95 * PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        global_params = (θ = 1.5,),
+    )
+    ρ0 = ComplexF64[1 0; 0 0]
+    ρg = ComplexF64[0 0; 0 1]
+    N = 8
+    times = collect(range(0, 1.0, length = N))
+    pulse = ZeroOrderPulse(0.2 .* rand(1, N), times)
+    base = DensityTrajectory(sys1, pulse, ρ0, ρg)
+    sq = SamplingTrajectory(base, [sys1, sys2])
+
+    # Auto-detected globals: the nominal system's global_params resolve and
+    # the expanded trajectory carries them
+    integrators = NonHermitianExponentialIntegrator(sq, N)
+    @test length(integrators) == 2
+    for ℰ in integrators
+        @test ℰ.global_names == [:θ]
+        @test ℰ.global_dim == 1
+    end
+
+    # Explicit global_names with an unknown name → 0.0 attachment
+    integrators2 = NonHermitianExponentialIntegrator(sq, N; global_names = [:θ, :ζ])
+    for ℰ in integrators2
+        @test ℰ.global_names == [:θ, :ζ]
+        @test ℰ.global_dim == 2
+    end
+
+    # Per-base ctors: explicit global_names on a globals-FREE trajectory fall
+    # back to counting the names (the integrator tracks them by count)
+    traj_plain = NamedTrajectory(sq, N)
+    ℰ_cnt = ExponentialIntegrators._sampling_nonhermitian_density(
+        sys1,
+        :ρ⃗̃1,
+        :u,
+        traj_plain,
+        [:θ, :ζ],
+    )
+    @test ℰ_cnt.global_dim == 2
+
+    ρc = ComplexF64[0 1; 1 0] / 2
+    # Globals-FREE system: the count-fallback lane needs a traj with NO
+    # globals attached (sys1's θ would attach via the conversion and the
+    # ctor would legitimately take traj.global_dim instead of counting)
+    sys_nog = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    base_md = MultiDensityTrajectory(sys_nog, pulse, [ρ0, ρc], [ρg, ρg])
+    md_traj = NamedTrajectory(base_md, N)
+    @test md_traj.global_dim == 0
+    # Per-base ctor: one integrator per density state, all sharing the names
+    ℰ_md = ExponentialIntegrators._sampling_nonhermitian_multidensity(
+        sys_nog,
+        [:ρ⃗̃1, :ρ⃗̃2],
+        :u,
+        md_traj,
+        [:θ, :ζ],
+    )
+    @test length(ℰ_md) == 2
+    for ℰ in ℰ_md
+        @test ℰ.global_names == [:θ, :ζ]
+        @test ℰ.global_dim == 2
+    end
+
+    # Closed-system bases dispatch to the loud error lane
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    kbase = KetTrajectory(QuantumSystem(PAULIS.Z / 2, [PAULIS.X / 2], [1.0]), ψ0, ψg, 1.0)
+    ksamp = SamplingTrajectory(
+        kbase,
+        [
+            QuantumSystem(PAULIS.Z / 2, [PAULIS.X / 2], [1.0]),
+            QuantumSystem(PAULIS.Z / 2, [PAULIS.Y / 2], [1.0]),
+        ],
+    )
+    @test_throws ErrorException NonHermitianExponentialIntegrator(ksamp, N)
 end

@@ -1647,3 +1647,49 @@ end
     @test size(HS) == (length(vec(traj)), length(vec(traj)))
     @test any(!iszero, HS[T_col, :])
 end
+
+
+@testitem "HermitianExponentialIntegrator{Ket} explicit globals, unknown-name default, and Jacobian structure" begin
+    using Piccolo
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using SparseArrays
+    using Random
+
+    Random.seed!(90_349)
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys = QuantumSystem(
+        H,
+        [1.0, 1.0];
+        time_dependent = true,
+        global_params = (b = 0.2, a = 0.1),
+    )
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    N = 6
+    qtraj = KetTrajectory(sys, ψ0, ψg, 2.0)
+
+    # Explicit global_names INCLUDING a name the system does not know: the
+    # unknown name must default to 0.0 and still be tracked as a global
+    ℰ = HermitianExponentialIntegrator(qtraj, N; global_names = [:b, :a, :ζ])
+    @test ℰ.global_names == [:b, :a, :ζ]
+    @test ℰ.global_dim == 3
+
+    traj =
+        NamedTrajectory(qtraj, N; global_data = Dict(:b => [0.2], :a => [0.1], :ζ => [0.0]))
+    traj.datavec .= 0.3 .* randn(length(traj.datavec))
+    δ = zeros(ℰ.dim)
+    DirectTrajOpt.evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
+
+    # get_jacobian_structure with globals: the global columns are declared at
+    # their trajectory positions and cover the assembled Jacobian's support
+    J = DirectTrajOpt.CommonInterface.eval_jacobian(ℰ, traj)
+    S = DirectTrajOpt.Integrators.get_jacobian_structure(ℰ, traj)
+    @test size(S) == size(J)
+    Jn, Sn = Matrix(J), Matrix(S)
+    @test all(iszero(Jn[i, j]) || !iszero(Sn[i, j]) for i = 1:size(J, 1), j = 1:size(J, 2))
+    @test !all(iszero, Jn[:, end-2])   # ζ column: zero sensitivity (system never reads it)
+    @test !all(iszero, Jn[:, end-1])   # a column carries real derivatives
+end

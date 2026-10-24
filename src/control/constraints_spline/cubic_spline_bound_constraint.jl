@@ -1302,3 +1302,45 @@ function constraint_stencil_hvp!(
 end
 
 supports_matrix_free_constraint_hvp(::CubicSplineBoundConstraint) = true
+
+@testitem "CubicSplineBoundConstraint - stencil accessors and the Hessian contract" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    import DirectTrajOpt.Constraints: get_full_jacobian, get_full_hessian, jacobian!
+    import DirectTrajOpt.Constraints: hessian_of_lagrangian!
+    using DirectTrajOpt.CommonInterface: eval_hessian_of_lagrangian
+    using Piccolo: CubicSplineBoundConstraint, constraint_stencil_table
+    using Piccolo: refresh_constraint_coefficients!
+    using LinearAlgebra
+    using SparseArrays
+
+    N = 8
+    traj = NamedTrajectory(
+        (u = randn(2, N), du = 0.1 * randn(2, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+    constraint = CubicSplineBoundConstraint(traj, :u, -1.0, 1.0)
+
+    # Stencil-table accessor returns the constraint's own table
+    @test constraint_stencil_table(constraint) === constraint.table
+
+    # refresh_constraint_coefficients! is callable on its own and leaves the
+    # assembled Jacobian consistent with the DTO read path
+    refresh_constraint_coefficients!(constraint, traj)
+    J_direct = get_full_jacobian(constraint, traj)
+
+    # The pre-port two-argument jacobian! refreshes the same cache in place
+    @test jacobian!(constraint, traj) === nothing
+    @test get_full_jacobian(constraint, traj) ≈ J_direct
+
+    # The Hessian is declared zero at full width: the sample is linear in u/du,
+    # so every accessor must return the same empty preallocated structure
+    μ = randn(constraint.dim)
+    @test hessian_of_lagrangian!(constraint, traj, μ) === nothing
+    @test get_full_hessian(constraint, traj, μ) === constraint.μ∂²g_full
+    @test eval_hessian_of_lagrangian(constraint, traj, μ) === constraint.μ∂²g_full
+    @test size(constraint.μ∂²g_full) ==
+          (traj.dim * traj.N + traj.global_dim, traj.dim * traj.N + traj.global_dim)
+    @test iszero(nnz(constraint.μ∂²g_full))
+end

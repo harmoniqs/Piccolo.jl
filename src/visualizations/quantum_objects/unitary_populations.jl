@@ -152,7 +152,11 @@ end
 
     # Test: Default behavior plots first two columns
     fig = plot_unitary_populations(traj)
-    save("../../../assets/unitary_populations.png", fig)
+    # Save through a temp path — exercising the CairoMakie save lane without
+    # mutating the committed assets/unitary_populations.png (this item runs
+    # with cwd = its file's dir, so the old repo-relative path dirtied the
+    # checkout on every suite run).
+    save(tempname() * ".png", fig)
 
     @test fig isa Figure
     @test length(fig.content) > 0  # Figure has content

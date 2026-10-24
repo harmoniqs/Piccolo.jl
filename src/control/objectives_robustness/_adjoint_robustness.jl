@@ -3874,4 +3874,385 @@ end
     println("✓ RobustControlProblem with MultiKetTrajectory test passed")
 end
 
+
+# ============================================================================ #
+#        E2 coverage tails (#348): Z-kick propagation, positional ctors,       #
+#        globals lanes, wrapper branches                                        #
+# ============================================================================ #
+
+@testitem "AdjointRobustnessObjective Z-kick propagation end-to-end" begin
+    using Piccolo
+    import Piccolo.Control.AdjointRobustness: _iso_Rz, forward_pass
+    using Piccolo.Control.AdjointRobustness: ZKickPropagation
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    T = 2.0
+    N = 6
+    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    qtraj = UnitaryTrajectory(sys, GATES.H, T)
+    traj0 = NamedTrajectory(qtraj, N)
+
+    # Non-trivial kick angles so the Rz(ϕ) factor is actually exercised
+    datavec = copy(traj0.datavec)
+    u_comps = collect(traj0.components[traj0.control_names[1]])
+    z_dim = traj0.dim
+    for k = 1:N
+        datavec[(k-1)*z_dim .+ u_comps] .+= 0.3 * sin(1.7 * k)
+    end
+    traj = NamedTrajectory(traj0; datavec = datavec)
+
+    # Reference objective for name/shape conventions
+    integrator = HermitianExponentialIntegrator(qtraj, N)
+    rob_ref = AdjointRobustnessObjective(integrator, [GATES.X / 2], traj; Q = 1.0)
+
+    # Z-kick constructor from a Hamiltonian matrix: free evolution under
+    # H = Z/2, error channel X, control variable carries the kick angles ϕ_k
+    H = Matrix{ComplexF64}(GATES.Z / 2)
+    E_ops = [Matrix{ComplexF64}(GATES.X)]
+    obj = AdjointRobustnessObjective(
+        H,
+        E_ops,
+        rob_ref.state_name,
+        rob_ref.control_name,
+        traj;
+        Q = 1.0,
+    )
+    @test obj.propagation isa ZKickPropagation
+    @test obj.ketdim == 2
+    @test obj.state_dim == 8
+
+    # _iso_Rz builds the iso form of Rz(ϕ): identity at ϕ = 0, unitary and a
+    # homomorphism in the angle (Rz(ϕ)·Rz(ψ) = Rz(ϕ+ψ))
+    @test _iso_Rz(0.0) ≈ Matrix(I, 4, 4) atol = 1e-12
+    @test _iso_Rz(0.3)' * _iso_Rz(0.3) ≈ Matrix(I, 4, 4) atol = 1e-12
+    @test _iso_Rz(0.3) * _iso_Rz(1.1) ≈ _iso_Rz(1.4) atol = 1e-12
+
+    # Forward pass runs and produces finite propagators
+    fwd = forward_pass(obj, traj)
+    @test length(fwd.Vs) == 1
+    @test length(fwd.Ps) == N - 1
+    @test all(isfinite, vcat([vec(V) for V in fwd.Vs[1]]...))
+
+    # Zero error operator → zero susceptibility (the Z-kick path agrees with
+    # the family invariant)
+    obj_zero = AdjointRobustnessObjective(
+        H,
+        [zeros(ComplexF64, 2, 2)],
+        rob_ref.state_name,
+        rob_ref.control_name,
+        traj;
+        Q = 1.0,
+    )
+    @test objective_value(obj_zero, traj) ≈ 0.0 atol = 1e-12
+
+    # Full family validation: residual packing, gradient vs FD, GN Hessian vs
+    # J^T J (exercising the Z-kick control-gradient and its batched variant),
+    # symmetry + PSD. show_diff = true also drives the debug-print lane.
+    test_robustness_objective(obj, traj; atol = 1e-8, rtol = 1e-8, show_diff = true)
+
+    println("✓ AdjointRobustnessObjective Z-kick propagation end-to-end passed")
+end
+
+@testitem "AdjointRobustnessObjective positional ctors and show methods" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    T = 5.0
+    N = 8
+    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    qtraj = UnitaryTrajectory(sys, GATES.H, T)
+    traj = NamedTrajectory(qtraj, N)
+    integrator = HermitianExponentialIntegrator(qtraj, N)
+    E_ops = [Matrix{ComplexF64}(GATES.Z)]
+
+    rob = AdjointRobustnessObjective(integrator, E_ops, traj; Q = 2.0)
+
+    # Backward-compat 8-argument positional constructor → exact_hessian = false
+    pos = AdjointRobustnessObjective(
+        rob.G_errors,
+        rob.propagation,
+        rob.state_name,
+        rob.control_name,
+        rob.ketdim,
+        rob.iso_dim,
+        rob.state_dim,
+        rob.Q,
+    )
+    @test pos.exact_hessian == false
+    @test pos.state_name == rob.state_name
+    @test objective_value(pos, traj) ≈ objective_value(rob, traj)
+
+    # Base.show summarizes d, the number of error ops, and Q
+    shown = repr(pos)
+    @test occursin("AdjointRobustnessObjective(d=2", shown)
+    @test occursin("1 error ops", shown)
+    @test occursin("Q=2.0", shown)
+
+    # Ket variant: positional constructor converts goals to Vector{ComplexF64}
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    kqtraj = KetTrajectory(sys, ψ0, ψ1, T)
+    ktraj = NamedTrajectory(kqtraj, N)
+    kint = HermitianExponentialIntegrator(kqtraj, N)
+    krob = KetAdjointRobustnessObjective(kint, E_ops, ψ1, ktraj; Q = 1.5)
+
+    kpos = KetAdjointRobustnessObjective(
+        krob.G_errors,
+        krob.propagation,
+        krob.state_names,
+        [collect(ψ1)],               # Vector{<:AbstractVector}, not yet ComplexF64
+        krob.control_name,
+        krob.ketdim,
+        krob.iso_dim,
+        krob.n_kets,
+        krob.Q,
+    )
+    @test kpos.goals == [Vector{ComplexF64}(ψ1)]
+    @test kpos.exact_hessian == false
+    @test objective_value(kpos, ktraj) ≈ objective_value(krob, ktraj)
+
+    shown_ket = repr(kpos)
+    @test occursin("KetAdjointRobustnessObjective", shown_ket)
+
+    println("✓ positional ctors and show methods passed")
+end
+
+@testitem "Robustness objectives with a trailing global slot: gradient and Hessian embedding" begin
+    using Piccolo
+    import Piccolo.Control.AdjointRobustness: _compute_residual
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using SparseArrays
+    using ForwardDiff
+
+    # System carrying an optimizable global δ: the trajectory has a trailing
+    # global slot the objective does NOT depend on (G reads only u).
+    δ_init = 0.01
+    sys = QuantumSystem(
+        PAULIS.Z,
+        AbstractDrive[LinearDrive(sparse(ComplexF64.(PAULIS.X)), 1)],
+        [1.0];
+        global_params = (δ = δ_init,),
+    )
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    T = 2.0
+    N = 6
+    kqtraj = KetTrajectory(sys, ψ0, ψ1, T)
+    ktraj = NamedTrajectory(kqtraj, N; global_data = Dict(:δ => [δ_init]))
+    @test ktraj.global_dim == 1
+
+    kint = HermitianExponentialIntegrator(kqtraj, N)
+    E_ops = [Matrix{ComplexF64}(PAULIS.Z)]
+    krob = KetAdjointRobustnessObjective(kint, E_ops, ψ1, ktraj; Q = 1.0)
+
+    n_data = length(ktraj.datavec)
+    Z_dim = ktraj.dim * ktraj.N + ktraj.global_dim
+    @test Z_dim == n_data + 1
+
+    # gradient! with the trailing global slot: data block matches FD, the
+    # global entry stays exactly zero
+    ∇ = zeros(Z_dim)
+    DirectTrajOpt.gradient!(∇, krob, ktraj)
+    ∇_ad = ForwardDiff.gradient(ktraj.datavec) do td
+        0.5 * sum(abs2, _compute_residual(krob, ktraj, td))
+    end
+    @test ∇[1:n_data] ≈ ∇_ad atol = 1e-8
+    @test iszero(∇[(n_data+1):end])
+
+    # Same-length buffer still works (the n_data branch)
+    ∇_data = zeros(n_data)
+    DirectTrajOpt.gradient!(∇_data, krob, ktraj)
+    @test ∇_data ≈ ∇[1:n_data]
+
+    # GN Hessian embeds into the Z_dim × Z_dim shape with a zero global frame
+    H_gn = Matrix(get_full_hessian(krob, ktraj))
+    @test size(H_gn) == (Z_dim, Z_dim)
+    J_ref = ForwardDiff.jacobian(ktraj.datavec) do td
+        _compute_residual(krob, ktraj, td)
+    end
+    @test H_gn[1:n_data, 1:n_data] ≈ J_ref' * J_ref atol = 1e-7 rtol = 1e-7
+    @test iszero(norm(H_gn[(n_data+1):end, :]))
+
+    # Ket exact_hessian = true routes through the FD-of-gradient assembly and
+    # embeds the same way
+    krob_exact =
+        KetAdjointRobustnessObjective(kint, E_ops, ψ1, ktraj; Q = 1.0, exact_hessian = true)
+    H_exact = Matrix(get_full_hessian(krob_exact, ktraj))
+    @test size(H_exact) == (Z_dim, Z_dim)
+    H_ad_obj = ForwardDiff.hessian(ktraj.datavec) do z
+        0.5 * sum(abs2, _compute_residual(krob, ktraj, z))
+    end
+    @test H_exact[1:n_data, 1:n_data] ≈ H_ad_obj atol = 1e-6
+    @test iszero(norm(H_exact[(n_data+1):end, :]))
+
+    # Operator variant on the same globals-carrying trajectory shape: the
+    # UnitaryTrajectory path through gradient! and the GN assembly
+    uqtraj = UnitaryTrajectory(sys, GATES.H, T)
+    utraj = NamedTrajectory(uqtraj, N; global_data = Dict(:δ => [δ_init]))
+    uint = HermitianExponentialIntegrator(uqtraj, N)
+    rob = AdjointRobustnessObjective(uint, E_ops, utraj; Q = 1.0)
+
+    n_data_u = length(utraj.datavec)
+    Z_dim_u = utraj.dim * utraj.N + utraj.global_dim
+    ∇_u = zeros(Z_dim_u)
+    DirectTrajOpt.gradient!(∇_u, rob, utraj)
+    ∇_u_ad = ForwardDiff.gradient(utraj.datavec) do td
+        0.5 * sum(abs2, _compute_residual(rob, utraj, td))
+    end
+    @test ∇_u[1:n_data_u] ≈ ∇_u_ad atol = 1e-8
+    @test iszero(∇_u[(n_data_u+1):end])
+
+    H_u = Matrix(get_full_hessian(rob, utraj))
+    @test size(H_u) == (Z_dim_u, Z_dim_u)
+    J_u = ForwardDiff.jacobian(utraj.datavec) do td
+        _compute_residual(rob, utraj, td)
+    end
+    @test H_u[1:n_data_u, 1:n_data_u] ≈ J_u' * J_u atol = 1e-7 rtol = 1e-7
+    @test iszero(norm(H_u[(n_data_u+1):end, :]))
+
+    # Operator exact_hessian assembly also embeds with a zero global frame
+    rob_exact =
+        AdjointRobustnessObjective(uint, E_ops, utraj; Q = 1.0, exact_hessian = true)
+    H_u_exact = Matrix(get_full_hessian(rob_exact, utraj))
+    @test size(H_u_exact) == (Z_dim_u, Z_dim_u)
+    H_u_ad = ForwardDiff.hessian(utraj.datavec) do z
+        0.5 * sum(abs2, _compute_residual(rob, utraj, z))
+    end
+    @test H_u_exact[1:n_data_u, 1:n_data_u] ≈ H_u_ad atol = 1e-6
+    @test iszero(norm(H_u_exact[(n_data_u+1):end, :]))
+
+    println("✓ globals-slot gradient/Hessian embedding passed")
+end
+
+@testitem "AdjointRobustnessObjective spline hessian structure includes derivative components" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using SparseArrays
+
+    T = 1.0
+    N = 6
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = CubicSplinePulse(fill(0.5, 2, N), fill(0.0, 2, N), times)
+    qtraj = UnitaryTrajectory(sys, pulse, GATES.H)
+    traj = NamedTrajectory(qtraj, N)
+    integrator = SplineIntegrator(qtraj, N; spline_order = 3)
+
+    E_ops = [Matrix{ComplexF64}(GATES.Z)]
+    rob = AdjointRobustnessObjective(integrator, sys, E_ops, traj; Q = 1.0)
+
+    du_name = Symbol("d" * String(integrator.u_name))
+    @test rob.propagation isa Piccolo.Control.AdjointRobustness.SplineODEPropagation
+    @test rob.propagation.derivative_name == du_name
+
+    # The declared structure must contain the derivative components (the
+    # cubic-spline control gradient writes ∇[du_indices])
+    S = DirectTrajOpt.Objectives.hessian_structure(rob, traj)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    @test size(S) == (Z_dim, Z_dim)
+    du_comps = collect(traj.components[du_name])
+    du_indices = vcat([((k-1)*traj.dim .+ du_comps) for k = 1:traj.N]...)
+    for idx in du_indices
+        @test any(!iszero, S[idx, :])
+    end
+
+    # The linear-spline structure (no derivative name) stays derivative-free
+    lin_pulse = LinearSplinePulse(fill(0.5, 2, N), times)
+    lin_qtraj = UnitaryTrajectory(sys, lin_pulse, GATES.H)
+    lin_traj = NamedTrajectory(lin_qtraj, N)
+    lin_int = SplineIntegrator(lin_qtraj, N; spline_order = 1)
+    lin_rob = AdjointRobustnessObjective(lin_int, sys, E_ops, lin_traj; Q = 1.0)
+    @test isnothing(lin_rob.propagation.derivative_name)
+    S_lin = DirectTrajOpt.Objectives.hessian_structure(lin_rob, lin_traj)
+    @test size(S_lin) == (
+        lin_traj.dim * lin_traj.N + lin_traj.global_dim,
+        lin_traj.dim * lin_traj.N + lin_traj.global_dim,
+    )
+
+    println("✓ spline hessian structure derivative components passed")
+end
+
+@testitem "RobustControlProblem with KetTrajectory: auto-build, keep-infidelity, provided objective" begin
+    using Piccolo
+    import Piccolo.Control.AdjointRobustness:
+        _find_dynamics_integrator, _extract_regularizers, _build_robustness_objective
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    T = 5.0
+    N = 8
+    sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2, GATES.Y / 2], [1.0, 1.0])
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+
+    qtraj = KetTrajectory(sys, ψ0, ψ1, T)
+    integrator = HermitianExponentialIntegrator(qtraj, N)
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        integrator = integrator,
+        Q = 100.0,
+        R = 1e-2,
+        piccolo_options = PiccoloOptions(verbose = false),
+    )
+    E_ops = [Matrix{ComplexF64}(GATES.Z)]
+
+    # Auto-constructed Ket robustness objective + Ket fidelity floor
+    rcp = RobustControlProblem(
+        qcp;
+        error_operators = E_ops,
+        final_fidelity = 0.9,
+        Q_robustness = 2.0,
+    )
+    @test rcp isa QuantumControlProblem
+    @test length(rcp.prob.constraints) >= 1
+
+    # keep_infidelity_objective = true composes the FULL original objective
+    rcp_keep = RobustControlProblem(
+        qcp;
+        error_operators = E_ops,
+        final_fidelity = 0.9,
+        keep_infidelity_objective = true,
+    )
+    @test rcp_keep.prob.objective isa DirectTrajOpt.CompositeObjective
+
+    # A caller-provided robustness_objective bypasses the auto-build entirely
+    rob_obj =
+        KetAdjointRobustnessObjective(integrator, E_ops, ψ1, get_trajectory(qcp); Q = 1.0)
+    rcp_provided =
+        RobustControlProblem(qcp; robustness_objective = rob_obj, final_fidelity = 0.9)
+    @test rcp_provided isa QuantumControlProblem
+
+    # _find_dynamics_integrator: first HermitianExponentialIntegrator wins,
+    # SplineIntegrator is found in a spline problem, and an unsupported list
+    # errors loudly.
+    @test _find_dynamics_integrator([integrator]) === integrator
+    spline_traj =
+        NamedTrajectory((u = randn(1, 4), Δt = fill(0.5, 4)); timestep = :Δt, controls = :u)
+    spline_pulse = LinearSplinePulse(randn(1, 4), collect(range(0.0, 1.5, length = 4)))
+    spline_sys = QuantumSystem(GATES.Z / 2, [GATES.X / 2], [1.0])
+    spline_qtraj = UnitaryTrajectory(spline_sys, spline_pulse, GATES.H)
+    spline_int = SplineIntegrator(spline_qtraj, 4; spline_order = 1)
+    @test _find_dynamics_integrator([spline_int]) === spline_int
+    @test _find_dynamics_integrator(["nope", spline_int]) === spline_int
+    @test_throws ErrorException _find_dynamics_integrator([1, 2, 3])
+
+    # _extract_regularizers keeps only terms whose declared symbols exclude the
+    # state variable: the Ket infidelity drops, the control regularizer stays,
+    # and the robustness objective itself (no declared syms) stays too.
+    reg = _extract_regularizers(rcp_keep.prob.objective, :ψ̃1)
+    @test !isnothing(reg)
+    println("✓ RobustControlProblem KetTrajectory wrapper branches passed")
+end
+
 end # module AdjointRobustness

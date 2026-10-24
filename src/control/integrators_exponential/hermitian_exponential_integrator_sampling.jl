@@ -61,6 +61,15 @@ function HermitianExponentialIntegrator(
                 nominal_sys.global_params[name] : 0.0,
             ] for name in resolved_global_names
         )
+        # The low-level (datavec, comps, N) constructor takes the packed
+        # global vector + a components NamedTuple, not a Dict. Sort the names
+        # so the layout matches the qtraj conversions' alphabetical ordering.
+        sorted_names = sort(collect(keys(global_data)))
+        global_vec = vcat((global_data[nm] for nm in sorted_names)...)
+        offsets = cumsum([0; [length(global_data[nm]) for nm in sorted_names]])
+        gcomps = NamedTuple{tuple(sorted_names...)}(
+            Tuple((offsets[i]+1):offsets[i+1] for i in eachindex(sorted_names)),
+        )
         traj = NamedTrajectory(
             traj.datavec,
             traj.components,
@@ -71,7 +80,8 @@ function HermitianExponentialIntegrator(
             initial = traj.initial,
             final = isnothing(traj.final_) ? NamedTuple() : traj.final_,
             goal = traj.goal,
-            global_data = global_data,
+            global_data = global_vec,
+            global_components = gcomps,
         )
     end
 
@@ -380,4 +390,69 @@ end
 
     evaluate!(F2, ℰs[2], expanded_traj)
     @test F1 ≈ F1_saved
+end
+
+
+@testitem "HermitianExponentialIntegrator sampling ctor globals: explicit and auto-detected" begin
+    using Piccolo
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(90_352)
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys1 = QuantumSystem(
+        H,
+        [1.0, 1.0];
+        time_dependent = true,
+        global_params = (b = 0.2, a = 0.1),
+    )
+    sys2 = QuantumSystem(
+        H,
+        [1.0, 1.0];
+        time_dependent = true,
+        global_params = (b = 0.3, a = 0.2),
+    )
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    T = 2.0
+    N = 6
+    base = KetTrajectory(sys1, ψ0, ψg, T)
+    sq = SamplingTrajectory(base, [sys1, sys2])
+
+    # Auto-detect: the nominal system's global_params propagate to members
+    integrators = HermitianExponentialIntegrator(sq, N)
+    @test length(integrators) == 2
+    for ℰ in integrators
+        @test ℰ.global_names == [:b, :a]
+        @test ℰ.global_dim == 2
+    end
+
+    # Explicit global_names (including an unknown name → 0.0 default):
+    # the members share the names; the ctor attaches the data itself
+    integrators2 = HermitianExponentialIntegrator(sq, N; global_names = [:b, :ζ])
+    for ℰ in integrators2
+        @test ℰ.global_names == [:b, :ζ]
+        @test ℰ.global_dim == 2
+    end
+
+    # The expanded, globals-attached trajectory evaluates cleanly
+    traj0 = NamedTrajectory(sq, N)
+    traj = NamedTrajectory(
+        traj0.datavec,
+        traj0.components,
+        traj0.N;
+        timestep = traj0.timestep,
+        controls = traj0.control_names,
+        bounds = traj0.bounds,
+        initial = traj0.initial,
+        final = isnothing(traj0.final_) ? NamedTuple() : traj0.final_,
+        goal = traj0.goal,
+        global_data = vcat([0.1], [0.2]),           # alphabetical: a, b
+        global_components = (a = 1:1, b = 2:2),
+    )
+    δ = zeros(integrators[1].dim)
+    DirectTrajOpt.evaluate!(δ, integrators[1], traj)
+    @test !all(iszero, δ)
 end
