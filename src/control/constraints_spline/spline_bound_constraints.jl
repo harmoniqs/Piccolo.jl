@@ -83,14 +83,16 @@ function CubicSplineExtremaConstraint(
     # Each drive gets 8 constraints: 2 endpoints + up to 2 critical points, each with 2 bounds
     # This gives a fixed dimension: 8 * n_drives per segment
     function extrema_constraint(varsₖ, varsₖ₊₁, params)
-        u_min, u_max, Δt = params
+        u_min, u_max = params
 
-        # Split variables
-        n = length(varsₖ) ÷ 2
+        # Variables are [u; du; Δt]: Δt is the LIVE segment timestep (a decision variable
+        # in free-time solves), never a value frozen at construction.
+        n = (length(varsₖ) - 1) ÷ 2
         u_k = varsₖ[1:n]
-        du_k = varsₖ[(n+1):end]
+        du_k = varsₖ[(n+1):(2n)]
+        Δt = varsₖ[end]
         u_kp1 = varsₖ₊₁[1:n]
-        du_kp1 = varsₖ₊₁[(n+1):end]
+        du_kp1 = varsₖ₊₁[(n+1):(2n)]
 
         # Generic type for ForwardDiff compatibility
         T = eltype(varsₖ)
@@ -129,11 +131,11 @@ function CubicSplineExtremaConstraint(
     end
 
     # Create parameters for each segment
-    params = [(u_min, u_max, traj[k].timestep) for k in segments]
+    params = [(u_min, u_max) for k in segments]
 
     return NonlinearSegmentConstraint(
         extrema_constraint,
-        [control_name, du_name],
+        [control_name, du_name, traj.timestep],
         traj,
         params;
         equality = false,  # Inequality constraints
@@ -223,12 +225,14 @@ function CubicSplineSufficientBoundConstraint(
 
     # Constraint function: limit slope based on gap to bounds
     function sufficient_constraint(varsₖ, varsₖ₊₁, params)
-        u_min, u_max, C, Δt = params
+        u_min, u_max, C = params
 
-        # Split variables (only need varsₖ for this constraint)
-        n = length(varsₖ) ÷ 2
+        # Variables are [u; du; Δt]: Δt is the LIVE segment timestep (a decision variable
+        # in free-time solves), never a value frozen at construction.
+        n = (length(varsₖ) - 1) ÷ 2
         u_k = varsₖ[1:n]
-        du_k = varsₖ[(n+1):end]
+        du_k = varsₖ[(n+1):(2n)]
+        Δt = varsₖ[end]
 
         # Generic type for ForwardDiff compatibility
         T = eltype(varsₖ)
@@ -250,11 +254,11 @@ function CubicSplineSufficientBoundConstraint(
     end
 
     # Create parameters for each segment
-    params = [(u_min, u_max, safety_factor, traj[k].timestep) for k in segments]
+    params = [(u_min, u_max, safety_factor) for k in segments]
 
     return NonlinearSegmentConstraint(
         sufficient_constraint,
-        [control_name, du_name],
+        [control_name, du_name, traj.timestep],
         traj,
         params;
         equality = false,  # Inequality constraints
@@ -296,13 +300,16 @@ function CubicSplineExtremaConstraint(
 
     # Fixed dimension: 8 constraints per drive (2 endpoints + 2 critical points, each with 2 bounds)
     function extrema_constraint_multi(varsₖ, varsₖ₊₁, params)
-        u_bounds_vec, Δt = params
+        (u_bounds_vec,) = params
 
-        n = length(varsₖ) ÷ 2
+        # Variables are [u; du; Δt]: Δt is the LIVE segment timestep (a decision variable
+        # in free-time solves), never a value frozen at construction.
+        n = (length(varsₖ) - 1) ÷ 2
         u_k = varsₖ[1:n]
-        du_k = varsₖ[(n+1):end]
+        du_k = varsₖ[(n+1):(2n)]
+        Δt = varsₖ[end]
         u_kp1 = varsₖ₊₁[1:n]
-        du_kp1 = varsₖ₊₁[(n+1):end]
+        du_kp1 = varsₖ₊₁[(n+1):(2n)]
 
         # Generic type for ForwardDiff compatibility
         T = eltype(varsₖ)
@@ -337,11 +344,11 @@ function CubicSplineExtremaConstraint(
         return constraints
     end
 
-    params = [(u_bounds, traj[k].timestep) for k in segments]
+    params = [(u_bounds,) for k in segments]
 
     return NonlinearSegmentConstraint(
         extrema_constraint_multi,
-        [control_name, du_name],
+        [control_name, du_name, traj.timestep],
         traj,
         params;
         equality = false,
@@ -373,11 +380,14 @@ function CubicSplineSufficientBoundConstraint(
     @assert length(u_bounds) == n_drives "Must provide bounds for each drive"
 
     function sufficient_constraint_multi(varsₖ, varsₖ₊₁, params)
-        u_bounds_vec, C, Δt = params
+        u_bounds_vec, C = params
 
-        n = length(varsₖ) ÷ 2
+        # Variables are [u; du; Δt]: Δt is the LIVE segment timestep (a decision variable
+        # in free-time solves), never a value frozen at construction.
+        n = (length(varsₖ) - 1) ÷ 2
         u_k = varsₖ[1:n]
-        du_k = varsₖ[(n+1):end]
+        du_k = varsₖ[(n+1):(2n)]
+        Δt = varsₖ[end]
 
         # Generic type for ForwardDiff compatibility
         T = eltype(varsₖ)
@@ -397,11 +407,11 @@ function CubicSplineSufficientBoundConstraint(
         return constraints
     end
 
-    params = [(u_bounds, safety_factor, traj[k].timestep) for k in segments]
+    params = [(u_bounds, safety_factor) for k in segments]
 
     return NonlinearSegmentConstraint(
         sufficient_constraint_multi,
-        [control_name, du_name],
+        [control_name, du_name, traj.timestep],
         traj,
         params;
         equality = false,
@@ -472,13 +482,15 @@ function CubicSplineSlopeConstraint(
 
     n_drives = traj.dims[control_name]
 
-    function slope_constraint(varsₖ, varsₖ₊₁, (du_bounds, Δt))
-        # Split variables: assume [u..., du...] concatenated
-        n = length(varsₖ) ÷ 2
+    function slope_constraint(varsₖ, varsₖ₊₁, (du_bounds,))
+        # Variables are [u; du; Δt]: Δt is the LIVE segment timestep (a decision variable
+        # in free-time solves), never a value frozen at construction.
+        n = (length(varsₖ) - 1) ÷ 2
         u_k = varsₖ[1:n]
-        du_k = varsₖ[(n+1):end]
+        du_k = varsₖ[(n+1):(2n)]
+        Δt = varsₖ[end]
         u_kp1 = varsₖ₊₁[1:n]
-        du_kp1 = varsₖ₊₁[(n+1):end]
+        du_kp1 = varsₖ₊₁[(n+1):(2n)]
 
         T = eltype(varsₖ)
         constraints = T[]
@@ -514,11 +526,11 @@ function CubicSplineSlopeConstraint(
         return constraints
     end
 
-    params = [(du_bounds, traj[k].timestep) for k in segments]
+    params = [(du_bounds,) for k in segments]
 
     return NonlinearSegmentConstraint(
         slope_constraint,
-        [control_name, du_name],
+        [control_name, du_name, traj.timestep],
         traj,
         params;
         equality = false,
@@ -567,13 +579,14 @@ function CubicSplineSlopeConstraint(
     # Calculate total number of drives across all control variables
     total_drives = sum(traj.dims[name] for name in control_names)
 
-    function slope_constraint_multi(varsₖ, varsₖ₊₁, (du_bounds_vec, Δt))
-        # Split variables: [all u's..., all du's...]  
-        n = length(varsₖ) ÷ 2
+    function slope_constraint_multi(varsₖ, varsₖ₊₁, (du_bounds_vec,))
+        # Variables are [all u's...; all du's...; Δt]: Δt is the LIVE segment timestep.
+        n = (length(varsₖ) - 1) ÷ 2
         u_k = varsₖ[1:n]
-        du_k = varsₖ[(n+1):end]
+        du_k = varsₖ[(n+1):(2n)]
+        Δt = varsₖ[end]
         u_kp1 = varsₖ₊₁[1:n]
-        du_kp1 = varsₖ₊₁[(n+1):end]
+        du_kp1 = varsₖ₊₁[(n+1):(2n)]
 
         ElemType = eltype(varsₖ)
         constraints = ElemType[]
@@ -604,11 +617,11 @@ function CubicSplineSlopeConstraint(
         return constraints
     end
 
-    params = [(du_bounds, traj[k].timestep) for k in segments]
+    params = [(du_bounds,) for k in segments]
 
     return NonlinearSegmentConstraint(
         slope_constraint_multi,
-        vcat(control_names, du_names),
+        vcat(control_names, du_names, [traj.timestep]),
         traj,
         params;
         equality = false,
@@ -987,4 +1000,128 @@ end
     g_flat = zeros(slope_con.dim)
     evaluate!(g_flat, slope_con, flat)
     @test all(g_flat .<= 0.0)
+end
+
+@testitem "Spline bound constraints read the LIVE timestep (free-time)" begin
+    # Regression: the six segment constructors used to freeze `traj[k].timestep` into
+    # their params at construction. With Δt a decision variable the optimizer then
+    # certified a spline it was not playing (observed: constraint max 0.00999 vs true
+    # inter-knot peak 0.0228 on a bound of 0.01 after Δt drifted 575 → 442–1148 ns).
+    using NamedTrajectories
+    using Random
+    using Piccolo:
+        CubicSplineExtremaConstraint,
+        CubicSplineSufficientBoundConstraint,
+        CubicSplineSlopeConstraint,
+        evaluate_hermite_spline,
+        evaluate_hermite_derivative
+    using DirectTrajOpt.CommonInterface: evaluate!
+
+    Random.seed!(1234)
+    N = 6
+    mk() = NamedTrajectory(
+        (u = 0.5 .* randn(2, N), du = randn(2, N), Δt = fill(1.0, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+    ev(c, tr) = (v = zeros(c.dim); evaluate!(v, c, tr); v)
+    sup(f, tr) = maximum(
+        abs(f(τ, tr.u[i, k], tr.u[i, k+1], tr.du[i, k], tr.du[i, k+1], tr.Δt[k])) for
+        i = 1:2, k = 1:(N-1), τ in range(0, 1, length = 4001)
+    )
+
+    bounds = [(-1.0, 1.0), (-1.0, 1.0)]
+    ctors = [
+        "extrema scalar" => tr -> CubicSplineExtremaConstraint(tr, (-1.0, 1.0)),
+        "extrema per-drive" => tr -> CubicSplineExtremaConstraint(tr, bounds),
+        "sufficient scalar" =>
+            tr -> CubicSplineSufficientBoundConstraint(tr, (-1.0, 1.0)),
+        "sufficient per-drive" =>
+            tr -> CubicSplineSufficientBoundConstraint(tr, bounds),
+        "slope scalar" => tr -> CubicSplineSlopeConstraint(tr, (-2.0, 2.0)),
+        "slope per-drive" =>
+            tr -> CubicSplineSlopeConstraint(tr, [(-2.0, 2.0), (-2.0, 2.0)]),
+    ]
+
+    for (name, ctor) in ctors
+        tr = mk()
+        c = ctor(tr)
+        tr.Δt .= 4.0                      # stretch AFTER construction, as a free-time solve does
+        c_fresh = ctor(tr)                # ground truth: built at the current Δt
+        @test ev(c, tr) ≈ ev(c_fresh, tr)
+    end
+
+    # Extrema residual equals the true continuous violation at the stretched Δt.
+    tr = mk()
+    c = CubicSplineExtremaConstraint(tr, bounds)
+    tr.Δt .= 4.0
+    @test maximum(ev(c, tr)) ≈ sup(evaluate_hermite_spline, tr) - 1.0 atol = 1e-3
+    # Slope residual equals the true max-slope violation at the stretched Δt.
+    tr = mk()
+    s = CubicSplineSlopeConstraint(tr, (-2.0, 2.0))
+    tr.Δt .= 3.0
+    @test maximum(ev(s, tr)) ≈ sup(evaluate_hermite_derivative, tr) - 2.0 atol = 1e-3
+end
+
+@testitem "Spline bound constraints: Jacobian and Hessian include the Δt coupling" begin
+    using NamedTrajectories
+    using Random
+    using LinearAlgebra
+    using Piccolo:
+        CubicSplineExtremaConstraint,
+        CubicSplineSufficientBoundConstraint,
+        CubicSplineSlopeConstraint
+    using DirectTrajOpt.CommonInterface: evaluate!, hessian_of_lagrangian
+    using DirectTrajOpt.Constraints: jacobian!, get_full_jacobian, get_full_hessian
+
+    Random.seed!(99)
+    N = 5
+    tr = NamedTrajectory(
+        (u = 0.4 .* randn(2, N), du = randn(2, N), Δt = 0.5 .+ rand(N));
+        timestep = :Δt,
+        controls = :u,
+    )
+    ev(c) = (v = zeros(c.dim); evaluate!(v, c, tr); v)
+    jac(c) = (jacobian!(c, tr); Matrix(get_full_jacobian(c, tr)))
+    Z0 = copy(tr.datavec)
+    nZ = length(Z0)
+    Δtcols = [tr.components[:Δt][1] + (k - 1) * tr.dim for k = 1:(N-1)]
+
+    for (name, c) in [
+        "extrema" => CubicSplineExtremaConstraint(tr, [(-1.0, 1.0), (-1.0, 1.0)]),
+        "sufficient" =>
+            CubicSplineSufficientBoundConstraint(tr, [(-1.0, 1.0), (-1.0, 1.0)]),
+        "slope" => CubicSplineSlopeConstraint(tr, (-2.0, 2.0)),
+    ]
+        J = jac(c)
+        h = 1e-6
+        Jfd = zeros(size(J, 1), nZ)
+        for j = 1:nZ
+            tr.datavec .= Z0
+            tr.datavec[j] += h
+            gp = ev(c)
+            tr.datavec .= Z0
+            tr.datavec[j] -= h
+            gm = ev(c)
+            Jfd[:, j] = (gp - gm) / 2h
+        end
+        tr.datavec .= Z0
+        @test maximum(abs.(J[:, 1:nZ] - Jfd)) < 1e-5
+        @test maximum(abs.(J[:, Δtcols])) > 0        # Δt is a live variable
+
+        μ = randn(c.dim)
+        hessian_of_lagrangian(c, tr, μ)
+        H = Matrix(get_full_hessian(c, tr))[1:nZ, 1:nZ]
+        gradμ(Z) = (tr.datavec .= Z; J_ = jac(c); tr.datavec .= Z0; J_[:, 1:nZ]' * μ)
+        Hfd = zeros(nZ, nZ)
+        for j = 1:nZ
+            e = zeros(nZ)
+            e[j] = h
+            Hfd[:, j] = (gradμ(Z0 + e) - gradμ(Z0 - e)) / 2h
+        end
+        Hs = Matrix(Symmetric(H, :U))
+        Hfull = norm(H - H') < 1e-12 ? H : Hs
+        @test maximum(abs.(Hfull - Hfd)) < 1e-4
+        @test maximum(abs.(Hfull[Δtcols, :])) > 0    # ∂²/∂Δt∂(u,du) cross terms present
+    end
 end
