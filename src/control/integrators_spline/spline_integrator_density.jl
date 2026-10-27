@@ -489,7 +489,10 @@ Uses the hybrid Lindblad approach:
 
 # Keyword Arguments
 - `spline_order::Union{Int,Nothing}=nothing`: Spline interpolation order (1=linear, 3=cubic);
-  ignored when the pulse type already fixes the order (`LinearSplinePulse`/`CubicSplinePulse`).
+  the pulse type fixes the order (`LinearSplinePulse`/`CubicSplinePulse`), and a
+  conflicting explicit order throws (#375).
+- `allow_basis_approximation::Bool=false`: a non-spline pulse (ZOH, analytic) is
+  refused unless this is `true` AND `spline_order` is given (#375).
 - `alg::IntegrationAlgorithm=Tsit5Alg()`: Integration algorithm. `MagnusGL4Alg` is not
   supported for density trajectories (the constructor errors).
 - `global_names::Union{Vector{Symbol},Nothing}=nothing`: Names of global optimization variables
@@ -498,6 +501,7 @@ function SplineIntegrator(
     qtraj::DensityTrajectory,
     N::Int;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
 )
@@ -516,6 +520,7 @@ function SplineIntegrator(
         qtraj,
         traj;
         spline_order = spline_order,
+        allow_basis_approximation = allow_basis_approximation,
         alg = alg,
         global_names = global_names,
     )
@@ -525,6 +530,7 @@ function SplineIntegrator(
     qtraj::DensityTrajectory,
     traj::NamedTrajectory;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
 )
@@ -538,18 +544,14 @@ function SplineIntegrator(
             "non-Hermitian exp-action is a separate future track.",
         )
     end
-    # Infer spline type from pulse if possible
     pulse = get_pulse(qtraj)
-    if pulse isa LinearSplinePulse
-        S = LinearSpline
-        order = 1
-    elseif pulse isa CubicSplinePulse
-        S = CubicSpline
-        order = 3
-    else
-        order = isnothing(spline_order) ? 1 : spline_order
-        S = order == 1 ? LinearSpline : CubicSpline
-    end
+    # #375: the pulse decides the basis; non-spline pulses and conflicting
+    # orders are refused unless the approximation is declared.
+    S, order = _resolve_spline_type(
+        pulse,
+        spline_order;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     sys = get_system(qtraj)::OpenQuantumSystem
     x = state_name(qtraj)  # :ρ⃗̃

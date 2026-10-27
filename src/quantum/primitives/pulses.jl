@@ -518,6 +518,46 @@ get_knot_derivatives(p::CubicSplinePulse) = p.controls.du
 
 export get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
 export shape_metrics
+export interpolation_basis
+
+# ============================================================================ #
+# Interpolation basis trait (#375)
+# ============================================================================ #
+
+@doc raw"""
+    interpolation_basis(x) -> Union{Symbol,Nothing}
+
+The interpolation basis a pulse **describes**, or that an integrator **integrates
+in**. Problem constructors require `interpolation_basis(integrator) ==
+interpolation_basis(pulse)` for every dynamics integrator, unless the caller
+declares the approximation with `allow_basis_approximation = true`.
+
+| value       | meaning                                                         |
+|:------------|:----------------------------------------------------------------|
+| `:zoh`      | zero-order hold — piecewise constant between knots              |
+| `:linear`   | linear interpolation between knots                              |
+| `:cubic`    | cubic Hermite interpolation (`:du` are the knot tangents)       |
+| `:analytic` | a closed-form envelope with no knot basis (Gaussian, erf, …)    |
+| `nothing`   | unknown — the trait makes no claim, so no pairing check applies |
+
+Pulse methods: `ZeroOrderPulse → :zoh`, `LinearSplinePulse → :linear`,
+`CubicSplinePulse → :cubic`, every other `AbstractPulse → :analytic`. A new
+pulse type with a knot basis must add its own method; without one it is treated as
+`:analytic` and is refused by the spline integrator.
+
+Integrator methods (defined with the integrators): the exponential integrators and
+`BilinearIntegrator → :zoh`, `SplineIntegrator → :linear`/`:cubic` by its spline
+order, any other `AbstractIntegrator → nothing`. Downstream integrator types
+should add a method so the template guards can check them.
+
+Quantum trajectories (and problems) forward to their pulse.
+"""
+function interpolation_basis end
+
+interpolation_basis(::AbstractPulse) = :analytic
+interpolation_basis(::ZeroOrderPulse) = :zoh
+interpolation_basis(::LinearSplinePulse) = :linear
+interpolation_basis(::CubicSplinePulse) = :cubic
 
 # ============================================================================ #
 # Shape metrics (#309) — the P-series quartet as public chassis

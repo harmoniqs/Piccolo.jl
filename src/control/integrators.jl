@@ -922,4 +922,26 @@ export dk_second_divided_difference,
     dk_second_order_apply!, dk_second_order_derivative!, dk_second_order_block!
 export DaleckiiKreinSecondOrderWorkspace
 
+# ----------------------------------------------------------------------------- #
+# Interpolation basis of each integrator family (#375)
+# ----------------------------------------------------------------------------- #
+#
+# The basis the integrator's per-interval propagator assumes for the control
+# between knots. The template guards compare it with the pulse's basis. A type
+# without a method returns `nothing` (unknown) and is never refused, which keeps
+# downstream integrator families working until they declare their basis.
+#
+# `TimeDependentBilinearIntegrator` stays `nothing` on purpose: its basis is a
+# per-instance `spline_order` field, and time-dependent-system handling is
+# tracked separately (#376).
+
+import ...Quantum: interpolation_basis
+
+interpolation_basis(::AbstractIntegrator) = nothing
+interpolation_basis(::BilinearIntegrator) = :zoh
+interpolation_basis(::HermitianExponentialIntegrator) = :zoh
+interpolation_basis(::NonHermitianExponentialIntegrator) = :zoh
+interpolation_basis(𝒮::SplineIntegrator) =
+    SplineIntegrators.spline_order(𝒮) == 1 ? :linear : :cubic
+
 end

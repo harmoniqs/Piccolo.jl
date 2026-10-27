@@ -285,8 +285,11 @@ function _call_template(spec::ProblemSpec, qtraj; piccolo_options = nothing)
     # The spec always names its integrator (schema-level field), so a bilinear
     # integrator is a DECLARED choice, never a silent template default — pass it
     # explicitly so spline-template pulse-type guards (#275) treat it as such.
+    # Being declared, it is also the deliberate basis approximation the #375 pairing
+    # guard asks for (a spline pulse under a piecewise-constant integrator).
     if intg === nothing && p.template === :SplinePulseProblem
         kwargs[:integrator_type] = :pwc
+        kwargs[:allow_basis_approximation] = true
     end
     piccolo_options === nothing || (kwargs[:piccolo_options] = piccolo_options)
     return fac(qtraj, p.N; kwargs...)
@@ -699,7 +702,12 @@ get_variants(qcp::AbstractQuantumControlProblem) =
     times = collect(range(0.0, 10.0, 11))
     pulse = CubicSplinePulse(zeros(2, 11), zeros(2, 11), times)
     traj = UnitaryTrajectory(sys, pulse, goal)
-    ref = SplinePulseProblem(traj, 11; integrator_type = :pwc)
+    ref = SplinePulseProblem(
+        traj,
+        11;
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
 
     # A single-term objective is a bare objective (no `.objectives`); normalize.
     nterms(J) = J isa DirectTrajOpt.CompositeObjective ? length(J.objectives) : 1
@@ -1261,10 +1269,10 @@ end
 
 @testitem "materialize: integrator registration fallbacks via injected registry entry" begin
     using Piccolo, Piccolo.Specs
-    using Piccolo: BilinearIntegrator
 
-    # `exponential`/`spline` integrators live in Piccolissimo; without it the
-    # registry only has the `bilinear` sentinel. Inject a stand-in entry to
+    # A non-registered integrator kind. The stand-in builds a SplineIntegrator:
+    # these specs carry linear-spline pulses, and #375 refuses any integrator in
+    # another basis (it used to be a BilinearIntegrator). Inject the entry to
     # exercise the non-bilinear branches (_build_integrator, the free_phase
     # gating pass, _sampling_integrator_factory, and the template integrator
     # kwarg pass-through), then remove it — the registries are process-global
@@ -1272,7 +1280,7 @@ end
     Specs.register_integrator!(
         :probe_integrator,
         Specs.RegistryEntry(;
-            factory = (qtraj, N; alg = :probe) -> BilinearIntegrator(qtraj, N),
+            factory = (qtraj, N; alg = :probe) -> SplineIntegrator(qtraj, N),
         ),
     )
 
@@ -1301,7 +1309,7 @@ end
         # the declared integrator is built and passed to the template explicitly
         qcp = Specs.materialize(Specs.parse_spec(BASE; format = :toml))
         @test qcp isa QuantumControlProblem
-        @test any(i -> i isa BilinearIntegrator, qcp.prob.integrators)
+        @test any(i -> i isa SplineIntegrator, qcp.prob.integrators)
 
         # free_phase is gated on a non-bilinear integrator kind: with the
         # injected entry it passes validation, and global_bounds coerce into the
@@ -1392,15 +1400,14 @@ end
 
 @testitem "materialize: ket + free_phase threads goal.subsystem_levels" begin
     using Piccolo, Piccolo.Specs
-    using Piccolo: BilinearIntegrator
 
-    # free_phase validation requires a non-bilinear integrator KIND;
-    # exponential/spline live in Piccolissimo, so inject the same
-    # BilinearIntegrator-backed stand-in the integrator-fallback test uses.
+    # free_phase validation requires a non-bilinear integrator KIND; inject the
+    # same SplineIntegrator-backed stand-in the integrator-fallback test uses
+    # (basis-matched to the linear-spline pulse, #375).
     Specs.register_integrator!(
         :probe_integrator,
         Specs.RegistryEntry(;
-            factory = (qtraj, N; alg = :probe) -> BilinearIntegrator(qtraj, N),
+            factory = (qtraj, N; alg = :probe) -> SplineIntegrator(qtraj, N),
         ),
     )
     try

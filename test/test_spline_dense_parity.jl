@@ -99,10 +99,20 @@
     U_ref_iso = operator_to_iso_vec(U_ref)
     ψ_ref_iso = ket_to_iso(U_ref * ψ_init)
 
+    # #375: the spline cells take a SPLINE pulse in the row's declared basis (a
+    # ZOH pulse is refused by SplineIntegrator). A constant control is the same
+    # waveform in every basis (zero tangents for the cubic rows), so the GL4-on-PWC
+    # oracle stays exact — and the cubic row now really runs the cubic cell.
+    spline_pulse(row) =
+        row["spline"] == "CubicSpline" ?
+        CubicSplinePulse(pwc_vals, zeros(n_ctrl, N), times) :
+        LinearSplinePulse(pwc_vals, times)
+
     for row in manifest["rows"]
         kind = row["trajectory"]
         alg_name = row["algorithm"]
         @test row["oracle"] == "gl4_pwc"
+        pwc_pulse = spline_pulse(row)
         if kind == "unitary"
             qtraj = UnitaryTrajectory(sys, pwc_pulse, ComplexF64[0 1; 1 0])
             traj = NamedTrajectory(qtraj, N)
@@ -173,7 +183,7 @@
     # (Unitary cells only: the Ket Magnus/Chebyshev cells are matrix-free and
     # stay in Piccolissimo — they are covered by the MF leg's manifest.)
     rand_vals = 0.6 .* randn(n_ctrl, N)
-    rand_pulse = ZeroOrderPulse(rand_vals, times)
+    rand_pulse = LinearSplinePulse(rand_vals, times)
     rand_refs = Dict{String,Vector{Float64}}()
     for alg_name in ("Tsit5Alg", "MagnusGL4Alg", "MagnusAdapt4Alg")
         qtraj = UnitaryTrajectory(sys, rand_pulse, ComplexF64[0 1; 1 0])
