@@ -813,9 +813,7 @@ function _terminal_iso_states(qtraj::SamplingTrajectory)
     base = qtraj.base_trajectory
     pairs = Pair{Symbol,Vector{Float64}}[]
     for (sys, names) in zip(qtraj.systems, sampling_member_states(qtraj))
-        member = _terminal_iso_states(
-            Quantum.QuantumTrajectories._swap_system(base, sys),
-        )
+        member = _terminal_iso_states(Quantum.QuantumTrajectories._swap_system(base, sys))
         isnothing(member) && return nothing
         member_names = names isa Symbol ? [names] : names
         length(member_names) == length(member) || return nothing

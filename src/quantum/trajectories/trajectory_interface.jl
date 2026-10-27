@@ -28,7 +28,8 @@ get_pulse(qtraj::AbstractQuantumTrajectory) = qtraj.pulse
 
 # #375: a quantum trajectory's interpolation basis is its pulse's (sampling
 # ensembles forward to the base pulse through `get_pulse`).
-interpolation_basis(qtraj::AbstractQuantumTrajectory) = interpolation_basis(get_pulse(qtraj))
+interpolation_basis(qtraj::AbstractQuantumTrajectory) =
+    interpolation_basis(get_pulse(qtraj))
 
 """
     get_initial(qtraj)

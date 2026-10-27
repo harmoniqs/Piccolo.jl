@@ -386,7 +386,8 @@ end
 
     # #375: the spline lane takes a spline pulse — SplineIntegrator refuses the
     # ZOH pulse above (it used to integrate it silently as a linear spline).
-    qtraj2 = KetTrajectory(sys_nom, LinearSplinePulse(0.1 * randn(2, N), times), ψ_init, ψ_goal)
+    qtraj2 =
+        KetTrajectory(sys_nom, LinearSplinePulse(0.1 * randn(2, N), times), ψ_init, ψ_goal)
     prob2 = SplinePulseProblem(qtraj2, N; Q = 100.0)
     sampling_spl = SamplingProblem(
         prob2,

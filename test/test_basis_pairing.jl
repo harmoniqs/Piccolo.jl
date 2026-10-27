@@ -36,13 +36,8 @@
     # 1e-12 tolerances (measured 1.3e-6 on the ZOH fixture, 2.1e-5 on the linear one).
     ref = (algorithm = Tsit5(), abstol = 1e-12, reltol = 1e-12, n_save = N)
     closed_qtraj(p) = UnitaryTrajectory(closed, p, GATES[:X]; ref...)
-    open_qtraj(p) = DensityTrajectory(
-        open_sys,
-        p,
-        ComplexF64[1 0; 0 0],
-        ComplexF64[0 0; 0 1];
-        ref...,
-    )
+    open_qtraj(p) =
+        DensityTrajectory(open_sys, p, ComplexF64[1 0; 0 0], ComplexF64[0 0; 0 1]; ref...)
     families = Dict(
         :hermitian_exponential =>
             (closed_qtraj, q -> HermitianExponentialIntegrator(q, N)),
@@ -77,7 +72,8 @@
                   (err isa ErrorException && occursin("H1", err.msg))
             # Where the refused pair can still be forced (declared approximation),
             # it is visibly NOT the pulse's physics: the guard is not cosmetic.
-            if pk !== :zoh && fk in (:hermitian_exponential, :bilinear) &&
+            if pk !== :zoh &&
+               fk in (:hermitian_exponential, :bilinear) &&
                !(pk === :cubic && fk === :bilinear)
                 forced = template(pulse)(
                     qtraj,
@@ -223,10 +219,8 @@ end
     u = 0.2 * ones(2, N)
     dynamics(p) = filter(i -> !(i isa DerivativeIntegrator), p.prob.integrators)
 
-    for (pulse, order) in (
-        (LinearSplinePulse(u, times), 1),
-        (CubicSplinePulse(u, zeros(2, N), times), 3),
-    )
+    for (pulse, order) in
+        ((LinearSplinePulse(u, times), 1), (CubicSplinePulse(u, zeros(2, N), times), 3))
         base = SplinePulseProblem(UnitaryTrajectory(sys, pulse, GATES[:X]), N)
         members = dynamics(SamplingProblem(base, [sys, sys2]))
         @test length(members) == 2
@@ -330,7 +324,7 @@ end
     # ABSOLUTE fidelity check catches (ΔF > 1e-5). Rotate the terminal state a
     # little toward the goal, so only the collocation side moves.
     x = get_trajectory(qcp).ψ̃[:, end]
-    ψ = ComplexF64[x[1] + im * x[3], x[2] + im * x[4]]
+    ψ = ComplexF64[x[1]+im*x[3], x[2]+im*x[4]]
     θ = 1e-3
     c = ψ1' * ψ
     ψ′ = normalize(ψ + θ * (c / abs(c)) * ψ1)   # phase-aligned: ΔF is first order in θ
@@ -362,7 +356,12 @@ end
     @test rollout_fidelity_gap(sp2) > 1e-6
 
     # Ensemble (multi-ket) trajectories: the fidelity gap is defined too.
-    mk = MultiKetTrajectory(sys, ZeroOrderPulse(0.15 * ones(1, N), times), [ψ0, ψ1], [ψ1, ψ0])
+    mk = MultiKetTrajectory(
+        sys,
+        ZeroOrderPulse(0.15 * ones(1, N), times),
+        [ψ0, ψ1],
+        [ψ1, ψ0],
+    )
     mqcp = SmoothPulseProblem(mk, N)
     sync_trajectory!(mqcp; check_divergence = false)
     @test rollout_divergence(mqcp) < 1e-6

@@ -49,7 +49,13 @@ end
     trajectory_kinds = (:unitary, :ket)
     ket_free_phase = true
     params = SplinePulseParams
-    passthrough = (:integrator, :allow_basis_approximation, :constraints, :extra_objectives, :piccolo_options)
+    passthrough = (
+        :integrator,
+        :allow_basis_approximation,
+        :constraints,
+        :extra_objectives,
+        :piccolo_options,
+    )
     builder = _spline_pulse_problem
     requires_N = false
     hint = """For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
@@ -359,7 +365,9 @@ function _spline_pulse_problem(
                 "Piccolo ships two backends: `:spline` (`SplineIntegrator`, the default) " *
                 "and `:pwc` (`BilinearIntegrator`).",
             )
-        if qtraj.pulse isa CubicSplinePulse && integrator_type === :pwc && allow_basis_approximation
+        if qtraj.pulse isa CubicSplinePulse &&
+           integrator_type === :pwc &&
+           allow_basis_approximation
             @warn "CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the " *
                   "dynamics treat the drive as piecewise constant and ignore :du — the " *
                   "optimized waveform differs from the cubic spline the pulse object " *
@@ -704,7 +712,9 @@ function _spline_pulse_problem(
         # #334: the default backend is spline-faithful, so a CubicSplinePulse on the
         # default path is the correct pairing — no acknowledgement needed. Explicit
         # `integrator_type = :pwc` remains the acknowledged PWC escape hatch.
-        if qtraj.pulse isa CubicSplinePulse && integrator_type === :pwc && allow_basis_approximation
+        if qtraj.pulse isa CubicSplinePulse &&
+           integrator_type === :pwc &&
+           allow_basis_approximation
             @warn "CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the " *
                   "dynamics treat the drive as piecewise constant and ignore :du — the " *
                   "optimized waveform differs from the cubic spline the pulse object " *
@@ -952,7 +962,14 @@ end
 
     # Create trajectory and problem
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, integrator_type = :pwc, allow_basis_approximation = true)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
 
     @test qcp isa QuantumControlProblem
     @test get_trajectory(qcp) isa NamedTrajectory
@@ -1011,8 +1028,14 @@ end
     @test all(upper_bounds .≈ du_bound)
 
     # Test without du_bound (should default to Inf)
-    qcp_unbounded =
-        SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, integrator_type = :pwc, allow_basis_approximation = true)
+    qcp_unbounded = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     traj_unbounded = get_trajectory(qcp_unbounded)
 
     # Without explicit du_bound, bounds should still be set to Inf (not throw error)
@@ -1217,9 +1240,19 @@ end
 
     # `:pwc` is the acknowledged escape hatch: the per-member BilinearIntegrator
     # pair, exactly as before the flip.
-    qcp_pwc = SplinePulseProblem(mk(), N; integrator_type = :pwc, allow_basis_approximation = true)
+    qcp_pwc = SplinePulseProblem(
+        mk(),
+        N;
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     @test count(i -> i isa BilinearIntegrator, qcp_pwc.prob.integrators) == 2
-    @test SplinePulseProblem(mk(), N; integrator_type = :pwc, allow_basis_approximation = true) isa QuantumControlProblem
+    @test SplinePulseProblem(
+        mk(),
+        N;
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    ) isa QuantumControlProblem
 
     # `:ensemble` referenced `EnsembleSplineIntegrator`, which is defined nowhere — the
     # reason `test/jet.jl` carried `broken = true`. It must fail with an explanation, not
@@ -1599,7 +1632,13 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true)  # no explicit R_u, R_du
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )  # no explicit R_u, R_du
 
     @test qcp isa QuantumControlProblem
 
@@ -1677,7 +1716,13 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     @test qcp isa QuantumControlProblem
 
     # The QuadraticRegularizer contribution must be exactly zero on any
@@ -1719,7 +1764,13 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true)
+    qcp_default = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     qcp_empty = SplinePulseProblem(
         qtraj,
         N;
@@ -1764,7 +1815,13 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp_baseline = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true)
+    qcp_baseline = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
 
     # Build the extra regularizer against the actual trajectory we will use.
     # The unitary template emits this same trajectory via NamedTrajectory(qtraj, N).
@@ -1894,7 +1951,8 @@ end
     # BilinearIntegrator (the explicit PWC choice never reads :du)
     integ = BilinearIntegrator(uq_lin, N)
     @test_throws ArgumentError SplinePulseProblem(uq_lin, N; integrator = integ)
-    qcp = SplinePulseProblem(uq_lin, N; integrator = integ, allow_basis_approximation = true)
+    qcp =
+        SplinePulseProblem(uq_lin, N; integrator = integ, allow_basis_approximation = true)
     @test qcp isa QuantumControlProblem
 
     err = try
@@ -1908,8 +1966,12 @@ end
 
     # explicit vector-of-integrators kwarg: same contract per element
     @test_throws ArgumentError SplinePulseProblem(uq_lin, N; integrator = [integ])
-    qcp_vec =
-        SplinePulseProblem(uq_lin, N; integrator = [integ], allow_basis_approximation = true)
+    qcp_vec = SplinePulseProblem(
+        uq_lin,
+        N;
+        integrator = [integ],
+        allow_basis_approximation = true,
+    )
     @test qcp_vec isa QuantumControlProblem
 
     err = try
@@ -1945,7 +2007,13 @@ end
     @test hi ≈ [5.0, 2.0]
 
     # per-drive du_bounds: CubicSplinePulse update_bound! path
-    qcp2 = SplinePulseProblem(uq_cub2, N; du_bounds = [5.0, 2.0], integrator_type = :pwc, allow_basis_approximation = true)
+    qcp2 = SplinePulseProblem(
+        uq_cub2,
+        N;
+        du_bounds = [5.0, 2.0],
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     lo2, hi2 = get_trajectory(qcp2).bounds[:du]
     @test lo2 ≈ [-5.0, -2.0]
     @test hi2 ≈ [5.0, 2.0]
@@ -2098,7 +2166,13 @@ end
     lo, hi = get_trajectory(qcp).bounds[:du]
     @test lo ≈ [-5.0] && hi ≈ [5.0]
 
-    qcp2 = SplinePulseProblem(mk_cub, N; du_bound = 5.0, integrator_type = :pwc, allow_basis_approximation = true)
+    qcp2 = SplinePulseProblem(
+        mk_cub,
+        N;
+        du_bound = 5.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     lo2, hi2 = get_trajectory(qcp2).bounds[:du]
     @test lo2 ≈ [-5.0] && hi2 ≈ [5.0]
 
@@ -2138,7 +2212,8 @@ end
     integs = BilinearIntegrator(mk_lin, N)
     @test integs isa AbstractVector
     @test_throws ArgumentError SplinePulseProblem(mk_lin, N; integrator = integs)
-    qcp5 = SplinePulseProblem(mk_lin, N; integrator = integs, allow_basis_approximation = true)
+    qcp5 =
+        SplinePulseProblem(mk_lin, N; integrator = integs, allow_basis_approximation = true)
     @test qcp5 isa QuantumControlProblem
 
     err = try
@@ -2204,13 +2279,26 @@ end
         end
 
     # Default: bending term present with R = [1e-3]
-    qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true)
+    qcp_default = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     bend_default = filter(x -> x isa HermiteBendingEnergyRegularizer, terms(qcp_default))
     @test length(bend_default) == 1
     @test bend_default[1].R == [1e-3]
 
     # Opt-out: R_bend = 0 → no bending term
-    qcp_off = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true, R_bend = 0)
+    qcp_off = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+        R_bend = 0,
+    )
     bend_off = filter(x -> x isa HermiteBendingEnergyRegularizer, terms(qcp_off))
     @test isempty(bend_off)
 
@@ -2246,7 +2334,13 @@ end
     pulse = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     terms_ = let obj = qcp.prob.objective
         obj isa DirectTrajOpt.CompositeObjective ? obj.objectives : [obj]
     end
@@ -2352,12 +2446,25 @@ end
     # ── Explicit opt-out (R_bend = 0): the ensemble resolution lane drops the
     #    term rather than defaulting it on ──
     qtraj_c = MultiKetTrajectory(sys, cpulse, [ψ0, ψ1], [ψ1, ψ0])
-    qcp_off = SplinePulseProblem(qtraj_c, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true, R_bend = 0)
+    qcp_off = SplinePulseProblem(
+        qtraj_c,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+        R_bend = 0,
+    )
     @test isempty(filter(x -> x isa HermiteBendingEnergyRegularizer, terms_(qcp_off)))
 
     # ── Explicit nonzero weight passes through verbatim ──
-    qcp_on =
-        SplinePulseProblem(qtraj_c, N; Q = 100.0, integrator_type = :pwc, allow_basis_approximation = true, R_bend = 2e-3)
+    qcp_on = SplinePulseProblem(
+        qtraj_c,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+        R_bend = 2e-3,
+    )
     bend_on = filter(x -> x isa HermiteBendingEnergyRegularizer, terms_(qcp_on))
     @test length(bend_on) == 1
     @test bend_on[1].R == [2e-3]

@@ -670,7 +670,8 @@ end
     @test 𝒮_g.global_dim == 1
 
     # …and a drive-global-free system resolves to an empty name list
-    𝒮_0 = _spline_ket(sys, zo, state_name(qtraj_zo), drive_name(qtraj_zo), traj_zo; approx...)
+    𝒮_0 =
+        _spline_ket(sys, zo, state_name(qtraj_zo), drive_name(qtraj_zo), traj_zo; approx...)
     @test isempty(𝒮_0.global_names)
     @test 𝒮_0.global_dim == 0
 end
@@ -851,7 +852,10 @@ end
     m = msg(() -> SplineIntegrator(zoh, N))
     @test occursin("ZeroOrderPulse", m) && occursin("HermitianExponentialIntegrator", m)
     # …also when an order is given but the approximation is not declared.
-    @test occursin("allow_basis_approximation", msg(() -> SplineIntegrator(zoh, N; spline_order = 1)))
+    @test occursin(
+        "allow_basis_approximation",
+        msg(() -> SplineIntegrator(zoh, N; spline_order = 1)),
+    )
 
     # An analytic pulse is refused, pointing at the spline conversion.
     gauss = ket(GaussianPulse([0.2, 0.1], 0.2, 1.0))
@@ -865,7 +869,10 @@ end
     @test spline_order(
         SplineIntegrator(gauss, N; spline_order = 3, allow_basis_approximation = true),
     ) == 3
-    @test occursin("spline_order", msg(() -> SplineIntegrator(zoh, N; allow_basis_approximation = true)))
+    @test occursin(
+        "spline_order",
+        msg(() -> SplineIntegrator(zoh, N; allow_basis_approximation = true)),
+    )
 
     # An explicit order that conflicts with the spline pulse throws.
     lin = ket(LinearSplinePulse(0.3 * ones(2, N), times))
