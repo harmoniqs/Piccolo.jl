@@ -687,10 +687,20 @@ end
     traj3 = qcp3.prob.trajectory
     @test traj3.global_dim == 1
 
+    # A synthesized primal vector of the right length with a random point on
+    # the trajectory. Timesteps stay positive: the callback rebuilds the pulse,
+    # and pulse knot times must be non-decreasing (#383).
+    function random_primal(traj)
+        z = randn(traj.dim * traj.N + traj.global_dim)
+        for k = 1:traj.N
+            z[(k-1)*traj.dim .+ traj.components[traj.timestep]] .= 0.1 + rand()
+        end
+        return z
+    end
+
     save_dir3 = mktempdir()
     cb3 = LivePulsePlotCallback(qtraj3, traj3; save_dir = save_dir3)
-    expected3 = traj3.dim * traj3.N + traj3.global_dim
-    @test cb3(randn(expected3), 0) === true
+    @test cb3(random_primal(traj3), 0) === true
     @test length(filter(f -> endswith(f, ".png"), readdir(save_dir3))) == 1
 end
 
@@ -740,11 +750,21 @@ end
     # so any DTO backend can install it via its intermediate_callback option.
     @test cb isa DirectTrajOpt.AbstractIntermediateCallback
 
+    # A synthesized primal vector of the right length with a random point on
+    # the trajectory. Timesteps stay positive: the callback rebuilds the pulse,
+    # and pulse knot times must be non-decreasing (#383).
+    function random_primal(traj)
+        z = randn(traj.dim * traj.N + traj.global_dim)
+        for k = 1:traj.N
+            z[(k-1)*traj.dim .+ traj.components[traj.timestep]] .= 0.1 + rand()
+        end
+        return z
+    end
+
     # Direct invocation with a synthesized primal vector of the right length.
     traj = qcp.prob.trajectory
-    expected = traj.dim * traj.N + traj.global_dim
-    @test cb(randn(expected), 0) === true
-    @test cb(randn(expected), 1) === true
+    @test cb(random_primal(traj), 0) === true
+    @test cb(random_primal(traj), 1) === true
 
     pngs = filter(f -> endswith(f, ".png"), readdir(save_dir))
     @test length(pngs) == 2
@@ -772,10 +792,20 @@ end
     save_dir = mktempdir()
     cb = LivePulsePlotCallback(qtraj, qcp.prob.trajectory; every = 3, save_dir = save_dir)
 
+    # A synthesized primal vector of the right length with a random point on
+    # the trajectory. Timesteps stay positive: the callback rebuilds the pulse,
+    # and pulse knot times must be non-decreasing (#383).
+    function random_primal(traj)
+        z = randn(traj.dim * traj.N + traj.global_dim)
+        for k = 1:traj.N
+            z[(k-1)*traj.dim .+ traj.components[traj.timestep]] .= 0.1 + rand()
+        end
+        return z
+    end
+
     traj = qcp.prob.trajectory
-    expected = traj.dim * traj.N + traj.global_dim
     for iter = 0:10
-        cb(randn(expected), iter)
+        cb(random_primal(traj), iter)
     end
 
     # iter % 3 == 0 fires on iters 0, 3, 6, 9 → 4 PNGs out of 11 invocations.
