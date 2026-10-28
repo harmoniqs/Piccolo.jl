@@ -68,6 +68,7 @@ export ket_rollout
 export ket_rollout_fidelity
 export unitary_rollout
 export unitary_rollout_fidelity
+export resolve_rollout_interpolation
 export update_global_params!
 
 export KetODEProblem
@@ -535,6 +536,62 @@ end
 # TODO: These can be extension methods for OrdinaryDiffEq
 # TODO: Adapt these methods to use quantum trajectories (only _one_ rollout_fidelity method (remove unitary_rollout_fidelity), have ensemble trajectory for EnsembleProblem, etc.)
 
+@doc raw"""
+    resolve_rollout_interpolation(traj, control_name, interpolation) -> Symbol
+
+The control interpolation a `NamedTrajectory` rollout helper uses (#375).
+
+- An explicit `interpolation` (`:constant`, `:linear`, `:cubic`) wins, except that
+  `:cubic` is refused when the trajectory carries a second derivative
+  `Symbol(:dd, control_name)`: then `:du` is a derivative-integrator variable (a
+  finite difference of `u`), not a Hermite tangent, and reading it as one is wrong.
+- `nothing` (the default) picks the trajectory's own basis. A bare
+  `NamedTrajectory` stores no basis tag, so it is inferred only where unambiguous:
+  a `:ddu` chain is the `SmoothPulseProblem` signature, which is zero-order hold,
+  so it rolls out with `:constant`. Otherwise it falls back to `:linear` and warns
+  once. Pass `interpolation` explicitly, or call the problem-level method
+  (`rollout_fidelity(qcp)`, …), which reads the basis from the problem's pulse.
+"""
+function resolve_rollout_interpolation(
+    traj::NamedTrajectory,
+    control_name::Symbol,
+    interpolation::Union{Nothing,Symbol},
+)
+    derivative_chain = Symbol(:dd, control_name) ∈ traj.names
+    if isnothing(interpolation)
+        derivative_chain && return :constant
+        @warn "Rollout of a NamedTrajectory with no basis tag: defaulting to " *
+              "`interpolation = :linear`. If the pulse was piecewise constant or a cubic " *
+              "spline, this rolls out a different waveform. Pass `interpolation = " *
+              ":constant | :linear | :cubic`, or roll out from the problem (e.g. " *
+              "`unitary_rollout_fidelity(qcp)`), which uses the pulse's own basis." maxlog =
+            1
+        return :linear
+    end
+    interpolation ∈ (:constant, :linear, :cubic) || error(
+        "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
+    )
+    interpolation === :cubic &&
+        derivative_chain &&
+        throw(
+            ArgumentError(
+                "interpolation = :cubic reads :$(Symbol(:d, control_name)) as Hermite " *
+                "tangents, but this trajectory carries :$(Symbol(:dd, control_name)), so " *
+                ":$(Symbol(:d, control_name)) is a derivative-integrator variable (a " *
+                "finite difference of the controls). Use :constant for a zero-order-hold " *
+                "trajectory.",
+            ),
+        )
+    return interpolation
+end
+
+function _rollout_controls(traj::NamedTrajectory, control_name::Symbol, interpolation)
+    resolved = resolve_rollout_interpolation(traj, control_name, interpolation)
+    resolved === :constant && return ConstantInterpolation(traj, control_name)
+    resolved === :linear && return LinearInterpolation(traj, control_name)
+    return CubicHermiteSpline(traj, control_name)
+end
+
 function rollout_fidelity(
     traj::NamedTrajectory,
     sys::AbstractQuantumSystem;
@@ -543,23 +600,12 @@ function rollout_fidelity(
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
-    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
+    interpolation::Union{Nothing,Symbol} = nothing,  # :constant, :linear, :cubic; nothing = the trajectory's basis
 )
     state_names = [n for n ∈ traj.names if startswith(string(n), string(state_name))]
     isempty(state_names) && error("Trajectory does not contain $(state_name).")
 
-    # Select interpolation method for controls
-    if interpolation == :constant
-        u = ConstantInterpolation(traj, control_name)
-    elseif interpolation == :linear
-        u = LinearInterpolation(traj, control_name)
-    elseif interpolation == :cubic
-        u = CubicHermiteSpline(traj, control_name)
-    else
-        error(
-            "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
-        )
-    end
+    u = _rollout_controls(traj, control_name, interpolation)
     times = get_times(traj)
 
     # Blank initial state
@@ -599,22 +645,11 @@ function unitary_rollout_fidelity(
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
-    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
+    interpolation::Union{Nothing,Symbol} = nothing,  # :constant, :linear, :cubic; nothing = the trajectory's basis
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
 
-    # Select interpolation method for controls
-    if interpolation == :constant
-        u = ConstantInterpolation(traj, control_name)
-    elseif interpolation == :linear
-        u = LinearInterpolation(traj, control_name)
-    elseif interpolation == :cubic
-        u = CubicHermiteSpline(traj, control_name)
-    else
-        error(
-            "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
-        )
-    end
+    u = _rollout_controls(traj, control_name, interpolation)
     times = get_times(traj)
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
@@ -636,22 +671,11 @@ function unitary_rollout(
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
-    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
+    interpolation::Union{Nothing,Symbol} = nothing,  # :constant, :linear, :cubic; nothing = the trajectory's basis
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
 
-    # Select interpolation method for controls
-    if interpolation == :constant
-        u = ConstantInterpolation(traj, control_name)
-    elseif interpolation == :linear
-        u = LinearInterpolation(traj, control_name)
-    elseif interpolation == :cubic
-        u = CubicHermiteSpline(traj, control_name)
-    else
-        error(
-            "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
-        )
-    end
+    u = _rollout_controls(traj, control_name, interpolation)
     times = get_times(traj)
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
@@ -675,7 +699,7 @@ function ket_rollout_fidelity(
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
-    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
+    interpolation::Union{Nothing,Symbol} = nothing,  # :constant, :linear, :cubic; nothing = the trajectory's basis
 )
     return rollout_fidelity(
         traj,
@@ -697,22 +721,11 @@ function ket_rollout(
     algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
-    interpolation::Symbol = :linear,  # :constant, :linear, or :cubic
+    interpolation::Union{Nothing,Symbol} = nothing,  # :constant, :linear, :cubic; nothing = the trajectory's basis
 )
     state_name ∉ traj.names && error("Trajectory does not contain $(state_name).")
 
-    # Select interpolation method for controls
-    if interpolation == :constant
-        u = ConstantInterpolation(traj, control_name)
-    elseif interpolation == :linear
-        u = LinearInterpolation(traj, control_name)
-    elseif interpolation == :cubic
-        u = CubicHermiteSpline(traj, control_name)
-    else
-        error(
-            "Unknown interpolation method: $(interpolation). Use :constant, :linear, or :cubic",
-        )
-    end
+    u = _rollout_controls(traj, control_name, interpolation)
     times = get_times(traj)
 
     ψ0 = iso_to_ket(traj.initial[state_name])

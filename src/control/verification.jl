@@ -15,6 +15,7 @@ using ..QuantumControlProblems:
     stored_phases,
     get_trajectory
 using ..QuantumControlProblems: rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
+import ..QuantumControlProblems: rollout_fidelity_gap
 # `sync_trajectory!` is imported for its docstring cross-reference, not called here:
 # Documenter resolves `@ref` against the enclosing module's scope, so a
 # `[`sync_trajectory!`](@ref)` in `verify`'s docstring fails the docs build
@@ -394,6 +395,19 @@ function _scored_fidelity(qtraj, φ; kwargs...)
     return Float64(sum(w * f for (w, f) in zip(qtraj.weights, F)))
 end
 
+# The post-solve fidelity-gap check (#375). Same two sides `verify` compares, read off
+# the STORED rollout (no fresh propagation), with the problem's stored φ. `nothing`
+# wherever a side is not comparable, including a φ-declaring problem with no stored
+# phase values (`verify` errors there; a post-solve diagnostic should not).
+function rollout_fidelity_gap(qcp::AbstractQuantumControlProblem)
+    φ = stored_phases(qcp.prob.trajectory)
+    !isnothing(φ) && isempty(φ) && return nothing
+    F_optimizer = _optimizer_side_fidelity(qcp, φ)
+    isnothing(F_optimizer) && return nothing
+    F_rollout = _scored_fidelity(qcp.qtraj, φ)
+    return abs(F_optimizer - F_rollout)
+end
+
 # ============================================================================= #
 # Tests
 # ============================================================================= #
@@ -651,11 +665,14 @@ end
     qcp = QuantumControlProblem(sampling_qtraj, prob)
     sync_trajectory!(qcp; check_divergence = false)
 
-    r = verify(qcp)
+    r = verify(qcp; verbose = false)
     @test r.F_optimizer === nothing
     @test r.ΔF === nothing
-    @test r.divergence === nothing
-    @test r.status === :unverified
+    # #375: the terminal-STATE comparison is defined for sampling ensembles now
+    # (each member rolled out with its own system), so a density sampling problem
+    # is no longer unverified — only its fidelity side stays not comparable.
+    @test r.divergence isa Float64
+    @test r.status === (r.divergence ≤ r.rtol ? :pass : :fail)
 end
 
 @testitem "verify: multi-density sampling returns no comparable definition" begin
@@ -681,11 +698,14 @@ end
     qcp = QuantumControlProblem(sampling_qtraj, prob)
     sync_trajectory!(qcp; check_divergence = false)
 
-    r = verify(qcp)
+    r = verify(qcp; verbose = false)
     @test r.F_optimizer === nothing
     @test r.ΔF === nothing
-    @test r.divergence === nothing
-    @test r.status === :unverified
+    # #375: the terminal-STATE comparison is defined for sampling ensembles now
+    # (each member rolled out with its own system), so a density sampling problem
+    # is no longer unverified — only its fidelity side stays not comparable.
+    @test r.divergence isa Float64
+    @test r.status === (r.divergence ≤ r.rtol ? :pass : :fail)
 end
 
 end # module Verification

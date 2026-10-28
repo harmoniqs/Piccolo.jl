@@ -267,7 +267,8 @@ end
         alg = ChebyshevAlg(bracket = (-8.0, 8.0)),
     )
 
-    # Non-spline pulse defaults to linear
+    # Non-spline pulse: refused (#375; it used to default silently to linear),
+    # built only as a declared approximation.
     zo_qtraj = MultiDensityTrajectory(
         sys,
         ZeroOrderPulse(0.3 * fill(1.0, 1, N), times),
@@ -275,7 +276,13 @@ end
         [ρg₁, ρg₂],
     )
     zo_traj = NamedTrajectory(zo_qtraj, N)
-    𝒮 = SplineIntegrator(zo_qtraj, zo_traj)
+    @test_throws ArgumentError SplineIntegrator(zo_qtraj, zo_traj)
+    𝒮 = SplineIntegrator(
+        zo_qtraj,
+        zo_traj;
+        spline_order = 1,
+        allow_basis_approximation = true,
+    )
     @test spline_order(𝒮) == 1
     δ = zeros(𝒮.dim)
     evaluate!(δ, 𝒮, zo_traj)

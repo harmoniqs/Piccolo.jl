@@ -111,7 +111,7 @@ end
     trajectory_kinds = (:unitary, :ket)
     ket_free_phase = false
     params = SmoothPulseParams
-    passthrough = (:integrator, :constraints, :piccolo_options)
+    passthrough = (:integrator, :allow_basis_approximation, :constraints, :piccolo_options)
     builder = _smooth_pulse_problem
     requires_N = true
     hint = """For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
@@ -136,6 +136,7 @@ The problem adds discrete derivative variables (du, ddu) that:
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, analytic Daleckii–Krein derivatives, globals-aware); open-system `DensityTrajectory` problems use its `NonHermitianExponentialIntegrator` counterpart.
+- `allow_basis_approximation::Bool=false`: every dynamics integrator must integrate in the pulse's [`interpolation_basis`](@ref) — `:zoh` here, i.e. the exponential integrators or `BilinearIntegrator` (#375). A spline integrator is refused with an `ArgumentError`; pass `true` to declare that approximation deliberately (see [`check_basis_pairing`](@ref)).
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., Piccolo's own `HermitianExponentialIntegrator(qtraj, N; global_names=...)`) that carries those globals in its dynamics.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
@@ -177,6 +178,7 @@ function _smooth_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -289,6 +291,12 @@ function _smooth_pulse_problem(
     else
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :SmoothPulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     # Get control derivative names
     control_names =
@@ -377,6 +385,7 @@ use `SplinePulseProblem` instead.
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, a single shared-propagator native `HermitianExponentialIntegrator` covers the whole ensemble (exact PWC, globals-aware).
+- `allow_basis_approximation::Bool=false`: every dynamics integrator must integrate in the pulse's [`interpolation_basis`](@ref) — `:zoh` here, i.e. the exponential integrators or `BilinearIntegrator` (#375). A spline integrator is refused with an `ArgumentError`; pass `true` to declare that approximation deliberately (see [`check_basis_pairing`](@ref)).
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., Piccolo's own `HermitianExponentialIntegrator(qtraj, N; global_names=...)`) that carries those globals in its dynamics.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
 - `du_bound::Float64=Inf`: Bound on discrete first derivative
@@ -412,6 +421,7 @@ function _smooth_pulse_problem(
     qtraj::MultiKetTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -552,6 +562,12 @@ function _smooth_pulse_problem(
     else
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :SmoothPulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     integrators = AbstractIntegrator[dynamics_integrators...]
 

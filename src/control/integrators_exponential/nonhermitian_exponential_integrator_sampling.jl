@@ -329,7 +329,16 @@ end
     @test length(integrators) == 2
     @test [x_name(ℰ) for ℰ in integrators] == [:ρ⃗̃1, :ρ⃗̃2]
 
+    # Off-solution probe point: the conversion seeds every member with the exact ZOH rollout of a
+    # stationary state, where the exact-exponential residual is identically zero and DirectTrajOpt's
+    # test_integrator (which asserts a non-zero residual) cannot exercise evaluate!/derivatives.
     for ℰ in integrators
+        xn = x_name(ℰ)
+        update!(
+            expanded_traj,
+            xn,
+            expanded_traj[xn] .+ 1e-3 .* randn(size(expanded_traj[xn])...),
+        )
         test_integrator(ℰ, expanded_traj; atol = 1e-3)
     end
 end
@@ -358,7 +367,16 @@ end
     @test length(integrators) == 4
     @test [x_name(ℰ) for ℰ in integrators] == [:ρ⃗̃1, :ρ⃗̃2, :ρ⃗̃3, :ρ⃗̃4]
 
+    # Off-solution probe point: the conversion seeds every member with the exact ZOH rollout of a
+    # stationary state, where the exact-exponential residual is identically zero and DirectTrajOpt's
+    # test_integrator (which asserts a non-zero residual) cannot exercise evaluate!/derivatives.
     for ℰ in integrators
+        xn = x_name(ℰ)
+        update!(
+            expanded_traj,
+            xn,
+            expanded_traj[xn] .+ 1e-3 .* randn(size(expanded_traj[xn])...),
+        )
         test_integrator(ℰ, expanded_traj; atol = 1e-3)
     end
 end
