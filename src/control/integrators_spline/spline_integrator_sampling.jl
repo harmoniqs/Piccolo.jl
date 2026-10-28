@@ -24,8 +24,10 @@ Supported closed-system bases: `UnitaryTrajectory`, `KetTrajectory`,
 (`LinearSplinePulse` → linear, `CubicSplinePulse` → cubic Hermite).
 
 # Keyword Arguments
-- `spline_order::Union{Int, Nothing}=nothing`: explicit order override for
-  non-spline pulses (1 = linear, 3 = cubic Hermite).
+- `spline_order::Union{Int, Nothing}=nothing`: the spline order (1 = linear, 3 =
+  cubic Hermite). The pulse decides for spline pulses; a conflicting order throws.
+- `allow_basis_approximation::Bool=false`: a non-spline pulse (ZOH, analytic) is
+  refused unless this is `true` AND `spline_order` is given (#375).
 - `alg::IntegrationAlgorithm=Tsit5Alg()`: propagation algorithm.
 - `global_names::Union{Vector{Symbol}, Nothing}=nothing`: global (time-invariant)
   variables in the dynamics. If `nothing`, auto-detects from the NOMINAL system's
@@ -37,6 +39,7 @@ function SplineIntegrator(
     qtraj::SamplingTrajectory,
     N::Int;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
     kwargs...,
@@ -105,6 +108,7 @@ function SplineIntegrator(
             control_sym,
             traj;
             spline_order = spline_order,
+            allow_basis_approximation = allow_basis_approximation,
             alg = alg,
             global_names = resolved_global_names,
             kwargs...,
@@ -168,6 +172,7 @@ function _spline_density(
     u::Symbol,
     traj::NamedTrajectory;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
 )
@@ -182,17 +187,13 @@ function _spline_density(
         )
     end
 
-    # Infer spline type from pulse
-    if pulse isa LinearSplinePulse
-        S = LinearSpline
-        order = 1
-    elseif pulse isa CubicSplinePulse
-        S = CubicSpline
-        order = 3
-    else
-        order = isnothing(spline_order) ? 1 : spline_order
-        S = order == 1 ? LinearSpline : CubicSpline
-    end
+    # #375: the pulse decides the basis; non-spline pulses and conflicting
+    # orders are refused unless the approximation is declared.
+    S, order = _resolve_spline_type(
+        pulse,
+        spline_order;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     n = sys.levels
     n² = n^2
@@ -427,6 +428,7 @@ function _spline_multidensity(
     u::Symbol,
     traj::NamedTrajectory;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
 )
@@ -440,16 +442,13 @@ function _spline_multidensity(
         )
     end
 
-    if pulse isa LinearSplinePulse
-        S = LinearSpline
-        order = 1
-    elseif pulse isa CubicSplinePulse
-        S = CubicSpline
-        order = 3
-    else
-        order = isnothing(spline_order) ? 1 : spline_order
-        S = order == 1 ? LinearSpline : CubicSpline
-    end
+    # #375: the pulse decides the basis; non-spline pulses and conflicting
+    # orders are refused unless the approximation is declared.
+    S, order = _resolve_spline_type(
+        pulse,
+        spline_order;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     n = sys.levels
     n² = n^2

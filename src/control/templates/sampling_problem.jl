@@ -237,20 +237,28 @@ end
 Resolve the `integrator` keyword of `SamplingProblem` into the dynamics integrator
 vector. Three call shapes, aligned with the other problem templates:
 
-- `nothing` — the #334 default: `_default_quantum_integrator` (one native
-  `HermitianExponentialIntegrator` per member; density-base ensembles route to
-  its `NonHermitianExponentialIntegrator` counterpart).
+- `nothing` — members inherit the base problem's dynamics integrator type and
+  order (#375, see [`_inherited_sampling_integrators`](@ref)): a `SplineIntegrator`
+  base yields per-member `SplineIntegrator`s of the same spline order, a
+  `BilinearIntegrator` base per-member `BilinearIntegrator`s; every other base
+  (the exponential tier, or none) keeps the #334 default
+  `_default_quantum_integrator` (one native `HermitianExponentialIntegrator` per
+  member; density-base ensembles route to its `NonHermitianExponentialIntegrator`
+  counterpart).
 - an `AbstractIntegrator` instance — valid only for single-slot ensembles.
 - a vector of integrators — one per ensemble dynamics slot.
 - a factory `Function` — called as `integrator(sampling_qtraj, N)`, returning an
   integrator or vector of integrators (validated like the shapes above).
 """
-function _resolve_sampling_integrators(integrator, sampling_qtraj, N::Int, n_slots::Int)
+function _resolve_sampling_integrators(
+    integrator,
+    sampling_qtraj,
+    N::Int,
+    n_slots::Int;
+    base_integrators = AbstractIntegrator[],
+)
     if isnothing(integrator)
-        # #334: default sampling integrator is the native exact-PWC tier
-        # (globals-aware) — one per member; density-base ensembles route to the
-        # NonHermitian counterpart via the shared default dispatch.
-        default_int = _default_quantum_integrator(sampling_qtraj, N)
+        default_int = _inherited_sampling_integrators(base_integrators, sampling_qtraj, N)
         return AbstractIntegrator[(default_int isa AbstractVector ? default_int :
                                    [default_int])...,]
     elseif integrator isa AbstractIntegrator
@@ -297,6 +305,40 @@ function _resolve_sampling_integrators(integrator, sampling_qtraj, N::Int, n_slo
     end
 end
 
+"""
+    _inherited_sampling_integrators(base_integrators, sampling_qtraj, N)
+
+The default member integrators of a `SamplingProblem` (#375): the same type and
+order as the base problem's dynamics integrator, so robustifying a problem never
+changes the basis it integrates in.
+
+- a `SplineIntegrator` base → `SplineIntegrator(sampling_qtraj, N; spline_order)`
+  with the base's order (one per member);
+- a `BilinearIntegrator` base → `BilinearIntegrator(sampling_qtraj, N)`;
+- anything else (the exponential tier, an unknown type, no dynamics integrator) →
+  `_default_quantum_integrator`, the #334 exact-PWC default.
+
+`allow_basis_approximation = true` is passed to the spline members because the
+base constructor already accepted this pairing: for a spline pulse the order equals
+the pulse's own, and for any other pulse the base must have declared the
+approximation itself.
+"""
+function _inherited_sampling_integrators(base_integrators, sampling_qtraj, N::Int)
+    dynamics = filter(i -> !(i isa DerivativeIntegrator), collect(base_integrators))
+    spline_idx = findfirst(i -> i isa SplineIntegrator, dynamics)
+    if !isnothing(spline_idx)
+        return SplineIntegrator(
+            sampling_qtraj,
+            N;
+            spline_order = SplineIntegrators.spline_order(dynamics[spline_idx]),
+            allow_basis_approximation = true,
+        )
+    end
+    any(i -> i isa BilinearIntegrator, dynamics) &&
+        return BilinearIntegrator(sampling_qtraj, N)
+    return _default_quantum_integrator(sampling_qtraj, N)
+end
+
 # ============================================================================= #
 # SamplingProblem Constructor
 # ============================================================================= #
@@ -323,6 +365,12 @@ fidelity objectives for each system.
   `AbstractIntegrator` instance (single-slot ensembles only), a vector of integrators
   (one per ensemble dynamics slot), or a factory function called as
   `integrator(sampling_qtraj, N)` returning an integrator or vector of integrators.
+  The default members inherit the base problem's dynamics integrator type and
+  spline order (#375): a spline base stays spline-integrated, a ZOH base stays on
+  the exact exponential tier.
+- `allow_basis_approximation::Bool=false`: a supplied `integrator` must integrate in
+  the pulse's [`interpolation_basis`](@ref) (see [`check_basis_pairing`](@ref)); set
+  `true` to declare a deliberate mismatch.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. SamplingProblem builds a fresh constraint list (rather than inheriting from the base `qcp`), so calibration_target pins set on the base `qcp` are *not* automatically carried over — pass them here explicitly. Default empty: globals stay free.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Options for the solver
 
@@ -336,6 +384,7 @@ function SamplingProblem(
     weights::Vector{Float64} = fill(1.0, length(systems)),
     Q::Float64 = 100.0,
     integrator::Union{Nothing,Function,AbstractIntegrator,AbstractVector} = nothing,
+    allow_basis_approximation::Bool = false,
     calibration_targets::Vector{Symbol} = Symbol[],
     piccolo_options::PiccoloOptions = PiccoloOptions(),
 )
@@ -440,7 +489,21 @@ function SamplingProblem(
     n_slots = sum(sampling_member_states(sampling_qtraj)) do ms
         ms isa Symbol ? 1 : length(ms)
     end
-    all_integrators = _resolve_sampling_integrators(integrator, sampling_qtraj, N, n_slots)
+    all_integrators = _resolve_sampling_integrators(
+        integrator,
+        sampling_qtraj,
+        N,
+        n_slots;
+        base_integrators = direct_problem(qcp).integrators,
+    )
+    # A user-supplied integrator must pair with the pulse like any template's; the
+    # inherited default pairs by construction (the base constructor accepted it).
+    isnothing(integrator) || check_basis_pairing(
+        :SamplingProblem,
+        sampling_qtraj,
+        all_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     # Replicate the base problem's derivative integrators exactly (smooth:
     # u→du→ddu; bang-bang / linear spline: u→du; cubic spline: none — its :du
@@ -710,7 +773,13 @@ end
     # Cubic spline: :du is Hermite tangents (free DOFs) — no DerivativeIntegrator
     cubic_pulse = CubicSplinePulse(0.1 * randn(1, N), 0.1 * randn(1, N), times)
     cubic_qtraj = UnitaryTrajectory(sys, cubic_pulse, GATES[:H])
-    cubic_qcp = SplinePulseProblem(cubic_qtraj, N; Q = 100.0, integrator_type = :pwc)
+    cubic_qcp = SplinePulseProblem(
+        cubic_qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
 
     cubic_sampling = SamplingProblem(cubic_qcp, [sys, sys])
     cubic_traj = get_trajectory(cubic_sampling)
