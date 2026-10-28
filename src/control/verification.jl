@@ -24,7 +24,7 @@ import ..QuantumControlProblems: rollout_fidelity_gap
 using ..QuantumControlProblems: sync_trajectory!
 using ..QuantumObjectives: unitary_fidelity_loss, ket_fidelity_loss
 
-export verify, VerificationReport, played_fidelity
+export verify, VerificationReport, played_fidelity, design_pulse
 
 # Fidelity of the OPTIMIZER's own terminal state — the collocation state it minimized
 # against — rather than of the rolled-out ODE solution. This lives here, not in
@@ -374,7 +374,7 @@ function played_fidelity(
     kwargs...,
 )
     φ = isnothing(phases) ? stored_phases(qcp.prob.trajectory) : phases
-    designed = extract_pulse(qcp.qtraj, get_trajectory(qcp))
+    designed = design_pulse(qcp)
     played, info = play(spec, designed)
     F_design = _scored_fidelity(
         rollout(qcp.qtraj, designed; algorithm = algorithm, n_save = n_save),
@@ -388,6 +388,16 @@ function played_fidelity(
     )
     return (; F_design, F_played, gap = F_design - F_played, played, info)
 end
+
+"""
+    design_pulse(qcp) -> AbstractPulse
+
+The designed pulse of a problem — what [`played_fidelity`](@ref) renders through
+playback. For a template problem it is the pulse extracted from the trajectory; a
+[`PlaybackProblem`](@ref) returns the design pulse at its design parameters.
+"""
+design_pulse(qcp::AbstractQuantumControlProblem) =
+    extract_pulse(qcp.qtraj, get_trajectory(qcp))
 
 function _scored_fidelity(qtraj, φ; kwargs...)
     F = isnothing(φ) ? fidelity(qtraj; kwargs...) : fidelity(qtraj; phases = φ, kwargs...)

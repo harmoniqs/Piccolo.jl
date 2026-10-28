@@ -55,8 +55,9 @@ end
         :constraints,
         :extra_objectives,
         :piccolo_options,
+        :playback,
     )
-    builder = _spline_pulse_problem
+    builder = _spline_pulse_problem_build
     requires_N = false
     hint = """For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
       qcp = SmoothPulseProblem(qtraj, N; ...)"""
@@ -196,6 +197,11 @@ solve!(qcp; max_iter=100)
 
 See also: [`SmoothPulseProblem`](@ref) for piecewise constant pulses with discrete smoothing.
 """ SplinePulseProblem
+
+# `playback = spec` wraps the design problem in a `PlaybackProblem` (#387); without
+# it the design problem is returned as built.
+_spline_pulse_problem_build(qtraj, args...; playback = nothing, kwargs...) =
+    _with_playback(_spline_pulse_problem(qtraj, args...; kwargs...), playback, kwargs)
 
 # The construction logic the generated constructor delegates to. Returns the
 # untagged problem; `@problem_template`'s constructor stamps on the tag + params.
