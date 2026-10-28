@@ -744,11 +744,11 @@ Default `1e-4`, the same as `verify`'s `atol`. The relative state check
 ([`ROLLOUT_DIVERGENCE_RTOL`](@ref), `5e-3`) is blind to fidelity errors of the size a
 high-fidelity result is quoted at: near `F ≈ 1` infidelity is quadratic in a small
 state error, and away from it a `5e-3` state error can still move `F` by `~1e-3`.
-Comparing fidelities directly closes that gap. It is not tighter because the
-re-rollout itself is not exact at its default ODE tolerances: on a correctly paired,
-converged ZOH problem the default (MagnusAdapt4) rollout was measured `1.4e-4 …
-2.2e-4` away in state and `≤ 2.6e-6` in fidelity, and an unconverged iterate turns a
-state error of that size into a fidelity error of the same order.
+Comparing fidelities directly closes that gap. It was set before the ZOH re-rollout
+became exact (#379): the then-default MagnusAdapt4 rollout of a correctly paired,
+converged ZOH problem was measured `1.4e-4 … 2.2e-4` away in state and `≤ 2.6e-6` in
+fidelity. A ZOH rollout is now the exact piecewise exponential, so on ZOH problems this
+can be tightened; spline rollouts still carry the ODE's `1e-8`-tolerance error.
 """
 const ROLLOUT_FIDELITY_ATOL = Ref(1.0e-4)
 

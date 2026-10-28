@@ -5,13 +5,22 @@ Rollouts of quantum systems using SciML's DifferentialEquations.jl.
 
 # Integration Algorithms
 
-The default integrator is `MagnusAdapt4()` — a 4th-order adaptive Magnus method that:
-- Preserves unitarity (Lie group structure)
-- Adapts step size based on local error estimation
-- Uses `abstol`/`reltol` instead of fixed point counts
+With `algorithm = nothing` (the default, #379):
+- a `ZeroOrderPulse` on a time-independent system is propagated **exactly** by
+  [`PiecewiseExponential`](@ref) — one matrix exponential per knot interval (`eigen` for
+  Hermitian closed systems, `exp` of the generator / Lindbladian otherwise), so it
+  agrees with the exponential integrators' collocation states to roundoff;
+- a linear or cubic spline pulse on a time-independent system integrates the ODE with
+  `Tsit5()`;
+- anything else (analytic pulses, time-dependent systems) uses the system's
+  `default_algorithm` — `MagnusAdapt4()` for Hermitian closed systems, `Tsit5()`
+  otherwise.
 
-`MagnusGL4()` is still available for fixed-step integration (pass `algorithm=MagnusGL4()`).
-`Tsit5()` is used by default for `DensityTrajectory` (open systems).
+`abstol`/`reltol` are local per-step tolerances: the global error tracks them up to a
+factor that grows with `‖H‖·T`. `MagnusAdapt4`'s step-size control is inert on
+piecewise-affine `H(t)` (linear-spline and ZOH intervals), which is why it is not used
+there (see `default_algorithm` and `docs/experiments/379-rollout-accuracy.md`).
+`MagnusGL4()` and `MagnusAdapt4()` remain available via `algorithm = …`.
 
 # Two Ways to Check Fidelity
 
@@ -76,11 +85,15 @@ export KetOperatorODEProblem
 export UnitaryODEProblem
 export UnitaryOperatorODEProblem
 export DensityODEProblem
+export PiecewiseExponential
+export piecewise_exponential_solve
 
 using LinearAlgebra
+import SciMLBase
 using NamedTrajectories
 using DataInterpolations
 using OrdinaryDiffEqLinear
+using OrdinaryDiffEqTsit5: Tsit5
 using SymbolicIndexingInterface
 const SII = SymbolicIndexingInterface
 using TestItems
@@ -530,6 +543,139 @@ function UnitaryOperatorODEProblem(
     )
 end
 
+# ------------------------------------------
+# Exact piecewise-exponential propagation (#379)
+# ------------------------------------------
+
+@doc raw"""
+    PiecewiseExponential()
+
+Rollout algorithm for a piecewise-constant (zero-order-hold) control on a system with no
+explicit time dependence. Every segment between consecutive knot and save times is
+propagated by the exact exponential of its constant generator:
+
+- Hermitian closed system: ``e^{-iH\Delta t} = V e^{-i\Lambda\Delta t} V^\dagger`` from
+  `eigen(Hermitian(H))` (one decomposition per knot interval, reused for the partial
+  segments a save time cuts it into);
+- non-Hermitian closed system: `exp(-im * H * Δt)`;
+- open system: `exp(𝓛 * Δt)` of the Lindbladian superoperator acting on `vec(ρ)`.
+
+There is no step-size control and no truncation error: the states agree with the
+exponential integrators' collocation states to roundoff, and `abstol` / `reltol` are
+unused. Saved states land exactly at the requested save times (a save time inside a knot
+interval is reached by the exact partial-interval exponential), and the returned
+`ODESolution` interpolates linearly between them, as an ODE solve with `saveat` does.
+
+A `ZeroOrderPulse` rolls out with this by default (`algorithm = nothing`); pass any
+SciML algorithm (e.g. `Tsit5()`) to integrate the ODE instead.
+"""
+struct PiecewiseExponential <: SciMLBase.AbstractODEAlgorithm end
+
+"""
+    piecewise_exponential_solve(prob, sys, u, knot_times, save_times; initials=[prob.u0])
+
+Roll out the piecewise-constant control `u(t)` (constant on each interval of
+`knot_times`) through `sys` with [`PiecewiseExponential`](@ref), saving at `save_times`.
+Returns an `ODESolution` built on `prob` (so symbolic indexing such as `sol[:U]` works)
+for one initial state, or an `EnsembleSolution` when `initials` is passed.
+"""
+function piecewise_exponential_solve(
+    prob,
+    sys::AbstractQuantumSystem,
+    u,
+    knot_times::AbstractVector{<:Real},
+    save_times::AbstractVector{<:Real};
+    initials = nothing,
+)
+    x0s = isnothing(initials) ? [prob.u0] : initials
+    ts = collect(Float64, save_times)
+    states = _piecewise_exponential_states(sys, u, knot_times, ts, x0s)
+    sols = map(zip(x0s, states)) do (x0, xs)
+        SciMLBase.build_solution(
+            remake(prob; u0 = x0),
+            PiecewiseExponential(),
+            ts,
+            xs;
+            retcode = SciMLBase.ReturnCode.Success,
+        )
+    end
+    isnothing(initials) && return only(sols)
+    return SciMLBase.EnsembleSolution(sols, 0.0, true)
+end
+
+function _piecewise_exponential_states(sys, u, knot_times, save_times, x0s)
+    u_vec = _controls_with_globals(sys, u)
+    grid = sort(unique(vcat(Float64.(knot_times), save_times)))
+    xs = [copy(x) for x in x0s]
+    out = [typeof(x)[] for x in xs]
+    j = 1
+    while j ≤ length(save_times) && save_times[j] == grid[1]
+        foreach((o, x) -> push!(o, copy(x)), out, xs)
+        j += 1
+    end
+    last_u = nothing
+    generator = nothing
+    for i = 1:(length(grid)-1)
+        a, b = grid[i], grid[i+1]
+        tm = (a + b) / 2
+        # ZOH: the controls are constant on [tₖ, tₖ₊₁); the segment midpoint reads that
+        # value unambiguously, whichever side of a knot the segment ends on.
+        uk = u_vec(tm)
+        if uk != last_u
+            generator = _segment_generator(sys, uk, tm)
+            last_u = copy(uk)
+        end
+        P = _segment_propagator(generator, b - a)
+        for k in eachindex(xs)
+            xs[k] = _propagate(sys, P, xs[k])
+        end
+        while j ≤ length(save_times) && save_times[j] == b
+            foreach((o, x) -> push!(o, copy(x)), out, xs)
+            j += 1
+        end
+    end
+    j > length(save_times) || error("save times must lie within the knot span")
+    return out
+end
+
+function _controls_with_globals(sys::AbstractQuantumSystem, u)
+    length(sys.global_params) == 0 && return u
+    global_vals = collect(values(sys.global_params))
+    return t -> vcat(u(t), global_vals)
+end
+
+# Mirrors `_construct_rhs(::OpenQuantumSystem, u)`, which passes the bare controls.
+_controls_with_globals(::OpenQuantumSystem, u) = u
+
+_hermitian_generator(sys::QuantumSystem) = sys.hermitian
+_hermitian_generator(sys::CompositeQuantumSystem) = all(s -> s.hermitian, sys.subsystems)
+_hermitian_generator(::AbstractQuantumSystem) = false
+
+function _segment_generator(sys::AbstractQuantumSystem, uk, t)
+    H = Matrix{ComplexF64}(sys.H(uk, t))
+    _hermitian_generator(sys) && return eigen(Hermitian(H))
+    return -im * H
+end
+
+function _segment_generator(sys::OpenQuantumSystem, uk, t)
+    H = Matrix{ComplexF64}(sys.H(uk, t))
+    Id = Matrix{ComplexF64}(I, sys.levels, sys.levels)
+    # vec(AXB) = (Bᵀ ⊗ A) vec(X), column-major
+    𝓛 = -im * (kron(Id, H) - kron(transpose(H), Id))
+    for L in sys.dissipation_operators
+        Lm = Matrix{ComplexF64}(L)
+        K = Lm' * Lm
+        𝓛 += kron(conj(Lm), Lm) - 0.5 * kron(Id, K) - 0.5 * kron(transpose(K), Id)
+    end
+    return 𝓛
+end
+
+_segment_propagator(E::Eigen, Δt) = E.vectors * Diagonal(cis.(-Δt .* E.values)) * E.vectors'
+_segment_propagator(G::AbstractMatrix, Δt) = exp(G * Δt)
+
+_propagate(::AbstractQuantumSystem, P, x) = P * x
+_propagate(::OpenQuantumSystem, P, ρ::AbstractMatrix) = reshape(P * vec(ρ), size(ρ))
+
 # ------------------------------------------------------------ #
 # Rollout fidelity methods
 # ------------------------------------------------------------ #
@@ -592,6 +738,33 @@ function _rollout_controls(traj::NamedTrajectory, control_name::Symbol, interpol
     return CubicHermiteSpline(traj, control_name)
 end
 
+# A zero-order-hold rollout with no explicit algorithm is propagated exactly (#379).
+_exact_constant_rollout(traj, control_name, interpolation, algorithm, sys) =
+    isnothing(algorithm) &&
+    _time_independent(sys) &&
+    resolve_rollout_interpolation(traj, control_name, interpolation) === :constant
+
+"""
+    _time_independent(sys)
+
+Whether `sys` is known to have no explicit time dependence, so a piecewise-constant
+control makes its generator piecewise constant and [`PiecewiseExponential`](@ref) is
+exact. That needs `time_dependent == false` AND a system assembled from drive operators:
+a system built from a bare `H(u, t)` function stores no drives, and its `time_dependent`
+flag is an unchecked user declaration (default `false` even when `H` reads `t`), so it
+keeps the ODE path.
+"""
+_time_independent(sys) =
+    hasproperty(sys, :time_dependent) &&
+    !sys.time_dependent &&
+    hasproperty(sys, :H_drives) &&
+    length(sys.H_drives) == sys.n_drives
+
+# `algorithm = nothing` for a non-constant interpolation: `Tsit5` on a time-independent
+# system (`MagnusAdapt4`'s tolerance is inert on a linear spline), else the system default.
+_default_interpolated_algorithm(sys) =
+    _time_independent(sys) ? Tsit5() : QuantumSystems.default_algorithm(sys)
+
 function rollout_fidelity(
     traj::NamedTrajectory,
     sys::AbstractQuantumSystem;
@@ -612,22 +785,36 @@ function rollout_fidelity(
     tmp0 = zeros(ComplexF64, sys.levels)
     rollout = KetOperatorODEProblem(sys, u, tmp0, times, state_name = state_name)
 
-    if isnothing(algorithm)
-        algorithm = QuantumSystems.default_algorithm(sys)
-    end
-
-    # Ensemble over initial states
-    prob_func(prob, i_or_ctx, _repeat = nothing) =
-        remake(prob, u0 = iso_to_ket(traj.initial[state_names[_sim_index(i_or_ctx)]]))
-    ensemble_prob = EnsembleProblem(rollout, prob_func = prob_func)
-    ensemble_sol = solve(
-        ensemble_prob,
-        algorithm;
-        trajectories = length(state_names),
-        saveat = [times[end]],
-        abstol = abstol,
-        reltol = reltol,
-    )
+    ensemble_sol =
+        if _exact_constant_rollout(traj, control_name, interpolation, algorithm, sys)
+            x0s = [iso_to_ket(traj.initial[name]) for name in state_names]
+            piecewise_exponential_solve(
+                rollout,
+                sys,
+                u,
+                times,
+                [times[end]];
+                initials = x0s,
+            )
+        else
+            if isnothing(algorithm)
+                algorithm = _default_interpolated_algorithm(sys)
+            end
+            # Ensemble over initial states
+            prob_func(prob, i_or_ctx, _repeat = nothing) = remake(
+                prob,
+                u0 = iso_to_ket(traj.initial[state_names[_sim_index(i_or_ctx)]]),
+            )
+            ensemble_prob = EnsembleProblem(rollout, prob_func = prob_func)
+            solve(
+                ensemble_prob,
+                algorithm;
+                trajectories = length(state_names),
+                saveat = [times[end]],
+                abstol = abstol,
+                reltol = reltol,
+            )
+        end
 
     fids = map(zip(ensemble_sol.u, state_names)) do (sol, name)
         xf = sol[state_name][end]
@@ -654,10 +841,14 @@ function unitary_rollout_fidelity(
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
     rollout = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
-    if isnothing(algorithm)
-        algorithm = QuantumSystems.default_algorithm(sys)
+    sol = if _exact_constant_rollout(traj, control_name, interpolation, algorithm, sys)
+        piecewise_exponential_solve(rollout, sys, u, times, [times[end]])
+    else
+        if isnothing(algorithm)
+            algorithm = _default_interpolated_algorithm(sys)
+        end
+        solve(rollout, algorithm; saveat = [times[end]], abstol = abstol, reltol = reltol)
     end
-    sol = solve(rollout, algorithm; saveat = [times[end]], abstol = abstol, reltol = reltol)
     xf = sol[state_name][end]
     xg = iso_vec_to_operator(traj.goal[state_name])
     return unitary_fidelity(xf, xg)
@@ -680,10 +871,14 @@ function unitary_rollout(
 
     x0 = iso_vec_to_operator(traj.initial[state_name])
     prob = UnitaryOperatorODEProblem(sys, u, times, U0 = x0, state_name = state_name)
-    if isnothing(algorithm)
-        algorithm = QuantumSystems.default_algorithm(sys)
+    sol = if _exact_constant_rollout(traj, control_name, interpolation, algorithm, sys)
+        piecewise_exponential_solve(prob, sys, u, times, times)
+    else
+        if isnothing(algorithm)
+            algorithm = _default_interpolated_algorithm(sys)
+        end
+        solve(prob, algorithm; saveat = times, abstol = abstol, reltol = reltol)
     end
-    sol = solve(prob, algorithm; saveat = times, abstol = abstol, reltol = reltol)
 
     # Extract and convert to iso-vec trajectory
     Ũ⃗_traj = hcat([operator_to_iso_vec(sol[state_name][i]) for i = 1:length(times)]...)
@@ -730,10 +925,14 @@ function ket_rollout(
 
     ψ0 = iso_to_ket(traj.initial[state_name])
     prob = KetOperatorODEProblem(sys, u, ψ0, times, state_name = state_name)
-    if isnothing(algorithm)
-        algorithm = QuantumSystems.default_algorithm(sys)
+    sol = if _exact_constant_rollout(traj, control_name, interpolation, algorithm, sys)
+        piecewise_exponential_solve(prob, sys, u, times, times)
+    else
+        if isnothing(algorithm)
+            algorithm = _default_interpolated_algorithm(sys)
+        end
+        solve(prob, algorithm; saveat = times, abstol = abstol, reltol = reltol)
     end
-    sol = solve(prob, algorithm; saveat = times, abstol = abstol, reltol = reltol)
 
     # Extract and convert to iso-vec trajectory
     ψ̃_traj = hcat([ket_to_iso(sol[state_name][i]) for i = 1:length(times)]...)

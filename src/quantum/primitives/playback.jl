@@ -1019,7 +1019,10 @@ end
 
 @testitem "played_fidelity: design-vs-played gap shrinks with the lattice step" begin
     using LinearAlgebra
-    sys = QuantumSystem(zeros(ComplexF64, 2, 2), [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
+    # A drift term makes the propagator depend on the waveform's SHAPE, not only its area: with a
+    # single commuting drive U depends on ∫u dt alone, and the left-Riemann hold of this periodic
+    # envelope reproduces that area exactly, so the gap sits at the rollout floor for every lattice.
+    sys = QuantumSystem(0.4 * ComplexF64[1 0; 0 -1], [ComplexF64[0 1; 1 0]], [(-2.0, 2.0)])
     N, T = 11, 5.0
     times = collect(range(0, T, length = N))
     # smooth envelope with area ≈ π/2 · (x drive), so F is far from trivial
