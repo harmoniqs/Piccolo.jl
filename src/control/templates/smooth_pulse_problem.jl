@@ -142,6 +142,10 @@ The problem adds discrete derivative variables (du, ddu) that:
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Bound on discrete first derivative (controls jump rate)
 - `ddu_bound::Float64=1.0`: Bound on discrete second derivative (controls acceleration)
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Weight on regularization terms (u, u̇, ü)
 - `R_u::Union{Float64, Vector{Float64}}=R`: Weight on control regularization
@@ -242,9 +246,14 @@ function _smooth_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     base_traj = if isnothing(global_data)
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+        NamedTrajectory(qtraj, N; Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N))
     else
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+        NamedTrajectory(
+            qtraj,
+            N;
+            Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N),
+            global_data = global_data,
+        )
     end
 
     # Add control derivatives to trajectory (always 2 derivatives for smooth pulses)
@@ -390,6 +399,10 @@ use `SplinePulseProblem` instead.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
 - `du_bound::Float64=Inf`: Bound on discrete first derivative
 - `ddu_bound::Float64=1.0`: Bound on discrete second derivative
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Weight on regularization terms (u, u̇, ü)
 - `R_u::Union{Float64, Vector{Float64}}=R`: Weight on control regularization
@@ -482,7 +495,12 @@ function _smooth_pulse_problem(
     end
 
     # Convert quantum trajectory to NamedTrajectory
-    base_traj = NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = NamedTrajectory(
+        qtraj,
+        N;
+        Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N),
+        global_data = global_data,
+    )
 
     # Add control derivatives to trajectory
     du_bounds = fill(du_bound, sys.n_drives)
@@ -1563,7 +1581,7 @@ end
     end
 
     δ_init = 0.1
-    sys = QuantumSystem(H, [1.0]; time_dependent = true, global_params = (δ = δ_init,))
+    sys = QuantumSystem(H, [1.0]; global_params = (δ = δ_init,))
     U_goal = GATES.X
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))

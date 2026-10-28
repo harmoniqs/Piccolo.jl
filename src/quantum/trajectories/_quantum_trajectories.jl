@@ -21,6 +21,7 @@ using ..Pulses:
     CompositePulse
 using ..Pulses: duration, drive_name, n_drives, sample
 using ..Pulses: get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
+using ..Pulses: _near_knot
 import ..Pulses: duration, drive_name, interpolation_basis
 import ..Rollouts
 import ..Rollouts: rollout!

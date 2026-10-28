@@ -42,6 +42,7 @@ function NonHermitianExponentialIntegrator(
     gauss_newton::Bool = false,
 )
     sys = get_system(qtraj)
+    _refuse_time_dependent(sys, "NonHermitianExponentialIntegrator")
     x_names = state_names(qtraj)
     u = drive_name(qtraj)
     n_densities = length(x_names)
