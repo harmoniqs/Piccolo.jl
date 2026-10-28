@@ -165,6 +165,24 @@ struct ZeroOrderPulse{I<:ConstantInterpolation} <: AbstractPulse
     snap_to_knots::Bool
 end
 
+# Knot times must be non-decreasing: every interpolant (and `searchsortedfirst`
+# in the ZOH snap) assumes sorted knots, and an unsorted grid otherwise surfaces
+# far downstream as an opaque `view(::Float64, ::UnitRange)` MethodError in the
+# rollout (#383). The usual source is a free timestep the solver drove negative.
+function _check_knot_times(times::AbstractVector)
+    k = findfirst(i -> !(times[i] >= times[i-1]), 2:length(times))
+    isnothing(k) && return nothing
+    i = k + 1
+    throw(
+        ArgumentError(
+            "pulse knot times must be non-decreasing, but knot $i (t = $(times[i])) " *
+            "is earlier than knot $(i - 1) (t = $(times[i - 1])). If the times come from an " *
+            "optimized trajectory, a free timestep went negative: give the problem a " *
+            "positive lower bound, e.g. `Δt_bounds = (Δt_min, Δt_max)`.",
+        ),
+    )
+end
+
 """
     ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing, snap_to_knots=true)
 
@@ -196,6 +214,7 @@ function ZeroOrderPulse(
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     snap_to_knots::Bool = true,
 )
+    _check_knot_times(times)
     n_drives = size(controls, 1)
     # :free means "no boundary constraint" (stored as NaN sentinel)
     # nothing defaults to zeros for backward compatibility
@@ -315,6 +334,7 @@ function LinearSplinePulse(
     initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
+    _check_knot_times(times)
     n_drives = size(controls, 1)
     init_val = if initial_value === :free
         fill(NaN, n_drives)
@@ -406,6 +426,7 @@ function CubicSplinePulse(
     initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
+    _check_knot_times(times)
     n_drives = size(controls, 1)
     init_val = if initial_value === :free
         fill(NaN, n_drives)
@@ -1842,6 +1863,20 @@ end
     # regardless of the snap flag — verify that holds for the legacy path too.
     sampled_legacy_batch, _ = sample(pulse_raw, N)
     @test sampled_legacy_batch == stored
+end
+
+@testitem "pulse constructors reject non-monotone knot times (#383)" begin
+    bad = [0.0, 0.25, 0.2, 0.5]
+    for make in (
+        t -> ZeroOrderPulse(ones(1, 4), t),
+        t -> LinearSplinePulse(ones(1, 4), t),
+        t -> CubicSplinePulse(ones(1, 4), zeros(1, 4), t),
+    )
+        @test_throws ArgumentError make(bad)
+        @test_throws "non-decreasing" make(bad)
+        @test_throws "knot 3" make(bad)
+        @test make([0.0, 0.1, 0.2, 0.5]) isa AbstractPulse
+    end
 end
 
 @testitem "ZeroOrderPulse knot snapping is relative to the time scale (#376)" begin

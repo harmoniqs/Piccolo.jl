@@ -71,7 +71,10 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Bound on discrete first derivative
-- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Timestep bounds
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Default regularization weight
 - `R_u::Union{Float64, Vector{Float64}}=0.0`: L2 weight on control amplitude (defaults to 0 — bang-bang needs no amplitude regularization)
@@ -168,9 +171,14 @@ function _bang_bang_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     base_traj = if isnothing(global_data)
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+        NamedTrajectory(qtraj, N; Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N))
     else
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+        NamedTrajectory(
+            qtraj,
+            N;
+            Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N),
+            global_data = global_data,
+        )
     end
 
     # Add 1 control derivative (not 2 like SmoothPulseProblem)
@@ -360,9 +368,14 @@ function _bang_bang_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     base_traj = if isnothing(global_data)
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+        NamedTrajectory(qtraj, N; Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N))
     else
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+        NamedTrajectory(
+            qtraj,
+            N;
+            Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N),
+            global_data = global_data,
+        )
     end
 
     # Add 1 control derivative

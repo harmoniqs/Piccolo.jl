@@ -113,6 +113,10 @@ Both pulse types always have `:du` components in the trajectory, simplifying int
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Replaces any existing `GlobalBoundsConstraint` on the same name. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Uniform bound on derivative (slope) magnitude for all drives
 - `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Weight on regularization terms (LinearSplinePulse only — see below)
 - `R_u::Union{Nothing, Float64, Vector{Float64}}=nothing`: Weight on control regularization. Pulse-type-dependent default — see below.
@@ -299,8 +303,12 @@ function _spline_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     # N_or_times=nothing uses native pulse knot times (preserves warm-start exactly)
-    base_traj =
-        NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = NamedTrajectory(
+        qtraj,
+        N_or_times;
+        Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N_or_times),
+        global_data = global_data,
+    )
     N = base_traj.N  # Get actual number of knot points
 
     # Always add control derivatives to trajectory
@@ -544,6 +552,10 @@ docstring for the full discussion, including the built-in `R_bend` bending-energ
 regularization for cubic-spline smoothness),
 plus:
 - `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `free_phase::Bool=false`: Optimize a per-subsystem frame phase alongside the pulse. Applies number-operator rotation `e^{iθ n̂}` to goal states — level `s` acquires phase `s·θ`. Requires `subsystem_levels`.
 - `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
 - `initial_phases::Union{Nothing, Vector{Float64}}=nothing`: Initial values for the per-subsystem phase variables when `free_phase=true`. Length must equal the number of subsystems.
@@ -650,8 +662,12 @@ function _spline_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     # N_or_times=nothing uses native pulse knot times (preserves warm-start exactly)
-    base_traj =
-        NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = NamedTrajectory(
+        qtraj,
+        N_or_times;
+        Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N_or_times),
+        global_data = global_data,
+    )
     N = base_traj.N  # Get actual number of knot points
 
     # Always add control derivatives to trajectory
