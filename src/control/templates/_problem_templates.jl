@@ -328,6 +328,55 @@ _is_open_system_trajectory(qtraj::SamplingTrajectory) =
     _is_open_system_trajectory(qtraj.base_trajectory)
 _is_open_system_trajectory(::AbstractQuantumTrajectory) = false
 
+export check_basis_pairing
+
+"""
+    check_basis_pairing(template, qtraj, integrators; allow_basis_approximation = false)
+
+Refuse a dynamics integrator whose [`interpolation_basis`](@ref) differs from the
+pulse's (#375). Every problem template calls this on its dynamics integrators, so a
+pulse is never integrated in another basis without the caller saying so.
+Integrators whose basis is unknown (`nothing`, e.g. `DerivativeIntegrator` or a
+downstream type without a method) are not checked.
+
+`allow_basis_approximation = true` is the named opt-in for research that knowingly
+integrates in another basis (a spline pulse under a piecewise-constant integrator,
+say). The check is skipped and nothing else changes.
+
+Throws an `ArgumentError` naming the pulse, the integrator, both bases, and the fix.
+"""
+function check_basis_pairing(
+    template,
+    qtraj,
+    integrators;
+    allow_basis_approximation::Bool = false,
+)
+    allow_basis_approximation && return nothing
+    pulse_basis = interpolation_basis(qtraj)
+    for integ in integrators
+        integ_basis = interpolation_basis(integ)
+        (isnothing(integ_basis) || integ_basis === pulse_basis) && continue
+        throw(
+            ArgumentError(
+                "$template: the pulse is a $(nameof(typeof(get_pulse(qtraj)))) " *
+                "(basis :$pulse_basis) but the dynamics integrator " *
+                "$(nameof(typeof(integ))) integrates in basis :$integ_basis, so the " *
+                "optimizer would constrain a different waveform than the pulse " *
+                "describes. $(_basis_pairing_hint(pulse_basis)) To make the " *
+                "approximation deliberately, pass `allow_basis_approximation = true`.",
+            ),
+        )
+    end
+    return nothing
+end
+
+_basis_pairing_hint(basis::Symbol) =
+    basis === :zoh ?
+    "Use HermitianExponentialIntegrator (the default; NonHermitianExponentialIntegrator for open systems) or BilinearIntegrator." :
+    basis === :linear || basis === :cubic ?
+    "Use SplineIntegrator (the SplinePulseProblem default)." :
+    "Convert the pulse to a ZeroOrderPulse or a spline pulse first."
+
 """
     _make_free_phase_goal(op::EmbeddedOperator)
 

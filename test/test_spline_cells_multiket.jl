@@ -597,11 +597,14 @@ end
     goals = [ψ1, ψ0]
     times = collect(range(0.0, T, N))
 
-    # Non-spline pulse + no explicit order → defaults to linear (order 1)
+    # Non-spline pulse: refused (#375; it used to default silently to linear),
+    # built only as a declared approximation.
     zo = ZeroOrderPulse(0.3 * fill(1.0, 1, N), times)
     eq_zo = MultiKetTrajectory(sys, zo, initials, goals)
     traj_zo = NamedTrajectory(eq_zo, N)
-    𝒮 = SplineIntegrator(eq_zo, traj_zo)
+    @test_throws ArgumentError SplineIntegrator(eq_zo, traj_zo)
+    approx = (spline_order = 1, allow_basis_approximation = true)
+    𝒮 = SplineIntegrator(eq_zo, traj_zo; approx...)
     @test spline_order(𝒮) == 1
     δ = zeros(𝒮.dim)
     evaluate!(δ, 𝒮, traj_zo)
@@ -621,7 +624,7 @@ end
     # shim-form constructor (the drive check precedes everything else).
     sys_free = QuantumSystem(GATES.Z)
     shim_free = _mk_multiket_qtraj(sys_free, zo, ket_names, :u, traj_zo)
-    @test_throws ArgumentError SplineIntegrator(shim_free, traj_zo)
+    @test_throws ArgumentError SplineIntegrator(shim_free, traj_zo; approx...)
 
     # The refresh-count accessor is loadable and non-decreasing
     c0 = multiket_sens_refresh_count()

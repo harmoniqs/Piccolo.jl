@@ -43,6 +43,63 @@ SplineType(::CubicSplinePulse) = CubicSpline()
 @inline spline_order(::CubicSpline) = 3
 spline_order(pulse::AbstractPulse) = spline_order(SplineType(pulse))
 
+"""
+    _resolve_spline_type(pulse, order; allow_basis_approximation = false) -> (S, order)
+
+Pick the spline basis a `SplineIntegrator` integrates `pulse` in (#375). The pulse
+decides: a `LinearSplinePulse` is order 1, a `CubicSplinePulse` order 3. An
+explicit `order` that contradicts the pulse is an `ArgumentError`, and so is any
+order other than 1 or 3.
+
+A pulse without a spline basis (`ZeroOrderPulse`, analytic envelopes) is refused.
+Integrating it as a spline of its knot samples is an approximation, so it needs
+both an explicit `order` and `allow_basis_approximation = true`.
+"""
+function _resolve_spline_type(pulse, order; allow_basis_approximation::Bool = false)
+    isnothing(order) ||
+        order ∈ (1, 3) ||
+        throw(
+            ArgumentError(
+                "SplineIntegrator: spline_order must be 1 (linear) or 3 (cubic Hermite); got $order.",
+            ),
+        )
+    basis = interpolation_basis(pulse)
+    if basis === :linear || basis === :cubic
+        native = basis === :linear ? 1 : 3
+        isnothing(order) ||
+            order == native ||
+            throw(
+                ArgumentError(
+                    "SplineIntegrator: spline_order = $order conflicts with the " *
+                    "$(nameof(typeof(pulse))), whose basis is order $native. Drop " *
+                    "`spline_order` (the pulse decides), or convert the pulse first.",
+                ),
+            )
+        return native == 1 ? (LinearSpline, 1) : (CubicSpline, 3)
+    end
+    if !allow_basis_approximation || isnothing(order)
+        hint = if basis === :zoh
+            "A ZeroOrderPulse is piecewise constant: integrate it exactly with " *
+            "HermitianExponentialIntegrator (NonHermitianExponentialIntegrator for " *
+            "open systems), or resample it first with LinearSplinePulse(pulse, n) / " *
+            "CubicSplinePulse(pulse, n)."
+        else
+            "Convert the pulse to a spline first, e.g. LinearSplinePulse(pulse, n) " *
+            "or CubicSplinePulse(pulse, n)."
+        end
+        throw(
+            ArgumentError(
+                "SplineIntegrator cannot integrate a $(nameof(typeof(pulse))) (basis " *
+                ":$basis): it would integrate a spline through the knot samples, not " *
+                "the waveform the pulse describes. $hint To integrate it as a spline " *
+                "on purpose, pass an explicit `spline_order = 1` or `3` together with " *
+                "`allow_basis_approximation = true`.",
+            ),
+        )
+    end
+    return order == 1 ? (LinearSpline, 1) : (CubicSpline, 3)
+end
+
 # ── The packed ODE-parameter layout, declared per SplineType (#338) ────────── #
 #
 # The matrix-free driver builds its per-knot parameter gather table from THIS

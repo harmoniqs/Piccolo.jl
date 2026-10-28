@@ -34,7 +34,7 @@ end
     trajectory_kinds = (:unitary, :ket)
     ket_free_phase = true
     params = BangBangPulseParams
-    passthrough = (:integrator, :constraints, :piccolo_options)
+    passthrough = (:integrator, :allow_basis_approximation, :constraints, :piccolo_options)
     builder = _bang_bang_pulse_problem
     requires_N = true
     hint = """For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
@@ -66,6 +66,7 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 
 # Keyword Arguments
 - `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, globals-aware); open-system `DensityTrajectory` problems use its `NonHermitianExponentialIntegrator` counterpart.
+- `allow_basis_approximation::Bool=false`: every dynamics integrator must integrate in the pulse's [`interpolation_basis`](@ref) — `:zoh` here, i.e. the exponential integrators or `BilinearIntegrator` (#375). A spline integrator is refused with an `ArgumentError`; pass `true` to declare that approximation deliberately (see [`check_basis_pairing`](@ref)).
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
@@ -102,6 +103,7 @@ function _bang_bang_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -235,6 +237,12 @@ function _bang_bang_pulse_problem(
     else
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :BangBangPulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     # Build objective: type-specific infidelity + regularization
     J = if free_phase && !isnothing(ket_goal_fn)
@@ -297,6 +305,7 @@ function _bang_bang_pulse_problem(
     qtraj::MultiKetTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -441,6 +450,12 @@ function _bang_bang_pulse_problem(
     else
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :BangBangPulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     integrators = AbstractIntegrator[dynamics_integrators...]
 
