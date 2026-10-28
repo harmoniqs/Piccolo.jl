@@ -24,7 +24,7 @@ import ..QuantumControlProblems: rollout_fidelity_gap
 using ..QuantumControlProblems: sync_trajectory!
 using ..QuantumObjectives: unitary_fidelity_loss, ket_fidelity_loss
 
-export verify, VerificationReport
+export verify, VerificationReport, played_fidelity
 
 # Fidelity of the OPTIMIZER's own terminal state — the collocation state it minimized
 # against — rather than of the rolled-out ODE solution. This lives here, not in
@@ -347,6 +347,52 @@ function verify(
     end
 
     return report
+end
+
+"""
+    played_fidelity(qcp, spec::PlaybackSpec; kwargs...) -> NamedTuple
+
+Fidelity of the waveform the hardware actually plays, and its gap to the designed
+fidelity. The designed pulse is extracted from the problem's trajectory, rendered
+through [`play`](@ref), and both the designed and the played pulse are rolled out
+fresh with the problem's system (same ODE algorithm, same phase convention as
+[`verify`](@ref)), so the gap measures playback alone.
+
+Returns `(F_design, F_played, gap = F_design - F_played, played, info)`, where
+`played` / `info` are what [`play`](@ref) returns.
+
+# Keyword arguments
+- `algorithm = nothing`, `n_save::Int = 101`: forwarded to `rollout`.
+- `phases = nothing`: phase convention; defaults to the problem's stored `φ_*` globals.
+"""
+function played_fidelity(
+    qcp::AbstractQuantumControlProblem,
+    spec::PlaybackSpec;
+    algorithm = nothing,
+    n_save::Int = 101,
+    phases = nothing,
+    kwargs...,
+)
+    φ = isnothing(phases) ? stored_phases(qcp.prob.trajectory) : phases
+    designed = extract_pulse(qcp.qtraj, get_trajectory(qcp))
+    played, info = play(spec, designed)
+    F_design = _scored_fidelity(
+        rollout(qcp.qtraj, designed; algorithm = algorithm, n_save = n_save),
+        φ;
+        kwargs...,
+    )
+    F_played = _scored_fidelity(
+        rollout(qcp.qtraj, played; algorithm = algorithm, n_save = n_save),
+        φ;
+        kwargs...,
+    )
+    return (; F_design, F_played, gap = F_design - F_played, played, info)
+end
+
+function _scored_fidelity(qtraj, φ; kwargs...)
+    F = isnothing(φ) ? fidelity(qtraj; kwargs...) : fidelity(qtraj; phases = φ, kwargs...)
+    qtraj isa SamplingTrajectory || return Float64(F)
+    return Float64(sum(w * f for (w, f) in zip(qtraj.weights, F)))
 end
 
 # The post-solve fidelity-gap check (#375). Same two sides `verify` compares, read off
