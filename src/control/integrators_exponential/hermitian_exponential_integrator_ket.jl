@@ -76,6 +76,7 @@ function _hermitian_exp_ket(
     matrix_free::Bool = false,
     use_analytical::Bool = true,
 )
+    _refuse_time_dependent(sys, "HermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
 
     global_dim = traj.global_dim
@@ -850,12 +851,7 @@ end
     # globals enter DISTINCT operators so a swap is observable: ∂H/∂b=Z, ∂H/∂a=Y.
     # global_params=(b, a) ⇒ integrator global_names=[:b,:a]; H reads u[3]=b, u[4]=a.
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     T = 2.0
@@ -1145,12 +1141,7 @@ end
 
     # --- with globals: additionally exercises the x-g cross-term block ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = KetTrajectory(gsys, ψ_init, ψ_goal, T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1239,12 +1230,7 @@ end
 
     # --- with globals: adds u-g, g-g, Δt-g p-p blocks ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = KetTrajectory(gsys, ψ_init, ψ_goal, T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1289,12 +1275,7 @@ end
     N = 12
 
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(sys, ψ_init, ψ_goal, T)
@@ -1469,7 +1450,7 @@ end
     A2 = randn(ComplexF64, n, n)
     H2 = Matrix(Hermitian(A2 + A2'))
     H = (u, t) -> H0 + u[1] * H1 + u[2] * H2
-    sys = QuantumSystem(H, [1.0, 1.0]; time_dependent = true)
+    sys = QuantumSystem(H, [1.0, 1.0])
 
     ψ_init = normalize(randn(ComplexF64, n))
     ψ_goal = normalize(randn(ComplexF64, n))
@@ -1659,12 +1640,7 @@ end
 
     Random.seed!(90_349)
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     N = 6

@@ -76,6 +76,7 @@ function _hermitian_exp_unitary(
     matrix_free::Bool = false,
     use_analytical::Bool = true,
 )
+    _refuse_time_dependent(sys, "HermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
 
     global_dim = traj.global_dim
@@ -895,12 +896,7 @@ end
 
     Random.seed!(90_211)
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
     U_goal = GATES.X
     T = 2.0
     N = 8
@@ -1257,12 +1253,7 @@ end
 
     # --- with globals: adds the x-g cross-term block ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = UnitaryTrajectory(gsys, U_goal, T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1351,12 +1342,7 @@ end
 
     # --- with globals: adds u-g, g-g, Δt-g p-p blocks ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = UnitaryTrajectory(gsys, U_goal, T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1401,12 +1387,7 @@ end
     N = 12
 
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
 
     ℰ = HermitianExponentialIntegrator(
@@ -1711,12 +1692,7 @@ end
 
     Random.seed!(90_351)
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
     N = 6
     qtraj = UnitaryTrajectory(sys, GATES.H, 2.0)
 

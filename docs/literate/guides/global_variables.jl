@@ -59,7 +59,7 @@
 # ## Function-based system: the global δ is u[3], coupled into the dynamics
 # ## by the default HermitianExponentialIntegrator (auto-detected).
 # H = (u, t) -> u[3] * PAULIS[:Z] + u[1] * PAULIS[:X] + u[2] * PAULIS[:Y]
-# sys = QuantumSystem(H, [1.0, 1.0]; time_dependent = true, global_params = (δ = 0.5,))
+# sys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.5,))
 # ```
 #
 # This guide's executable cells use a matrix-based system, which exercises the
