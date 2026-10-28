@@ -38,6 +38,10 @@ include("primitives/pulses.jl")
 # duration` sites (#323). Bind explicitly from the defining module.
 using .Pulses: duration
 
+# Hardware playback: DAC lattice, quantization, clip, filter (depends on pulses)
+include("primitives/playback.jl")
+@reexport using .Playback
+
 # Object utils (depends on gates)
 include("object_utils.jl")
 @reexport using .QuantumObjectUtils
