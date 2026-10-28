@@ -179,7 +179,8 @@ Create a zero-order hold pulse from control samples and times.
 - `initial_value`: Initial boundary condition (default: zeros(n_drives))
 - `final_value`: Final boundary condition (default: zeros(n_drives))
 - `snap_to_knots`: When `true` (default), `evaluate` snaps query times within
-  `1e-12` of a stored knot time to that knot's value. This avoids the
+  float roundoff of a stored knot time (`max(1e-12, 64·eps(knot))`, relative so
+  long gates snap too) to that knot's value. This avoids the
   off-by-one that arises when recomputed times (e.g. from `range()` or a
   `cumsum` round-trip through `NamedTrajectory`) differ from stored times by
   float roundoff at `ConstantInterpolation`'s left-continuous discontinuities,
@@ -238,11 +239,19 @@ end
 
 derivative(p::ZeroOrderPulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
+# A time is "at" a knot when it differs from it by float roundoff only. The
+# tolerance is relative (64 ulps of the knot time) with the historical absolute
+# 1e-12 as a floor: for long gates (T ≳ 4.5e3) one ulp of the time already exceeds
+# 1e-12, so an absolute tolerance missed cumsum-vs-range roundoff and shifted the
+# ZOH staircase by one knot (#376). 64 ulps stays far below any knot spacing.
+_knot_tol(knot::Real) = max(1e-12, 64 * eps(abs(Float64(knot))))
+_near_knot(t, knot) = abs(t - knot) < _knot_tol(knot)
+
 function evaluate(p::ZeroOrderPulse, t)
     if p.snap_to_knots
         knots = p.controls.t
         idx = searchsortedfirst(knots, t)
-        if idx <= length(knots) && abs(t - knots[idx]) < 1e-12
+        if idx <= length(knots) && _near_knot(t, knots[idx])
             return p.controls.u[:, idx]
         end
     end
@@ -251,9 +260,7 @@ end
 
 function sample(pulse::ZeroOrderPulse, times::AbstractVector)
     knot_times = collect(pulse.controls.t)
-    is_native =
-        length(times) == length(knot_times) &&
-        all(isapprox.(times, knot_times; atol = 1e-12))
+    is_native = length(times) == length(knot_times) && all(_near_knot.(times, knot_times))
     if is_native
         return Matrix(pulse.controls.u)
     else
@@ -1835,6 +1842,24 @@ end
     # regardless of the snap flag — verify that holds for the legacy path too.
     sampled_legacy_batch, _ = sample(pulse_raw, N)
     @test sampled_legacy_batch == stored
+end
+
+@testitem "ZeroOrderPulse knot snapping is relative to the time scale (#376)" begin
+    # Long gates (bosonic ~1.5e4 ns) put float roundoff between cumsum and range
+    # knot times far above an absolute 1e-12, which shifted the staircase by a knot.
+    for T in (1.0, 1e3, 1e5), N in (101, 997, 1524)
+        controls = Float64.(reshape(1:N, 1, N))
+        times_cumsum = cumsum([0.0; fill(T / (N - 1), N - 1)])
+        times_range = collect(range(0.0, T, length = N))
+        pulse = ZeroOrderPulse(controls, times_cumsum)
+        stored = Matrix(pulse.controls.u)
+        @test hcat([pulse(t) for t in times_range]...) == stored
+        @test sample(pulse, times_range) == stored
+        @test first(sample(pulse, N)) == stored
+
+        # A query between knots still holds the left knot's value.
+        @test pulse(times_cumsum[3] + 0.5 * T / (N - 1)) == stored[:, 3]
+    end
 end
 
 @testitem "ZeroOrderPulse → NamedTrajectory round-trip preserves knot values" begin

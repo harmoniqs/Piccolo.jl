@@ -22,6 +22,7 @@ function _sampling_nonhermitian_density(
     global_names::Vector{Symbol};
     gauss_newton::Bool = false,
 )
+    _refuse_time_dependent(sys, "NonHermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
 
     # Determine global dim from trajectory
@@ -103,6 +104,7 @@ function _sampling_nonhermitian_multidensity(
     global_names::Vector{Symbol};
     gauss_newton::Bool = false,
 )
+    _refuse_time_dependent(sys, "NonHermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
     @assert all(name in traj.names for name in xs) "All state names must be in trajectory"
 

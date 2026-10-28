@@ -402,18 +402,8 @@ end
 
     Random.seed!(90_352)
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys1 = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
-    sys2 = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.3, a = 0.2),
-    )
+    sys1 = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
+    sys2 = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.3, a = 0.2))
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     T = 2.0

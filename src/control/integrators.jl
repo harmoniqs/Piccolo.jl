@@ -42,7 +42,8 @@ function BilinearIntegrator(qtraj::UnitaryTrajectory, N::Int)
             state_name(qtraj),
             drive_name(qtraj),
             :t,
-            traj,
+            traj;
+            spline_order = _time_dependent_spline_order(qtraj),
         )
     else
         Ĝ = u_ -> I(sys.levels) ⊗ sys.G(u_, 0.0)
@@ -65,7 +66,8 @@ function BilinearIntegrator(qtraj::KetTrajectory, N::Int)
             state_name(qtraj),
             drive_name(qtraj),
             :t,
-            traj,
+            traj;
+            spline_order = _time_dependent_spline_order(qtraj),
         )
     else
         Ĝ = u_ -> sys.G(u_, 0.0)
@@ -106,14 +108,42 @@ function BilinearIntegrator(qtraj::MultiKetTrajectory, N::Int)
     snames = state_names(qtraj)
     if sys.time_dependent
         Ĝ = (u_, t) -> sys.G(u_, t)
+        order = _time_dependent_spline_order(qtraj)
         return [
-            TimeDependentBilinearIntegrator(Ĝ, name, control_sym, :t, traj) for
-            name in snames
+            TimeDependentBilinearIntegrator(
+                Ĝ,
+                name,
+                control_sym,
+                :t,
+                traj;
+                spline_order = order,
+            ) for name in snames
         ]
     else
         Ĝ = u_ -> sys.G(u_, 0.0)
         return [BilinearIntegrator(Ĝ, name, control_sym, traj) for name in snames]
     end
+end
+
+# The control interpolation `TimeDependentBilinearIntegrator` integrates between
+# knots must be the pulse's own basis (#376): order 0 for a ZeroOrderPulse, order 1
+# for a LinearSplinePulse. It has no cubic order, so a CubicSplinePulse is refused
+# rather than integrated as a linear interpolant of its knot values. Analytic
+# pulses keep the previous order-1 sampling.
+function _time_dependent_spline_order(qtraj)
+    basis = interpolation_basis(qtraj)
+    basis === :zoh && return 0
+    basis === :cubic || return 1
+    throw(
+        ArgumentError(
+            "BilinearIntegrator: the system is time-dependent, so this builds a " *
+            "TimeDependentBilinearIntegrator, which supports only zero-order (0) and " *
+            "linear (1) control interpolation, but the pulse is a " *
+            "$(nameof(typeof(get_pulse(qtraj)))) (cubic Hermite basis). Convert it " *
+            "first, e.g. LinearSplinePulse(pulse, times) or " *
+            "ZeroOrderPulse(sample(pulse, times), times).",
+        ),
+    )
 end
 
 # ----------------------------------------------------------------------------- #
@@ -155,7 +185,14 @@ function _sampling_integrator(
 )
     if sys.time_dependent
         Ĝ = (u_, t) -> I(sys.levels) ⊗ sys.G(u_, t)
-        return TimeDependentBilinearIntegrator(Ĝ, state_sym, control_sym, :t, traj)
+        return TimeDependentBilinearIntegrator(
+            Ĝ,
+            state_sym,
+            control_sym,
+            :t,
+            traj;
+            spline_order = _time_dependent_spline_order(base_qtraj),
+        )
     else
         Ĝ = u_ -> I(sys.levels) ⊗ sys.G(u_, 0.0)
         return BilinearIntegrator(Ĝ, state_sym, control_sym, traj)
@@ -171,7 +208,14 @@ function _sampling_integrator(
 )
     if sys.time_dependent
         Ĝ = (u_, t) -> sys.G(u_, t)
-        return TimeDependentBilinearIntegrator(Ĝ, state_sym, control_sym, :t, traj)
+        return TimeDependentBilinearIntegrator(
+            Ĝ,
+            state_sym,
+            control_sym,
+            :t,
+            traj;
+            spline_order = _time_dependent_spline_order(base_qtraj),
+        )
     else
         Ĝ = u_ -> sys.G(u_, 0.0)
         return BilinearIntegrator(Ĝ, state_sym, control_sym, traj)
@@ -188,9 +232,16 @@ function _sampling_integrator(
     # One integrator per ket sub-state of this member, all on the member's system
     if sys.time_dependent
         Ĝ = (u_, t) -> sys.G(u_, t)
+        order = _time_dependent_spline_order(base_qtraj)
         return [
-            TimeDependentBilinearIntegrator(Ĝ, name, control_sym, :t, traj) for
-            name in state_syms
+            TimeDependentBilinearIntegrator(
+                Ĝ,
+                name,
+                control_sym,
+                :t,
+                traj;
+                spline_order = order,
+            ) for name in state_syms
         ]
     else
         Ĝ = u_ -> sys.G(u_, 0.0)
@@ -858,6 +909,55 @@ end
     end
 end
 
+@testitem "BilinearIntegrator on time-dependent systems follows the pulse order (#376)" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X] => t -> cos(2π * t)], [1.0])
+    @test sys.time_dependent
+    N = 6
+    times = collect(range(0, 1.0, length = N))
+    ψ0 = ComplexF64[1, 0]
+    ψ1 = ComplexF64[0, 1]
+    trajs(pulse) = [
+        UnitaryTrajectory(sys, pulse, GATES[:X]),
+        KetTrajectory(sys, pulse, ψ0, ψ1),
+        MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0]),
+    ]
+    with_sampling(pulse) = [
+        trajs(pulse)
+        [SamplingTrajectory(q, [sys, sys]) for q in trajs(pulse)]
+    ]
+    flat(x) = x isa AbstractVector ? x : [x]
+
+    for (pulse, order, basis) in [
+        (ZeroOrderPulse(zeros(1, N), times), 0, :zoh),
+        (LinearSplinePulse(zeros(1, N), times), 1, :linear),
+    ]
+        for qtraj in with_sampling(pulse)
+            ints = flat(BilinearIntegrator(qtraj, N))
+            @test all(i -> i isa TimeDependentBilinearIntegrator, ints)
+            @test all(i -> i.spline_order == order, ints)
+            @test all(i -> interpolation_basis(i) === basis, ints)
+        end
+    end
+
+    cubic = CubicSplinePulse(zeros(1, N), zeros(1, N), times)
+    for qtraj in with_sampling(cubic)
+        @test_throws ArgumentError BilinearIntegrator(qtraj, N)
+        @test_throws "CubicSplinePulse" BilinearIntegrator(qtraj, N)
+    end
+
+    # The ZOH-paired integrator satisfies the template basis guard.
+    zoh = ZeroOrderPulse(0.1 * ones(1, N), times)
+    prob = SmoothPulseProblem(
+        UnitaryTrajectory(sys, zoh, GATES[:X]),
+        N;
+        integrator = BilinearIntegrator(UnitaryTrajectory(sys, zoh, GATES[:X]), N),
+    )
+    @test prob isa QuantumControlProblem
+end
+
 # ----------------------------------------------------------------------------- #
 # Exponential integrator family (moved from Piccolissimo — open-core slice 3a,
 # harmoniqs/Piccolissimo.jl#429; see docs/moved-file-review.md rows 1-9 + the
@@ -931,9 +1031,8 @@ export DaleckiiKreinSecondOrderWorkspace
 # without a method returns `nothing` (unknown) and is never refused, which keeps
 # downstream integrator families working until they declare their basis.
 #
-# `TimeDependentBilinearIntegrator` stays `nothing` on purpose: its basis is a
-# per-instance `spline_order` field, and time-dependent-system handling is
-# tracked separately (#376).
+# `TimeDependentBilinearIntegrator` reads its per-instance `spline_order`, which
+# `BilinearIntegrator(qtraj, N)` takes from the pulse (#376).
 
 import ...Quantum: interpolation_basis
 
@@ -941,6 +1040,8 @@ interpolation_basis(::AbstractIntegrator) = nothing
 interpolation_basis(::BilinearIntegrator) = :zoh
 interpolation_basis(::HermitianExponentialIntegrator) = :zoh
 interpolation_basis(::NonHermitianExponentialIntegrator) = :zoh
+interpolation_basis(B::TimeDependentBilinearIntegrator) =
+    B.spline_order == 0 ? :zoh : :linear
 interpolation_basis(𝒮::SplineIntegrator) =
     SplineIntegrators.spline_order(𝒮) == 1 ? :linear : :cubic
 

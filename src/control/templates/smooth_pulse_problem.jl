@@ -1563,7 +1563,7 @@ end
     end
 
     δ_init = 0.1
-    sys = QuantumSystem(H, [1.0]; time_dependent = true, global_params = (δ = δ_init,))
+    sys = QuantumSystem(H, [1.0]; global_params = (δ = δ_init,))
     U_goal = GATES.X
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))

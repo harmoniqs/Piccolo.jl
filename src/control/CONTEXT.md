@@ -191,7 +191,7 @@ using Piccolissimo  # For HermitianExponentialIntegrator or SplineIntegrator
 
 # System with global parameter
 H = (u, t) -> u[2] * GATES.Z + u[1] * GATES.X  # δ = u[2] is global
-sys = QuantumSystem(H, [1.0]; time_dependent=true, global_params=(δ=0.1,))
+sys = QuantumSystem(H, [1.0]; global_params=(δ=0.1,))
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 # Integrator that supports globals
