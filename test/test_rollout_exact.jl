@@ -270,3 +270,20 @@ end
         end
     end
 end
+
+@testitem "CubicSplinePulse extrapolates as a constant past its knots (#379)" begin
+    using LinearAlgebra
+
+    times = [0.0, 0.5, 1.0]
+    u = [0.1 0.4 -0.2; 0.3 0.0 0.5]
+    du = [1.0 0.0 -1.0; 0.5 0.2 0.0]
+    p = CubicSplinePulse(u, du, times)
+    # Tsit5 can query the pulse a few ulps past `T`; DataInterpolations' constant
+    # extrapolation for a matrix CubicHermiteSpline used to throw a MethodError there.
+    @test p(1.0 + 1e-12) == p(1.0) ≈ u[:, end]
+    @test p(-1e-12) == p(0.0) ≈ u[:, 1]
+    @test p(2.0) == p(1.0)
+    sys = QuantumSystem(0.5 * PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    qtraj = UnitaryTrajectory(sys, p, GATES[:X])
+    @test norm(qtraj.solution.u[end]' * qtraj.solution.u[end] - I) ≤ 1e-6
+end
