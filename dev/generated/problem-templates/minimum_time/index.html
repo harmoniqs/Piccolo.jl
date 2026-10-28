@@ -215,6 +215,29 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.00289  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>|F_collocation - F_rollout| = 0.00102  (tolerance 0.0001)
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
+<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Usual causes:
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
+<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. The templates refuse such a pairing
+<span class="sgr33"><span class="sgr1">│ </span></span>    unless it is declared (`allow_basis_approximation = true`, #375), so
+<span class="sgr33"><span class="sgr1">│ </span></span>    this arises when an approximation was declared or the problem was
+<span class="sgr33"><span class="sgr1">│ </span></span>    assembled by hand.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • The solve stopped before the dynamics constraints converged, so the
+<span class="sgr33"><span class="sgr1">│ </span></span>    collocation iterate is not yet a trajectory of any pulse.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]` / `ROLLOUT_FIDELITY_ATOL[]`.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:890</span>
 constructing MinimumTimeProblem [from UnitaryTrajectory]
     final fidelity ≥ 0.9
     min-time weight D = 100.0
@@ -268,6 +291,29 @@ constructing MinimumTimeProblem [from UnitaryTrajectory]
 
 <span class="sgr90">Hint: <span class="sgr1">show_problem(qcp; detail=:full) </span>for pulse plot + sparsity</span>
 
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.0028  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>|F_collocation - F_rollout| = 0.000842  (tolerance 0.0001)
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
+<span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
+<span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Usual causes:
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
+<span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
+<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. The templates refuse such a pairing
+<span class="sgr33"><span class="sgr1">│ </span></span>    unless it is declared (`allow_basis_approximation = true`, #375), so
+<span class="sgr33"><span class="sgr1">│ </span></span>    this arises when an approximation was declared or the problem was
+<span class="sgr33"><span class="sgr1">│ </span></span>    assembled by hand.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • The solve stopped before the dynamics constraints converged, so the
+<span class="sgr33"><span class="sgr1">│ </span></span>    collocation iterate is not yet a trajectory of any pulse.
+<span class="sgr33"><span class="sgr1">│ </span></span>
+<span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
+<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]` / `ROLLOUT_FIDELITY_ATOL[]`.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:890</span>
 Fidelity-Time Trade-off
 ──────────────────────────────────────────────────
   Target: 0.999  │  Duration: 11.566  │  Achieved: 0.9990
@@ -349,22 +395,26 @@ solve!(qcp_y; max_iter = 100)</code></pre><pre class="documenter-example-output"
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Optimizer and rollout disagree at the final time.
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>relative divergence = 0.00691  (tolerance 0.005)
+<span class="sgr33"><span class="sgr1">│ </span></span>|F_collocation - F_rollout| = 0.000182  (tolerance 0.0001)
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>`fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
 <span class="sgr33"><span class="sgr1">│ </span></span>optimizer&#39;s own objective was evaluated on the collocation solution, which is a
 <span class="sgr33"><span class="sgr1">│ </span></span>different waveform, so any fidelity taken from it is not what this pulse does.
 <span class="sgr33"><span class="sgr1">│ </span></span>
-<span class="sgr33"><span class="sgr1">│ </span></span>Two usual causes:
+<span class="sgr33"><span class="sgr1">│ </span></span>Usual causes:
 <span class="sgr33"><span class="sgr1">│ </span></span>  • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
 <span class="sgr33"><span class="sgr1">│ </span></span>    integrator is the common case: the interpolation the optimizer constrained is
-<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. The #334 default `SplineIntegrator` pairs
-<span class="sgr33"><span class="sgr1">│ </span></span>    correctly; the mismatch arises when the explicit `integrator_type = :pwc`
-<span class="sgr33"><span class="sgr1">│ </span></span>    escape hatch is requested for a spline pulse.
+<span class="sgr33"><span class="sgr1">│ </span></span>    not the one being integrated. The templates refuse such a pairing
+<span class="sgr33"><span class="sgr1">│ </span></span>    unless it is declared (`allow_basis_approximation = true`, #375), so
+<span class="sgr33"><span class="sgr1">│ </span></span>    this arises when an approximation was declared or the problem was
+<span class="sgr33"><span class="sgr1">│ </span></span>    assembled by hand.
 <span class="sgr33"><span class="sgr1">│ </span></span>  • Collocation grid too coarse for the dynamics — increase the number of knots.
+<span class="sgr33"><span class="sgr1">│ </span></span>  • The solve stopped before the dynamics constraints converged, so the
+<span class="sgr33"><span class="sgr1">│ </span></span>    collocation iterate is not yet a trajectory of any pulse.
 <span class="sgr33"><span class="sgr1">│ </span></span>
 <span class="sgr33"><span class="sgr1">│ </span></span>Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
-<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]`.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:711</span>
+<span class="sgr33"><span class="sgr1">│ </span></span>`ROLLOUT_DIVERGENCE_RTOL[]` / `ROLLOUT_FIDELITY_ATOL[]`.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ Piccolo.Control.QuantumControlProblems ~/work/Piccolo.jl/Piccolo.jl/src/control/problems.jl:890</span>
 This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.2, running with MUMPS v5.8.2
 
 Number of nonzeros in constraint Jacobian............:    19313
@@ -411,14 +461,14 @@ Number of Lagrangian Hessian evaluations              = 100
 Number of KKT factorizations                          = 229
 Number of KKT backsolves                              = 108
 
-Total wall secs in initialization                     =  0.004 s
-Total wall secs in linear solver                      =  0.379 s
-Total wall secs in NLP function evaluations           =  6.455 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.162 s
-Total wall secs                                       =  7.000 s
+Total wall secs in initialization                     =  0.003 s
+Total wall secs in linear solver                      =  0.367 s
+Total wall secs in NLP function evaluations           =  5.821 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.184 s
+Total wall secs                                       =  6.375 s
 
 <span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to mintime_y_gate_5e8f209.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 3 October 2026 09:26">Saturday 3 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to mintime_y_gate_4aea516.jld2</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../spline_pulse/#spline-pulse">SplinePulseProblem</a> - Base problem for spline controls</li><li><a href="../sampling/#sampling">SamplingProblem</a> - Add robustness before minimizing time</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../spline_pulse/">« SplinePulseProblem</a><a class="docs-footer-nextpage" href="../sampling/">SamplingProblem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 28 October 2026 09:56">Wednesday 28 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./minimum_time.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/minimum_time.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
