@@ -27,7 +27,7 @@ mutable struct DensityTrajectory{P<:AbstractPulse,S<:ODESolution} <:
 end
 
 """
-    DensityTrajectory(system, pulse, initial, goal; algorithm=Tsit5(), abstol=1e-8, reltol=1e-8, n_save=101)
+    DensityTrajectory(system, pulse, initial, goal; algorithm=nothing, abstol=1e-8, reltol=1e-8, n_save=101)
 
 Create a density matrix trajectory by solving the Lindblad master equation.
 
@@ -38,7 +38,7 @@ Create a density matrix trajectory by solving the Lindblad master equation.
 - `goal::Matrix`: Target density matrix ρ_goal
 
 # Keyword Arguments
-- `algorithm`: ODE solver algorithm (default: Tsit5())
+- `algorithm`: rollout algorithm (default: `nothing` — on a time-independent system the exact `PiecewiseExponential` for a `ZeroOrderPulse` and `Tsit5()` for a spline pulse, otherwise `default_algorithm(system)`)
 - `abstol`: Absolute tolerance (default: 1e-8)
 - `reltol`: Relative tolerance (default: 1e-8)
 - `n_save`: Number of output time points (default: 101)
@@ -48,7 +48,7 @@ function DensityTrajectory(
     pulse::AbstractPulse,
     initial::AbstractMatrix{<:Number},
     goal::AbstractMatrix{<:Number};
-    algorithm = Tsit5(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
@@ -61,13 +61,13 @@ function DensityTrajectory(
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = DensityODEProblem(system, pulse, ρ0, tstops)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
+    sol = _solve_rollout(prob, system, pulse, save_times, algorithm; abstol, reltol)
 
     return DensityTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ρ0, ρg, sol)
 end
 
 """
-    DensityTrajectory(system, initial, goal, T::Real; drive_name=:u, algorithm=Tsit5(), abstol=1e-8, reltol=1e-8)
+    DensityTrajectory(system, initial, goal, T::Real; drive_name=:u, algorithm=nothing, abstol=1e-8, reltol=1e-8)
 
 Convenience constructor that creates a random pulse of duration T
 (each drive sampled uniformly within its `drive_bounds`; pass `rng` for reproducibility).
@@ -78,7 +78,7 @@ function DensityTrajectory(
     goal::AbstractMatrix{<:Number},
     T::Real;
     drive_name::Symbol = :u,
-    algorithm = Tsit5(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     rng::AbstractRNG = default_rng(),
