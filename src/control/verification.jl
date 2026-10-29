@@ -394,7 +394,7 @@ end
 
 The designed pulse of a problem — what [`played_fidelity`](@ref) renders through
 playback. For a template problem it is the pulse extracted from the trajectory; a
-[`PlaybackProblem`](@ref) returns the design pulse at its design parameters.
+`PlaybackProblem` returns the design pulse at its design parameters.
 """
 design_pulse(qcp::AbstractQuantumControlProblem) =
     extract_pulse(qcp.qtraj, get_trajectory(qcp))
