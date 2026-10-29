@@ -501,7 +501,12 @@ end
 # TODO: Unimplemented by DataInterpolations
 # derivative(p::CubicSplinePulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
-evaluate(p::CubicSplinePulse, t) = p.controls(t)
+# Constant extrapolation by clamping: DataInterpolations implements
+# `ExtrapolationType.Constant` through `_derivative`, which has no method for a
+# matrix-valued `CubicHermiteSpline`, so any query past the last knot (an ODE
+# integrator overshooting `T` by roundoff, #379) would throw a `MethodError`.
+evaluate(p::CubicSplinePulse, t) =
+    p.controls(clamp(t, first(p.controls.t), last(p.controls.t)))
 
 # ============================================================================ #
 # Spline pulse knot accessors
@@ -1420,9 +1425,11 @@ end
         @test length(derivative(pulse, last(times))) == n_drives(pulse)
     end
 
-    # CubicHermiteSpline known failure mode
+    # CubicHermiteSpline: used to fail at the last knot (DataInterpolations' constant
+    # extrapolation needs a `_derivative` it lacks); evaluation now clamps to the knot
+    # span (#379), so the boundary derivative is the one-sided interior one.
     pulse = CubicSplinePulse(inits, times)
-    @test_broken derivative(pulse, last(times)) isa AbstractVector
+    @test derivative(pulse, last(times)) isa AbstractVector
 end
 
 @testitem "GaussianPulse" begin

@@ -27,7 +27,7 @@ mutable struct KetTrajectory{P<:AbstractPulse,S<:ODESolution} <:
 end
 
 """
-    KetTrajectory(system, pulse, initial, goal; algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8, n_save=101)
+    KetTrajectory(system, pulse, initial, goal; algorithm=nothing, abstol=1e-8, reltol=1e-8, n_save=101)
 
 Create a ket trajectory by solving the Schrödinger equation.
 
@@ -38,7 +38,7 @@ Create a ket trajectory by solving the Schrödinger equation.
 - `goal::Vector`: Target state |ψ_goal⟩
 
 # Keyword Arguments
-- `algorithm`: ODE solver algorithm (default: MagnusAdapt4())
+- `algorithm`: rollout algorithm (default: `nothing` — on a time-independent system the exact `PiecewiseExponential` for a `ZeroOrderPulse` and `Tsit5()` for a spline pulse, otherwise `default_algorithm(system)`)
 - `abstol`: Absolute tolerance for adaptive integration (default: 1e-8)
 - `reltol`: Relative tolerance for adaptive integration (default: 1e-8)
 - `n_save`: Number of output time points (default: 101)
@@ -55,23 +55,19 @@ function KetTrajectory(
 )
     @assert n_drives(pulse) == system.n_drives "Pulse has $(n_drives(pulse)) drives, system has $(system.n_drives)"
 
-    if isnothing(algorithm)
-        algorithm = default_algorithm(system)
-    end
-
     ψ0 = Vector{ComplexF64}(initial)
     ψg = Vector{ComplexF64}(goal)
     knot_times = get_knot_times(pulse)
     save_times = collect(range(0.0, duration(pulse), length = n_save))
     tstops = sort(unique(vcat(knot_times, save_times)))
     prob = KetOperatorODEProblem(system, pulse, ψ0, tstops)
-    sol = solve(prob, algorithm; saveat = save_times, abstol = abstol, reltol = reltol)
+    sol = _solve_rollout(prob, system, pulse, save_times, algorithm; abstol, reltol)
 
     return KetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0, ψg, sol)
 end
 
 """
-    KetTrajectory(system, initial, goal, T::Real; drive_name=:u, algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8)
+    KetTrajectory(system, initial, goal, T::Real; drive_name=:u, algorithm=nothing, abstol=1e-8, reltol=1e-8)
 
 Convenience constructor that creates a random pulse of duration T
 (each drive sampled uniformly within its `drive_bounds`; pass `rng` for reproducibility).
@@ -84,7 +80,7 @@ Convenience constructor that creates a random pulse of duration T
 
 # Keyword Arguments
 - `drive_name::Symbol`: Name of the drive variable (default: `:u`)
-- `algorithm`: ODE solver algorithm (default: MagnusAdapt4())
+- `algorithm`: rollout algorithm (default: `nothing` — on a time-independent system the exact `PiecewiseExponential` for a `ZeroOrderPulse` and `Tsit5()` for a spline pulse, otherwise `default_algorithm(system)`)
 - `abstol`: Absolute tolerance (default: 1e-8)
 - `reltol`: Relative tolerance (default: 1e-8)
 """
