@@ -126,7 +126,8 @@ function HermitianExponentialIntegrator(
         end
     end
 
-    global_dim = traj.global_dim
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
     ketdim = sys.levels
 
     # Dimensions for API - total constraint dimension per knot point for all kets

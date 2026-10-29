@@ -25,14 +25,8 @@ function _sampling_nonhermitian_density(
     _refuse_time_dependent(sys, "NonHermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
 
-    # Determine global dim from trajectory
-    if !isempty(global_names) && traj.global_dim > 0
-        global_dim = traj.global_dim
-    elseif !isempty(global_names)
-        global_dim = length(global_names)
-    else
-        global_dim = 0
-    end
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
 
     n = sys.levels
     statedim = n^2  # compact density iso dimension
@@ -56,7 +50,8 @@ function _sampling_nonhermitian_density(
     )
 
     # Sparsity templates
-    ∂ℰ_template = jacobian_structure(DensityTrajectory, x, u, statedim, traj)
+    ∂ℰ_template =
+        jacobian_structure(DensityTrajectory, x, u, statedim, traj; global_dim = global_dim)
     μ∂²ℰ_template = hessian_structure(x_dim, u_dim, global_dim)
     ∂ℰs = [copy(∂ℰ_template) for _ = 1:(N-1)]
     μ∂²ℰs = [copy(μ∂²ℰ_template) for _ = 1:(N-1)]
@@ -108,13 +103,8 @@ function _sampling_nonhermitian_multidensity(
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
     @assert all(name in traj.names for name in xs) "All state names must be in trajectory"
 
-    if !isempty(global_names) && traj.global_dim > 0
-        global_dim = traj.global_dim
-    elseif !isempty(global_names)
-        global_dim = length(global_names)
-    else
-        global_dim = 0
-    end
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
 
     n = sys.levels
     statedim = n^2
@@ -144,7 +134,14 @@ function _sampling_nonhermitian_multidensity(
 
     integrators = NonHermitianExponentialIntegrator{MultiDensityTrajectory}[]
     for name in xs
-        ∂ℰ_template = jacobian_structure(MultiDensityTrajectory, name, u, statedim, traj)
+        ∂ℰ_template = jacobian_structure(
+            MultiDensityTrajectory,
+            name,
+            u,
+            statedim,
+            traj;
+            global_dim = global_dim,
+        )
         μ∂²ℰ_template = hessian_structure(x_dim, u_dim, global_dim)
         ∂ℰs = [copy(∂ℰ_template) for _ = 1:(N-1)]
         μ∂²ℰs = [copy(μ∂²ℰ_template) for _ = 1:(N-1)]
