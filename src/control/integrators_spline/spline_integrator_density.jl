@@ -554,6 +554,8 @@ function SplineIntegrator(
     )
 
     sys = get_system(qtraj)::OpenQuantumSystem
+    # #386: the spline cells freeze t = 0; refuse explicit time dependence.
+    _refuse_time_dependent_spline(sys)
     x = state_name(qtraj)  # :ρ⃗̃
     u = drive_name(qtraj)
 

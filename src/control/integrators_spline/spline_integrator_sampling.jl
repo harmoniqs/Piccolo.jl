@@ -195,6 +195,9 @@ function _spline_density(
         allow_basis_approximation = allow_basis_approximation,
     )
 
+    # #386: the spline cells freeze t = 0; refuse explicit time dependence.
+    _refuse_time_dependent_spline(sys)
+
     n = sys.levels
     n² = n^2
     tol = alg.tol
@@ -449,6 +452,9 @@ function _spline_multidensity(
         spline_order;
         allow_basis_approximation = allow_basis_approximation,
     )
+
+    # #386: the spline cells freeze t = 0; refuse explicit time dependence.
+    _refuse_time_dependent_spline(sys)
 
     n = sys.levels
     n² = n^2
