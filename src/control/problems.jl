@@ -7,6 +7,14 @@ using ...Quantum
 using TestItems
 
 import ...Quantum: get_system, get_goal, state_name, drive_name, extract_pulse, fidelity
+using ...Quantum: SamplingTrajectory, sampling_member_states
+import ...Quantum:
+    interpolation_basis,
+    rollout_fidelity,
+    unitary_rollout_fidelity,
+    ket_rollout_fidelity,
+    unitary_rollout,
+    ket_rollout
 import DirectTrajOpt.Solvers: solve!
 
 export QuantumControlProblem
@@ -21,6 +29,10 @@ export state_dependent_terms
 export get_trajectory, get_system, get_goal, state_name, drive_name
 export solve!, sync_trajectory!, fidelity
 export rollout_divergence, ROLLOUT_DIVERGENCE_RTOL, stored_phases
+export rollout_fidelity_gap, ROLLOUT_FIDELITY_ATOL
+export interpolation_basis, rollout_interpolation
+export rollout_fidelity, unitary_rollout_fidelity, ket_rollout_fidelity
+export unitary_rollout, ket_rollout
 # Note: solve! is NOT exported to avoid ambiguity with SciMLBase.solve!
 # Users should use: using DirectTrajOpt (to get solve!)
 
@@ -535,6 +547,114 @@ function fidelity(p::AbstractQuantumControlProblem; phases = nothing, kwargs...)
     return fidelity(quantum_trajectory(p); phases = φ, kwargs...)
 end
 
+# A problem's basis is its quantum trajectory's pulse's (#375).
+interpolation_basis(p::AbstractQuantumControlProblem) =
+    interpolation_basis(quantum_trajectory(p))
+
+# ============================================================================= #
+# Problem-level rollout helpers (#375)
+# ============================================================================= #
+
+"""
+    rollout_interpolation(qcp, interpolation = nothing) -> Union{Nothing,Symbol}
+
+The control interpolation a problem-level rollout helper uses: the explicit
+`interpolation` if given, otherwise the one matching the problem pulse's
+[`interpolation_basis`](@ref) (`:zoh → :constant`, `:linear → :linear`,
+`:cubic → :cubic`; `nothing` for an analytic pulse, which defers to the
+`NamedTrajectory` method's own default).
+
+`:cubic` throws an `ArgumentError` when the problem constrains `:du` with a
+`DerivativeIntegrator` (smooth, bang-bang and linear-spline problems): there `:du`
+is a finite difference of the controls, not a Hermite tangent.
+"""
+function rollout_interpolation(qcp::AbstractQuantumControlProblem, interpolation = nothing)
+    du = Symbol(:d, drive_name(qcp))
+    derivative_du = any(
+        i -> i isa DerivativeIntegrator && i.ẋ_name === du,
+        direct_problem(qcp).integrators,
+    )
+    interpolation === :cubic &&
+        derivative_du &&
+        throw(
+            ArgumentError(
+                "interpolation = :cubic reads :$du as Hermite tangents, but this " *
+                "problem constrains :$du with a DerivativeIntegrator (a finite " *
+                "difference of the controls). Roll it out in its own basis " *
+                "(`interpolation = $(repr(rollout_interpolation(qcp)))`).",
+            ),
+        )
+    isnothing(interpolation) || return interpolation
+    basis = interpolation_basis(qcp)
+    basis === :zoh && return :constant
+    basis === :linear && return :linear
+    basis === :cubic && return :cubic
+    return nothing
+end
+
+# Problem-level methods of the `NamedTrajectory` rollout helpers: the optimized
+# trajectory and system of `qcp`, its state/control names, and the interpolation
+# of the pulse's own basis. Any keyword (including `state_name`) can be overridden.
+_problem_rollout_kwargs(qcp, interpolation, kwargs) = merge(
+    (
+        state_name = state_name(qcp),
+        control_name = drive_name(qcp),
+        interpolation = rollout_interpolation(qcp, interpolation),
+    ),
+    values(kwargs),
+)
+
+"""
+    rollout_fidelity(qcp::AbstractQuantumControlProblem; interpolation = nothing, kwargs...)
+    unitary_rollout_fidelity(qcp; …), ket_rollout_fidelity(qcp; …)
+    unitary_rollout(qcp; …), ket_rollout(qcp; …)
+
+Roll out the problem's optimized `NamedTrajectory` with its own system, in the
+basis of the problem's pulse (see [`rollout_interpolation`](@ref)), so the
+default matches what the optimizer integrated. For a solved `SmoothPulseProblem`
+this is the zero-order hold, and the result agrees with `fidelity(qcp)`.
+"""
+rollout_fidelity(qcp::AbstractQuantumControlProblem; interpolation = nothing, kwargs...) =
+    rollout_fidelity(
+        get_trajectory(qcp),
+        get_system(qcp);
+        _problem_rollout_kwargs(qcp, interpolation, kwargs)...,
+    )
+
+unitary_rollout_fidelity(
+    qcp::AbstractQuantumControlProblem;
+    interpolation = nothing,
+    kwargs...,
+) = unitary_rollout_fidelity(
+    get_trajectory(qcp),
+    get_system(qcp);
+    _problem_rollout_kwargs(qcp, interpolation, kwargs)...,
+)
+
+ket_rollout_fidelity(
+    qcp::AbstractQuantumControlProblem;
+    interpolation = nothing,
+    kwargs...,
+) = ket_rollout_fidelity(
+    get_trajectory(qcp),
+    get_system(qcp);
+    _problem_rollout_kwargs(qcp, interpolation, kwargs)...,
+)
+
+unitary_rollout(qcp::AbstractQuantumControlProblem; interpolation = nothing, kwargs...) =
+    unitary_rollout(
+        get_trajectory(qcp),
+        get_system(qcp);
+        _problem_rollout_kwargs(qcp, interpolation, kwargs)...,
+    )
+
+ket_rollout(qcp::AbstractQuantumControlProblem; interpolation = nothing, kwargs...) =
+    ket_rollout(
+        get_trajectory(qcp),
+        get_system(qcp);
+        _problem_rollout_kwargs(qcp, interpolation, kwargs)...,
+    )
+
 # ============================================================================= #
 # Forward DirectTrajOptProblem methods
 # ============================================================================= #
@@ -567,6 +687,7 @@ function sync_trajectory!(
     p::AbstractQuantumControlProblem;
     check_divergence::Bool = true,
     divergence_rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
+    divergence_atol::Real = ROLLOUT_FIDELITY_ATOL[],
 )
     qtraj = quantum_trajectory(p)
     traj = direct_problem(p).trajectory
@@ -584,7 +705,8 @@ function sync_trajectory!(
 
     # Both terminal states are now in hand — the collocation one the optimizer actually
     # minimized against, and the ODE one just produced. Nothing compared them before.
-    check_divergence && _warn_on_rollout_divergence(p; rtol = divergence_rtol)
+    check_divergence &&
+        _warn_on_rollout_divergence(p; rtol = divergence_rtol, atol = divergence_atol)
 
     return nothing
 end
@@ -610,6 +732,40 @@ geometric centre of that ~90× gap. Tighten it to catch subtler model error, at 
 firing on coarse-but-correct problems.
 """
 const ROLLOUT_DIVERGENCE_RTOL = Ref(5.0e-3)
+
+"""
+    ROLLOUT_FIDELITY_ATOL
+
+Absolute tolerance on [`rollout_fidelity_gap`](@ref) — `|F_collocation - F_rollout|`
+— above which [`sync_trajectory!`](@ref) warns (#375). Read as
+`ROLLOUT_FIDELITY_ATOL[]`; set as `ROLLOUT_FIDELITY_ATOL[] = 1e-5`.
+
+Default `1e-4`, the same as `verify`'s `atol`. The relative state check
+([`ROLLOUT_DIVERGENCE_RTOL`](@ref), `5e-3`) is blind to fidelity errors of the size a
+high-fidelity result is quoted at: near `F ≈ 1` infidelity is quadratic in a small
+state error, and away from it a `5e-3` state error can still move `F` by `~1e-3`.
+Comparing fidelities directly closes that gap. It was set before the ZOH re-rollout
+became exact (#379): the then-default MagnusAdapt4 rollout of a correctly paired,
+converged ZOH problem was measured `1.4e-4 … 2.2e-4` away in state and `≤ 2.6e-6` in
+fidelity. A ZOH rollout is now the exact piecewise exponential, so on ZOH problems this
+can be tightened; spline rollouts still carry the ODE's `1e-8`-tolerance error.
+"""
+const ROLLOUT_FIDELITY_ATOL = Ref(1.0e-4)
+
+"""
+    rollout_fidelity_gap(qcp) -> Union{Nothing,Float64}
+
+`|F_collocation - F_rollout|`: the fidelity the optimizer's own collocation terminal
+state(s) achieve, against the fidelity of the ODE re-rollout stored in `qcp.qtraj`,
+with the problem's stored free phases applied to both (#375). Defined for single
+and multi-state trajectories and for `SamplingProblem` (the sampling-weighted
+aggregate on both sides). `nothing` means *not comparable* (density bases, some
+free-phase cases), never *agreement*.
+
+Call after [`sync_trajectory!`](@ref). Methods live in `Verification`, next to the
+optimizer-side fidelity definitions `verify` uses.
+"""
+function rollout_fidelity_gap end
 
 # Terminal state(s) of a rolled-out quantum trajectory as `name => iso-vector` pairs, in the
 # SAME iso-vector representation the collocation `NamedTrajectory` stores them under, so the
@@ -648,6 +804,23 @@ _terminal_iso_states(qtraj::MultiKetTrajectory{<:AbstractPulse,RolloutStates}) =
         name => ket_to_iso(qtraj.solution.u[i].u[end]) for
         (i, name) in enumerate(state_names(qtraj))
     ] : nothing
+
+# SamplingTrajectory (#375): the stored solution is the NOMINAL member only, so each
+# member is rolled out with its own system (the same per-member rollout
+# `fidelity(::SamplingTrajectory)` performs) and its terminal state(s) are renamed to the
+# member's components in the expanded trajectory (`:Ũ⃗1`, `:Ũ⃗2`, … member-major).
+function _terminal_iso_states(qtraj::SamplingTrajectory)
+    base = qtraj.base_trajectory
+    pairs = Pair{Symbol,Vector{Float64}}[]
+    for (sys, names) in zip(qtraj.systems, sampling_member_states(qtraj))
+        member = _terminal_iso_states(Quantum.QuantumTrajectories._swap_system(base, sys))
+        isnothing(member) && return nothing
+        member_names = names isa Symbol ? [names] : names
+        length(member_names) == length(member) || return nothing
+        append!(pairs, [n => x for (n, (_, x)) in zip(member_names, member)])
+    end
+    return pairs
+end
 
 _terminal_iso_states(::AbstractQuantumTrajectory) = nothing
 
@@ -704,29 +877,39 @@ end
 function _warn_on_rollout_divergence(
     qcp::AbstractQuantumControlProblem;
     rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
+    atol::Real = ROLLOUT_FIDELITY_ATOL[],
 )
     ε = rollout_divergence(qcp)
-    (isnothing(ε) || !isfinite(ε) || ε ≤ rtol) && return nothing
+    ΔF = rollout_fidelity_gap(qcp)
+    state_bad = !isnothing(ε) && isfinite(ε) && ε > rtol
+    fid_bad = !isnothing(ΔF) && isfinite(ΔF) && ΔF > atol
+    (state_bad || fid_bad) || return nothing
 
+    ε_str = isnothing(ε) ? "not applicable" : string(round(ε; sigdigits = 3))
+    ΔF_str = isnothing(ΔF) ? "not comparable" : string(round(ΔF; sigdigits = 3))
     @warn """
           Optimizer and rollout disagree at the final time.
 
-          relative divergence = $(round(ε; sigdigits = 3))  (tolerance $rtol)
+          relative divergence = $ε_str  (tolerance $rtol)
+          |F_collocation - F_rollout| = $ΔF_str  (tolerance $atol)
 
           `fidelity(qcp.qtraj)` — the ODE re-rollout — is the trustworthy number. The
           optimizer's own objective was evaluated on the collocation solution, which is a
           different waveform, so any fidelity taken from it is not what this pulse does.
 
-          Two usual causes:
+          Usual causes:
             • Pulse/integrator mismatch. A spline pulse under a piecewise-constant
               integrator is the common case: the interpolation the optimizer constrained is
-              not the one being integrated. The #334 default `SplineIntegrator` pairs
-              correctly; the mismatch arises when the explicit `integrator_type = :pwc`
-              escape hatch is requested for a spline pulse.
+              not the one being integrated. The templates refuse such a pairing
+              unless it is declared (`allow_basis_approximation = true`, #375), so
+              this arises when an approximation was declared or the problem was
+              assembled by hand.
             • Collocation grid too coarse for the dynamics — increase the number of knots.
+            • The solve stopped before the dynamics constraints converged, so the
+              collocation iterate is not yet a trajectory of any pulse.
 
           Silence: `sync_trajectory!(qcp; check_divergence = false)`, or raise
-          `ROLLOUT_DIVERGENCE_RTOL[]`.
+          `ROLLOUT_DIVERGENCE_RTOL[]` / `ROLLOUT_FIDELITY_ATOL[]`.
           """
     return nothing
 end
@@ -747,7 +930,10 @@ Solve the quantum control problem by forwarding to the inner DirectTrajOptProble
 - `check_divergence::Bool=true`: Warn if the optimizer's collocation solution and the ODE
   re-rollout disagree at the final time — see [`rollout_divergence`](@ref). Only has an
   effect when `sync = true`.
-- `divergence_rtol::Real=ROLLOUT_DIVERGENCE_RTOL[]`: Relative tolerance for that check.
+- `divergence_rtol::Real=ROLLOUT_DIVERGENCE_RTOL[]`: Relative tolerance on the
+  terminal-state divergence.
+- `divergence_atol::Real=ROLLOUT_FIDELITY_ATOL[]`: Absolute tolerance on the
+  fidelity gap `|F_collocation - F_rollout|` — see [`rollout_fidelity_gap`](@ref).
 
 All other keyword arguments are passed to the DirectTrajOpt solver.
 
@@ -761,6 +947,7 @@ function solve!(
     verbose::Bool = false,
     check_divergence::Bool = true,
     divergence_rtol::Real = ROLLOUT_DIVERGENCE_RTOL[],
+    divergence_atol::Real = ROLLOUT_FIDELITY_ATOL[],
     kwargs...,
 )
     # SolveStats (status, iterations, objective, wall time) from the backend —
@@ -772,6 +959,7 @@ function solve!(
             p;
             check_divergence = check_divergence,
             divergence_rtol = divergence_rtol,
+            divergence_atol = divergence_atol,
         )
     end
     return stats
@@ -998,7 +1186,11 @@ end
 
     # ...and silent when the tolerance is loose enough to accept it.
     qcp.prob.trajectory.ψ̃[:, end] .= Float64[0, 1, 0, 0]
-    @test_logs min_level = Logging.Warn sync_trajectory!(qcp; divergence_rtol = 10.0)
+    @test_logs min_level = Logging.Warn sync_trajectory!(
+        qcp;
+        divergence_rtol = 10.0,
+        divergence_atol = 10.0,
+    )
 end
 
 @testitem "sync_trajectory! updates quantum trajectory" begin

@@ -24,6 +24,7 @@ function SplineIntegrator(
     qtraj::MultiKetTrajectory,
     N::Int;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
     ket_sensitivity::Union{Bool,Nothing} = nothing,
@@ -35,6 +36,7 @@ function SplineIntegrator(
         qtraj,
         traj;
         spline_order = spline_order,
+        allow_basis_approximation = allow_basis_approximation,
         alg = alg,
         global_names = global_names,
         ket_sensitivity = ket_sensitivity,
@@ -53,6 +55,7 @@ function _spline_multiket(
     u::Symbol,
     traj::NamedTrajectory;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
     ket_sensitivity::Union{Bool,Nothing} = nothing,
@@ -63,6 +66,7 @@ function _spline_multiket(
         _mk_multiket_qtraj(sys, pulse, x_names, u, traj),
         traj;
         spline_order = spline_order,
+        allow_basis_approximation = allow_basis_approximation,
         alg = alg,
         global_names = global_names,
         ket_sensitivity = ket_sensitivity,
@@ -93,6 +97,7 @@ function SplineIntegrator(
     qtraj::Union{MultiKetTrajectory,_SamplingMemberQTraj},
     traj::NamedTrajectory;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
     ket_sensitivity::Union{Bool,Nothing} = nothing,
@@ -155,20 +160,18 @@ function SplineIntegrator(
             "Use a CubicSplinePulse (with bounded :du or an explicit bracket).",
         )
     end
-    # Infer spline type from pulse if possible, otherwise use provided order or default
     pulse = get_pulse(qtraj)
-    if pulse isa LinearSplinePulse
-        S = LinearSpline
-        order = 1
-    elseif pulse isa CubicSplinePulse
-        S = CubicSpline
-        order = 3
-    else
-        order = isnothing(spline_order) ? 1 : spline_order
-        S = order == 1 ? LinearSpline : CubicSpline
-    end
+    # #375: the pulse decides the basis; non-spline pulses and conflicting
+    # orders are refused unless the approximation is declared.
+    S, order = _resolve_spline_type(
+        pulse,
+        spline_order;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     sys = get_system(qtraj)
+    # #386: the spline cells freeze t = 0; refuse explicit time dependence.
+    _refuse_time_dependent_spline(sys)
     x_names = state_names(qtraj)
     u = drive_name(qtraj)
 

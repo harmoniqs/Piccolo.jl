@@ -167,9 +167,7 @@ function _get_control_data(
     knot_du = get_knot_derivatives(pulse)
 
     # Check if times match native knots (same length and values)
-    is_native =
-        length(times) == length(knot_times) &&
-        all(isapprox.(times, knot_times; atol = 1e-12))
+    is_native = length(times) == length(knot_times) && all(_near_knot.(times, knot_times))
 
     if is_native
         # Use stored data directly - preserves Hermite tangents exactly

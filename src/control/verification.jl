@@ -15,6 +15,7 @@ using ..QuantumControlProblems:
     stored_phases,
     get_trajectory
 using ..QuantumControlProblems: rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
+import ..QuantumControlProblems: rollout_fidelity_gap
 # `sync_trajectory!` is imported for its docstring cross-reference, not called here:
 # Documenter resolves `@ref` against the enclosing module's scope, so a
 # `[`sync_trajectory!`](@ref)` in `verify`'s docstring fails the docs build
@@ -23,7 +24,7 @@ using ..QuantumControlProblems: rollout_divergence, ROLLOUT_DIVERGENCE_RTOL
 using ..QuantumControlProblems: sync_trajectory!
 using ..QuantumObjectives: unitary_fidelity_loss, ket_fidelity_loss
 
-export verify, VerificationReport
+export verify, VerificationReport, played_fidelity, design_pulse
 
 # Fidelity of the OPTIMIZER's own terminal state — the collocation state it minimized
 # against — rather than of the rolled-out ODE solution. This lives here, not in
@@ -348,6 +349,79 @@ function verify(
     return report
 end
 
+"""
+    played_fidelity(qcp, spec::PlaybackSpec; kwargs...) -> NamedTuple
+
+Fidelity of the waveform the hardware actually plays, and its gap to the designed
+fidelity. The designed pulse is extracted from the problem's trajectory, rendered
+through [`play`](@ref), and both the designed and the played pulse are rolled out
+fresh with the problem's system (same ODE algorithm, same phase convention as
+[`verify`](@ref)), so the gap measures playback alone.
+
+Returns `(F_design, F_played, gap = F_design - F_played, played, info)`, where
+`played` / `info` are what [`play`](@ref) returns.
+
+# Keyword arguments
+- `algorithm = nothing`, `n_save::Int = 101`: forwarded to `rollout`.
+- `phases = nothing`: phase convention; defaults to the problem's stored `φ_*` globals.
+"""
+function played_fidelity(
+    qcp::AbstractQuantumControlProblem,
+    spec::PlaybackSpec;
+    algorithm = nothing,
+    n_save::Int = 101,
+    phases = nothing,
+    kwargs...,
+)
+    φ = isnothing(phases) ? stored_phases(qcp.prob.trajectory) : phases
+    designed = design_pulse(qcp)
+    played, info = play(spec, designed)
+    F_design = _scored_fidelity(
+        rollout(qcp.qtraj, designed; algorithm = algorithm, n_save = n_save),
+        φ;
+        kwargs...,
+    )
+    F_played = _scored_fidelity(
+        rollout(qcp.qtraj, played; algorithm = algorithm, n_save = n_save),
+        φ;
+        kwargs...,
+    )
+    return (; F_design, F_played, gap = F_design - F_played, played, info)
+end
+
+"""
+    design_pulse(qcp) -> AbstractPulse
+
+The designed pulse of a problem — what [`played_fidelity`](@ref) renders through
+playback. For a template problem it is the pulse extracted from the trajectory; a
+`PlaybackProblem` returns the design pulse at its design parameters.
+"""
+design_pulse(qcp::AbstractQuantumControlProblem) =
+    extract_pulse(qcp.qtraj, get_trajectory(qcp))
+
+function _scored_fidelity(qtraj, φ; kwargs...)
+    F = isnothing(φ) ? fidelity(qtraj; kwargs...) : fidelity(qtraj; phases = φ, kwargs...)
+    qtraj isa SamplingTrajectory || return Float64(F)
+    return Float64(sum(w * f for (w, f) in zip(qtraj.weights, F)))
+end
+
+# The post-solve fidelity-gap check (#375). Same two sides `verify` compares, read off
+# the STORED rollout (no fresh propagation), with the problem's stored φ. `nothing`
+# wherever a side is not comparable, including a φ-declaring problem with no stored
+# phase values (`verify` errors there; a post-solve diagnostic should not).
+function rollout_fidelity_gap(qcp::AbstractQuantumControlProblem)
+    φ = stored_phases(qcp.prob.trajectory)
+    !isnothing(φ) && isempty(φ) && return nothing
+    F_optimizer = _optimizer_side_fidelity(qcp, φ)
+    isnothing(F_optimizer) && return nothing
+    qtraj = qcp.qtraj
+    fids = isnothing(φ) ? fidelity(qtraj) : fidelity(qtraj; phases = φ)
+    F_rollout =
+        qtraj isa SamplingTrajectory ?
+        Float64(sum(w * f for (w, f) in zip(qtraj.weights, fids))) : Float64(fids)
+    return abs(F_optimizer - F_rollout)
+end
+
 # ============================================================================= #
 # Tests
 # ============================================================================= #
@@ -605,11 +679,14 @@ end
     qcp = QuantumControlProblem(sampling_qtraj, prob)
     sync_trajectory!(qcp; check_divergence = false)
 
-    r = verify(qcp)
+    r = verify(qcp; verbose = false)
     @test r.F_optimizer === nothing
     @test r.ΔF === nothing
-    @test r.divergence === nothing
-    @test r.status === :unverified
+    # #375: the terminal-STATE comparison is defined for sampling ensembles now
+    # (each member rolled out with its own system), so a density sampling problem
+    # is no longer unverified — only its fidelity side stays not comparable.
+    @test r.divergence isa Float64
+    @test r.status === (r.divergence ≤ r.rtol ? :pass : :fail)
 end
 
 @testitem "verify: multi-density sampling returns no comparable definition" begin
@@ -635,11 +712,14 @@ end
     qcp = QuantumControlProblem(sampling_qtraj, prob)
     sync_trajectory!(qcp; check_divergence = false)
 
-    r = verify(qcp)
+    r = verify(qcp; verbose = false)
     @test r.F_optimizer === nothing
     @test r.ΔF === nothing
-    @test r.divergence === nothing
-    @test r.status === :unverified
+    # #375: the terminal-STATE comparison is defined for sampling ensembles now
+    # (each member rolled out with its own system), so a density sampling problem
+    # is no longer unverified — only its fidelity side stays not comparable.
+    @test r.divergence isa Float64
+    @test r.status === (r.divergence ≤ r.rtol ? :pass : :fail)
 end
 
 end # module Verification
