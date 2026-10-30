@@ -135,13 +135,13 @@ Number of KKT factorizations                          = 252
 Number of KKT backsolves                              = 123
 
 Total wall secs in initialization                     =  0.003 s
-Total wall secs in linear solver                      =  0.497 s
-Total wall secs in NLP function evaluations           =  5.520 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.082 s
-Total wall secs                                       =  6.103 s
+Total wall secs in linear solver                      =  0.495 s
+Total wall secs in NLP function evaluations           =  5.603 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.084 s
+Total wall secs                                       =  6.185 s
 
 <span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_base_8e54f47.jld2
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_base_239fb0d.jld2
 constructing SamplingProblem
     systems: 3
 <span class="sgr1">SamplingProblem</span>
@@ -245,14 +245,14 @@ Number of Lagrangian Hessian evaluations              = 100
 Number of KKT factorizations                          = 250
 Number of KKT backsolves                              = 152
 
-Total wall secs in initialization                     =  0.011 s
-Total wall secs in linear solver                      =  1.804 s
-Total wall secs in NLP function evaluations           = 19.806 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.197 s
-Total wall secs                                       = 21.818 s
+Total wall secs in initialization                     =  0.018 s
+Total wall secs in linear solver                      =  1.798 s
+Total wall secs in NLP function evaluations           = 19.445 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.212 s
+Total wall secs                                       = 21.473 s
 
 <span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_robust_8e54f47.jld2</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_robust_239fb0d.jld2</code></pre><h3 id="Weighted-Sampling"><a class="docs-heading-anchor" href="#Weighted-Sampling">Weighted Sampling</a><a id="Weighted-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Weighted-Sampling" title="Permalink"></a></h3><p>Prioritize certain parameter values:</p><pre><code class="language-julia hljs">qcp_weighted = SamplingProblem(
     qcp_base,
     [sys_nominal, sys_high, sys_low];
     weights = [2.0, 1.0, 1.0],  ## Nominal weighted 2x
@@ -361,13 +361,13 @@ Number of KKT factorizations                          = 250
 Number of KKT backsolves                              = 165
 
 Total wall secs in initialization                     =  0.011 s
-Total wall secs in linear solver                      =  1.842 s
-Total wall secs in NLP function evaluations           = 19.295 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.203 s
-Total wall secs                                       = 21.350 s
+Total wall secs in linear solver                      =  1.854 s
+Total wall secs in NLP function evaluations           = 20.917 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.189 s
+Total wall secs                                       = 22.970 s
 
 <span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_weighted_8e54f47.jld2</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_weighted_239fb0d.jld2</code></pre><h3 id="Dense-Parameter-Sampling"><a class="docs-heading-anchor" href="#Dense-Parameter-Sampling">Dense Parameter Sampling</a><a id="Dense-Parameter-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Dense-Parameter-Sampling" title="Permalink"></a></h3><p>For smooth performance across a parameter range:</p><pre><code class="language-julia hljs">scales = range(0.9, 1.1, length = 3)
 systems = [QuantumSystem(s * H_drift, H_drives, [1.0, 1.0]) for s in scales]
 
 qcp_dense = SamplingProblem(qcp_base, systems)
@@ -475,13 +475,13 @@ Number of KKT factorizations                          = 249
 Number of KKT backsolves                              = 125
 
 Total wall secs in initialization                     =  0.011 s
-Total wall secs in linear solver                      =  1.765 s
-Total wall secs in NLP function evaluations           = 18.726 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.226 s
-Total wall secs                                       = 20.727 s
+Total wall secs in linear solver                      =  1.790 s
+Total wall secs in NLP function evaluations           = 21.410 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.206 s
+Total wall secs                                       = 23.416 s
 
 <span class="sgr31">EXIT: Maximum Number of Iterations Exceeded.</span>
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_dense_8e54f47.jld2</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saved cache to sampling_dense_239fb0d.jld2</code></pre><h3 id="With-Time-Optimization"><a class="docs-heading-anchor" href="#With-Time-Optimization">With Time Optimization</a><a id="With-Time-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#With-Time-Optimization" title="Permalink"></a></h3><p>Chain with <code>MinimumTimeProblem</code>:</p><pre><code class="language-julia hljs"># Base problem with free time
 qcp_base = SmoothPulseProblem(qtraj, N; Q=100.0, Δt_bounds=(0.05, 0.5))
 solve!(qcp_base; max_iter=100)
 
@@ -503,7 +503,7 @@ for (s, sys) in zip(eval_scales, eval_systems)
     qtraj_eval = UnitaryTrajectory(sys, optimized_pulse, GATES[:X])
     fid = fidelity(qtraj_eval)
     println(&quot;Scale $s: Fidelity = $fid&quot;)
-end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 30 October 2026 03:29">Friday 30 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
+end</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../smooth_pulse/#smooth-pulse">SmoothPulseProblem</a> - Base problem for piecewise constant controls</li><li><a href="../bang_bang_pulse/#bang-bang-pulse">BangBangPulseProblem</a> - Base problem for bang-bang controls</li><li><a href="../minimum_time/#minimum-time">MinimumTimeProblem</a> - Minimize duration of robust pulses</li><li><a href="../composition/#composition">Composing Templates</a> - Advanced composition patterns</li></ul><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../minimum_time/">« MinimumTimeProblem</a><a class="docs-footer-nextpage" href="../composition/">Composing Templates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 30 October 2026 04:04">Friday 30 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div><script id="documenter-copybutton-config" type="application/json">
 {"mdUrl":"./sampling.jl","providers":[{"name":"ChatGPT","base":"https://chatgpt.com/?q=","suffix":"&hints=search"},{"name":"Claude (beta)","base":"https://claude.ai/new?q=","suffix":""},{"name":"Perplexity","base":"https://www.perplexity.ai/?q=","suffix":""},{"name":"Grok","base":"https://x.com/i/grok?text=","suffix":""},{"name":"v0","base":"https://v0.app/chat?q=","suffix":""},{"name":"Cursor","base":"https://cursor.com/link/prompt?text=","suffix":""},{"name":"Zed","base":"zed://agent?prompt=","suffix":""}],"prompt":"Read","copyLabel":"Copy for AI","pagePath":"generated/problem-templates/sampling.md"}
 </script>
 <script id="documenter-copybutton-content" type="text/plain"># ```@copybutton
