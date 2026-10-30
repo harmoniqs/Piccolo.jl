@@ -169,6 +169,14 @@ end
 | `SplinePulseProblem` | Spline-based pulse optimization | `LinearSplinePulse`, `CubicSplinePulse` |
 | `MinimumTimeProblem` | Time-optimal control | Any (converts existing problem) |
 | `SamplingProblem` | Robust control over parameters | Any (wraps existing problem) |
+| `PlaybackProblem` | Optimize the PLAYED waveform on a coarse clock (`playback = spec` on Smooth/Spline) | Any knot pulse (wraps the design problem) |
+
+**PlaybackProblem** (#387): the NLP lives on the played lattice (fixed `Δt = dt_out`,
+exponential integrator, played samples as `u`); the design parameters are one global
+block `:<u>_design`, tied to `u` by the linear `PlaybackTieConstraint` (`vec(u) = P·θ`,
+`P = playback_jacobian`). `PlaybackTiedIntegrator` hides that block from the exponential
+integrator (which treats every global as a dynamics global). `inner(qcp)` is the
+design-then-play baseline; `played_fidelity(qcp)` / `design_pulse(qcp)` read the result.
 
 **SmoothPulseProblem** (for ZeroOrderPulse):
 - Adds derivative variables `:du`, `:ddu` for smoothness

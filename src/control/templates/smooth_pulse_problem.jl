@@ -111,8 +111,9 @@ end
     trajectory_kinds = (:unitary, :ket)
     ket_free_phase = false
     params = SmoothPulseParams
-    passthrough = (:integrator, :allow_basis_approximation, :constraints, :piccolo_options)
-    builder = _smooth_pulse_problem
+    passthrough =
+        (:integrator, :allow_basis_approximation, :constraints, :piccolo_options, :playback)
+    builder = _smooth_pulse_problem_build
     requires_N = true
     hint = """For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
       qcp = SplinePulseProblem(qtraj, N; ...)"""
@@ -175,6 +176,11 @@ solve!(qcp)
 
 See also: [`SplinePulseProblem`](@ref) for spline-based pulses.
 """ SmoothPulseProblem
+
+# `playback = spec` wraps the design problem in a `PlaybackProblem` (#387); without
+# it the design problem is returned as built.
+_smooth_pulse_problem_build(qtraj, args...; playback = nothing, kwargs...) =
+    _with_playback(_smooth_pulse_problem(qtraj, args...; kwargs...), playback, kwargs)
 
 # The construction logic the generated constructor delegates to. Returns the
 # untagged problem; `@problem_template`'s constructor stamps on the tag + params.
