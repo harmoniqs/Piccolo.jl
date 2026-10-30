@@ -55,14 +55,8 @@ function NonHermitianExponentialIntegrator(
 
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
 
-    # Determine global dim from trajectory
-    if traj.global_dim > 0
-        global_dim = traj.global_dim
-    elseif !isempty(global_names)
-        global_dim = length(global_names)
-    else
-        global_dim = 0
-    end
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
 
     n = sys.levels
     statedim = n^2  # compact density iso dimension
@@ -92,7 +86,8 @@ function NonHermitianExponentialIntegrator(
     )
 
     # Sparsity templates
-    ∂ℰ_template = jacobian_structure(DensityTrajectory, x, u, statedim, traj)
+    ∂ℰ_template =
+        jacobian_structure(DensityTrajectory, x, u, statedim, traj; global_dim = global_dim)
     μ∂²ℰ_template = hessian_structure(x_dim, u_dim, global_dim)
 
     ∂ℰs = [copy(∂ℰ_template) for _ = 1:(N-1)]
@@ -150,12 +145,12 @@ function jacobian_structure(
     x_name::Symbol,
     u_name::Symbol,
     statedim::Int,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    global_dim::Int = traj.global_dim,
 )
     x_dim = traj.dims[x_name]
     u_dim = traj.dims[u_name]
     z_dim = traj.dim
-    global_dim = traj.global_dim
     x_comps = traj.components[x_name]
     u_comps = traj.components[u_name]
     Δt_comp = traj.components[traj.timestep][1]
@@ -418,13 +413,21 @@ function get_jacobian_structure(
     N = traj.N
     x_dim = traj.dims[x_name(ℰ)]
     z_dim = traj.dim
-    global_dim = traj.global_dim
+    # per-knot global block = declared globals; Z spans all trajectory globals
+    global_dim = ℰ.global_dim
     F_dim = x_dim * (N - 1)
-    Z_dim = z_dim * N + global_dim
+    Z_dim = z_dim * N + traj.global_dim
     ∂F = spzeros(F_dim, Z_dim)
 
     # Get structure for a single knot point (includes global columns)
-    ∂ℰ_k = jacobian_structure(DensityTrajectory, x_name(ℰ), ℰ.u_name, ℰ.statedim, traj)
+    ∂ℰ_k = jacobian_structure(
+        DensityTrajectory,
+        x_name(ℰ),
+        ℰ.u_name,
+        ℰ.statedim,
+        traj;
+        global_dim = global_dim,
+    )
 
     # Place per-knot structure for all knot points
     for k = 1:(N-1)
@@ -496,8 +499,8 @@ end
     end
 
     # Global columns: copy from per-knot ∂ℰ to fixed global positions in ∂F
-    if traj.global_dim > 0
-        g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+traj.global_dim)
+    if ℰ.global_dim > 0
+        g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+ℰ.global_dim)
         g_cols_full = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ℰ.∂ℰs[k][:, g_cols_local]
@@ -556,7 +559,7 @@ end
     end
 
     # Global blocks: cross-terms with per-knot vars + g-g block
-    global_dim = traj.global_dim
+    global_dim = ℰ.global_dim
     if global_dim > 0
         g_can = (2*knot_dim+1):(2*knot_dim+global_dim)
         g_traj = _global_full_cols(ℰ, traj)
