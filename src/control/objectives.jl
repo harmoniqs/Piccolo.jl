@@ -11,6 +11,7 @@ export UnitarySensitivityObjective
 export UnitaryFreePhaseInfidelityObjective
 export LeakageObjective
 export HermiteBendingEnergyRegularizer
+export HermiteAccelerationJumpPenalty
 
 using LinearAlgebra
 using SparseArrays
@@ -969,6 +970,400 @@ end
 
     reg = HermiteBendingEnergyRegularizer(traj; R = 1.0)
     @test DirectTrajOpt.objective_value(reg, traj) < 1e-20
+end
+
+# ============================================================================== #
+#  Between-knot C²-jump penalty for cubic-Hermite splines
+# ============================================================================== #
+#
+# A cubic Hermite spline is C¹: the piecewise-linear acceleration u″ jumps at
+# every interior knot, so a played waveform that is a DERIVATIVE of the control
+# (e.g. the displaced-frame cavity drive ε = iα̇) is C⁰ with genuine slope-kinks
+# at the knots. Every per-segment regularizer — R_u, R_du (knot-point L2 on the
+# Hermite DOFs) and R_bend = ∫u″²dt — is structurally blind to the between-knot
+# jump: it appears in no segment's energy (the "regularizer-blindness law",
+# measured in the bosonic-gkp-qubit campaign, Oct 2026: bend-only solves ship
+# kinked played-ε, and the per-segment terms reduce kinks only as a side effect
+# of global shrinkage, at ~100–1000× worse kink-reduction per unit fidelity
+# change than targeting the jump directly). This objective penalizes exactly
+# the jump.
+
+"""
+    HermiteAccelerationJumpPenalty <: AbstractObjective
+
+Penalizes the squared **between-knot acceleration jump** of a cubic-Hermite
+spline — the C² discontinuity that per-segment regularizers (`R_u`, `R_du`,
+`R_bend`) cannot see:
+
+```
+    J = Σ_d R_d · (1/(N−2)) · Σ_{k=2}^{N−1} Δa_{k,d}²
+```
+
+with `Δa_{k,d} = a_end(k−1, d) − a_start(k, d)` at each interior knot, using
+the same Hermite endpoint-acceleration closed forms as
+`HermiteBendingEnergyRegularizer` and `HermiteSmoothAccelerationConstraint`.
+The per-channel term is the channel's *mean squared jump*, so `R_d` is
+directly interpretable as the weight on that kink metric. Zero-weight
+channels contribute nothing (use this to penalize only the channels whose
+derivative is played on hardware).
+
+Only meaningful for cubic-Hermite trajectories (components `u`, `du`, `Δt`).
+
+# Weight recipe
+
+For a gentle term at the same scale `R_bend = 1e-3` occupies relative to the
+fidelity weight `Q`, set per target channel
+
+```
+    R_d = (Q / 2) · 1e-3 / median{ (Δa^{ref})² }    (pooled over the target channels)
+```
+
+so the penalty at a reference pulse evaluates to ≈ `1e-3 · Q` — pointed at the
+between-knot jump, which `R_bend` cannot see.
+
+# Fields
+- `R::Vector{Float64}`: Per-drive weight (length `n_drives`).
+- `control_name::Symbol`: Control variable (default `:u`).
+- `derivative_name::Symbol`: Derivative variable (default `Symbol(:d, control_name)`).
+- `timestep_name::Symbol`: Timestep variable (default `:Δt`).
+
+# Constructor
+```julia
+HermiteAccelerationJumpPenalty(traj::NamedTrajectory;
+    R::Union{Real,AbstractVector{<:Real}},
+    control_name::Symbol = :u,
+    derivative_name::Symbol = Symbol(:d, control_name),
+    timestep_name::Symbol = :Δt,
+)
+```
+"""
+struct HermiteAccelerationJumpPenalty <: AbstractObjective
+    R::Vector{Float64}
+    control_name::Symbol
+    derivative_name::Symbol
+    timestep_name::Symbol
+end
+
+function HermiteAccelerationJumpPenalty(
+    traj::NamedTrajectory;
+    R::Union{Real,AbstractVector{<:Real}},
+    control_name::Symbol = :u,
+    derivative_name::Symbol = Symbol(:d, control_name),
+    timestep_name::Symbol = :Δt,
+)
+    @assert haskey(traj.components, control_name) "Trajectory must have component :$control_name"
+    @assert haskey(traj.components, derivative_name) "Trajectory must have component :$derivative_name"
+    @assert haskey(traj.components, timestep_name) "Trajectory must have component :$timestep_name"
+    n_drives = traj.dims[control_name]
+    R_vec = R isa Real ? fill(Float64(R), n_drives) : Vector{Float64}(R)
+    @assert length(R_vec) == n_drives "R must be scalar or length-$n_drives vector (got length $(length(R_vec)))"
+    return HermiteAccelerationJumpPenalty(
+        R_vec,
+        control_name,
+        derivative_name,
+        timestep_name,
+    )
+end
+
+# The jump at interior knot k, drive d, over the 8-column stencil
+# (u_{k−1}, u_k, u_{k+1}, du_{k−1}, du_k, du_{k+1}, Δt_{k−1}, Δt_k):
+# Δa = a_end(k−1) − a_start(k), using the bending regularizer's own Hermite
+# endpoint-acceleration kernels. Note Δa is LINEAR in the stencil, so
+# ∇²Δa ≡ 0 — the objective Hessian is the gradient outer product.
+
+function DirectTrajOpt.objective_value(
+    pen::HermiteAccelerationJumpPenalty,
+    traj::NamedTrajectory,
+)
+    u = traj[pen.control_name]
+    du = traj[pen.derivative_name]
+    Δt = traj[pen.timestep_name]
+    n_drives, N = size(u)
+    N - 2 > 0 || return 0.0
+    inv_nint = 1.0 / (N - 2)   # interior knot count
+    J = 0.0
+    @inbounds for k = 2:(N-1), d = 1:n_drives
+        pen.R[d] == 0.0 && continue
+        Δa =
+            _bending_a_end(u[d, k-1], u[d, k], du[d, k-1], du[d, k], Δt[k-1]) -
+            _bending_a_start(u[d, k], u[d, k+1], du[d, k], du[d, k+1], Δt[k])
+        J += pen.R[d] * inv_nint * Δa^2
+    end
+    return J
+end
+
+# Analytic gradient over the same stencil partials as
+# HermiteSmoothAccelerationConstraint's HSA_JUMP coefficients:
+#   ∂Δa/∂u_{k−1} = +6/Δt_{k−1}²,  ∂Δa/∂u_k = −6/Δt_{k−1}² + 6/Δt_k²,
+#   ∂Δa/∂u_{k+1} = −6/Δt_k²,      ∂Δa/∂du_{k−1} = +2/Δt_{k−1},
+#   ∂Δa/∂du_k = +4/Δt_{k−1} + 4/Δt_k,  ∂Δa/∂du_{k+1} = +2/Δt_k,
+#   ∂Δa/∂Δt_{k−1} = +12(u_k−u_{k−1})/Δt_{k−1}³ − 2(du_{k−1}+2du_k)/Δt_{k−1}²,
+#   ∂Δa/∂Δt_k = +12(u_{k+1}−u_k)/Δt_k³ − 2(2du_k+du_{k+1})/Δt_k².
+function DirectTrajOpt.gradient!(
+    ∇J::AbstractVector,
+    pen::HermiteAccelerationJumpPenalty,
+    traj::NamedTrajectory,
+)
+    u = traj[pen.control_name]
+    du = traj[pen.derivative_name]
+    Δt = traj[pen.timestep_name]
+    u_comps = traj.components[pen.control_name]
+    du_comps = traj.components[pen.derivative_name]
+    Δt_comp1 = traj.components[pen.timestep_name][1]
+    n_drives, N = size(u)
+    D = traj.dim
+    N - 2 > 0 || return nothing
+
+    @inbounds for k = 2:(N-1)    # interior spline knots
+        base_km1, base_k, base_kp1 = D * (k - 2), D * (k - 1), D * k
+        h1, h2 = Δt[k-1], Δt[k]
+        i1, i2 = 1.0 / h1, 1.0 / h2
+        i1_2, i2_2 = i1 * i1, i2 * i2
+        i1_3, i2_3 = i1_2 * i1, i2_2 * i2
+        idx_dt_km1 = base_km1 + Δt_comp1
+        idx_dt_k = base_k + Δt_comp1
+
+        for d = 1:n_drives
+            pen.R[d] == 0.0 && continue
+            u_km1, u_k, u_kp1 = u[d, k-1], u[d, k], u[d, k+1]
+            du_km1, du_k, du_kp1 = du[d, k-1], du[d, k], du[d, k+1]
+            Δa =
+                _bending_a_end(u_km1, u_k, du_km1, du_k, h1) -
+                _bending_a_start(u_k, u_kp1, du_k, du_kp1, h2)
+            ws = 2.0 * pen.R[d] * Δa / (N - 2)
+
+            ∇J[base_km1+u_comps[d]] += ws * 6 * i1_2
+            ∇J[base_k+u_comps[d]] += ws * (-6 * i1_2 + 6 * i2_2)
+            ∇J[base_kp1+u_comps[d]] += ws * -6 * i2_2
+            ∇J[base_km1+du_comps[d]] += ws * 2 * i1
+            ∇J[base_k+du_comps[d]] += ws * (4 * i1 + 4 * i2)
+            ∇J[base_kp1+du_comps[d]] += ws * 2 * i2
+            ∇J[idx_dt_km1] +=
+                ws * (12 * (u_k - u_km1) * i1_3 - 2 * (du_km1 + 2 * du_k) * i1_2)
+            ∇J[idx_dt_k] +=
+                ws * (12 * (u_kp1 - u_k) * i2_3 - 2 * (2 * du_k + du_kp1) * i2_2)
+        end
+    end
+    return nothing
+end
+
+const _JP_STEN = 8
+
+function _jump_stencil_cols(
+    pen::HermiteAccelerationJumpPenalty,
+    traj::NamedTrajectory,
+    k,
+    d,
+)
+    D = traj.dim
+    u_comps = traj.components[pen.control_name]
+    du_comps = traj.components[pen.derivative_name]
+    Δt_comp1 = traj.components[pen.timestep_name][1]
+    base_km1, base_k, base_kp1 = D * (k - 2), D * (k - 1), D * k
+    return (
+        base_km1 + u_comps[d],
+        base_k + u_comps[d],
+        base_kp1 + u_comps[d],
+        base_km1 + du_comps[d],
+        base_k + du_comps[d],
+        base_kp1 + du_comps[d],
+        base_km1 + Δt_comp1,
+        base_k + Δt_comp1,
+    )
+end
+
+function DirectTrajOpt.Objectives.hessian_structure(
+    pen::HermiteAccelerationJumpPenalty,
+    traj::NamedTrajectory,
+)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    structure = spzeros(Z_dim, Z_dim)
+    u = traj[pen.control_name]
+    n_drives, N = size(u)
+    for k = 2:(N-1), d = 1:n_drives
+        pen.R[d] == 0.0 && continue
+        cols = _jump_stencil_cols(pen, traj, k, d)
+        for i in cols, j in cols
+            structure[i, j] = 1.0
+        end
+    end
+    return structure
+end
+
+"""
+    get_full_hessian(pen::HermiteAccelerationJumpPenalty, traj)
+
+EXACT per-knot Hessian. Since Δa is linear in its 8-column stencil, ∇²Δa ≡ 0 and
+
+```
+    ∂²(R/(N−2)·Δa²) = 2·R/(N−2) · ∇Δa ∇Δaᵀ
+```
+
+— the gradient outer product, assembled per (knot, drive) from the analytic
+stencil partials (the same coefficients `gradient!` applies) and scattered
+into the sparse global Hessian. Cost is `O(N · n_drives)` rank-1 8×8 blocks;
+no autodiff dependency, mirroring `HermiteBendingEnergyRegularizer`'s
+analytic-block style.
+"""
+function DirectTrajOpt.Objectives.get_full_hessian(
+    pen::HermiteAccelerationJumpPenalty,
+    traj::NamedTrajectory,
+)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    H = spzeros(Z_dim, Z_dim)
+    u = traj[pen.control_name]
+    du = traj[pen.derivative_name]
+    Δt = traj[pen.timestep_name]
+    n_drives, N = size(u)
+    N - 2 > 0 || return H
+
+    g = zeros(_JP_STEN)
+    H_blk = Matrix{Float64}(undef, _JP_STEN, _JP_STEN)
+    @inbounds for k = 2:(N-1), d = 1:n_drives
+        pen.R[d] == 0.0 && continue
+        h1, h2 = Δt[k-1], Δt[k]
+        i1, i2 = 1.0 / h1, 1.0 / h2
+        u_km1, u_k, u_kp1 = u[d, k-1], u[d, k], u[d, k+1]
+        du_km1, du_k, du_kp1 = du[d, k-1], du[d, k], du[d, k+1]
+        # analytic ∇Δa over the stencil — identical coefficients to gradient!
+        g[1] = 6 * i1^2
+        g[2] = -6 * i1^2 + 6 * i2^2
+        g[3] = -6 * i2^2
+        g[4] = 2 * i1
+        g[5] = 4 * i1 + 4 * i2
+        g[6] = 2 * i2
+        g[7] = 12 * (u_k - u_km1) * i1^3 - 2 * (du_km1 + 2 * du_k) * i1^2
+        g[8] = 12 * (u_kp1 - u_k) * i2^3 - 2 * (2 * du_k + du_kp1) * i2^2
+        coef = 2.0 * pen.R[d] / (N - 2)
+        for a = 1:_JP_STEN, b = 1:_JP_STEN
+            H_blk[a, b] = coef * g[a] * g[b]
+        end
+        cols = _jump_stencil_cols(pen, traj, k, d)
+        for (a, ci) in enumerate(cols), (b, cj) in enumerate(cols)
+            H[ci, cj] += H_blk[a, b]
+        end
+    end
+    return H
+end
+
+@testitem "HermiteAccelerationJumpPenalty known value and zero on C² data" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    # Known value: N=3, u = [0, 1, 2], du = 0, Δt = 1.
+    # a_end(1) = −6, a_start(2) = +6 ⇒ jump = −12 ⇒ J = R·(1/1)·144 = 144·R.
+    u = reshape([0.0, 1.0, 2.0], 1, 3)
+    du = zeros(1, 3)
+    Δt = fill(1.0, 3)
+    traj = NamedTrajectory((; u = u, du = du, Δt = Δt); timestep = :Δt, controls = (:u,))
+    pen = HermiteAccelerationJumpPenalty(traj; R = 1.0)
+    @test isapprox(DirectTrajOpt.objective_value(pen, traj), 144.0; atol = 1e-12)
+
+    # Zero on C² data: knot values sampled from ONE global cubic, tangents from
+    # its derivative ⇒ every segment reproduces the cubic ⇒ α̈ continuous.
+    N = 6
+    times = collect(range(0.0, 1.0, length = N))
+    f(t) = 0.7t^3 - 1.3t^2 + 0.4t - 0.2
+    f′(t) = 2.1t^2 - 2.6t + 0.4
+    Δt_val = times[2] - times[1]
+    u2 = reshape(f.(times), 1, N)
+    du2 = reshape(f′.(times), 1, N)
+    Δt2 = fill(Δt_val, N)
+    traj2 =
+        NamedTrajectory((; u = u2, du = du2, Δt = Δt2); timestep = :Δt, controls = (:u,))
+    pen2 = HermiteAccelerationJumpPenalty(traj2; R = 1.0)
+    @test DirectTrajOpt.objective_value(pen2, traj2) < 1e-20
+end
+
+@testitem "HermiteAccelerationJumpPenalty gradient and Hessian vs finite differences" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using Random
+    using LinearAlgebra
+
+    Random.seed!(3091)
+    n_drives, N = 2, 7
+    u = rand(n_drives, N)
+    du = rand(n_drives, N)
+    Δt = fill(0.3, N)
+    traj = NamedTrajectory((; u = u, du = du, Δt = Δt); timestep = :Δt, controls = :u)
+    pen = HermiteAccelerationJumpPenalty(traj; R = [0.4, 0.0])  # drive 2 zero-weight
+
+    Z = traj.dim * traj.N + traj.global_dim
+    ∇ = zeros(Z)
+    DirectTrajOpt.gradient!(∇, pen, traj)
+    H = DirectTrajOpt.Objectives.get_full_hessian(pen, traj)
+
+    @test isfinite(DirectTrajOpt.objective_value(pen, traj))
+    @test !all(∇ .== 0)
+    @test sum(abs2, H) > 0   # the rank-1 outer product is nonzero
+
+    # Central FD of the objective value over u and du columns (Δt fixed),
+    # rebuilding the trajectory per perturbation.
+    function val_at(u_p, du_p)
+        t = NamedTrajectory((; u = u_p, du = du_p, Δt = Δt); timestep = :Δt, controls = :u)
+        return DirectTrajOpt.objective_value(pen, t)
+    end
+    ε = 1e-6
+    ε_h = 1e-4   # second-difference step: balances roundoff (eps·|J|/ε²) vs truncation
+    # Accumulate inside a let block: TestItemRunner's strict scope makes bare
+    # `max_gerr = max(max_gerr, …)` inside the for a fresh loop-local (UndefVarError
+    # on the read); closures over enclosing locals are scope-safe.
+    max_gerr, max_hrel = let mg = 0.0, mh = 0.0
+        u_comps = traj.components[:u]
+        du_comps = traj.components[:du]
+        D = traj.dim
+        for k = 1:N, d = 1:n_drives
+            for (arr, comps) in ((u, u_comps), (du, du_comps))
+                idx = D * (k - 1) + comps[d]
+                up, um = copy(arr), copy(arr)
+                up[d, k] += ε
+                um[d, k] -= ε
+                FD_∇ =
+                    (
+                        val_at(arr === u ? up : u, arr === du ? up : du) -
+                        val_at(arr === u ? um : u, arr === du ? um : du)
+                    ) / 2ε
+                mg = max(mg, abs(FD_∇ - ∇[idx]))
+                up2, um2 = copy(arr), copy(arr)
+                up2[d, k] += ε_h
+                um2[d, k] -= ε_h
+                FD_H_ii =
+                    (
+                        val_at(arr === u ? up2 : u, arr === du ? up2 : du) -
+                        2 * val_at(u, du) +
+                        val_at(arr === u ? um2 : u, arr === du ? um2 : du)
+                    ) / ε_h^2
+                mh = max(mh, abs(FD_H_ii - H[idx, idx]) / max(abs(H[idx, idx]), 1.0))
+            end
+        end
+        mg, mh
+    end
+    @test max_gerr < 1e-5
+    @test max_hrel < 1e-3
+end
+
+@testitem "HermiteAccelerationJumpPenalty zero-weight channels are structurally absent" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+
+    u = [0.0 1.0 2.0; 0.0 1.0 2.0]
+    du = zeros(2, 3)
+    Δt = fill(1.0, 3)
+    traj = NamedTrajectory((; u = u, du = du, Δt = Δt); timestep = :Δt, controls = :u)
+    pen = HermiteAccelerationJumpPenalty(traj; R = [1.0, 0.0])
+    S = DirectTrajOpt.Objectives.hessian_structure(pen, traj)
+    # drive 2 columns must not appear in the structure
+    u_comps = traj.components[:u]
+    D = traj.dim
+    @test S[D*0+u_comps[1], D*1+u_comps[1]] != 0.0
+    @test all(iszero, S[:, D*0+u_comps[2]])
+    # scalar R broadcasts
+    pen_s = HermiteAccelerationJumpPenalty(traj; R = 2.0)
+    @test pen_s.R == [2.0, 2.0]
 end
 
 @testitem "CoherentKetInfidelityObjective" begin

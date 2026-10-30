@@ -449,7 +449,7 @@ end
     end
     @test PD._subsystem_levels(LevelsVecSys([2, 3])) == [2, 3]
     struct LevelsAnySys
-        levels
+        levels::Any
     end
     @test PD._subsystem_levels(LevelsAnySys("not-levels")) === nothing
 
