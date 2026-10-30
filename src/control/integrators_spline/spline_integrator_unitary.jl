@@ -75,6 +75,9 @@ function _spline_unitary(
         allow_basis_approximation = allow_basis_approximation,
     )
 
+    # #386: the spline cells freeze t = 0; refuse explicit time dependence.
+    _refuse_time_dependent_spline(sys)
+
     # Auto-detect globals if not specified
     if isnothing(global_names)
         if !isempty(sys.global_params)

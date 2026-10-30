@@ -100,6 +100,43 @@ function _resolve_spline_type(pulse, order; allow_basis_approximation::Bool = fa
     return order == 1 ? (LinearSpline, 1) : (CubicSpline, 3)
 end
 
+"""
+    _refuse_time_dependent_spline(sys)
+
+Refuse an explicitly time-dependent system at `SplineIntegrator` construction (#386).
+
+The spline cells evaluate every drive coefficient as `drive_coeff(d, u(τ))` — the
+2-argument form, which pins `t = 0` — and integrate the drift as the constant
+`sys.H_drift` (a modulated drift term's `a(t)` is dropped). A `ModulatedDrive` or a
+modulated drift would therefore be silently integrated at `t = 0`. Threading the
+absolute time `tₖ + τ·Δtₖ` through exactly would touch every forward, sensitivity,
+JVP/HVP, adjoint and second-order cell here and the matrix-free cells in Piccolissimo
+(which consume `SplineIntervalCoeffs`), and would need `∂²c/∂t²` / `∂²c/∂t∂u`
+drive derivatives the drive API does not provide; until then the family refuses.
+
+A system is refused when `sys.time_dependent` is set (auto-set by the Pair
+constructors on modulation, and by the function constructors when `H` reads `t`) or
+when any drive is a `ModulatedDrive`, whatever the flag says.
+"""
+function _refuse_time_dependent_spline(sys)
+    flagged = hasproperty(sys, :time_dependent) && sys.time_dependent
+    modulated = hasproperty(sys, :H_drives) && any(d -> d isa ModulatedDrive, sys.H_drives)
+    flagged || modulated || return nothing
+    throw(
+        ArgumentError(
+            "SplineIntegrator cannot integrate an explicitly time-dependent system " *
+            "(sys.time_dependent == true or a ModulatedDrive): its cells evaluate the " *
+            "drive coefficients and the drift at a frozen t = 0, so the time " *
+            "dependence would be silently dropped (#386). Use " *
+            "`BilinearIntegrator(qtraj, N)`, which builds a TimeDependentBilinearIntegrator " *
+            "evaluating G(u, t) at absolute time (ZeroOrderPulse or LinearSplinePulse; " *
+            "for SplinePulseProblem pass `integrator_type = :pwc` or " *
+            "`integrator = BilinearIntegrator(qtraj, N)`), or move the time dependence " *
+            "into the controls (e.g. a rotating frame) so the system is time-independent.",
+        ),
+    )
+end
+
 # ── The packed ODE-parameter layout, declared per SplineType (#338) ────────── #
 #
 # The matrix-free driver builds its per-knot parameter gather table from THIS

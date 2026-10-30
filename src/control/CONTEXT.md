@@ -270,7 +270,7 @@ control/
 
 1. **Pulse type determines problem template**: Use `SmoothPulseProblem` for `ZeroOrderPulse`, `SplinePulseProblem` for spline pulses
 2. **N is timesteps, not knot points**: For `N=51`, you get 50 intervals
-3. **Trajectories always have `:t`**: Time is accumulated automatically, no need for `time_dependent` flag
+3. **Trajectories always have `:t`**: Time is accumulated automatically — but a Hamiltonian that *reads* `t` still needs `time_dependent = true` (the Pair constructors set it on modulation). The flag routes the system away from integrators that pin `t = 0`: the exponential and spline integrators refuse a flagged system (#376, #386), `BilinearIntegrator` builds a `TimeDependentBilinearIntegrator`. A bare `H(u, t)` left unflagged only gets a construction-time warning.
 4. **MultiKetTrajectory vs SamplingTrajectory**: Ensemble = same system, different initial states; Sampling = different systems, same initial state
 5. **Fidelity vs Infidelity**: Objectives minimize infidelity, constraints bound infidelity (e.g., `1 - fidelity ≤ 1 - 0.99`)
 6. **Bootstrapping between system sizes**: Pass the **pulse object** (`qcp.qtraj.pulse`), not the `NamedTrajectory` or extracted controls. This preserves both `u` and `du` optimization state.
@@ -279,6 +279,5 @@ control/
 ## Removed Patterns (Don't Reintroduce!)
 
 - ❌ `adapt_trajectory` / `unadapt_trajectory` - Control scaling was removed
-- ❌ `@test sys.time_dependent` in tests - Not needed since `:t` is always present
-- ❌ `QuantumSystem(...; time_dependent=true)` in tests - Redundant
+- ❌ `QuantumSystem(...; time_dependent=true)` on a system whose H does *not* read `t` - Redundant (the `:t` component is always present). It is required when H does read `t` (#386).
 - ❌ Control name `:a` - Canonical control name is `:u`
