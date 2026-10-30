@@ -9,7 +9,8 @@ by the DAC, quantized to the DAC's integer codes, clipped at full scale, analog
 filtered and delayed. This module models that chain:
 
 - [`PlaybackSpec`](@ref) — the hardware description (sample period, DAC
-  interpolation, bits / full scale / clip policy, causal filter, delay, gain);
+  interpolation, bits / full scale / clip policy, causal filter, delay, gain, and a
+  post-quantization [`PostGain`](@ref) register);
 - [`play`](@ref) — render a pulse into the waveform the hardware plays;
 - [`playback_jacobian`](@ref) — the sparse linear map ∂(played samples)/∂(design
   parameters), exact everywhere except at clip and quantization, which are flagged;
@@ -26,9 +27,37 @@ Reference hardware facts (the presets a spec is built from):
   filter (rise ≈ 85 ns) — `dt_sample = 4` (ns) with a causal low-pass `filter`.
 - **Spin PLL lattices**: 1–10 ns holds, `dac_interp = :hold`, plus clipping at full
   scale.
+
+# Parity with strumento (QICK)
+
+strumento publishes, per line, a playback spec in exactly the `Dict(::PlaybackSpec)` form
+plus the generator facts behind it (schema `strumento.playback/1`), and a parity corpus of
+pulses with the int16 envelopes and gain codes a QICK program compiles
+(`strumento.parity-corpus/1`; vendored in `test/fixtures/playback_parity`). [`play`](@ref)
+reproduces them code for code with this recipe:
+
+1. Build the pulse from its definition as is — **do not** divide it by the corpus `peak`
+   (`peak` = max |u| over both quadratures and all samples).
+2. Load the spec with `full_scale = peak` (strumento's `round(x / peak · max_code)`
+   operation for operation; pre-dividing by `peak` can land one ulp past full scale and
+   trip `clip = :error`, and can flip a code at a rounding tie).
+3. Model QICK's DDS gain as a [`PostGain`](@ref) — `fraction = gain_frac`,
+   `max_code = generator.gain_code_max`, `rounding = :trunc` (`generator.gain_rounding`):
+   it is a truncated register code applied **after** quantization, not the spec's
+   pre-quantization `gain` (which stays `nothing`).
+
+```julia
+d = merge(corpus["playback"]["spec"], Dict(
+    "full_scale" => p["peak"],
+    "post_gain" => Dict("fraction" => p["gain_frac"], "max_code" => 32766, "rounding" => "trunc"),
+))
+_, info = play(PlaybackSpec(d), pulse)
+info.codes          # == the compiled int16 envelope (I; Q), zero-padded to t0_align
+info.post_gain_code # == the compiled gain register, trunc(gain_frac · maxv)
+```
 """
 
-export PlaybackSpec, play, playback_jacobian
+export PlaybackSpec, PostGain, play, playback_jacobian
 export AbstractPlaybackFilter, FIRFilter, IIRFilter, RCLowpass, ButterworthLowpass
 export design_parameters, with_design_parameters
 export playback_to_json, playback_from_json
@@ -145,6 +174,45 @@ function _lfilter(b, a, x)
 end
 
 # ============================================================================ #
+# Post-quantization gain
+# ============================================================================ #
+
+"""
+    PostGain(fraction; max_code, rounding = :trunc)
+
+A gain applied **after** quantization, as an integer register code — QICK's DDS pulse gain,
+which multiplies the already-quantized envelope. The register holds
+`code = rounding(fraction · max_code)` and the played amplitude is scaled by
+`code / max_code` (the *as-compiled* gain, not the requested `fraction`).
+
+- `fraction`: requested gain, `|fraction| ≤ 1`.
+- `max_code`: the register code of unity gain (QICK: `maxv = 32766`).
+- `rounding = :trunc`: how `fraction · max_code` becomes a code — `:trunc` (toward zero,
+  QICK's `int(gain · maxv)`) or `:round` (nearest, ties to even).
+"""
+struct PostGain
+    fraction::Float64
+    max_code::Int
+    rounding::Symbol
+    code::Int
+end
+
+function PostGain(fraction::Real; max_code::Integer, rounding::Symbol = :trunc)
+    abs(fraction) ≤ 1 ||
+        throw(ArgumentError("PostGain fraction must satisfy |fraction| ≤ 1"))
+    max_code ≥ 1 || throw(ArgumentError("PostGain max_code must be ≥ 1"))
+    rounding ∈ (:trunc, :round) ||
+        throw(ArgumentError("PostGain rounding must be :trunc or :round"))
+    x = fraction * max_code
+    code = rounding === :trunc ? trunc(Int, x) : round(Int, x)
+    return PostGain(fraction, max_code, rounding, code)
+end
+
+# the factor the played (quantized) samples are multiplied by
+_post_factor(::Nothing) = 1.0
+_post_factor(g::PostGain) = g.code / g.max_code
+
+# ============================================================================ #
 # PlaybackSpec
 # ============================================================================ #
 
@@ -177,6 +245,8 @@ against a pulse in ns has `time_unit = 1000`).
 - `filter = nothing`: causal output filter ([`AbstractPlaybackFilter`](@ref)).
 - `delay = 0.0`: output latency; the played waveform is shifted later by `delay`.
 - `gain = nothing`: per-channel gain applied before clipping (`nothing` = unity).
+- `post_gain = nothing`: a [`PostGain`](@ref) register applied to every channel after
+  quantization (QICK's DDS gain); `nothing` leaves the quantized samples unscaled.
 """
 struct PlaybackSpec
     dt_sample::Float64
@@ -192,6 +262,7 @@ struct PlaybackSpec
     filter::Union{Nothing,AbstractPlaybackFilter}
     delay::Float64
     gain::Union{Nothing,Vector{Float64}}
+    post_gain::Union{Nothing,PostGain}
 end
 
 function PlaybackSpec(;
@@ -208,6 +279,7 @@ function PlaybackSpec(;
     filter::Union{Nothing,AbstractPlaybackFilter} = nothing,
     delay::Real = 0.0,
     gain::Union{Nothing,AbstractVector{<:Real}} = nothing,
+    post_gain::Union{Nothing,PostGain} = nothing,
 )
     fs = isnothing(full_scale) ? Inf : Float64(full_scale)
     dt_sample > 0 || throw(ArgumentError("dt_sample must be positive"))
@@ -245,10 +317,12 @@ function PlaybackSpec(;
         filter,
         delay,
         isnothing(gain) ? nothing : Vector{Float64}(gain),
+        post_gain,
     )
 end
 
-const _ValueTypes = Union{PlaybackSpec,FIRFilter,IIRFilter,RCLowpass,ButterworthLowpass}
+const _ValueTypes =
+    Union{PlaybackSpec,PostGain,FIRFilter,IIRFilter,RCLowpass,ButterworthLowpass}
 
 Base.:(==)(a::T, b::T) where {T<:_ValueTypes} =
     all(getfield(a, f) == getfield(b, f) for f in fieldnames(T))
@@ -267,9 +341,17 @@ _dt_out(spec::PlaybackSpec) =
     Dict(spec::PlaybackSpec) -> Dict{String,Any}
 
 JSON-ready representation (`full_scale = Inf` is stored as `nothing`; filters as
-`{"type": "fir"|"iir"|"rc"|"butterworth", ...}`). Inverse: `PlaybackSpec(dict)`.
+`{"type": "fir"|"iir"|"rc"|"butterworth", ...}`; a [`PostGain`](@ref) as
+`{"fraction", "max_code", "rounding", "code"}`, the key omitted when there is none, so a
+spec without one serializes exactly as before). Inverse: `PlaybackSpec(dict)`.
 """
-Base.Dict(spec::PlaybackSpec) = Dict{String,Any}(
+function Base.Dict(spec::PlaybackSpec)
+    d = _spec_dict(spec)
+    isnothing(spec.post_gain) || (d["post_gain"] = _post_gain_dict(spec.post_gain))
+    return d
+end
+
+_spec_dict(spec::PlaybackSpec) = Dict{String,Any}(
     "dt_sample" => spec.dt_sample,
     "time_unit" => spec.time_unit,
     "t0" => spec.t0,
@@ -286,6 +368,13 @@ Base.Dict(spec::PlaybackSpec) = Dict{String,Any}(
     "gain" => spec.gain,
 )
 
+_post_gain_dict(g::PostGain) = Dict{String,Any}(
+    "fraction" => g.fraction,
+    "max_code" => g.max_code,
+    "rounding" => String(g.rounding),
+    "code" => g.code,
+)
+
 _filter_dict(::Nothing) = nothing
 _filter_dict(f::FIRFilter) = Dict{String,Any}("type" => "fir", "taps" => f.taps)
 _filter_dict(f::IIRFilter) = Dict{String,Any}("type" => "iir", "b" => f.b, "a" => f.a)
@@ -297,7 +386,8 @@ _filter_dict(f::ButterworthLowpass) =
     PlaybackSpec(d::AbstractDict)
 
 Build a spec from a `Dict` (String or Symbol keys, e.g. a parsed JSON object).
-Missing keys take the keyword defaults; `dt_sample` is required.
+Missing keys take the keyword defaults; `dt_sample` is required. A `post_gain` entry's
+`code`, when present, must equal the code its `fraction` / `max_code` / `rounding` give.
 """
 function PlaybackSpec(d::AbstractDict)
     s = Dict{String,Any}(string(k) => v for (k, v) in d)
@@ -317,7 +407,28 @@ function PlaybackSpec(d::AbstractDict)
         filter = _filter_from(get(s, "filter", nothing)),
         delay = get(s, "delay", 0.0),
         gain = floats(get(s, "gain", nothing)),
+        post_gain = _post_gain_from(get(s, "post_gain", nothing)),
     )
+end
+
+_post_gain_from(::Nothing) = nothing
+
+function _post_gain_from(d::AbstractDict)
+    s = Dict{String,Any}(string(k) => v for (k, v) in d)
+    g = PostGain(
+        s["fraction"];
+        max_code = s["max_code"],
+        rounding = Symbol(get(s, "rounding", "trunc")),
+    )
+    code = get(s, "code", nothing)
+    isnothing(code) ||
+        code == g.code ||
+        throw(
+            ArgumentError(
+                "post_gain code $code disagrees with $(g.rounding)($(g.fraction) · $(g.max_code)) = $(g.code)",
+            ),
+        )
+    return g
 end
 
 _filter_from(::Nothing) = nothing
@@ -362,7 +473,8 @@ Render `pulse` into the waveform the hardware plays.
    of `t0_align`.
 2. **Digital.** Multiply by the per-channel `gain`; clip to `±full_scale` (flagging
    the samples, or throwing under `clip = :error`); quantize to
-   `round(v / full_scale · max_code)` codes when `bits` is set.
+   `round(v / full_scale · max_code)` codes when `bits` is set; then scale by the
+   `post_gain` register (`code / max_code`), which can neither clip nor re-quantize.
 3. **DAC interpolation.** FIR taps zero-stuff by `interp_factor` and convolve
    causally (output period `dt / interp_factor`); `:hold` and `:linear` pass the
    sequence through.
@@ -378,7 +490,8 @@ through the output samples. `info` carries:
 - `dt_out`: output sample period (pulse time units);
 - `input_samples`, `input_times`: the designed pulse on the lattice (after padding);
 - `clipped::BitMatrix`: which lattice samples saturated (`n_drives × N`);
-- `codes`: integer DAC codes (`nothing` without quantization);
+- `codes`: integer DAC codes (`nothing` without quantization), before `post_gain`;
+- `post_gain_code`: the `post_gain` register code (`nothing` without one);
 - `quantized::Bool`.
 """
 function play(spec::PlaybackSpec, pulse::AbstractPulse)
@@ -409,6 +522,7 @@ function play(spec::PlaybackSpec, pulse::AbstractPulse)
         input_times = r.times,
         clipped = r.clipped,
         codes = r.codes,
+        post_gain_code = isnothing(spec.post_gain) ? nothing : spec.post_gain.code,
         quantized = !isnothing(r.codes),
     )
     return played, info
@@ -444,6 +558,8 @@ function _render(spec::PlaybackSpec, pulse::AbstractPulse)
     v = clamp.(v, -fs, fs)
     codes = isnothing(spec.bits) ? nothing : round.(Int, v ./ fs .* spec.max_code)
     v = isnothing(codes) ? v : codes .* (fs / spec.max_code)
+    # post-quantization gain; skipped when absent so playback is bitwise unchanged
+    v = isnothing(spec.post_gain) ? v : v .* _post_factor(spec.post_gain)
     y = reduce(vcat, [permutedims(_chain(spec, v[c, :])) for c = 1:n])
     return (; times, x, y, clipped, codes, n_in, n_pad, g)
 end
@@ -475,7 +591,8 @@ Sparse Jacobian `J = ∂ vec(info.samples) / ∂ design_parameters(pulse)` of
 output sample) and columns like [`design_parameters`](@ref).
 
 `J = C · D · S`: `S` samples the pulse on the lattice (local: two knots per sample
-for linear, four parameters for cubic), `D` is the per-channel gain, and `C` is the
+for linear, four parameters for cubic), `D` is the per-channel gain (times the
+[`PostGain`](@ref) factor `code / max_code`, when set), and `C` is the
 DAC-interpolation + filter convolution (block-Toeplitz per channel; impulse-response
 entries below `1e-20` of its peak are dropped).
 
@@ -511,6 +628,7 @@ function playback_jacobian(
     keep = peak == 0 ? 0 : findlast(x -> abs(x) > 1e-20 * peak, h)
     L = spec.dac_interp isa Symbol ? 1 : spec.interp_factor
     N_out = length(h)
+    post = _post_factor(spec.post_gain)
     rows, cols, vals = Int[], Int[], Float64[]
     for j = 1:r.n_pad, c = 1:n
         r.clipped[c, j] && continue
@@ -518,7 +636,7 @@ function playback_jacobian(
             iszero(h[m]) && continue
             push!(rows, ((j - 1) * L + m - 1) * n + c)
             push!(cols, (j - 1) * n + c)
-            push!(vals, h[m] * r.g[c])
+            push!(vals, h[m] * r.g[c] * post)
         end
     end
     C = sparse(rows, cols, vals, n * N_out, n * r.n_pad)
@@ -1008,6 +1126,17 @@ end
         PlaybackSpec(dt_sample = 2.0, dac_interp = :linear, filter = RCLowpass(20.0)),
         PlaybackSpec(dt_sample = 1.0, filter = FIRFilter([0.5, 0.5])),
         PlaybackSpec(dt_sample = 1.0, filter = IIRFilter([0.5], [1.0, -0.5])),
+        PlaybackSpec(
+            dt_sample = 1.0,
+            bits = 16,
+            max_code = 32766,
+            full_scale = 1.0,
+            post_gain = PostGain(0.37; max_code = 32766),
+        ),
+        PlaybackSpec(
+            dt_sample = 1.0,
+            post_gain = PostGain(-0.5; max_code = 7, rounding = :round),
+        ),
     ]
     for spec in specs
         json = playback_to_json(spec)
@@ -1015,6 +1144,86 @@ end
         @test playback_from_json(json) == spec
         @test PlaybackSpec(Dict(spec)) == spec
     end
+end
+
+@testitem "PostGain: a register code applied after quantization" begin
+    using JSON3
+    using LinearAlgebra
+
+    # the code follows the rounding rule; QICK truncates toward zero
+    g = PostGain(0.37; max_code = 32766)
+    @test g.code == 12123                                 # 0.37 · 32766 = 12123.42
+    @test PostGain(-0.37; max_code = 32766).code == -12123
+    @test PostGain(0.99999; max_code = 7, rounding = :round).code == 7
+    @test PostGain(0.25; max_code = 10, rounding = :round).code == 2         # 2.5 ties to even
+    @test_throws ArgumentError PostGain(1.5; max_code = 32766)
+    @test_throws ArgumentError PostGain(0.5; max_code = 0)
+    @test_throws ArgumentError PostGain(0.5; max_code = 10, rounding = :floor)
+
+    knots = collect(0.0:1.0:4.0)
+    u = [0.10 0.50 0.95 -0.70 0.0; 0.2 -0.3 0.4 0.5 0.0]
+    zop = ZeroOrderPulse(u, knots)
+    q = (dt_sample = 1.0, bits = 16, max_code = 32766, full_scale = 1.0)
+    _, base = play(PlaybackSpec(; q...), zop)
+    _, info = play(PlaybackSpec(; q..., post_gain = g), zop)
+
+    # applied AFTER quantization: the envelope codes are those of the ungained pulse,
+    # and the played samples are those codes scaled by the as-compiled gain code / max code
+    @test info.codes == base.codes
+    @test info.samples == base.samples .* (12123 / 32766)
+    @test info.post_gain_code == 12123
+    @test isnothing(base.post_gain_code)
+    # ≠ the pre-quantization gain, which re-quantizes the scaled pulse
+    _, pre = play(PlaybackSpec(; q..., gain = [0.37, 0.37]), zop)
+    @test pre.codes != base.codes
+
+    # it never clips: a full-scale code times a unity gain is still full scale
+    _, fs = play(
+        PlaybackSpec(; q..., clip = :error, post_gain = PostGain(1.0; max_code = 32766)),
+        ZeroOrderPulse([1.0 -1.0 0.0], [0.0, 1.0, 2.0]),
+    )
+    @test fs.samples ≈ [1.0 -1.0]
+    @test fs.codes == [32766 -32766]
+
+    # the Jacobian carries the post-gain factor (straight-through quantization)
+    st = (; quantization = :straight_through)
+    J0, _ = playback_jacobian(PlaybackSpec(; q...), zop; st...)
+    J, _ = playback_jacobian(PlaybackSpec(; q..., post_gain = g), zop; st...)
+    @test J ≈ J0 .* (12123 / 32766)
+
+    # Dict: the key is absent without a post gain, so the existing layout is unchanged
+    @test !haskey(Dict(PlaybackSpec(; q...)), "post_gain")
+    @test sort(collect(keys(Dict(PlaybackSpec(; q...))))) == sort([
+        "dt_sample",
+        "time_unit",
+        "t0",
+        "t0_align",
+        "dac_interp",
+        "interp_factor",
+        "bits",
+        "max_code",
+        "full_scale",
+        "clip",
+        "filter",
+        "delay",
+        "gain",
+    ])
+    d = Dict(PlaybackSpec(; q..., post_gain = g))
+    @test d["post_gain"] == Dict(
+        "fraction" => 0.37,
+        "max_code" => 32766,
+        "rounding" => "trunc",
+        "code" => 12123,
+    )
+    # an explicit null and a missing key both mean no post gain
+    @test PlaybackSpec(Dict("dt_sample" => 1.0, "post_gain" => nothing)).post_gain ===
+          nothing
+    # a stored code that disagrees with its fraction is refused, not silently recomputed
+    bad = merge(d, Dict("post_gain" => merge(d["post_gain"], Dict("code" => 12124))))
+    @test_throws ArgumentError PlaybackSpec(bad)
+    # JSON with Symbol keys (JSON3 default) loads too
+    @test PlaybackSpec(JSON3.read(playback_to_json(PlaybackSpec(; q..., post_gain = g)))) ==
+          PlaybackSpec(; q..., post_gain = g)
 end
 
 @testitem "played_fidelity: design-vs-played gap shrinks with the lattice step" begin
