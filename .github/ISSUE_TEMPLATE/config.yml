@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Harmoniqs Community
+    url: https://github.com/harmoniqs/Piccolo.jl/discussions
+    about: Questions and discussion go here.
