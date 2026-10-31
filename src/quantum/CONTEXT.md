@@ -10,7 +10,7 @@ The `Quantum` submodule provides the **quantum physics layer** for Piccolo. It d
 - **Quantum Trajectories** - Physics-level problem definitions (before optimization)
 - **Isomorphisms** - Mappings between complex quantum objects and real vectors
 - **Rollouts** - ODE-based simulation of quantum dynamics
-- **Quantum System Templates** - Pre-built systems (transmons, ions, Rydberg, etc.)
+- **Quantum System Templates** - Pre-built systems (transmons, ions, Rydberg, etc.)\n- **Encodings** - Dual-rail logical-qubit encoding: excitation-subspace transforms, logical ↔ physical state maps, encoding-aware embedded operators
 
 This module is **independent of optimization** - it just does quantum physics. The `Control` submodule builds optimization problems on top of these abstractions.
 
@@ -243,7 +243,8 @@ quantum/
 │   ├── ensemble_trajectory.jl     # MultiKetTrajectory
 │   ├── density_trajectory.jl      # DensityTrajectory
 │   ├── sampling_trajectory.jl     # SamplingTrajectory
-│   ├── interface.jl               # Common interface methods
+│   ├── trajectory_interface.jl   # Common accessors, Show / summary methods
+│   ├── rollouts_extensions.jl    # rollout!, rollout, fidelity, _update_system!
 │   ├── extract_pulse.jl           # Extract optimized pulse from trajectory
 │   └── named_trajectory_conversion.jl  # NamedTrajectory(qtraj, N)
 ├── quantum_system_templates/
@@ -251,7 +252,7 @@ quantum/
 │   ├── ions/                      # IonChainSystem
 │   ├── atoms/                     # RydbergChainSystem
 │   └── cats/                      # CatQubitSystem
-├── embedded_operators.jl          # EmbeddedOperator for subspace gates
+├── encodings/\n│   └── dual_rail.jl               # DualRailEncoding + subspace utilities\n├── embedded_operators.jl          # EmbeddedOperator for subspace gates
 ├── lifted_operators.jl            # Lift operators to larger Hilbert space
 └── direct_sums.jl                 # Direct sum operations
 ```
@@ -262,6 +263,6 @@ quantum/
 2. **fidelity(qtraj) is O(1), not O(solve)** - It uses the pre-computed solution stored in qtraj
 3. **Isomorphism convention** - `[real; imag]` stacking, column-major for operators
 4. **drive_bounds normalization** - Scalars become symmetric bounds: `1.0 → (-1.0, 1.0)`
-5. **time_dependent flag** - Only needed for explicit time dependence like `cos(ωt)` in the Hamiltonian function. The `:t` trajectory component is always present regardless.
+5. **time_dependent flag** - Required for explicit time dependence like `cos(ωt)` in a Hamiltonian *function* (the Pair constructors and a `ModulatedDrive` set it automatically). It is not inferred from `H(u, t)`: an unflagged function that reads `t` only draws a construction-time warning, and integrators that pin `t = 0` would drop the dependence (#386). The `:t` trajectory component is always present regardless.
 6. **MultiKetTrajectory state names** - Uses `:ψ̃1`, `:ψ̃2`, etc., not `:ψ̃` directly
 7. **CubicSplinePulse** - The `:du` component is a true DOF (Hermite tangent), not a derived quantity

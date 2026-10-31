@@ -264,8 +264,13 @@ sys_mixed = QuantumSystem(
 length(sys_mixed.drift_terms)
 
 # When any modulation is present, Piccolo automatically sets `time_dependent = true`.
-# When you subsequently build a trajectory integrator, it will then dispatch
-# `TimeDependentBilinearIntegrator` automatically — no manual configuration needed.
+# The default integrator tier (#334: `HermitianExponentialIntegrator`) is exact
+# only for a generator that is constant over each interval, so it refuses
+# time-dependent systems with an error (#376). Pass
+# `integrator = BilinearIntegrator(qtraj, N)` instead: on a time-dependent system it
+# dispatches to `TimeDependentBilinearIntegrator`, which evaluates `G(u, t)` inside
+# each interval with the pulse's own interpolation order (0 for a
+# `ZeroOrderPulse`, 1 for a `LinearSplinePulse`).
 #
 # ### Wrapping Typed Drives
 #

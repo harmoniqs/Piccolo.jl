@@ -9,6 +9,7 @@ using Piccolo:
     AbstractQuantumSystem,
     AbstractQuantumTrajectory,
     QuantumControlProblem,
+    AbstractQuantumControlProblem,
     ZeroOrderPulse,
     LinearSplinePulse,
     CubicSplinePulse,
@@ -268,6 +269,7 @@ end
         show_tangents=false,
         tangent_scale=0.1,
         colors=nothing,
+        t_max=nothing,
         kwargs...
     )
 
@@ -282,6 +284,13 @@ Dispatches rendering based on pulse type for visually accurate results.
 - `show_tangents`: Show derivative tangent whiskers (CubicSplinePulse only).
 - `tangent_scale`: Length scale for tangent whiskers (fraction of duration).
 - `colors`: Vector of colors, one per drive index. Defaults to the active theme palette.
+- `t_max`: Optional `Observable{<:Real}` playhead time. When `nothing` (default),
+  the full static pulse is drawn. When set, each channel is drawn as an
+  observable-driven curve revealed up to `t_max[]`, using the same per-type
+  primitive (stairs for `ZeroOrderPulse`, knot-to-knot lines for
+  `LinearSplinePulse`, dense curve for cubic/analytic). This is what
+  `animate_pulse` drives; static knot/tangent overlays are suppressed while
+  revealing. Backward-compatible: omit it for unchanged behavior.
 - `kwargs...`: Forwarded to the underlying Makie plot calls.
 """
 function plot_pulse!(
@@ -293,6 +302,7 @@ function plot_pulse!(
     show_tangents::Bool = false,
     tangent_scale::Float64 = 0.1,
     colors::Union{Nothing,AbstractVector} = nothing,
+    t_max::Union{Nothing,Observable} = nothing,
     kwargs...,
 )
     if isnothing(colors)
@@ -308,6 +318,7 @@ function plot_pulse!(
         show_tangents,
         tangent_scale,
         colors,
+        t_max,
         kwargs...,
     )
 end
@@ -315,6 +326,22 @@ end
 # ============================================================================ #
 # Type-specific rendering dispatches
 # ============================================================================ #
+
+# Animation reveal helper. Returns the (xs, ys) for the portion of one drive of
+# `pulse` visible at playhead time `t_max`. A single helper works for every pulse
+# type because `pulse(t)` already dispatches to the correct per-type evaluation
+# (held value for ZOH, linear/cubic interpolation, analytic form for Gaussian/Erf).
+# `render_times` is the type-appropriate base grid (knot times for step/linear,
+# dense grid for cubic/analytic); the synthetic endpoint at `t_max` makes the
+# revealed curve terminate exactly at the playhead instead of at the last grid
+# point behind it. `render_times` must be sorted ascending.
+function _reveal_xy(pulse, render_times, drive_index::Int, t_max::Real)
+    tmax = float(t_max)
+    k = searchsortedlast(render_times, tmax)
+    xs = k == 0 ? [tmax] : vcat(render_times[1:k], tmax)
+    ys = [pulse(t)[drive_index] for t in xs]
+    return xs, ys
+end
 
 # ---------------------------------------------------------------------------- #
 # ZeroOrderPulse — stairs (step function)
@@ -329,23 +356,32 @@ function _plot_pulse_type!(
     show_tangents,  # unused
     tangent_scale,  # unused
     colors,
+    t_max = nothing,
     kwargs...,
 )
     knot_times = collect(get_knot_times(pulse))
     knot_vals = sample(pulse, knot_times)
 
     for (ci, i) in enumerate(drive_indices)
-        stairs!(
-            ax,
-            knot_times,
-            knot_vals[i, :];
-            color = colors[ci],
-            linewidth = 2,
-            step = :post,
-            kwargs...,
-        )
+        if isnothing(t_max)
+            stairs!(
+                ax,
+                knot_times,
+                knot_vals[i, :];
+                color = colors[ci],
+                linewidth = 2,
+                step = :post,
+                kwargs...,
+            )
+        else
+            xs = @lift(_reveal_xy(pulse, knot_times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, knot_times, i, $t_max)[2])
+            stairs!(ax, xs, ys; color = colors[ci], linewidth = 2, step = :post, kwargs...)
+        end
 
-        if show_knots
+        # Knot markers are static structure; suppress during a reveal so future
+        # knots don't appear ahead of the playhead.
+        if show_knots && isnothing(t_max)
             scatter!(
                 ax,
                 knot_times,
@@ -372,22 +408,29 @@ function _plot_pulse_type!(
     show_tangents,  # unused
     tangent_scale,  # unused
     colors,
+    t_max = nothing,
     kwargs...,
 )
     knot_times = collect(get_knot_times(pulse))
     knot_vals = get_knot_values(pulse)
 
     for (ci, i) in enumerate(drive_indices)
-        lines!(
-            ax,
-            knot_times,
-            collect(knot_vals[i, :]);
-            color = colors[ci],
-            linewidth = 2,
-            kwargs...,
-        )
+        if isnothing(t_max)
+            lines!(
+                ax,
+                knot_times,
+                collect(knot_vals[i, :]);
+                color = colors[ci],
+                linewidth = 2,
+                kwargs...,
+            )
+        else
+            xs = @lift(_reveal_xy(pulse, knot_times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, knot_times, i, $t_max)[2])
+            lines!(ax, xs, ys; color = colors[ci], linewidth = 2, kwargs...)
+        end
 
-        if show_knots
+        if show_knots && isnothing(t_max)
             scatter!(
                 ax,
                 knot_times,
@@ -414,13 +457,26 @@ function _plot_pulse_type!(
     show_tangents,
     tangent_scale,
     colors,
+    t_max = nothing,
     kwargs...,
 )
     # Dense sampling for smooth curve
     controls, times = sample(pulse, n_samples)
 
     for (ci, i) in enumerate(drive_indices)
-        lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        if isnothing(t_max)
+            lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        else
+            xs = @lift(_reveal_xy(pulse, times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, times, i, $t_max)[2])
+            lines!(ax, xs, ys; color = colors[ci], linewidth = 2, kwargs...)
+        end
+    end
+
+    # Static knot markers and tangent whiskers are suppressed during a reveal
+    # so future structure doesn't appear ahead of the playhead.
+    if !isnothing(t_max)
+        return
     end
 
     # Knot markers
@@ -486,12 +542,19 @@ function _plot_pulse_type!(
     show_tangents,  # unused
     tangent_scale,  # unused
     colors,
+    t_max = nothing,
     kwargs...,
 )
     controls, times = sample(pulse, n_samples)
 
     for (ci, i) in enumerate(drive_indices)
-        lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        if isnothing(t_max)
+            lines!(ax, times, controls[i, :]; color = colors[ci], linewidth = 2, kwargs...)
+        else
+            xs = @lift(_reveal_xy(pulse, times, i, $t_max)[1])
+            ys = @lift(_reveal_xy(pulse, times, i, $t_max)[2])
+            lines!(ax, xs, ys; color = colors[ci], linewidth = 2, kwargs...)
+        end
     end
 end
 
@@ -849,9 +912,9 @@ function plot_pulse(
 end
 
 """
-    plot_pulse(qcp::QuantumControlProblem; bounds=false, components=Symbol[], component_bounds=false, labels=nothing, kwargs...)
+    plot_pulse(qcp::AbstractQuantumControlProblem; bounds=false, components=Symbol[], component_bounds=false, labels=nothing, kwargs...)
 
-Plot the (possibly optimized) pulse from a `QuantumControlProblem`.
+Plot the (possibly optimized) pulse from a control problem.
 
 # Keyword Arguments
 - `bounds::Bool=false`: When `true`, derive per-drive bounds from
@@ -867,7 +930,7 @@ Plot the (possibly optimized) pulse from a `QuantumControlProblem`.
 - All other `plot_pulse(::AbstractPulse)` kwargs are forwarded.
 """
 function plot_pulse(
-    qcp::QuantumControlProblem;
+    qcp::AbstractQuantumControlProblem;
     bounds::Bool = false,
     components::Vector{Symbol} = Symbol[],
     component_bounds::Bool = false,
@@ -1252,4 +1315,97 @@ end
 
     fig4 = plot_pulse(qcp; bounds = true, components = [:du, :ddu], component_bounds = true)
     @test fig4 isa Figure
+end
+
+@testitem "plot_pulse theme fallbacks and derivative label helpers" begin
+    using CairoMakie
+    using Piccolo
+    using LaTeXStrings
+
+    V = Piccolo.Visualizations.QuantumObjectPlots
+
+    # The theme-robustness contract: under a bare theme the helpers still
+    # return usable values instead of throwing. (The palette/textcolor-missing
+    # fallback branches themselves are documented misses — Makie's
+    # current_default_theme always carries merged :palette/:textcolor entries,
+    # so the public API cannot produce a key-less theme state.)
+    set_theme!(Theme())
+    pal = V._theme_palette()
+    neut = V._theme_neutral()
+    set_theme!()   # restore for the rest of the suite
+
+    @test pal isa AbstractVector && !isempty(pal)
+    @test neut !== nothing
+
+    # The derivative naming convention renders as decorated math; plain and
+    # digit-following names pass through undecorated
+    @test string(V._component_latex(:dddu)) == string(latexstring("\\dddot{u}"))
+    @test string(V._component_latex(:ddu)) == string(latexstring("\\ddot{u}"))
+    @test string(V._component_latex(:du)) == string(latexstring("\\dot{u}"))
+    @test string(V._component_latex(:dx)) == string(latexstring("\\dot{x}"))
+    @test string(V._component_latex(:u)) == string(latexstring("u"))
+    @test string(V._component_latex(:d1)) == string(latexstring("d1"))
+end
+
+@testitem "plot_pulse! reveal: t_max playhead on the dense cubic curve" begin
+    using CairoMakie
+    using Piccolo
+    using Random
+
+    Random.seed!(47)
+    times = collect(range(0.0, 1.0, length = 11))
+    pulse = CubicSplinePulse(0.05 .* randn(1, 11), 0.05 .* randn(1, 11), times)
+
+    # A playhead mid-pulse reveals the interpolated curve up to t_max through
+    # the per-axis API (the full-figure entry does not carry t_max); the
+    # static knot markers and tangents are suppressed behind the playhead
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    plot_pulse!(ax, pulse; t_max = Observable(0.4))
+    @test length(ax.scene.plots) > 0
+
+    fig2 = Figure()
+    ax2 = Axis(fig2[1, 1])
+    plot_pulse!(ax2, pulse; t_max = Observable(1.0))
+    @test length(ax2.scene.plots) > 0
+end
+
+@testitem "plot_pulse bounds plumbing: system mismatch, component bounds, string labels" begin
+    using CairoMakie
+    using Piccolo
+    using NamedTrajectories
+    using Random
+
+    V = Piccolo.Visualizations.QuantumObjectPlots
+
+    Random.seed!(48)
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    times = collect(range(0.0, 1.0, length = 11))
+    pulse = ZeroOrderPulse(0.05 .* randn(2, 11), times)
+
+    # A system/pulse drive-count mismatch refuses the bounds with a warning
+    mismatched = @test_logs (:warn, r"bounds skipped") V._system_bounds(sys, 5)
+    @test mismatched === nothing
+    @test V._system_bounds(sys, 2) == [(-1.0, 1.0), (-1.0, 1.0)]
+
+    # Per-component bounds: absent → nothing, present → per-dimension tuples
+    traj = NamedTrajectory(
+        (ψ̃ = randn(4, 11), u = randn(1, 11), Δt = fill(0.1, 11));
+        controls = :u,
+        timestep = :Δt,
+        bounds = (u = (-1.0, 1.0),),
+    )
+    @test V._component_bounds(traj, :u) == [(-1.0, 1.0)]
+    @test V._component_bounds(traj, :ψ̃) === nothing
+
+    # String labels are converted to math labels on the qcp path
+    qtraj = UnitaryTrajectory(sys, pulse, GATES[:H])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        11;
+        Q = 100.0,
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    fig = plot_pulse(qcp; labels = ["Ωx", "Ωy"])
+    @test fig isa Figure
 end

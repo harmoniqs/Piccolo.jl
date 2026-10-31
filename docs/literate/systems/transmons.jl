@@ -181,7 +181,7 @@ sys_cqed.levels, sys_cqed.n_drives
 # | `K_q` | ``2\pi \times 96.5`` MHz | Qubit self-Kerr |
 # | `K_c` | ``2\pi \times 0.5`` Hz | Cavity self-Kerr |
 #
-# ## Best Practices
+# ## [Best Practices](@id transmon-best-practices)
 #
 # ### 1. Include Enough Levels
 #
