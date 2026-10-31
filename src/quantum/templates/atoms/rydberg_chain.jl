@@ -62,6 +62,9 @@ H = \sum_i 0.5*\Omega_i(t)\cos(\phi_i(t)) \sigma_i^x - 0.5*\Omega_i(t)\sin(\phi_
 - `all2all`: If true, include all-to-all interactions.
 - `ignore_Y_drive`: If true, ignore the Y drive. (In the experiments, X&Y drives are implemented by Rabi amplitude and its phase.)
 - `drive_bounds`: Bounds for drive amplitudes.
+- `time_dependent`: Defaults to `false` (#376). The Hamiltonian is a constant drift
+  plus control-linear drives with no explicit time dependence, so it pairs with the
+  exponential integrators, which refuse time-dependent systems.
 """
 function RydbergChainSystem(;
     N::Int = 3, # number of atoms
@@ -74,7 +77,7 @@ function RydbergChainSystem(;
     drive_bounds::Vector{<:Union{Tuple{Float64,Float64},Float64}} = ignore_Y_drive ?
                                                                     [1.0, 1.0] :
                                                                     [1.0, 1.0, 1.0],
-    time_dependent::Bool = true,
+    time_dependent::Bool = false,
 )
     PAULIS = (
         I = ComplexF64[1 0; 0 1],
@@ -149,4 +152,7 @@ end
     sys2 = RydbergChainSystem(N = 2, ignore_Y_drive = true)
     @test sys2 isa QuantumSystem
     @test sys2.n_drives == 2  # X and detuning only
+
+    # No explicit time dependence: the default exponential integrator applies (#376).
+    @test !sys.time_dependent
 end

@@ -26,6 +26,11 @@ Get the control pulse from a trajectory.
 """
 get_pulse(qtraj::AbstractQuantumTrajectory) = qtraj.pulse
 
+# #375: a quantum trajectory's interpolation basis is its pulse's (sampling
+# ensembles forward to the base pulse through `get_pulse`).
+interpolation_basis(qtraj::AbstractQuantumTrajectory) =
+    interpolation_basis(get_pulse(qtraj))
+
 """
     get_initial(qtraj)
 
@@ -278,4 +283,19 @@ end
     # Uses nameof(typeof(...)) — no module-qualified types
     @test !occursin("Piccolo.", s)
     @test !occursin("QuantumTrajectories.", s)
+end
+
+@testitem "Interface - MultiDensityTrajectory getters" begin
+    using LinearAlgebra
+
+    system = OpenQuantumSystem([PAULIS.X], [1.0])
+    ρ0s = [ComplexF64[1.0 0.0; 0.0 0.0], ComplexF64[0.0 0.0; 0.0 1.0]]
+    ρgs = [ComplexF64[0.0 0.0; 0.0 1.0], ComplexF64[1.0 0.0; 0.0 0.0]]
+
+    qtraj = MultiDensityTrajectory(system, ρ0s, ρgs, 1.0)
+
+    @test get_system(qtraj) === system
+    @test get_initial(qtraj) == qtraj.initials
+    @test get_goal(qtraj) == qtraj.goals
+    @test duration(qtraj) ≈ 1.0
 end

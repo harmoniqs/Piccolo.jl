@@ -24,8 +24,10 @@ Supported closed-system bases: `UnitaryTrajectory`, `KetTrajectory`,
 (`LinearSplinePulse` → linear, `CubicSplinePulse` → cubic Hermite).
 
 # Keyword Arguments
-- `spline_order::Union{Int, Nothing}=nothing`: explicit order override for
-  non-spline pulses (1 = linear, 3 = cubic Hermite).
+- `spline_order::Union{Int, Nothing}=nothing`: the spline order (1 = linear, 3 =
+  cubic Hermite). The pulse decides for spline pulses; a conflicting order throws.
+- `allow_basis_approximation::Bool=false`: a non-spline pulse (ZOH, analytic) is
+  refused unless this is `true` AND `spline_order` is given (#375).
 - `alg::IntegrationAlgorithm=Tsit5Alg()`: propagation algorithm.
 - `global_names::Union{Vector{Symbol}, Nothing}=nothing`: global (time-invariant)
   variables in the dynamics. If `nothing`, auto-detects from the NOMINAL system's
@@ -37,6 +39,7 @@ function SplineIntegrator(
     qtraj::SamplingTrajectory,
     N::Int;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
     kwargs...,
@@ -57,6 +60,10 @@ function SplineIntegrator(
     # Expanded sampling trajectory. The sampling conversion does not attach
     # globals, so attach them here — mirroring the non-sampling conversions (which
     # auto-attach sys.global_params) and SamplingProblem's own propagation.
+    # NamedTrajectory takes globals as a FLAT vector + global_components ranges
+    # (the same final shape `_add_global_data_to_kwargs` hands downstream), NOT
+    # the Dict form — the Dict form is only the conversion layer's INPUT
+    # vocabulary and was a construction-time TypeError here.
     traj = NamedTrajectory(qtraj, N)
     if !isempty(resolved_global_names)
         global_data = Dict{Symbol,Vector{Float64}}(
@@ -65,6 +72,16 @@ function SplineIntegrator(
                 nominal_sys.global_params[name] : 0.0,
             ] for name in resolved_global_names
         )
+        # Consistent ordering (mirrors _add_global_data_to_kwargs)
+        global_names_sorted = sort(collect(keys(global_data)))
+        global_vec = vcat([global_data[name] for name in global_names_sorted]...)
+        offset = 0
+        global_comps = map(global_names_sorted) do name
+            len = length(global_data[name])
+            range = (offset+1):(offset+len)
+            offset += len
+            return name => range
+        end
         traj = NamedTrajectory(
             traj.datavec,
             traj.components,
@@ -75,7 +92,8 @@ function SplineIntegrator(
             initial = traj.initial,
             final = isnothing(traj.final_) ? NamedTuple() : traj.final_,
             goal = traj.goal,
-            global_data = global_data,
+            global_data = global_vec,
+            global_components = NamedTuple(global_comps),
         )
     end
 
@@ -90,6 +108,7 @@ function SplineIntegrator(
             control_sym,
             traj;
             spline_order = spline_order,
+            allow_basis_approximation = allow_basis_approximation,
             alg = alg,
             global_names = resolved_global_names,
             kwargs...,
@@ -153,6 +172,7 @@ function _spline_density(
     u::Symbol,
     traj::NamedTrajectory;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
 )
@@ -167,17 +187,16 @@ function _spline_density(
         )
     end
 
-    # Infer spline type from pulse
-    if pulse isa LinearSplinePulse
-        S = LinearSpline
-        order = 1
-    elseif pulse isa CubicSplinePulse
-        S = CubicSpline
-        order = 3
-    else
-        order = isnothing(spline_order) ? 1 : spline_order
-        S = order == 1 ? LinearSpline : CubicSpline
-    end
+    # #375: the pulse decides the basis; non-spline pulses and conflicting
+    # orders are refused unless the approximation is declared.
+    S, order = _resolve_spline_type(
+        pulse,
+        spline_order;
+        allow_basis_approximation = allow_basis_approximation,
+    )
+
+    # #386: the spline cells freeze t = 0; refuse explicit time dependence.
+    _refuse_time_dependent_spline(sys)
 
     n = sys.levels
     n² = n^2
@@ -412,6 +431,7 @@ function _spline_multidensity(
     u::Symbol,
     traj::NamedTrajectory;
     spline_order::Union{Int,Nothing} = nothing,
+    allow_basis_approximation::Bool = false,
     alg::IntegrationAlgorithm = Tsit5Alg(),
     global_names::Union{Vector{Symbol},Nothing} = nothing,
 )
@@ -425,16 +445,16 @@ function _spline_multidensity(
         )
     end
 
-    if pulse isa LinearSplinePulse
-        S = LinearSpline
-        order = 1
-    elseif pulse isa CubicSplinePulse
-        S = CubicSpline
-        order = 3
-    else
-        order = isnothing(spline_order) ? 1 : spline_order
-        S = order == 1 ? LinearSpline : CubicSpline
-    end
+    # #375: the pulse decides the basis; non-spline pulses and conflicting
+    # orders are refused unless the approximation is declared.
+    S, order = _resolve_spline_type(
+        pulse,
+        spline_order;
+        allow_basis_approximation = allow_basis_approximation,
+    )
+
+    # #386: the spline cells freeze t = 0; refuse explicit time dependence.
+    _refuse_time_dependent_spline(sys)
 
     n = sys.levels
     n² = n^2
@@ -544,6 +564,37 @@ function _spline_multidensity(
                 @inbounds for j = 1:n_cols
                     col = @view xₖ[((j-1)*n²+1):(j*n²)]
                     d_col = @view dx[((j-1)*n²+1):(j*n²)]
+                    compact_iso_to_density!(M_kk, col, n)
+                    lindblad_apply!(dM_kk, M_kk, H_eff_kk, Δtₖ, Ls, Ks, tmp_kk)
+                    density_to_compact_iso!(d_col, dM_kk, n)
+                end
+                return nothing
+            end
+        elseif !isempty(H_drives) && order == 3
+            (dx, xₖ, p, τ) -> begin
+                uₖ=@view p[1:u_dim]
+                uₖ₊₁=@view p[(u_dim+1):2u_dim]
+                duₖ=@view p[(2u_dim+1):3u_dim]
+                duₖ₊₁=@view p[(3u_dim+1):4u_dim]
+                Δtₖ=p[end-1]
+                τ2=τ*τ
+                τ3=τ2*τ
+                h00=2τ3-3τ2+1
+                h10=(τ3-2τ2+τ)*Δtₖ
+                h01=-2τ3+3τ2
+                h11=(τ3-τ2)*Δtₖ
+                @inbounds for i = 1:u_dim
+                    u_interp_kk[i]=h00*uₖ[i]+h10*duₖ[i]+h01*uₖ₊₁[i]+h11*duₖ₊₁[i]
+                end
+                @. H_eff_kk = H_drift
+                @inbounds for t_idx = 1:n_terms
+                    c=drive_coeff(drives[t_idx], u_interp_kk)
+                    @. H_eff_kk+=c*H_drives[t_idx]
+                end
+                n_cols=length(xₖ)÷n²
+                @inbounds for j = 1:n_cols
+                    col=@view xₖ[((j-1)*n²+1):(j*n²)]
+                    d_col=@view dx[((j-1)*n²+1):(j*n²)]
                     compact_iso_to_density!(M_kk, col, n)
                     lindblad_apply!(dM_kk, M_kk, H_eff_kk, Δtₖ, Ls, Ks, tmp_kk)
                     density_to_compact_iso!(d_col, dM_kk, n)

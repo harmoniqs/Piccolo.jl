@@ -1015,3 +1015,30 @@ end
         @test minimum(@allocated(wf()) for _ = 1:3) == 0
     end
 end
+
+@testitem "Stencil trait defaults: unroutable nothing-table, ::Any HVP false, hvp! guard throws" begin
+    using Piccolo:
+        constraint_stencil_hvp!,
+        supports_matrix_free_constraint_gradient,
+        supports_matrix_free_constraint_hvp
+    using Test
+
+    # A constraint without a stencil table (constraint_stencil_table(c) === nothing)
+    # routes through the ::Nothing fallback and is NOT stencil-routable.
+    @test Piccolo.QuantumConstraints.SplineConstraints._routable_stencil(nothing) == false
+
+    # A type that never opted in: gradient AND HVP matrix-free are both refused
+    struct _NoStencilConstraint end
+    @test supports_matrix_free_constraint_gradient(_NoStencilConstraint()) == false
+    @test supports_matrix_free_constraint_hvp(_NoStencilConstraint()) == false
+
+    # The ::Any hvp guard: an opting-in family that forgot its action must fail
+    # LOUDLY, not silently skip curvature — that's a wiring bug by contract.
+    @test_throws ArgumentError constraint_stencil_hvp!(
+        zeros(4),
+        _NoStencilConstraint(),
+        zeros(2),
+        zeros(4),
+        zeros(4),
+    )
+end

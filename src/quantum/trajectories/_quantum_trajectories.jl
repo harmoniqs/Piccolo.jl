@@ -21,7 +21,8 @@ using ..Pulses:
     CompositePulse
 using ..Pulses: duration, drive_name, n_drives, sample
 using ..Pulses: get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
-import ..Pulses: duration, drive_name
+using ..Pulses: _near_knot
+import ..Pulses: duration, drive_name, interpolation_basis
 import ..Rollouts
 import ..Rollouts: rollout!
 using ..Rollouts:
@@ -31,6 +32,8 @@ using ..Rollouts:
     KetOperatorODEProblem,
     DensityODEProblem
 using ..Rollouts: unitary_fidelity, _sim_index
+using ..Rollouts: PiecewiseExponential, piecewise_exponential_solve, _time_independent
+import SciMLBase
 using ..EmbeddedOperators: AbstractPiccoloOperator, EmbeddedOperator, unembed
 using ..Isomorphisms: operator_to_iso_vec, ket_to_iso, iso_to_ket, iso_vec_to_operator
 using ..Isomorphisms: density_to_compact_iso, compact_iso_to_density
@@ -44,7 +47,7 @@ import ..QuantumSystems: default_algorithm
     default_algorithm(sys::CompositeQuantumSystem)
     default_algorithm(sys::OpenQuantumSystem)
 
-Return the default ODE algorithm for trajectory rollouts.
+Return the system's default ODE algorithm for trajectory rollouts.
 Uses `Tsit5()` for non-Hermitian systems (where Magnus adaptive error
 control fails), `MagnusAdapt4()` for Hermitian systems.
 
@@ -53,9 +56,19 @@ Hermitian iff every subsystem is Hermitian. The coupling drift and drives are
 assumed Hermitian (the typical closed-system case).
 
 For `OpenQuantumSystem`, the Lindblad generator is non-Hermitian by
-construction, so `Tsit5()` is the only sensible default — and it
-matches the explicit `algorithm = Tsit5()` default in the
-`DensityTrajectory` / `MultiDensityTrajectory` constructors.
+construction, so `Tsit5()` is the only sensible default.
+
+On a system with no explicit time dependence, a rollout with `algorithm = nothing` does
+not reach this for spline or ZOH pulses (#379): a `ZeroOrderPulse` is propagated exactly
+by [`PiecewiseExponential`](@ref Piccolo.Quantum.Rollouts.PiecewiseExponential), and a
+`LinearSplinePulse` / `CubicSplinePulse` integrates with `Tsit5()`, whose error tracks
+`abstol` / `reltol`. `MagnusAdapt4`'s tolerance is inert there: OrdinaryDiffEqLinear's
+embedded error estimate for it reduces, for a state-independent generator, to a
+commutator with the generator's second difference over the step, which vanishes
+identically wherever `H(t)` is affine in `t` (every linear-spline and ZOH interval), so
+the step size is set by the `tstops` alone (measured: a `1.6e-4` error floor on a
+9-level, 200 ns linear-spline fixture at every tolerance from `1e-6` to `1e-12`). See
+`docs/experiments/379-rollout-accuracy.md`.
 """
 function default_algorithm(sys::QuantumSystem)
     return sys.hermitian ? MagnusAdapt4() : Tsit5()
@@ -68,6 +81,103 @@ end
 function default_algorithm(::OpenQuantumSystem)
     return Tsit5()
 end
+
+# ---------------------------------------------------------------------------- #
+# Rollout dispatch: exact piecewise exponential for ZOH, ODE otherwise (#379)
+# ---------------------------------------------------------------------------- #
+
+# A zero-order-hold pulse on a time-independent system has a piecewise-constant
+# generator, so its exact propagator is a product of matrix exponentials.
+_piecewise_exponential_eligible(system, pulse) =
+    pulse isa ZeroOrderPulse && _time_independent(system)
+
+function _use_piecewise_exponential(algorithm, system, pulse)
+    eligible = _piecewise_exponential_eligible(system, pulse)
+    algorithm isa PiecewiseExponential &&
+        !eligible &&
+        throw(
+            ArgumentError(
+                "PiecewiseExponential() needs a ZeroOrderPulse on a system with no " *
+                "explicit time dependence; got a $(nameof(typeof(pulse))). Pass an ODE " *
+                "algorithm (e.g. Tsit5()) instead.",
+            ),
+        )
+    return algorithm isa PiecewiseExponential || (isnothing(algorithm) && eligible)
+end
+
+# The ODE algorithm for `algorithm = nothing`. A spline pulse on a time-independent
+# system has a piecewise-polynomial generator, on which `MagnusAdapt4`'s step-size
+# control is inert (see `default_algorithm`); `Tsit5` tracks the tolerance there.
+_default_rollout_algorithm(system, pulse) =
+    pulse isa Union{LinearSplinePulse,CubicSplinePulse} && _time_independent(system) ?
+    Tsit5() : default_algorithm(system)
+
+# Solve one rollout ODE problem, or propagate it exactly when the pulse is ZOH and no
+# algorithm is requested. `algorithm = nothing` otherwise means `_default_rollout_algorithm`.
+function _solve_rollout(
+    prob,
+    system,
+    pulse,
+    save_times,
+    algorithm;
+    abstol,
+    reltol,
+    kwargs...,
+)
+    _use_piecewise_exponential(algorithm, system, pulse) &&
+        return piecewise_exponential_solve(
+            prob,
+            system,
+            pulse,
+            get_knot_times(pulse),
+            save_times,
+        )
+    alg = isnothing(algorithm) ? _default_rollout_algorithm(system, pulse) : algorithm
+    return solve(prob, alg; saveat = save_times, abstol, reltol, kwargs...)
+end
+
+# The ensemble counterpart of `_solve_rollout`, one member per initial state.
+function _solve_ensemble_rollout(
+    base_prob,
+    initials,
+    system,
+    pulse,
+    save_times,
+    algorithm;
+    abstol,
+    reltol,
+    kwargs...,
+)
+    _use_piecewise_exponential(algorithm, system, pulse) &&
+        return piecewise_exponential_solve(
+            base_prob,
+            system,
+            pulse,
+            get_knot_times(pulse),
+            save_times;
+            initials,
+        )
+    prob_func(prob, i_or_ctx, _repeat = nothing) =
+        remake(prob, u0 = initials[_sim_index(i_or_ctx)])
+    alg = isnothing(algorithm) ? _default_rollout_algorithm(system, pulse) : algorithm
+    return solve(
+        EnsembleProblem(base_prob; prob_func = prob_func),
+        alg;
+        trajectories = length(initials),
+        saveat = save_times,
+        abstol,
+        reltol,
+        kwargs...,
+    )
+end
+
+# The algorithm a stored solution was produced with. In-place `rollout!` with
+# `algorithm = nothing` reuses it: the trajectory's `solution` field is typed by its
+# first solve, so a different algorithm could not be stored back into it.
+_stored_algorithm(sol::SciMLBase.AbstractODESolution) = sol.alg
+_stored_algorithm(sol::SciMLBase.EnsembleSolution) =
+    isempty(sol.u) ? nothing : _stored_algorithm(first(sol.u))
+_stored_algorithm(_) = nothing
 
 @testitem "default_algorithm — CompositeQuantumSystem dispatches via subsystems" begin
     using OrdinaryDiffEqLinear: MagnusAdapt4

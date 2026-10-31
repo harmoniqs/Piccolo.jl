@@ -83,7 +83,7 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator. If `nothing`, uses `BilinearIntegrator`. |
+# | `integrator` | `AbstractIntegrator` | `nothing` | Custom integrator. If `nothing`, uses the native `HermitianExponentialIntegrator` (exact PWC, globals-aware; open-system density trajectories use its `NonHermitianExponentialIntegrator` counterpart). |
 # | `global_names` | `Vector{Symbol}` | `nothing` | Names of global parameters to optimize (requires custom integrator). |
 # | `global_bounds` | `Dict{Symbol, ...}` | `nothing` | Bounds on global variables. Values can be `Float64` (symmetric ±) or `Tuple{Float64, Float64}`. |
 # | `constraints` | `Vector{AbstractConstraint}` | `[]` | Additional constraints to add to the problem. |
@@ -107,8 +107,9 @@ times = collect(range(0, T, length = N))
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 
-## Solve with L1 regularization on du
-qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0)
+## Solve with L1 regularization on du. `Δt_bounds` keeps the free timesteps positive
+## (unbounded, the solver can drive Δt < 0) and is required by `MinimumTimeProblem` below.
+qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0, Δt_bounds = (0.05, 0.5))
 cached_solve!(qcp, "bang_bang_basic"; max_iter = 200)
 
 #- 
@@ -173,7 +174,7 @@ qcp = BangBangPulseProblem(
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 
-qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0)
+qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0, Δt_bounds = (0.05, 0.5))
 cached_solve!(qcp, "bang_bang_state_transfer"; max_iter = 100)
 
 # ### Multiple State Transfers
@@ -186,7 +187,7 @@ cached_solve!(qcp, "bang_bang_state_transfer"; max_iter = 100)
 pulse = ZeroOrderPulse(0.1 * randn(2, N), times)
 qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
-qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0)
+qcp = BangBangPulseProblem(qtraj, N; Q = 100.0, R_du = 1.0, Δt_bounds = (0.05, 0.5))
 cached_solve!(qcp, "bang_bang_multi_ket"; max_iter = 100)
 
 # ## How It Works

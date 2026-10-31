@@ -76,9 +76,11 @@ function _hermitian_exp_ket(
     matrix_free::Bool = false,
     use_analytical::Bool = true,
 )
+    _refuse_time_dependent(sys, "HermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
 
-    global_dim = traj.global_dim
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
     ketdim = sys.levels
 
     # Dimensions for API (u_dim is control dimension, not including globals)
@@ -91,7 +93,8 @@ function _hermitian_exp_ket(
     var_dim = 2*x_dim + u_dim + 1
 
     # Use structure functions to create templates with canonical ordering
-    ∂ℰ_template = jacobian_structure(KetTrajectory, x, u, ketdim, traj)
+    ∂ℰ_template =
+        jacobian_structure(KetTrajectory, x, u, ketdim, traj; global_dim = global_dim)
     μ∂²ℰ_template = hessian_structure(x_dim, u_dim, global_dim; gauss_newton = gauss_newton)
 
     # Preallocate one copy per knot point
@@ -319,12 +322,12 @@ function jacobian_structure(
     x_name::Symbol,
     u_name::Symbol,
     ketdim::Int,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    global_dim::Int = traj.global_dim,
 )
     x_dim = traj.dims[x_name]
     u_dim = traj.dims[u_name]
     z_dim = traj.dim
-    global_dim = traj.global_dim
     x_comps = traj.components[x_name]
     u_comps = traj.components[u_name]
     Δt_comp = traj.components[traj.timestep][1]
@@ -619,13 +622,21 @@ function get_jacobian_structure(
     N = traj.N
     x_dim = traj.dims[x_name(ℰ)]
     z_dim = traj.dim
-    global_dim = traj.global_dim
     F_dim = x_dim * (N - 1)
-    Z_dim = z_dim * N + global_dim
+    # per-knot global block = declared globals; Z spans all trajectory globals
+    global_dim = ℰ.global_dim
+    Z_dim = z_dim * N + traj.global_dim
     ∂F = spzeros(F_dim, Z_dim)
 
     # Get structure for a single knot point (includes global columns)
-    ∂ℰ_k = jacobian_structure(KetTrajectory, x_name(ℰ), ℰ.u_name, ℰ.ketdim, traj)
+    ∂ℰ_k = jacobian_structure(
+        KetTrajectory,
+        x_name(ℰ),
+        ℰ.u_name,
+        ℰ.ketdim,
+        traj;
+        global_dim = global_dim,
+    )
 
     # Place per-knot structure for all knot points
     for k = 1:(N-1)
@@ -709,8 +720,8 @@ end
     # Global columns: copy from per-knot ∂ℰ to their Z positions. The per-knot
     # block is in global_names order; `_global_full_cols` maps it to the
     # trajectory's global_components order (fixes the permuted-∂c/∂θ bug).
-    if traj.global_dim > 0
-        g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+traj.global_dim)
+    if ℰ.global_dim > 0
+        g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+ℰ.global_dim)
         g_cols_full = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ℰ.∂ℰs[k][:, g_cols_local]
@@ -777,7 +788,7 @@ end
     # canonical (global_names-order) block; `g_traj` maps it to the trajectory's
     # global_components order in Z (see `_global_full_cols`) — fixes the permuted
     # global Hessian blocks under a reordering.
-    global_dim = traj.global_dim
+    global_dim = ℰ.global_dim
     if global_dim > 0
         g_can = (2*knot_dim+1):(2*knot_dim+global_dim)
         g_traj = _global_full_cols(ℰ, traj)
@@ -850,12 +861,7 @@ end
     # globals enter DISTINCT operators so a swap is observable: ∂H/∂b=Z, ∂H/∂a=Y.
     # global_params=(b, a) ⇒ integrator global_names=[:b,:a]; H reads u[3]=b, u[4]=a.
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     T = 2.0
@@ -1145,12 +1151,7 @@ end
 
     # --- with globals: additionally exercises the x-g cross-term block ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = KetTrajectory(gsys, ψ_init, ψ_goal, T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1239,12 +1240,7 @@ end
 
     # --- with globals: adds u-g, g-g, Δt-g p-p blocks ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = KetTrajectory(gsys, ψ_init, ψ_goal, T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1289,12 +1285,7 @@ end
     N = 12
 
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(sys, ψ_init, ψ_goal, T)
@@ -1469,7 +1460,7 @@ end
     A2 = randn(ComplexF64, n, n)
     H2 = Matrix(Hermitian(A2 + A2'))
     H = (u, t) -> H0 + u[1] * H1 + u[2] * H2
-    sys = QuantumSystem(H, [1.0, 1.0]; time_dependent = true)
+    sys = QuantumSystem(H, [1.0, 1.0])
 
     ψ_init = normalize(randn(ComplexF64, n))
     ψ_goal = normalize(randn(ComplexF64, n))
@@ -1646,4 +1637,45 @@ end
     HS = get_hessian_of_lagrangian_structure(ℰ, traj)
     @test size(HS) == (length(vec(traj)), length(vec(traj)))
     @test any(!iszero, HS[T_col, :])
+end
+
+
+@testitem "HermitianExponentialIntegrator{Ket} explicit globals, unknown-name default, and Jacobian structure" begin
+    using Piccolo
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using SparseArrays
+    using Random
+
+    Random.seed!(90_349)
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    N = 6
+    qtraj = KetTrajectory(sys, ψ0, ψg, 2.0)
+
+    # Explicit global_names INCLUDING a name the system does not know: the
+    # unknown name must default to 0.0 and still be tracked as a global
+    ℰ = HermitianExponentialIntegrator(qtraj, N; global_names = [:b, :a, :ζ])
+    @test ℰ.global_names == [:b, :a, :ζ]
+    @test ℰ.global_dim == 3
+
+    traj =
+        NamedTrajectory(qtraj, N; global_data = Dict(:b => [0.2], :a => [0.1], :ζ => [0.0]))
+    traj.datavec .= 0.3 .* randn(length(traj.datavec))
+    δ = zeros(ℰ.dim)
+    DirectTrajOpt.evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
+
+    # get_jacobian_structure with globals: the global columns are declared at
+    # their trajectory positions and cover the assembled Jacobian's support
+    J = DirectTrajOpt.CommonInterface.eval_jacobian(ℰ, traj)
+    S = DirectTrajOpt.Integrators.get_jacobian_structure(ℰ, traj)
+    @test size(S) == size(J)
+    Jn, Sn = Matrix(J), Matrix(S)
+    @test all(iszero(Jn[i, j]) || !iszero(Sn[i, j]) for i = 1:size(J, 1), j = 1:size(J, 2))
+    @test !all(iszero, Jn[:, end-2])   # ζ column: zero sensitivity (system never reads it)
+    @test !all(iszero, Jn[:, end-1])   # a column carries real derivatives
 end

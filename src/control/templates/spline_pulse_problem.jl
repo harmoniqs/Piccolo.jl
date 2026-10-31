@@ -49,8 +49,15 @@ end
     trajectory_kinds = (:unitary, :ket)
     ket_free_phase = true
     params = SplinePulseParams
-    passthrough = (:integrator, :constraints, :extra_objectives, :piccolo_options)
-    builder = _spline_pulse_problem
+    passthrough = (
+        :integrator,
+        :allow_basis_approximation,
+        :constraints,
+        :extra_objectives,
+        :piccolo_options,
+        :playback,
+    )
+    builder = _spline_pulse_problem_build
     requires_N = false
     hint = """For piecewise constant pulses (ZeroOrderPulse), use SmoothPulseProblem instead:
       qcp = SmoothPulseProblem(qtraj, N; ...)"""
@@ -99,12 +106,18 @@ Both pulse types always have `:du` components in the trajectory, simplifying int
   - `times::AbstractVector`: Specific sample times
 
 # Keyword Arguments
-- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses `BilinearIntegrator` (which does not support global variables). A custom integrator is required when `global_names` is specified.
-- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator (e.g., `SplineIntegrator` from Piccolissimo) that supports global variables.
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `SplineIntegrator` (spline-faithful, globals auto-detected from `sys.global_params`).
+- `allow_basis_approximation::Bool=false`: every dynamics integrator must integrate in the pulse's [`interpolation_basis`](@ref) — `:linear`/`:cubic`, i.e. `SplineIntegrator` (#375). An exponential or `BilinearIntegrator`, including `integrator_type = :pwc`, is refused with an `ArgumentError`; pass `true` to declare that approximation deliberately (see [`check_basis_pairing`](@ref)).
+- `integrator_type::Union{Nothing, Symbol}=nothing`: Backend choice — `nothing`/`:spline` (the default) resolves to the native spline-faithful `SplineIntegrator`; `:pwc` is the acknowledged piecewise-constant escape hatch (`BilinearIntegrator`, which never reads `:du` — a CubicSplinePulse under it warns). Unknown values error naming both backends.
+- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., Piccolo's own `SplineIntegrator(qtraj, N; global_names=...)`) that carries those globals in its dynamics.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Replaces any existing `GlobalBoundsConstraint` on the same name. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Uniform bound on derivative (slope) magnitude for all drives
 - `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Weight on regularization terms (LinearSplinePulse only — see below)
 - `R_u::Union{Nothing, Float64, Vector{Float64}}=nothing`: Weight on control regularization. Pulse-type-dependent default — see below.
@@ -185,12 +198,18 @@ solve!(qcp; max_iter=100)
 See also: [`SmoothPulseProblem`](@ref) for piecewise constant pulses with discrete smoothing.
 """ SplinePulseProblem
 
+# `playback = spec` wraps the design problem in a `PlaybackProblem` (#387); without
+# it the design problem is returned as built.
+_spline_pulse_problem_build(qtraj, args...; playback = nothing, kwargs...) =
+    _with_playback(_spline_pulse_problem(qtraj, args...; kwargs...), playback, kwargs)
+
 # The construction logic the generated constructor delegates to. Returns the
 # untagged problem; `@problem_template`'s constructor stamps on the tag + params.
 function _spline_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:AbstractSplinePulse},
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     integrator_type::Union{Nothing,Symbol} = nothing,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
@@ -290,8 +309,12 @@ function _spline_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     # N_or_times=nothing uses native pulse knot times (preserves warm-start exactly)
-    base_traj =
-        NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = NamedTrajectory(
+        qtraj,
+        N_or_times;
+        Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N_or_times),
+        global_data = global_data,
+    )
     N = base_traj.N  # Get actual number of knot points
 
     # Always add control derivatives to trajectory
@@ -337,45 +360,36 @@ function _spline_pulse_problem(
         if !isnothing(global_names) && !isempty(global_names)
             error(
                 "global_names requires a custom integrator that supports global variables. " *
-                "Use SplineIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native SplineIntegrator:\n" *
                 "  integrator = SplineIntegrator(qtraj, N; spline_order=$(_get_spline_order(qtraj.pulse)), global_names=$global_names)\n" *
                 "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        # Spline pulses must not silently land on PWC dynamics: BilinearIntegrator
-        # never reads :du, so a spline pulse would optimize a different waveform
-        # than its name promises (issue #275). `integrator_type = :pwc` is the
-        # explicit, acknowledged escape hatch.
+        # #334: the default backend is spline-faithful — the native SplineIntegrator
+        # (analytic knot-aware sensitivities; globals auto-detected from
+        # sys.global_params). A CubicSplinePulse on the default path is the CORRECT
+        # pairing now (the old #275 "defaults are not allowed" refusal and the
+        # default-PWC warning die with the old default). `integrator_type = :pwc`
+        # remains the acknowledged piecewise-constant escape hatch.
         isnothing(integrator_type) ||
+            integrator_type === :spline ||
             integrator_type === :pwc ||
             error(
                 "unknown `integrator_type = :$integrator_type`. " *
-                "Piccolo ships one backend: `:pwc` (`BilinearIntegrator`).",
+                "Piccolo ships two backends: `:spline` (`SplineIntegrator`, the default) " *
+                "and `:pwc` (`BilinearIntegrator`).",
             )
-        if qtraj.pulse isa CubicSplinePulse
-            if integrator_type === :pwc
-                @warn "CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the " *
-                      "dynamics treat the drive as piecewise constant and ignore :du — the " *
-                      "optimized waveform differs from the cubic spline the pulse object " *
-                      "describes. Acknowledged because you asked for it explicitly." maxlog =
-                    1
-            else
-                error(
-                    "CubicSplinePulse defaults are not allowed: the default PWC backend " *
-                    "silently drops :du (a cubic problem would optimize a piecewise-constant " *
-                    "waveform, not a spline — issue #275). Either pass a spline-faithful " *
-                    "integrator (Piccolissimo.SplineIntegrator) or explicitly request the PWC " *
-                    "backend with `integrator_type = :pwc`.",
-                )
-            end
-        elseif qtraj.pulse isa AbstractSplinePulse
-            @warn "SplinePulseProblem default BilinearIntegrator with $(typeof(qtraj.pulse).name.name): " *
-                  "Bilinear is PWC and ignores :du. Pass a SplineIntegrator (Piccolissimo) for " *
-                  "spline-faithful dynamics, or `integrator_type = :pwc` to acknowledge." maxlog =
-                1
+        if qtraj.pulse isa CubicSplinePulse &&
+           integrator_type === :pwc &&
+           allow_basis_approximation
+            @warn "CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the " *
+                  "dynamics treat the drive as piecewise constant and ignore :du — the " *
+                  "optimized waveform differs from the cubic spline the pulse object " *
+                  "describes. Acknowledged because you asked for it explicitly." maxlog = 1
         end
-        default_int = BilinearIntegrator(qtraj, N)
+        default_int =
+            isnothing(integrator_type) || integrator_type === :spline ?
+            SplineIntegrator(qtraj, N) : BilinearIntegrator(qtraj, N)
 
         if default_int isa AbstractVector
             dynamics_integrators = AbstractIntegrator[default_int...]
@@ -400,6 +414,12 @@ function _spline_pulse_problem(
         end
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :SplinePulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     # Get control names
     du_sym = Symbol(:d, control_sym)
@@ -534,21 +554,25 @@ Uses coherent fidelity objective (phases must align) for gate implementation.
 # Keyword Arguments
 Accepts all keyword arguments from the base [`SplinePulseProblem`](@ref) method,
 including pulse-type-dependent `R_u` / `R_du` defaults (see the base method's
-docstring for the full discussion, including how to attach
-`Piccolissimo.HermiteBendingEnergyRegularizer` for cubic-spline smoothness),
+docstring for the full discussion, including the built-in `R_bend` bending-energy
+regularization for cubic-spline smoothness),
 plus:
 - `du_bounds::Union{Nothing, Vector{Float64}}=nothing`: Per-drive bounds on derivative magnitude (takes precedence over `du_bound`)
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `free_phase::Bool=false`: Optimize a per-subsystem frame phase alongside the pulse. Applies number-operator rotation `e^{iθ n̂}` to goal states — level `s` acquires phase `s·θ`. Requires `subsystem_levels`.
 - `subsystem_levels::Union{Nothing, Vector{Int}}=nothing`: Number of levels per subsystem, required when `free_phase=true`.
 - `initial_phases::Union{Nothing, Vector{Float64}}=nothing`: Initial values for the per-subsystem phase variables when `free_phase=true`. Length must equal the number of subsystems.
 - `coherent::Bool=true`: If `true`, uses a coherent fidelity objective (phases must align across state pairs). If `false`, uses per-state fidelity.
 - `integrator_type::Union{Nothing,Symbol}=nothing`: Integrator backend choice. `nothing` (default)
-  infers by pulse kind — `ZeroOrderPulse` is silent PWC; spline pulses guard against the silent-PWC
-  trap (cubic errors, linear warns; issue #275). `:pwc` explicitly requests the **piecewise-constant**
-  `BilinearIntegrator` — allowed with any pulse, acknowledged by warning for splines. The former
-  `:spline` and `:ensemble` values raise informative errors: `:spline` silently returned the PWC
-  integrator, and `:ensemble` referenced a type that was never defined. For spline-faithful dynamics
-  pass `integrator = Piccolissimo.SplineIntegrator(...)` explicitly.
+  resolves to the native spline-faithful `SplineIntegrator` — the #334 default, correct for every
+  spline pulse. `:pwc` explicitly requests the **piecewise-constant** `BilinearIntegrator` — allowed
+  with any pulse, acknowledged by warning for splines (it never reads `:du`, so a cubic pulse would
+  optimize a different waveform than its name promises). The former `:ensemble` value raises an
+  informative error: it referenced a type that was never defined. For a parallel multi-ket backend,
+  pass `integrator = ...` explicitly.
 - `parallel_backend::Symbol=:manual`: **Inert.** Its only consumer was the removed `:ensemble`
   branch; setting it to anything other than `:manual` warns and has no effect. Pass a
   parallel integrator via `integrator` instead.
@@ -557,6 +581,7 @@ function _spline_pulse_problem(
     qtraj::MultiKetTrajectory{<:AbstractSplinePulse},
     N_or_times::Union{Nothing,Int,AbstractVector{<:Real}} = nothing;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     integrator_type::Union{Nothing,Symbol} = nothing,  # nothing = infer (see guards); :pwc = acknowledged PWC
     parallel_backend::Symbol = :manual,  # inert — see the docstring
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
@@ -643,8 +668,12 @@ function _spline_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     # N_or_times=nothing uses native pulse knot times (preserves warm-start exactly)
-    base_traj =
-        NamedTrajectory(qtraj, N_or_times; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = NamedTrajectory(
+        qtraj,
+        N_or_times;
+        Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N_or_times),
+        global_data = global_data,
+    )
     N = base_traj.N  # Get actual number of knot points
 
     # Always add control derivatives to trajectory
@@ -691,8 +720,7 @@ function _spline_pulse_problem(
         if !isnothing(global_names) && !isempty(global_names)
             error(
                 "global_names requires a custom integrator that supports global variables. " *
-                "Use SplineIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native SplineIntegrator:\n" *
                 "  integrator = SplineIntegrator(qtraj, N; spline_order=$(_get_spline_order(qtraj.pulse)), global_names=$global_names)\n" *
                 "  qcp = SplinePulseProblem(qtraj, N; integrator=integrator, ...)",
             )
@@ -706,7 +734,9 @@ function _spline_pulse_problem(
         # #334: the default backend is spline-faithful, so a CubicSplinePulse on the
         # default path is the correct pairing — no acknowledgement needed. Explicit
         # `integrator_type = :pwc` remains the acknowledged PWC escape hatch.
-        if qtraj.pulse isa CubicSplinePulse && integrator_type === :pwc
+        if qtraj.pulse isa CubicSplinePulse &&
+           integrator_type === :pwc &&
+           allow_basis_approximation
             @warn "CubicSplinePulse with the PWC backend (`integrator_type = :pwc`): the " *
                   "dynamics treat the drive as piecewise constant and ignore :du — the " *
                   "optimized waveform differs from the cubic spline the pulse object " *
@@ -727,13 +757,15 @@ function _spline_pulse_problem(
                   Piccolo or DirectTrajOpt, so this value could only ever throw an
                   `UndefVarError` — which is why `test/jet.jl` ran with `broken = true`.
 
-                  For parallel multi-ket dynamics, pass an integrator explicitly from
-                  Piccolissimo. For the shipped backend, use `integrator_type = :pwc`.
+                  For parallel multi-ket dynamics, pass an integrator explicitly
+                  from Piccolissimo. For the shipped backends, use the spline-faithful
+                  default or `integrator_type = :pwc`.
                   """)
         else
             error(
                 "unknown `integrator_type = :$integrator_type`. " *
-                "Piccolo ships one backend: `:pwc` (`BilinearIntegrator`). " *
+                "Piccolo ships two backends: `:spline` (`SplineIntegrator`, the default) " *
+                "and `:pwc` (`BilinearIntegrator`). " *
                 "Pass `integrator = ...` for anything else.",
             )
         end
@@ -760,6 +792,12 @@ function _spline_pulse_problem(
         end
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :SplinePulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     # Get control names
     du_sym = Symbol(:d, control_sym)
@@ -946,7 +984,14 @@ end
 
     # Create trajectory and problem
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, integrator_type = :pwc)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
 
     @test qcp isa QuantumControlProblem
     @test get_trajectory(qcp) isa NamedTrajectory
@@ -987,6 +1032,7 @@ end
         R = 1e-2,
         du_bound = du_bound,
         integrator_type = :pwc,
+        allow_basis_approximation = true,
     )
 
     traj = get_trajectory(qcp)
@@ -1004,8 +1050,14 @@ end
     @test all(upper_bounds .≈ du_bound)
 
     # Test without du_bound (should default to Inf)
-    qcp_unbounded =
-        SplinePulseProblem(qtraj, N; Q = 100.0, R = 1e-2, integrator_type = :pwc)
+    qcp_unbounded = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        R = 1e-2,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     traj_unbounded = get_trajectory(qcp_unbounded)
 
     # Without explicit du_bound, bounds should still be set to Inf (not throw error)
@@ -1179,9 +1231,10 @@ end
     @test haskey(traj.components, :ψ̃2)
     @test !haskey(traj.components, :ddu)  # No second derivative for splines
 
-    # Should have 2 dynamics integrators (one per state)
-    dynamics_integrators = filter(i -> i isa BilinearIntegrator, qcp.prob.integrators)
-    @test length(dynamics_integrators) == 2
+    # #334 default: ONE shared-propagator SplineIntegrator over both kets
+    # (plus the linear-spline :du consistency DerivativeIntegrator)
+    @test count(i -> i isa SplineIntegrator, qcp.prob.integrators) == 1
+    @test count(i -> i isa DerivativeIntegrator, qcp.prob.integrators) == 1
 end
 
 @testitem "integrator_type names the backend it actually returns" begin
@@ -1197,23 +1250,31 @@ end
     ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
     mk() = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
-    # The default is `:pwc`, and it means what it says: BilinearIntegrator.
+    # The #334 default is the native spline-faithful SplineIntegrator — one
+    # shared-propagator integrator over the ensemble (the old per-member
+    # BilinearIntegrator pair is gone from the default path).
     qcp = SplinePulseProblem(mk(), N)
-    @test length(filter(i -> i isa BilinearIntegrator, qcp.prob.integrators)) == 2
-    @test SplinePulseProblem(mk(), N; integrator_type = :pwc) isa QuantumControlProblem
+    @test count(i -> i isa SplineIntegrator, qcp.prob.integrators) == 1
 
-    # `:spline` used to return the PWC integrator silently. It must now say so instead:
-    # optimizing a spline against PWC dynamics is the documented 5-orders-of-magnitude
-    # misreporting hazard, so a wrong answer is worse than a refusal.
-    err = try
-        SplinePulseProblem(mk(), N; integrator_type = :spline)
-        nothing
-    catch e
-        e
-    end
-    @test err isa ErrorException
-    @test occursin("not available in Piccolo", err.msg)
-    @test occursin("SplineIntegrator", err.msg)   # names the way to actually get one
+    # `:spline` names the same backend the default resolves to.
+    qcp_spline = SplinePulseProblem(mk(), N; integrator_type = :spline)
+    @test count(i -> i isa SplineIntegrator, qcp_spline.prob.integrators) == 1
+
+    # `:pwc` is the acknowledged escape hatch: the per-member BilinearIntegrator
+    # pair, exactly as before the flip.
+    qcp_pwc = SplinePulseProblem(
+        mk(),
+        N;
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
+    @test count(i -> i isa BilinearIntegrator, qcp_pwc.prob.integrators) == 2
+    @test SplinePulseProblem(
+        mk(),
+        N;
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    ) isa QuantumControlProblem
 
     # `:ensemble` referenced `EnsembleSplineIntegrator`, which is defined nowhere — the
     # reason `test/jet.jl` carried `broken = true`. It must fail with an explanation, not
@@ -1238,6 +1299,53 @@ end
         N;
         parallel_backend = :threads,
     )
+end
+
+@testitem "SplinePulseProblem single-trajectory default is the native SplineIntegrator (#334)" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Logging
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+    N, T = 21, 10.0
+    times = collect(range(0.0, T, length = N))
+    ψ0, ψ1 = ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]
+
+    # Linear spline + Ket: the default is spline-faithful — SplineIntegrator,
+    # with NO Bilinear-default warning anymore (the old default warned).
+    lin_kq = KetTrajectory(sys, LinearSplinePulse(0.1 * randn(1, N), times), ψ0, ψ1)
+    logs, qcp_lin = Test.collect_test_logs() do
+        SplinePulseProblem(lin_kq, N; Q = 100.0)
+    end
+    @test count(i -> i isa SplineIntegrator, qcp_lin.prob.integrators) == 1
+    @test count(i -> i isa BilinearIntegrator, qcp_lin.prob.integrators) == 0
+    @test !any(l.level == Logging.Warn && occursin("Bilinear", l.message) for l in logs)
+
+    # Cubic spline + Ket: the pre-flip "CubicSplinePulse defaults are not
+    # allowed" refusal is GONE — the default path is the correct pairing now.
+    cub_kq = KetTrajectory(sys, CubicSplinePulse(0.1 * randn(1, N), times), ψ0, ψ1)
+    qcp_cub = SplinePulseProblem(cub_kq, N; Q = 100.0)
+    @test count(i -> i isa SplineIntegrator, qcp_cub.prob.integrators) == 1
+
+    # Unitary + linear: the generic method covers every closed-system
+    # trajectory kind.
+    uq_lin = UnitaryTrajectory(
+        sys,
+        LinearSplinePulse(0.1 * randn(1, N), times),
+        ComplexF64[0 1; 1 0],
+    )
+    qcp_u = SplinePulseProblem(uq_lin, N; Q = 100.0)
+    @test count(i -> i isa SplineIntegrator, qcp_u.prob.integrators) == 1
+
+    # Globals system on the default path: the native SplineIntegrator
+    # auto-detects sys.global_params (#349's globals-threading lanes).
+    sysg = QuantumSystem(0.01 * σz, [σx], [1.0]; global_params = (δ = 0.2,))
+    kq_g = KetTrajectory(sysg, LinearSplinePulse(0.1 * randn(1, N), times), ψ0, ψ1)
+    qcp_g = SplinePulseProblem(kq_g, N; Q = 100.0)
+    @test :δ ∈ qcp_g.prob.integrators[1].global_names
 end
 
 @testitem "SplinePulseProblem with SamplingTrajectory" begin
@@ -1293,7 +1401,7 @@ end
     using LinearAlgebra
 
     # Test that global_bounds throws an informative error when global doesn't exist
-    # (global_data must come from integrator - e.g., SplineIntegrator from Piccolissimo)
+    # (global_data must come from integrator - e.g., Piccolo's native SplineIntegrator)
 
     T = 2.0
     N = 10
@@ -1315,6 +1423,7 @@ end
         R = 1e-2,
         global_bounds = Dict(:δ => 0.5),  # δ doesn't exist in trajectory
         integrator_type = :pwc,
+        allow_basis_approximation = true,
     )
 end
 
@@ -1545,7 +1654,13 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)  # no explicit R_u, R_du
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )  # no explicit R_u, R_du
 
     @test qcp isa QuantumControlProblem
 
@@ -1623,7 +1738,13 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     @test qcp isa QuantumControlProblem
 
     # The QuadraticRegularizer contribution must be exactly zero on any
@@ -1665,13 +1786,20 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
+    qcp_default = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     qcp_empty = SplinePulseProblem(
         qtraj,
         N;
         Q = 100.0,
         extra_objectives = AbstractObjective[],
         integrator_type = :pwc,
+        allow_basis_approximation = true,
     )
 
     n_default =
@@ -1709,7 +1837,13 @@ end
     U_goal = ComplexF64[0 1; 1 0]
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp_baseline = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
+    qcp_baseline = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
 
     # Build the extra regularizer against the actual trajectory we will use.
     # The unitary template emits this same trajectory via NamedTrajectory(qtraj, N).
@@ -1723,6 +1857,7 @@ end
         Q = 100.0,
         extra_objectives = AbstractObjective[extra_reg],
         integrator_type = :pwc,
+        allow_basis_approximation = true,
     )
 
     n_baseline =
@@ -1803,17 +1938,14 @@ end
     uq_lin = UnitaryTrajectory(sys, lin, U_goal)
     uq_cub = UnitaryTrajectory(sys, cub, U_goal)
 
-    # CubicSplinePulse + no integrator declared: ERROR (issue #275 — the default
-    # PWC backend would silently drop :du and optimize a different waveform).
-    err = try
-        SplinePulseProblem(uq_cub, N)
-        nothing
-    catch e
-        e
-    end
-    @test err isa ErrorException
-    @test occursin("CubicSplinePulse defaults are not allowed", err.msg)
-    @test occursin("integrator_type = :pwc", err.msg)
+    # #334: CubicSplinePulse + no integrator declared is now the CORRECT pairing —
+    # the default backend is the native spline-faithful SplineIntegrator (the old
+    # #275 "CubicSplinePulse defaults are not allowed" refusal died with the PWC
+    # default; the :pwc escape hatch replaces it as the guarded path).
+    qcp_cub_default = SplinePulseProblem(uq_cub, N)
+    @test qcp_cub_default isa QuantumControlProblem
+    @test count(i -> i isa SplineIntegrator, qcp_cub_default.prob.integrators) == 1
+    @test count(i -> i isa BilinearIntegrator, qcp_cub_default.prob.integrators) == 0
 
     # global_names without an integrator is an error on both trajectory methods
     err = try
@@ -1836,10 +1968,13 @@ end
     @test err isa ErrorException
     @test occursin("global_names requires a custom integrator", err.msg)
 
-    # explicit single-integrator kwarg: fine for a linear spline (warns on the
-    # PWC default elsewhere), H1 error for cubic + BilinearIntegrator
+    # explicit single-integrator kwarg: a linear spline + BilinearIntegrator is a
+    # basis mismatch, refused unless declared (#375); H1 error for cubic +
+    # BilinearIntegrator (the explicit PWC choice never reads :du)
     integ = BilinearIntegrator(uq_lin, N)
-    qcp = SplinePulseProblem(uq_lin, N; integrator = integ)
+    @test_throws ArgumentError SplinePulseProblem(uq_lin, N; integrator = integ)
+    qcp =
+        SplinePulseProblem(uq_lin, N; integrator = integ, allow_basis_approximation = true)
     @test qcp isa QuantumControlProblem
 
     err = try
@@ -1852,7 +1987,13 @@ end
     @test occursin("H1", err.msg)
 
     # explicit vector-of-integrators kwarg: same contract per element
-    qcp_vec = SplinePulseProblem(uq_lin, N; integrator = [integ])
+    @test_throws ArgumentError SplinePulseProblem(uq_lin, N; integrator = [integ])
+    qcp_vec = SplinePulseProblem(
+        uq_lin,
+        N;
+        integrator = [integ],
+        allow_basis_approximation = true,
+    )
     @test qcp_vec isa QuantumControlProblem
 
     err = try
@@ -1888,7 +2029,13 @@ end
     @test hi ≈ [5.0, 2.0]
 
     # per-drive du_bounds: CubicSplinePulse update_bound! path
-    qcp2 = SplinePulseProblem(uq_cub2, N; du_bounds = [5.0, 2.0], integrator_type = :pwc)
+    qcp2 = SplinePulseProblem(
+        uq_cub2,
+        N;
+        du_bounds = [5.0, 2.0],
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     lo2, hi2 = get_trajectory(qcp2).bounds[:du]
     @test lo2 ≈ [-5.0, -2.0]
     @test hi2 ≈ [5.0, 2.0]
@@ -1900,6 +2047,7 @@ end
         N;
         du_bound = 4.0,
         integrator_type = :pwc,
+        allow_basis_approximation = true,
         piccolo_options = opts,
     ) isa QuantumControlProblem
     @test SplinePulseProblem(uq_lin2, N; piccolo_options = opts) isa QuantumControlProblem
@@ -1913,6 +2061,7 @@ end
         N;
         du_bound = 4.0,
         integrator_type = :pwc,
+        allow_basis_approximation = true,
         piccolo_options = opts,
     ) isa QuantumControlProblem
     @test SplinePulseProblem(mk_lin2, N; piccolo_options = opts) isa QuantumControlProblem
@@ -1974,6 +2123,7 @@ end
         UnitaryTrajectory(bounded_sys, cub, U_goal),
         N;
         integrator_type = :pwc,
+        allow_basis_approximation = true,
         spline_interior_bound_constraints = true,
     )
     @test any(c -> c isa CubicSplineBoundConstraint, qcp_bounded.prob.constraints)
@@ -1983,6 +2133,7 @@ end
         mk_cub_bounded,
         N;
         integrator_type = :pwc,
+        allow_basis_approximation = true,
         spline_interior_bound_constraints = true,
     )
     @test any(c -> c isa CubicSplineBoundConstraint, qcp_bounded_mk.prob.constraints)
@@ -2017,21 +2168,19 @@ end
     mk_lin = MultiKetTrajectory(sys, lin, [ψ0, ψ1], [ψ1, ψ0])
     mk_cub = MultiKetTrajectory(sys, cub, [ψ0, ψ1], [ψ1, ψ0])
 
-    # cubic + no integrator_type on the multi-ket method: same #275 error
-    err = try
-        SplinePulseProblem(mk_cub, N)
-        nothing
-    catch e
-        e
-    end
-    @test err isa ErrorException
-    @test occursin("CubicSplinePulse defaults are not allowed", err.msg)
+    # #334: cubic + no integrator_type on the multi-ket method: the correct
+    # spline-faithful default — constructs with the native SplineIntegrator
+    # (one shared propagator over the ensemble), no error, no warning.
+    qcp_cub_default = SplinePulseProblem(mk_cub, N)
+    @test qcp_cub_default isa QuantumControlProblem
+    @test count(i -> i isa SplineIntegrator, qcp_cub_default.prob.integrators) == 1
 
     # cubic + acknowledged :pwc backend: warns, constructs
     @test_logs (:warn, r"PWC backend") match_mode = :any SplinePulseProblem(
         mk_cub,
         N;
         integrator_type = :pwc,
+        allow_basis_approximation = true,
     )
 
     # scalar du_bound: linear add-derivatives path and cubic update_bound! path
@@ -2039,7 +2188,13 @@ end
     lo, hi = get_trajectory(qcp).bounds[:du]
     @test lo ≈ [-5.0] && hi ≈ [5.0]
 
-    qcp2 = SplinePulseProblem(mk_cub, N; du_bound = 5.0, integrator_type = :pwc)
+    qcp2 = SplinePulseProblem(
+        mk_cub,
+        N;
+        du_bound = 5.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     lo2, hi2 = get_trajectory(qcp2).bounds[:du]
     @test lo2 ≈ [-5.0] && hi2 ≈ [5.0]
 
@@ -2055,7 +2210,12 @@ end
     # (the vector-returning BilinearIntegrator(multiket, N) takes the vector
     # branch; the single branch is the parallel-integrator contract).
     uq_lin = UnitaryTrajectory(sys, lin, σx)
-    qcp4 = SplinePulseProblem(mk_lin, N; integrator = BilinearIntegrator(uq_lin, N))
+    qcp4 = SplinePulseProblem(
+        mk_lin,
+        N;
+        integrator = BilinearIntegrator(uq_lin, N),
+        allow_basis_approximation = true,  # #375: PWC on a linear spline is declared
+    )
     @test qcp4 isa QuantumControlProblem
 
     # cubic + a single BilinearIntegrator: the H1 guard fires before anything
@@ -2073,7 +2233,9 @@ end
     # 2-state ensemble: BilinearIntegrator returns a VECTOR — the vector branch
     integs = BilinearIntegrator(mk_lin, N)
     @test integs isa AbstractVector
-    qcp5 = SplinePulseProblem(mk_lin, N; integrator = integs)
+    @test_throws ArgumentError SplinePulseProblem(mk_lin, N; integrator = integs)
+    qcp5 =
+        SplinePulseProblem(mk_lin, N; integrator = integs, allow_basis_approximation = true)
     @test qcp5 isa QuantumControlProblem
 
     err = try
@@ -2139,13 +2301,26 @@ end
         end
 
     # Default: bending term present with R = [1e-3]
-    qcp_default = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
+    qcp_default = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     bend_default = filter(x -> x isa HermiteBendingEnergyRegularizer, terms(qcp_default))
     @test length(bend_default) == 1
     @test bend_default[1].R == [1e-3]
 
     # Opt-out: R_bend = 0 → no bending term
-    qcp_off = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc, R_bend = 0)
+    qcp_off = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+        R_bend = 0,
+    )
     bend_off = filter(x -> x isa HermiteBendingEnergyRegularizer, terms(qcp_off))
     @test isempty(bend_off)
 
@@ -2181,7 +2356,13 @@ end
     pulse = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
     qtraj = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
 
-    qcp = SplinePulseProblem(qtraj, N; Q = 100.0, integrator_type = :pwc)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+    )
     terms_ = let obj = qcp.prob.objective
         obj isa DirectTrajOpt.CompositeObjective ? obj.objectives : [obj]
     end
@@ -2260,4 +2441,133 @@ end
     lin_pulse = CubicSplinePulse(lin_u, lin_du, lin_times)
     m_c2 = shape_metrics(lin_pulse; mesh = 2^12)
     @test m_c2.bend[1] < 1e-6
+end
+
+@testitem "SplinePulseProblem MultiKet R_bend: explicit opt-out, explicit weight, and the C⁰ refusal" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    sys = QuantumSystem(0.01 * σz, [σx], [1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    cpulse = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
+
+    terms_(qcp) =
+        let obj = qcp.prob.objective
+            obj isa DirectTrajOpt.CompositeObjective ? obj.objectives : [obj]
+        end
+
+    # ── Explicit opt-out (R_bend = 0): the ensemble resolution lane drops the
+    #    term rather than defaulting it on ──
+    qtraj_c = MultiKetTrajectory(sys, cpulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp_off = SplinePulseProblem(
+        qtraj_c,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+        R_bend = 0,
+    )
+    @test isempty(filter(x -> x isa HermiteBendingEnergyRegularizer, terms_(qcp_off)))
+
+    # ── Explicit nonzero weight passes through verbatim ──
+    qcp_on = SplinePulseProblem(
+        qtraj_c,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+        R_bend = 2e-3,
+    )
+    bend_on = filter(x -> x isa HermiteBendingEnergyRegularizer, terms_(qcp_on))
+    @test length(bend_on) == 1
+    @test bend_on[1].R == [2e-3]
+
+    # ── The C⁰ refusal: bending is undefined on a linear spline, so a nonzero
+    #    R_bend errors identically to the single-trajectory constructor ──
+    lpulse = LinearSplinePulse(0.1 * randn(1, N), times)
+    qtraj_l = MultiKetTrajectory(sys, lpulse, [ψ0, ψ1], [ψ1, ψ0])
+    err = try
+        SplinePulseProblem(qtraj_l, N; Q = 100.0, R_bend = 0.5)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("CubicSplinePulse", err.msg)
+end
+
+@testitem "_get_spline_order names the Hermite order of each spline family" begin
+    using Piccolo
+
+    PT = Piccolo.Control.ProblemTemplates
+    times = collect(range(0.0, 1.0, length = 11))
+    @test PT._get_spline_order(LinearSplinePulse(0.1 * randn(1, 11), times)) == 1
+    @test PT._get_spline_order(
+        CubicSplinePulse(0.1 * randn(1, 11), 0.1 * randn(1, 11), times),
+    ) == 3
+end
+
+@testitem "SplinePulseProblem detailed display announces the H10 interior bound constraints" begin
+    using Piccolo
+    using NamedTrajectories
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    σx = ComplexF64[0 1; 1 0]
+    σz = ComplexF64[1 0; 0 -1]
+    # finite drive bounds: the CubicSplineBoundConstraint block must run so the
+    # detailed println lane fires
+    sys = QuantumSystem(0.01 * σz, [σx], [(-0.5, 0.5)])
+
+    T = 10.0
+    N = 11
+    times = collect(range(0.0, T, length = N))
+    pulse = CubicSplinePulse(0.1 * randn(1, N), zeros(1, N), times)
+    detailed = PiccoloOptions(display = :detailed, timesteps_all_equal = true)
+
+    # single-trajectory constructor: the println lane fires while the H10
+    # constraint lands on the problem
+    qtraj = UnitaryTrajectory(sys, pulse, σx)
+    qcp = SplinePulseProblem(
+        qtraj,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+        spline_interior_bound_constraints = true,
+        piccolo_options = detailed,
+    )
+    @test qcp isa QuantumControlProblem
+    @test any(
+        occursin("CubicSplineBoundConstraint", string(typeof(c))) for
+        c in qcp.prob.constraints
+    )
+
+    # ensemble constructor: the same announcement on the MultiKet path
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    mkq = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp_mk = SplinePulseProblem(
+        mkq,
+        N;
+        Q = 100.0,
+        integrator_type = :pwc,
+        allow_basis_approximation = true,
+        spline_interior_bound_constraints = true,
+        piccolo_options = detailed,
+    )
+    @test qcp_mk isa QuantumControlProblem
+    @test any(
+        occursin("CubicSplineBoundConstraint", string(typeof(c))) for
+        c in qcp_mk.prob.constraints
+    )
 end

@@ -99,7 +99,7 @@ The dynamics constraint ``x_{k+1} = \exp(\Delta t_k \cdot G(\boldsymbol{u}_k))\,
      └──────┬────────────┘
             │
             ▼
-        solve!(qcp)                        ← Ipopt (interior point)
+        solve!(qcp)                        ← NLP backend (Ipopt today; MadNLP default with DirectTrajOpt's next release)
             │
             ▼
      optimized pulse u*(t)
@@ -157,7 +157,8 @@ qtraj = UnitaryTrajectory(sys, pulse, GATES[:X])
 # 4. Assemble the NLP
 qcp = SmoothPulseProblem(qtraj, 100; Q=100.0, R=1e-2)
 
-# 5. Solve (Ipopt interior-point method)
+# 5. Solve (interior-point NLP backend — Ipopt today; the DirectTrajOpt
+#    backend default becomes MadNLP with its next release, Ipopt stays selectable)
 solve!(qcp; max_iter=100)
 
 # 6. Extract results
@@ -208,7 +209,7 @@ Piccolo.jl
 
 | Package | Role |
 |---------|------|
-| [`DirectTrajOpt`](https://docs.harmoniqs.co/DirectTrajOpt.jl/) | NLP assembly and Ipopt interface |
+| [`DirectTrajOpt`](https://docs.harmoniqs.co/DirectTrajOpt.jl/) | NLP assembly and the interior-point solver interface (Ipopt today; MadNLP default with its next release, both selectable) |
 | [`NamedTrajectories`](https://docs.harmoniqs.co/NamedTrajectories.jl/) | Decision variable storage |
 | [`TrajectoryIndexingUtils`](https://docs.harmoniqs.co/TrajectoryIndexingUtils.jl/) | Trajectory slicing and indexing |
 

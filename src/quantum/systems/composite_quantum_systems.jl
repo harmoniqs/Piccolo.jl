@@ -124,12 +124,14 @@ function CompositeQuantumSystem(
     G_drift = sparse(Isomorphisms.G(H_drift))
     G_drive_matrices = sparse.(Isomorphisms.G.(H_drive_matrices))
 
+    # Parity with QuantumSystem: u may be the extended control [controls...; globals...]
+    # an integrator carrying globals passes; only the first n_drives entries drive.
     if n_drives == 0
         H = (u, t) -> H_drift
         G = (u, t) -> G_drift
     else
-        H = (u, t) -> H_drift + sum(u .* H_drive_matrices)
-        G = (u, t) -> G_drift + sum(u .* G_drive_matrices)
+        H = (u, t) -> H_drift + sum(view(u, 1:n_drives) .* H_drive_matrices)
+        G = (u, t) -> G_drift + sum(view(u, 1:n_drives) .* G_drive_matrices)
     end
 
     # Wrap each drive matrix in a LinearDrive so Piccolissimo's SplineIntegrator
@@ -349,4 +351,31 @@ end
     csys_mixed = CompositeQuantumSystem([g12, g23], subsystems, mixed_bounds)
     @test csys_mixed.drive_bounds[1] == (-0.5, 0.5)
     @test csys_mixed.drive_bounds[2] == (-0.2, 0.8)
+end
+
+@testitem "CompositeQuantumSystem H/G slice the extended control [u; globals]" begin
+    using LinearAlgebra
+
+    # Parity with QuantumSystem: integrators carrying globals call H/G on the
+    # extended control [u; globals]. The trailing globals must be ignored by the
+    # drive sum, not broadcast against the drive list (DimensionMismatch, #378).
+    sys1 = QuantumSystem(PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    sys2 = QuantumSystem(PAULIS[:Z], [PAULIS[:X]], [1.0])
+    g12 = 0.1 * kron(PAULIS[:X], PAULIS[:X])
+    csys = CompositeQuantumSystem(
+        0.05 * kron(PAULIS[:Z], PAULIS[:Z]),
+        [g12],
+        [sys1, sys2],
+        [1.0],
+    )
+    @test csys.n_drives == 4
+
+    u = [0.1, -0.2, 0.3, 0.4]
+    u_ext = vcat(u, [0.7, -1.3])
+    @test csys.H(u_ext, 0.0) ≈ csys.H(u, 0.0)
+    @test csys.G(u_ext, 0.0) ≈ csys.G(u, 0.0)
+    @test csys.H(view(u_ext, :), 0.0) ≈ csys.H(u, 0.0)
+
+    # the plain-system reference behaves identically
+    @test sys1.H(vcat([0.1, -0.2], [0.7]), 0.0) ≈ sys1.H([0.1, -0.2], 0.0)
 end

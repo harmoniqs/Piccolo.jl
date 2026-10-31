@@ -29,10 +29,13 @@
 #
 # ## Prerequisites
 #
-# The base problem **must** have `Δt_bounds` set to enable variable timesteps:
+# The timesteps of a template problem are free variables. Without `Δt_bounds`
+# each `Δtₖ` is only kept positive, by a default floor of `1e-3` times the initial
+# timestep (`DEFAULT_Δt_LOWER_FRACTION`). Set `Δt_bounds` on the base problem to
+# give min-time a deliberate range:
 #
 # ```julia
-# # Enable free-time optimization in the base problem
+# # Choose the free-time range in the base problem
 # qcp_base = SmoothPulseProblem(qtraj; Δt_bounds=(0.01, 0.5))
 # ```
 #
@@ -52,7 +55,7 @@
 #
 # | Parameter | Type | Default | Description |
 # |-----------|------|---------|-------------|
-# | `p` | `AbstractQuantumControlProblem` | required | Base problem to convert (must have `Δt_bounds`) |
+# | `p` | `AbstractQuantumControlProblem` | required | Base problem to convert (set `Δt_bounds` to choose the timestep range) |
 # | `goal` | `AbstractPiccoloOperator` or `AbstractVector` | `nothing` | Optional new goal (uses base problem's goal if `nothing`) |
 # | `final_fidelity` | `Float64` | `0.99` | Minimum fidelity constraint |
 # | `D` | `Float64` | `100.0` | Weight on total time objective |

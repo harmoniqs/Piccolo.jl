@@ -34,7 +34,7 @@ end
     trajectory_kinds = (:unitary, :ket)
     ket_free_phase = true
     params = BangBangPulseParams
-    passthrough = (:integrator, :constraints, :piccolo_options)
+    passthrough = (:integrator, :allow_basis_approximation, :constraints, :piccolo_options)
     builder = _bang_bang_pulse_problem
     requires_N = true
     hint = """For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
@@ -65,12 +65,16 @@ At optimality, ``s = |du|``, giving the exact L1 norm.
 - `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
-- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, globals-aware).
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, globals-aware); open-system `DensityTrajectory` problems use its `NonHermitianExponentialIntegrator` counterpart.
+- `allow_basis_approximation::Bool=false`: every dynamics integrator must integrate in the pulse's [`interpolation_basis`](@ref) — `:zoh` here, i.e. the exponential integrators or `BilinearIntegrator` (#375). A spline integrator is refused with an `ArgumentError`; pass `true` to declare that approximation deliberately (see [`check_basis_pairing`](@ref)).
 - `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables.
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Bound on discrete first derivative
-- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Timestep bounds
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Default regularization weight
 - `R_u::Union{Float64, Vector{Float64}}=0.0`: L2 weight on control amplitude (defaults to 0 — bang-bang needs no amplitude regularization)
@@ -102,6 +106,7 @@ function _bang_bang_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -166,9 +171,14 @@ function _bang_bang_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     base_traj = if isnothing(global_data)
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+        NamedTrajectory(qtraj, N; Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N))
     else
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+        NamedTrajectory(
+            qtraj,
+            N;
+            Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N),
+            global_data = global_data,
+        )
     end
 
     # Add 1 control derivative (not 2 like SmoothPulseProblem)
@@ -216,15 +226,15 @@ function _bang_bang_pulse_problem(
         if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
                 "free_phase=true or global_names requires a custom integrator that supports global variables. " *
-                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native HermitianExponentialIntegrator:\n" *
                 "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = BangBangPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
         # #334: the quantum default is the native exact-PWC integrator — analytic
         # Daleckii–Krein derivatives, global-variables-aware (#328 warp column).
-        default_int = HermitianExponentialIntegrator(qtraj, N)
+        # Open-system density trajectories route to the NonHermitian counterpart.
+        default_int = _default_quantum_integrator(qtraj, N)
         if default_int isa AbstractVector
             dynamics_integrators = AbstractIntegrator[default_int...]
         else
@@ -235,6 +245,12 @@ function _bang_bang_pulse_problem(
     else
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :BangBangPulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     # Build objective: type-specific infidelity + regularization
     J = if free_phase && !isnothing(ket_goal_fn)
@@ -297,6 +313,7 @@ function _bang_bang_pulse_problem(
     qtraj::MultiKetTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -351,9 +368,14 @@ function _bang_bang_pulse_problem(
 
     # Convert quantum trajectory to NamedTrajectory
     base_traj = if isnothing(global_data)
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+        NamedTrajectory(qtraj, N; Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N))
     else
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+        NamedTrajectory(
+            qtraj,
+            N;
+            Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N),
+            global_data = global_data,
+        )
     end
 
     # Add 1 control derivative
@@ -424,18 +446,29 @@ function _bang_bang_pulse_problem(
         if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
                 "free_phase=true or global_names requires a custom integrator that supports global variables. " *
-                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native HermitianExponentialIntegrator:\n" *
                 "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = BangBangPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        dynamics_integrators = HermitianExponentialIntegrator(qtraj, N)
+        # #334: a single shared-propagator HermitianExponentialIntegrator over
+        # the ensemble, a SCALAR (the explicit per-member shapes arrive via the
+        # `integrator` kwarg below). Wrap before the splat.
+        dynamics_integrators = _default_quantum_integrator(qtraj, N)
+        if !(dynamics_integrators isa AbstractVector)
+            dynamics_integrators = AbstractIntegrator[dynamics_integrators]
+        end
     elseif integrator isa AbstractIntegrator
         dynamics_integrators = AbstractIntegrator[integrator]
     else
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :BangBangPulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     integrators = AbstractIntegrator[dynamics_integrators...]
 
@@ -587,8 +620,10 @@ end
     @test haskey(qcp.prob.trajectory.components, :du)
     @test haskey(qcp.prob.trajectory.components, :s_du)
 
-    # 2 dynamics + 1 derivative = 3 (not 4 like SmoothPulseProblem)
-    @test length(qcp.prob.integrators) == 3
+    # #334 default: 1 shared HermitianExponentialIntegrator + 1 derivative = 2
+    # (not 4 like SmoothPulseProblem's pre-flip per-member layout)
+    @test length(qcp.prob.integrators) == 2
+    @test qcp.prob.integrators[1] isa HermitianExponentialIntegrator
 
     solve!(qcp; max_iter = 200, print_level = 1, verbose = false)
 
@@ -658,13 +693,15 @@ end
 
     # The free-phase branch must honor trajectory weights (issue #263).
     #
-    # The default-integrator guard above rejects free_phase, because coupling the
-    # phase globals into the dynamics needs an integrator Piccolo does not ship
-    # (HermitianExponentialIntegrator lives downstream in Piccolissimo). Passing
-    # an explicit integrator bypasses that guard, which is enough to reach and
-    # exercise the objective-construction branch this test is about. The
-    # resulting problem is NOT a physically valid free-phase problem — its
-    # dynamics ignore θ — so this asserts objective wiring only, never a solve.
+    # The default-integrator guard above rejects free_phase: the default
+    # construction does not thread user global_names (or free-phase θ's) into
+    # its integrator, so an explicit globals-carrying integrator must be passed.
+    # Passing one bypasses that guard, which is enough to reach and exercise
+    # the objective-construction branch this test is about. The explicit
+    # integrator here is a deliberately globals-IGNORING BilinearIntegrator
+    # (Bilinear remains selectable post-#334), so the resulting problem is NOT
+    # a physically valid free-phase problem — its dynamics ignore θ — and this
+    # asserts objective wiring only, never a solve.
     ψp = ComplexF64[1.0, 1.0] / √2
     ψm = ComplexF64[1.0, -1.0] / √2
     times_arr = (0:(N-1)) ./ (N - 1)
@@ -724,4 +761,88 @@ end
         free_phase = true,
         subsystem_levels = nothing,
     )
+end
+
+@testitem "BangBangPulseProblem builds global_data from system global_params" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(43)
+    T, N = 1.0, 10
+    sys = QuantumSystem(
+        GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.1,),
+    )
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 .* randn(2, N), times)
+    opts = PiccoloOptions(display = :silent, timesteps_all_equal = true)
+
+    # Single-trajectory path: global_data seeded from sys.global_params
+    kq = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = BangBangPulseProblem(kq, N; piccolo_options = opts)
+    traj = get_trajectory(qcp)
+    @test haskey(traj.global_components, :δ)
+    @test traj.global_data[traj.global_components[:δ]] ≈ [0.1]
+
+    # #334: the default dynamics integrator is the native HE tier, and it
+    # auto-detects the system global — the globals thread through the DEFAULT
+    # construction path (the #349 permuted-column / extraction fixes).
+    @test qcp.prob.integrators[1] isa HermitianExponentialIntegrator
+    @test :δ ∈ qcp.prob.integrators[1].global_names
+
+    # Ensemble path: the same seeding — one shared-propagator HE, same global
+    mkq = MultiKetTrajectory(
+        sys,
+        pulse,
+        [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]],
+        [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]],
+    )
+    qcp_mk = BangBangPulseProblem(mkq, N; piccolo_options = opts)
+    @test haskey(get_trajectory(qcp_mk).global_components, :δ)
+    @test qcp_mk.prob.integrators[1] isa HermitianExponentialIntegrator
+    @test :δ ∈ qcp_mk.prob.integrators[1].global_names
+end
+
+@testitem "BangBangPulseProblem integrator kwarg: instance and vector shapes" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(44)
+    T, N = 1.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 .* randn(1, N), times)
+    opts = PiccoloOptions(display = :silent, timesteps_all_equal = true)
+
+    # ── Single-trajectory constructor: an AbstractIntegrator instance is
+    #    wrapped; a vector is splatted (the two documented shapes) ──
+    kq = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp_inst = BangBangPulseProblem(
+        kq,
+        N;
+        integrator = BilinearIntegrator(kq, N),
+        piccolo_options = opts,
+    )
+    @test qcp_inst isa QuantumControlProblem
+
+    qcp_vec = BangBangPulseProblem(
+        kq,
+        N;
+        integrator = [BilinearIntegrator(kq, N)],
+        piccolo_options = opts,
+    )
+    @test qcp_vec isa QuantumControlProblem
+
+    # ── Ensemble constructor: a single-member MultiKetTrajectory with its
+    #    per-member integrator instance (counts match: one state, one
+    #    integrator) ──
+    mk1 = MultiKetTrajectory(sys, pulse, [ComplexF64[1.0, 0.0]], [ComplexF64[0.0, 1.0]])
+    ints = BilinearIntegrator(mk1, N)
+    one = ints isa AbstractVector ? ints[1] : ints
+    qcp_mk = BangBangPulseProblem(mk1, N; integrator = one, piccolo_options = opts)
+    @test qcp_mk isa QuantumControlProblem
 end

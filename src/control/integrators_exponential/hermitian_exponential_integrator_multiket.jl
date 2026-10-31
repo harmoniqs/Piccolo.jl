@@ -109,6 +109,7 @@ function HermitianExponentialIntegrator(
     use_analytical::Bool = true,
 )
     sys = get_system(qtraj)
+    _refuse_time_dependent(sys, "HermitianExponentialIntegrator")
     x_names = state_names(qtraj)
     u = drive_name(qtraj)
     n_kets = length(x_names)
@@ -125,7 +126,8 @@ function HermitianExponentialIntegrator(
         end
     end
 
-    global_dim = traj.global_dim
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
     ketdim = sys.levels
 
     # Dimensions for API - total constraint dimension per knot point for all kets
@@ -1429,12 +1431,7 @@ end
 
     # --- with globals: additionally exercises the x-g cross-term block ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = MultiKetTrajectory(gsys, [ψ0, ψ1], [ψ1, ψ0], T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1478,12 +1475,7 @@ end
 
     # Affine system with globals so several blocks (x, u, Δt, g) are exercised.
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     qtraj = MultiKetTrajectory(sys, [ψ0, ψ1], [ψ1, ψ0], T)
@@ -1699,12 +1691,7 @@ end
 
     # --- with globals: adds the u-g, g-g, and Δt-g parameter-parameter blocks ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = MultiKetTrajectory(gsys, [ψ0, ψ1], [ψ1, ψ0], T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1813,12 +1800,7 @@ end
 
     # affine system with globals so every p-p block (u-u, u-g, g-g, Δt-* ) is present
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     qtraj = MultiKetTrajectory(sys, [ψ0, ψ1], [ψ1, ψ0], T)
@@ -1868,12 +1850,7 @@ end
     N = 12
 
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     ψ0 = ComplexF64[1.0, 0.0]
     ψ1 = ComplexF64[0.0, 1.0]
     qtraj = MultiKetTrajectory(sys, [ψ0, ψ1], [ψ1, ψ0], T)
@@ -2145,4 +2122,42 @@ end
     HS = get_hessian_of_lagrangian_structure(ℰ, traj)
     @test size(HS) == (length(vec(traj)), length(vec(traj)))
     @test any(!iszero, HS[T_col, :])
+end
+
+
+@testitem "HermitianExponentialIntegrator{MultiKet} explicit globals and the matrix-free seam" begin
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(90_350)
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
+    initials = [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]]
+    goals = [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]]
+    N = 6
+    qtraj = MultiKetTrajectory(sys, initials, goals, 2.0)
+
+    # Explicit global_names resolution + unknown-name 0.0 default
+    ℰ = HermitianExponentialIntegrator(qtraj, N; global_names = [:b, :a, :ζ])
+    @test ℰ.global_names == [:b, :a, :ζ]
+    @test ℰ.global_dim == 3
+
+    traj =
+        NamedTrajectory(qtraj, N; global_data = Dict(:b => [0.2], :a => [0.1], :ζ => [0.0]))
+    traj.datavec .= 0.3 .* randn(length(traj.datavec))
+    δ = zeros(ℰ.dim)
+    DirectTrajOpt.evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
+
+    # matrix_free = true builds affine directions but the concrete jacobian op
+    # lives in Piccolissimo (the declared forward-reference hook): Piccolo-side
+    # eval_jacobian must fail LOUDLY rather than silently assemble the dense path
+    ℰmf = HermitianExponentialIntegrator(qtraj, N; matrix_free = true)
+    @test ℰmf.matrix_free
+    @test !isnothing(ℰmf.H_dirs)
+    @test_throws MethodError DirectTrajOpt.CommonInterface.eval_jacobian(ℰmf, traj)
 end

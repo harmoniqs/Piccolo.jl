@@ -76,15 +76,21 @@ function _hermitian_exp_unitary(
     matrix_free::Bool = false,
     use_analytical::Bool = true,
 )
+    _refuse_time_dependent(sys, "HermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
 
-    global_dim = traj.global_dim
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
 
     # Get ketdim from system - need to sample with extended control if globals present
     sample_controls = traj[1][u]
     if global_dim > 0 && !isempty(sys.global_params)
-        # Build sample extended control from sys.global_params
-        sample_globals = [sys.global_params[name] for name in global_names]
+        # Build sample extended control from sys.global_params; unknown names
+        # fall back to 0.0 — the same default the ctor's global_data uses
+        sample_globals = [
+            haskey(sys.global_params, name) ? sys.global_params[name] : 0.0 for
+            name in global_names
+        ]
         sample_u = vcat(sample_controls, sample_globals)
     else
         sample_u = sample_controls
@@ -102,7 +108,8 @@ function _hermitian_exp_unitary(
     var_dim = 2*x_dim + u_dim + 1
 
     # Use structure functions to create templates with canonical ordering
-    ∂ℰ_template = jacobian_structure(UnitaryTrajectory, x, u, ketdim, traj)
+    ∂ℰ_template =
+        jacobian_structure(UnitaryTrajectory, x, u, ketdim, traj; global_dim = global_dim)
     μ∂²ℰ_template = hessian_structure(x_dim, u_dim, global_dim)
 
     # Preallocate one copy per knot point
@@ -354,12 +361,12 @@ function jacobian_structure(
     x_name::Symbol,
     u_name::Symbol,
     ketdim::Int,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    global_dim::Int = traj.global_dim,
 )
     x_dim = traj.dims[x_name]
     u_dim = traj.dims[u_name]
     z_dim = traj.dim
-    global_dim = traj.global_dim
     x_comps = traj.components[x_name]
     u_comps = traj.components[u_name]
     Δt_comp = traj.components[traj.timestep][1]
@@ -678,12 +685,20 @@ function get_jacobian_structure(
     x_dim = traj.dims[x_name(ℰ)]
     z_dim = traj.dim
     F_dim = x_dim * (N - 1)
-    global_dim = traj.global_dim
-    Z_dim = z_dim * N + global_dim
+    # per-knot global block = declared globals; Z spans all trajectory globals
+    global_dim = ℰ.global_dim
+    Z_dim = z_dim * N + traj.global_dim
     ∂F = spzeros(F_dim, Z_dim)
 
     # Get structure for a single knot point
-    ∂ℰ_k = jacobian_structure(UnitaryTrajectory, x_name(ℰ), ℰ.u_name, ℰ.ketdim, traj)
+    ∂ℰ_k = jacobian_structure(
+        UnitaryTrajectory,
+        x_name(ℰ),
+        ℰ.u_name,
+        ℰ.ketdim,
+        traj;
+        global_dim = global_dim,
+    )
 
     # Place per-knot structure for all knot points
     for k = 1:(N-1)
@@ -765,8 +780,8 @@ end
 
     # Global columns: per-knot block is in global_names order; `_global_full_cols`
     # maps it to the trajectory's global_components order (permuted-∂c/∂θ fix).
-    if traj.global_dim > 0
-        g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+traj.global_dim)
+    if ℰ.global_dim > 0
+        g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+ℰ.global_dim)
         g_cols_full = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ℰ.∂ℰs[k][:, g_cols_local]
@@ -830,7 +845,7 @@ end
     end
 
     # Global blocks: cross-terms with per-knot vars + g-g block
-    global_dim = traj.global_dim
+    global_dim = ℰ.global_dim
     if global_dim > 0
         g_can = (2*knot_dim+1):(2*knot_dim+global_dim)
         g_traj = _global_full_cols(ℰ, traj)   # trajectory-order Z columns (permuted-∂c/∂θ fix)
@@ -849,6 +864,7 @@ end
     using DirectTrajOpt
     using Piccolo
     using LinearAlgebra
+    using Random
 
     include("../../../test/test_utils.jl")
 
@@ -890,12 +906,7 @@ end
 
     Random.seed!(90_211)
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
     U_goal = GATES.X
     T = 2.0
     N = 8
@@ -934,6 +945,7 @@ end
     using NamedTrajectories
     using SparseArrays
     using LinearAlgebra
+    using Random
 
     T = 1.0
     N = 10
@@ -984,6 +996,7 @@ end
 
 @testitem "HermitianExponentialIntegrator{UnitaryTrajectory} forward pass minimal alloc" begin
     using LinearAlgebra
+    using Random
     using NamedTrajectories
     using Piccolo
     using BenchmarkTools
@@ -1024,6 +1037,7 @@ end
     using Piccolo
     using SparseArrays
     using LinearAlgebra
+    using Random
 
     include("../../../test/test_utils.jl")
 
@@ -1060,6 +1074,7 @@ end
     using Piccolo
     using SparseArrays
     using LinearAlgebra
+    using Random
     using NamedTrajectories
 
     include("../../../test/test_utils.jl")
@@ -1121,6 +1136,7 @@ end
     using DirectTrajOpt
     using Piccolo
     using LinearAlgebra
+    using Random
     using SparseArrays
 
     include("../../../test/test_utils.jl")
@@ -1247,12 +1263,7 @@ end
 
     # --- with globals: adds the x-g cross-term block ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = UnitaryTrajectory(gsys, U_goal, T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1341,12 +1352,7 @@ end
 
     # --- with globals: adds u-g, g-g, Δt-g p-p blocks ---
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    gsys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    gsys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     gqtraj = UnitaryTrajectory(gsys, U_goal, T)
     ℰg_dk = HermitianExponentialIntegrator(
         gqtraj,
@@ -1391,12 +1397,7 @@ end
     N = 12
 
     H = (u, t) -> (u[3] + u[4]) * GATES.Z + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (δ = 0.2, ω = 1.0),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (δ = 0.2, ω = 1.0))
     qtraj = UnitaryTrajectory(sys, GATES.H, T)
 
     ℰ = HermitianExponentialIntegrator(
@@ -1689,4 +1690,45 @@ end
     HS = get_hessian_of_lagrangian_structure(ℰ, traj)
     @test size(HS) == (length(vec(traj)), length(vec(traj)))
     @test any(!iszero, HS[T_col, :])
+end
+
+
+@testitem "HermitianExponentialIntegrator{Unitary} explicit globals with unknown-name default" begin
+    using Piccolo
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(90_351)
+    H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
+    N = 6
+    qtraj = UnitaryTrajectory(sys, GATES.H, 2.0)
+
+    ℰ = HermitianExponentialIntegrator(qtraj, N; global_names = [:b, :a, :ζ])
+    @test ℰ.global_names == [:b, :a, :ζ]
+    @test ℰ.global_dim == 3
+
+    # The UnitaryTrajectory conversion attaches only the system's globals;
+    # add the unknown ζ through the low-level reconstruction (packed vector +
+    # components NamedTuple, alphabetical ordering)
+    traj0 = NamedTrajectory(qtraj, N)
+    traj = NamedTrajectory(
+        traj0.datavec,
+        traj0.components,
+        traj0.N;
+        timestep = traj0.timestep,
+        controls = traj0.control_names,
+        bounds = traj0.bounds,
+        initial = traj0.initial,
+        final = isnothing(traj0.final_) ? NamedTuple() : traj0.final_,
+        goal = traj0.goal,
+        global_data = vcat([0.1], [0.2], [0.0]),    # alphabetical: a, b, ζ
+        global_components = (a = 1:1, b = 2:2, ζ = 3:3),
+    )
+    traj.datavec .= 0.3 .* randn(length(traj.datavec))
+    δ = zeros(ℰ.dim)
+    DirectTrajOpt.evaluate!(δ, ℰ, traj)
+    @test !all(iszero, δ)
 end
