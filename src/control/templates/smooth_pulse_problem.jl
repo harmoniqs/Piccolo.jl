@@ -1,5 +1,3 @@
-export SmoothPulseProblem
-
 # ----------------------------------------------------------------------------- #
 # Free-phase helpers for ket goals (shared by SmoothPulseProblem & SplinePulseProblem)
 # ----------------------------------------------------------------------------- #
@@ -64,6 +62,62 @@ function _make_free_phase_ket_goal(
 end
 
 # ----------------------------------------------------------------------------- #
+# Template declaration
+# ----------------------------------------------------------------------------- #
+
+@doc raw"""
+    SmoothPulseParams <: AbstractTemplateParams
+
+The typed keyword surface of [`SmoothPulseProblem`](@ref) — one field per
+spec-expressible keyword, carrying the template's own default. Constructed by the
+generated constructor from the call's keywords and retained on the problem
+(`template_params(qcp)`).
+
+`R_ddu` and `ddu_bound` live **only** here (the smooth template is the only one
+with a second discrete derivative), so passing them to another template is a
+construction error rather than a silently ignored keyword.
+
+Runtime objects (`integrator`, `constraints`, `piccolo_options`) are *passthrough*
+keywords: accepted by the constructor, never retained here, never spec-expressible.
+"""
+Base.@kwdef struct SmoothPulseParams <: AbstractTemplateParams
+    Q::Float64 = 100.0
+    R::Float64 = 1e-2
+    R_u::Union{Float64,Vector{Float64}} = R
+    R_du::Union{Float64,Vector{Float64}} = R
+    R_ddu::Union{Float64,Vector{Float64}} = R
+    du_bound::Float64 = Inf
+    ddu_bound::Float64 = 1.0
+    Δt_bounds::Union{Nothing,Tuple{Float64,Float64}} = nothing
+    free_phase::Bool = false
+    subsystem_levels::Union{Nothing,Vector{Int}} = nothing
+    initial_phases::Union{Nothing,Vector{Float64}} = nothing
+    coherent::Bool = true
+    global_names::Union{Nothing,Vector{Symbol}} = nothing
+    global_bounds::Union{Nothing,AbstractDict} = nothing
+    calibration_targets::Vector{Symbol} = Symbol[]
+    state_leakage_indices::Union{
+        Nothing,
+        AbstractVector{Int},
+        AbstractVector{<:AbstractVector{Int}},
+    } = nothing
+end
+
+@problem_template SmoothPulseTemplate begin
+    julia_name = SmoothPulseProblem
+    pulse = ZeroOrderPulse
+    trajectories = (UnitaryTrajectory, KetTrajectory, MultiKetTrajectory, DensityTrajectory)
+    pulse_kinds = (:zero_order,)
+    trajectory_kinds = (:unitary, :ket)
+    ket_free_phase = false
+    params = SmoothPulseParams
+    passthrough =
+        (:integrator, :allow_basis_approximation, :constraints, :piccolo_options, :playback)
+    builder = _smooth_pulse_problem_build
+    requires_N = true
+    hint = """For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
+      qcp = SplinePulseProblem(qtraj, N; ...)"""
+end
 
 @doc raw"""
     SmoothPulseProblem(qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}, N::Int; kwargs...)
@@ -79,15 +133,20 @@ The problem adds discrete derivative variables (du, ddu) that:
 
 # Arguments
 - `qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse}`: Quantum trajectory with piecewise constant pulse
-- `N::Int`: Number of timesteps for discretization
+- `N::Int`: number of knot points for discretization
 
 # Keyword Arguments
-- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses BilinearIntegrator (which does not support global variables). A custom integrator is required when `global_names` is specified.
-- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator (e.g., HermitianExponentialIntegrator from Piccolissimo) that supports global variables.
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, uses the native `HermitianExponentialIntegrator` (exact PWC, analytic Daleckii–Krein derivatives, globals-aware); open-system `DensityTrajectory` problems use its `NonHermitianExponentialIntegrator` counterpart.
+- `allow_basis_approximation::Bool=false`: every dynamics integrator must integrate in the pulse's [`interpolation_basis`](@ref) — `:zoh` here, i.e. the exponential integrators or `BilinearIntegrator` (#375). A spline integrator is refused with an `ArgumentError`; pass `true` to declare that approximation deliberately (see [`check_basis_pairing`](@ref)).
+- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., Piccolo's own `HermitianExponentialIntegrator(qtraj, N; global_names=...)`) that carries those globals in its dynamics.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
 - `calibration_targets::Vector{Symbol}=Symbol[]`: Names of globals declared as **calibration targets** — knobs an external calibration step manages, not free NLP variables. Each listed name is pinned at its nominal value via `GlobalEqualityConstraint` so the QCP solve cannot drift it as a slack variable. Default empty: globals stay free.
 - `du_bound::Float64=Inf`: Bound on discrete first derivative (controls jump rate)
 - `ddu_bound::Float64=1.0`: Bound on discrete second derivative (controls acceleration)
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Weight on regularization terms (u, u̇, ü)
 - `R_u::Union{Float64, Vector{Float64}}=R`: Weight on control regularization
@@ -116,11 +175,20 @@ solve!(qcp)
 ```
 
 See also: [`SplinePulseProblem`](@ref) for spline-based pulses.
-"""
-function SmoothPulseProblem(
+""" SmoothPulseProblem
+
+# `playback = spec` wraps the design problem in a `PlaybackProblem` (#387); without
+# it the design problem is returned as built.
+_smooth_pulse_problem_build(qtraj, args...; playback = nothing, kwargs...) =
+    _with_playback(_smooth_pulse_problem(qtraj, args...; kwargs...), playback, kwargs)
+
+# The construction logic the generated constructor delegates to. Returns the
+# untagged problem; `@problem_template`'s constructor stamps on the tag + params.
+function _smooth_pulse_problem(
     qtraj::AbstractQuantumTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -184,9 +252,14 @@ function SmoothPulseProblem(
 
     # Convert quantum trajectory to NamedTrajectory
     base_traj = if isnothing(global_data)
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds)
+        NamedTrajectory(qtraj, N; Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N))
     else
-        NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+        NamedTrajectory(
+            qtraj,
+            N;
+            Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N),
+            global_data = global_data,
+        )
     end
 
     # Add control derivatives to trajectory (always 2 derivatives for smooth pulses)
@@ -214,13 +287,15 @@ function SmoothPulseProblem(
         if !isnothing(all_global_names) && !isempty(all_global_names)
             error(
                 "free_phase=true or global_names requires a custom integrator that supports global variables. " *
-                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native HermitianExponentialIntegrator:\n" *
                 "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$all_global_names)\n" *
                 "  qcp = SmoothPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        default_int = BilinearIntegrator(qtraj, N)
+        # #334: the quantum default is the native exact-PWC integrator — analytic
+        # Daleckii–Krein derivatives, global-variables-aware (#328 warp column).
+        # Open-system density trajectories route to the NonHermitian counterpart.
+        default_int = _default_quantum_integrator(qtraj, N)
         if default_int isa AbstractVector
             dynamics_integrators = AbstractIntegrator[default_int...]
         else
@@ -231,6 +306,12 @@ function SmoothPulseProblem(
     else
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :SmoothPulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     # Get control derivative names
     control_names =
@@ -315,14 +396,19 @@ use `SplinePulseProblem` instead.
 
 # Arguments
 - `qtraj::MultiKetTrajectory{<:ZeroOrderPulse}`: Ensemble of ket state transfers with piecewise constant pulse
-- `N::Int`: Number of timesteps for the discretization
+- `N::Int`: number of knot points for the discretization
 
 # Keyword Arguments
-- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, the default `BilinearIntegrator` is used. When `global_names` is specified, you must supply a custom integrator here (i.e., do not rely on the default `BilinearIntegrator`) that supports global variables.
-- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., `HermitianExponentialIntegrator` from Piccolissimo) that supports global variables.
+- `integrator::Union{Nothing, AbstractIntegrator, Vector{<:AbstractIntegrator}}=nothing`: Optional custom integrator(s). If not provided, a single shared-propagator native `HermitianExponentialIntegrator` covers the whole ensemble (exact PWC, globals-aware).
+- `allow_basis_approximation::Bool=false`: every dynamics integrator must integrate in the pulse's [`interpolation_basis`](@ref) — `:zoh` here, i.e. the exponential integrators or `BilinearIntegrator` (#375). A spline integrator is refused with an `ArgumentError`; pass `true` to declare that approximation deliberately (see [`check_basis_pairing`](@ref)).
+- `global_names::Union{Nothing, Vector{Symbol}}=nothing`: Names of global variables to optimize. Requires a custom integrator provided via `integrator` (e.g., Piccolo's own `HermitianExponentialIntegrator(qtraj, N; global_names=...)`) that carries those globals in its dynamics.
 - `global_bounds::Union{Nothing, Dict{Symbol, Union{Float64, Tuple{Float64, Float64}}}}=nothing`: Bounds for global variables. Keys are variable names, values are either a scalar (symmetric bounds ±value) or a tuple (lower, upper).
 - `du_bound::Float64=Inf`: Bound on discrete first derivative
 - `ddu_bound::Float64=1.0`: Bound on discrete second derivative
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Bounds `(lo, hi)` on the
+  free timesteps. With `nothing`, each `Δtₖ` gets the positive default floor
+  `[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (1e-3 of the initial timestep), so a
+  solve can never drive a timestep negative (#383).
 - `Q::Float64=100.0`: Weight on infidelity/objective
 - `R::Float64=1e-2`: Weight on regularization terms (u, u̇, ü)
 - `R_u::Union{Float64, Vector{Float64}}=R`: Weight on control regularization
@@ -332,7 +418,7 @@ use `SplinePulseProblem` instead.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
 
 # Returns
-- `QuantumControlProblem{MultiKetTrajectory}`: Wrapper containing ensemble trajectory and optimization problem
+- `QuantumControlProblem{SmoothPulseTemplate, <:MultiKetTrajectory}`: Wrapper containing ensemble trajectory and optimization problem
 
 # Examples
 ```julia
@@ -350,10 +436,11 @@ solve!(qcp; max_iter=100)
 
 See also: [`SplinePulseProblem`](@ref) for spline-based pulses.
 """
-function SmoothPulseProblem(
+function _smooth_pulse_problem(
     qtraj::MultiKetTrajectory{<:ZeroOrderPulse},
     N::Int;
     integrator::Union{Nothing,AbstractIntegrator,Vector{<:AbstractIntegrator}} = nothing,
+    allow_basis_approximation::Bool = false,
     global_names::Union{Nothing,Vector{Symbol}} = nothing,
     global_bounds::Union{Nothing,Dict{Symbol,<:Union{Float64,Tuple{Float64,Float64}}}} = nothing,
     calibration_targets::Vector{Symbol} = Symbol[],
@@ -379,7 +466,7 @@ function SmoothPulseProblem(
 )
     if _show_header(piccolo_options)
         println(
-            "    constructing SmoothPulseProblem for MultiKetTrajectory ($(length(qtraj.initials)) states)...",
+            "    constructing SmoothPulseProblem for $(nameof(typeof(qtraj))) ($(length(qtraj.initials)) states)...",
         )
     end
 
@@ -414,7 +501,12 @@ function SmoothPulseProblem(
     end
 
     # Convert quantum trajectory to NamedTrajectory
-    base_traj = NamedTrajectory(qtraj, N; Δt_bounds = Δt_bounds, global_data = global_data)
+    base_traj = NamedTrajectory(
+        qtraj,
+        N;
+        Δt_bounds = _default_Δt_bounds(Δt_bounds, qtraj, N),
+        global_data = global_data,
+    )
 
     # Add control derivatives to trajectory
     du_bounds = fill(du_bound, sys.n_drives)
@@ -433,7 +525,14 @@ function SmoothPulseProblem(
 
     # Build objective: coherent fidelity for ensemble (with optional free phase)
     J = if free_phase && !isnothing(goals_fn)
-        CoherentKetFreePhaseInfidelityObjective(goals_fn, snames, θ_names, traj_smooth; Q = Q)
+        CoherentKetFreePhaseInfidelityObjective(
+            goals_fn,
+            snames,
+            θ_names,
+            traj_smooth;
+            Q = Q,
+            weights = weights,
+        )
     else
         _ensemble_ket_objective(
             qtraj,
@@ -461,24 +560,38 @@ function SmoothPulseProblem(
         state_leakage_indices = state_leakage_indices,
     )
 
-    # Build integrators: one dynamics integrator per state
+    # Build integrators: the #334 default is a single shared-propagator
+    # integrator over the whole ensemble; per-member dynamics integrators
+    # arrive only via the explicit `integrator` kwarg (vector form).
     if isnothing(integrator)
         # Check for global_names without integrator
         if !isnothing(global_names) && !isempty(global_names)
             error(
                 "global_names requires a custom integrator that supports global variables. " *
-                "Use HermitianExponentialIntegrator from Piccolissimo:\n" *
-                "  using Piccolissimo\n" *
+                "Use Piccolo's native HermitianExponentialIntegrator:\n" *
                 "  integrator = HermitianExponentialIntegrator(qtraj, N; global_names=$global_names)\n" *
                 "  qcp = SmoothPulseProblem(qtraj, N; integrator=integrator, ...)",
             )
         end
-        dynamics_integrators = BilinearIntegrator(qtraj, N)
+        # #334: the quantum default is the native exact-PWC integrator — a single
+        # shared-propagator HermitianExponentialIntegrator over the ensemble, a
+        # SCALAR (the explicit per-member shapes arrive via the `integrator`
+        # kwarg below). Wrap before the splat.
+        dynamics_integrators = _default_quantum_integrator(qtraj, N)
+        if !(dynamics_integrators isa AbstractVector)
+            dynamics_integrators = AbstractIntegrator[dynamics_integrators]
+        end
     elseif integrator isa AbstractIntegrator
         dynamics_integrators = AbstractIntegrator[integrator]
     else
         dynamics_integrators = AbstractIntegrator[integrator...]
     end
+    check_basis_pairing(
+        :SmoothPulseProblem,
+        qtraj,
+        dynamics_integrators;
+        allow_basis_approximation = allow_basis_approximation,
+    )
 
     integrators = AbstractIntegrator[dynamics_integrators...]
 
@@ -578,6 +691,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = indices,
+        iso_layout = :interleaved_columns,
     )
 end
 
@@ -595,6 +709,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
+        iso_layout = :block,
     )
 end
 
@@ -612,6 +727,7 @@ function _apply_piccolo_options(
         traj;
         state_names = state_sym,
         state_leakage_indices = state_leakage_indices,
+        iso_layout = :compact_density,
     )
 end
 
@@ -626,10 +742,14 @@ Create a coherent fidelity objective for ensemble state transfers.
 
 For ensemble trajectories (implementing a gate via multiple state transfers),
 we use coherent fidelity:
-    F_coherent = |1/n ∑ᵢ ⟨ψᵢ_goal|ψᵢ⟩|²
+    F_coherent = |∑ᵢ wᵢ ⟨ψᵢ_goal|ψᵢ⟩ / ∑ᵢ wᵢ|²
 
 This requires all state overlaps to have aligned phases, which is essential
 for gate implementation (the gate should have a single global phase).
+
+`weights` are honored on both branches: they reweight the coherent mean of
+overlaps, and scale the per-state `Q` in the incoherent branch. Uniform weights
+reduce to the unweighted formula.
 """
 function _ensemble_ket_objective(
     qtraj::MultiKetTrajectory,
@@ -642,7 +762,7 @@ function _ensemble_ket_objective(
 )
     if coherent
         # Use coherent fidelity - phases must align for gate implementation
-        return CoherentKetInfidelityObjective(goals, snames, traj; Q = Q)
+        return CoherentKetInfidelityObjective(goals, snames, traj; Q = Q, weights = weights)
     else
         # Use individual fidelity - each state optimized independently
         # Useful for cold-start on gates with negative phases (e.g. CZ)
@@ -693,35 +813,12 @@ function _apply_piccolo_options(
         traj;
         state_names = snames,
         state_leakage_indices = leakage_indices,
+        iso_layout = :block,
     )
 end
 
-# ============================================================================= #
-# Fallback Error Method
-# ============================================================================= #
-
-"""
-    SmoothPulseProblem(qtraj::AbstractQuantumTrajectory, N::Int; kwargs...)
-
-Fallback method that provides helpful error for non-ZeroOrderPulse types.
-"""
-function SmoothPulseProblem(
-    qtraj::AbstractQuantumTrajectory{P},
-    N::Int;
-    kwargs...,
-) where {P<:AbstractPulse}
-    pulse_type = P
-    error(
-        """
-  SmoothPulseProblem is only for piecewise constant pulses (ZeroOrderPulse).
-
-  You provided a trajectory with pulse type: $(pulse_type)
-
-  For spline-based pulses (LinearSplinePulse, CubicSplinePulse), use SplinePulseProblem instead:
-      qcp = SplinePulseProblem(qtraj, N; ...)
-  """,
-    )
-end
+# The wrong-pulse fallback ("use SplinePulseProblem instead") is now *generated*
+# by `@problem_template` from the declaration's `hint`.
 
 # ============================================================================= #
 # Tests
@@ -800,10 +897,23 @@ end
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
 
-    # Create pulse and quantum trajectory
-    pulse = ZeroOrderPulse(randn(2, N), collect(range(0.0, T, length = N)))
+    # Deterministic small smooth init + duration pinned to the (T = 10, N = 50)
+    # construction grid (#358 hardening, same family as the SamplingTrajectory
+    # (Ket) cell below): the free-Δt variant never declares convergence —
+    # under the DTO 0.11 MadNLP default ITERATION_LIMIT even at 500 iterations
+    # — so the 1e-3 residual bound below rode cutoff luck. Pinned, the cell
+    # converges LOCALLY_SOLVED in ~125 iterations under MadNLP; under Ipopt
+    # the primal sits at ~7e-10 at the cutoff without Ipopt declaring (the
+    # same "stochastic convergence floor" the old comments admitted), so no
+    # status assert is made here — the bound is backed by six measured orders
+    # of margin under BOTH backends instead.
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
-    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
+    qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3, Δt_bounds = (0.2, 0.2))
 
     @test qcp isa QuantumControlProblem
     @test length(qcp.prob.integrators) == 3
@@ -811,7 +921,7 @@ end
     @test haskey(qcp.prob.trajectory.components, :ddu)
 
     # Solve and verify
-    solve!(qcp; max_iter = 100, print_level = 5, verbose = false)
+    solve!(qcp; max_iter = 500, print_level = 5, verbose = false)
 
     # Test fidelity after solve
     traj = get_trajectory(qcp)
@@ -855,7 +965,17 @@ end
     pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = DensityTrajectory(sys, pulse, ρ0, ρg)
 
-    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    # Construct with the duration pinned to the trajectory's (T = 10, N = 50)
+    # grid: Δt_bounds = (0.2, 0.2). The free-Δt variant of this cell is a
+    # degenerate non-converger under BOTH integrators — Ipopt reports
+    # ITERATION_LIMIT even at max_iter = 1000 with a thrashing tail (primal
+    # infeasibility oscillating over orders of magnitude at the cutoff,
+    # observed up to 7.5e-2 in one environment) — so the old residual
+    # assertion rode on cutoff luck, not a solver guarantee. With the
+    # duration pinned the cell CONVERGES under the #334 NHE default and the
+    # old Bilinear default to the identical solution (proj_fid ≈ 0.9948,
+    # residual ~1e-12, LOCALLY_SOLVED in ~50 iterations).
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.2, 0.2))
 
     @test qcp isa QuantumControlProblem
     @test qcp.qtraj isa DensityTrajectory
@@ -872,10 +992,19 @@ end
     # Integrators: 1 dynamics + 2 derivatives = 3
     @test length(qcp.prob.integrators) == 3
 
-    # Solve. max_iter raised to 300 to give IPOPT room to drive the dynamics
-    # residual well below tolerance from any deterministic init the optimizer
-    # encounters across Julia versions.
-    solve!(qcp; max_iter = 300, print_level = 1, verbose = false)
+    # #334: the open-system default is the native exact-PWC tier
+    # (NonHermitianExponentialIntegrator), never a silent BilinearIntegrator.
+    @test qcp.prob.integrators[1] isa NonHermitianExponentialIntegrator
+
+    # Solve and REQUIRE convergence — with the duration pinned this cell is a
+    # well-posed converger, so the status is a loud contract: a future
+    # regression back to a thrashing non-converged cutoff fails HERE with a
+    # status, not below with a mystery residual number. Both LOCALLY_SOLVED
+    # and the acceptable-point ALMOST_LOCALLY_SOLVED count as converged;
+    # string-matching the MOI enum keeps this assert working on DTO versions
+    # that predate the C2 solve_status_symbol vocabulary.
+    stats = solve!(qcp; max_iter = 300, print_level = 1, verbose = false)
+    @test occursin("LOCALLY_SOLVED", string(stats.status))
 
     # Check fidelity via compact iso — physics outcome, not solver-internal
     # residual norm. This is what the test should actually assert.
@@ -885,9 +1014,11 @@ end
     fid = real(tr(ρ_final * ρg))
     @test fid > 0.9
 
-    # Dynamics constraints should be satisfied to a level meaningful for the
-    # density-matrix iso (looser than 1e-3, which sits inside IPOPT's stochastic
-    # convergence floor for this problem size).
+    # Dynamics constraints at a converged iterate: LOCALLY_SOLVED bounds the
+    # constraint violation at constr_viol_tol (1e-6), so the observed residual
+    # is ~1e-12 and the 1e-2 bound below carries three orders of margin. The
+    # old comment's "IPOPT stochastic convergence floor" reasoning described
+    # the free-Δt variant's non-converged cutoff, not this problem.
     dynamics_integrator = qcp.prob.integrators[1]
     δ = zeros(dynamics_integrator.dim)
     DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
@@ -921,8 +1052,17 @@ end
     goals = ensemble_qtraj.goals
     snames = state_names(ensemble_qtraj)
 
-    # Create problem using the new constructor
-    qcp = SmoothPulseProblem(ensemble_qtraj, N; Q = 100.0, R = 1e-2)
+    # Create problem using the new constructor. Duration pinned to the
+    # (T = 10, N = 50) construction grid (#358 hardening): the free-Δt
+    # variant never declares convergence — ITERATION_LIMIT under BOTH
+    # backends even at 800 iterations — and its own comment used to admit
+    # riding "the solver's stochastic convergence floor". Pinned, the cell
+    # converges LOCALLY_SOLVED in ~48 iterations under the DTO 0.11 MadNLP
+    # default (Ipopt still declines to declare, with its primal tail at
+    # ~2e-8 by the cutoff), so no status assert is made here — the 5e-3
+    # bound below is backed by five-plus measured orders of margin under
+    # BOTH backends instead of cutoff luck.
+    qcp = SmoothPulseProblem(ensemble_qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.2, 0.2))
 
     @test qcp isa QuantumControlProblem
     @test qcp.qtraj isa MultiKetTrajectory
@@ -934,11 +1074,14 @@ end
     @test haskey(qcp.prob.trajectory.components, :du)
     @test haskey(qcp.prob.trajectory.components, :ddu)
 
-    # Check integrators: 2 dynamics + 2 derivatives = 4
-    @test length(qcp.prob.integrators) == 4
+    # Check integrators: the #334 default is ONE shared-propagator
+    # HermitianExponentialIntegrator over both kets + 2 derivatives = 3
+    @test length(qcp.prob.integrators) == 3
+    @test qcp.prob.integrators[1] isa HermitianExponentialIntegrator
 
-    # Solve. max_iter=300 gives IPOPT room to drive the constraint residual
-    # well below tolerance from the deterministic init across Julia versions.
+    # Solve. max_iter=300 gives the backend room to drive the constraint
+    # residual well below tolerance from the deterministic init across Julia
+    # versions.
     solve!(qcp; max_iter = 300, print_level = 1, verbose = true)
 
     # Test fidelity after solve for both states (the actual physics outcome).
@@ -950,14 +1093,54 @@ end
         @test fid > 0.9
     end
 
-    # Test dynamics constraints are satisfied for all integrators. Tolerance
-    # 5e-3 absorbs IPOPT's stochastic convergence floor on this problem size
-    # while still catching gross dynamics-wiring bugs.
-    for integrator in qcp.prob.integrators[1:2]  # First 2 are dynamics
-        δ = zeros(integrator.dim)
-        DirectTrajOpt.evaluate!(δ, integrator, traj)
-        @test norm(δ, Inf) < 5e-3
+    # Test dynamics constraints are satisfied at the pinned-duration solve —
+    # measured ~1e-16 (MadNLP, LOCALLY_SOLVED) and ~2e-8 (Ipopt cutoff) against
+    # the 5e-3 bound.
+    integrator = qcp.prob.integrators[1]  # the single shared dynamics integrator
+    δ = zeros(integrator.dim)
+    DirectTrajOpt.evaluate!(δ, integrator, traj)
+    @test norm(δ, Inf) < 5e-3
+end
+
+@testitem "SmoothPulseProblem honors MultiKetTrajectory weights (coherent)" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+
+    T = 10.0
+    N = 20
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    ψp = ComplexF64[1.0, 1.0] / √2
+    ψm = ComplexF64[1.0, -1.0] / √2
+
+    # Deterministic pulse so both problems see the identical trajectory —
+    # only the weights differ between them
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
+
+    initials = [ψ0, ψ1, ψp]
+    goals = [ψ1, ψ0, ψm]
+
+    function fidelity_objective_value(ws)
+        qtraj = MultiKetTrajectory(sys, pulse, initials, goals; weights = ws)
+        qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+        objective_value(qcp.prob.objective, qcp.prob.trajectory)
     end
+
+    # A trajectory carrying non-uniform weights must produce an objective whose
+    # value depends on those weights (issue #261)
+    J_front = fidelity_objective_value([0.8, 0.1, 0.1])
+    J_back = fidelity_objective_value([0.1, 0.1, 0.8])
+    @test J_front != J_back
+
+    # Uniform weights leave the unweighted result exactly where it was
+    @test fidelity_objective_value(fill(1 / 3, 3)) ===
+          fidelity_objective_value(fill(1.0, 3))
 end
 
 # ============================================================================= #
@@ -1087,7 +1270,13 @@ end
     pulse = ZeroOrderPulse(u_init, times)
     qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
-    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+    # Duration pinned to the (T = 5, N = 50) construction grid — Δt_bounds =
+    # (0.1, 0.1) (#358 hardening): the free-Δt variant reports ITERATION_LIMIT
+    # under BOTH backends at max_iter = 200 with a residual tail up to ~6e-4
+    # against the 1e-2 bound. Pinned, the cell CONVERGES under both backends —
+    # LOCALLY_SOLVED in ~13 (Ipopt) / ~17 (MadNLP) iterations, residual ~1e-13 —
+    # so the status is asserted loudly and the bound below is solver-backed.
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.1, 0.1))
 
     @test qcp isa QuantumControlProblem
 
@@ -1095,8 +1284,9 @@ end
     # Should have: 1 dynamics + 2 derivatives = 3 integrators
     @test length(qcp.prob.integrators) == 3
 
-    # Solve and verify
-    solve!(qcp; max_iter = 200, print_level = 5, verbose = false)
+    # Solve and REQUIRE convergence (see above — pinned cell, both backends)
+    stats = solve!(qcp; max_iter = 300, print_level = 5, verbose = false)
+    @test occursin("LOCALLY_SOLVED", string(stats.status))
 
     # Test fidelity after solve
     traj = get_trajectory(qcp)
@@ -1105,9 +1295,10 @@ end
     fid = unitary_fidelity(U_final, U_goal)
     @test fid > 0.85
 
-    # Test dynamics constraints are satisfied (relaxed tolerance for time-dependent
-    # Hamiltonian with deterministic init and limited iterations — matches the
-    # adjacent KetTrajectory sibling)
+    # Test dynamics constraints are satisfied at a converged iterate:
+    # LOCALLY_SOLVED bounds the violation, measured residual ~1e-13 — the
+    # 1e-2 bound below (sized for the time-dependent Hamiltonian, matching
+    # the adjacent KetTrajectory sibling) carries nine orders of margin.
     dynamics_integrator = qcp.prob.integrators[1]
     δ = zeros(dynamics_integrator.dim)
     DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
@@ -1128,7 +1319,15 @@ end
 
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+
+    # Deterministic small smooth init (#358): the old 0.1 * randn(1, N) init
+    # made the cutoff residual seed-dependent. The free-Δt construction stays
+    # (this cell's 1e-2 bound carries seven measured orders of margin under
+    # both backends — ~5e-10 Ipopt, ~2e-9 MadNLP at the cutoff — and pinning
+    # its duration would cost ~300 iterations for no assertive gain).
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init = 0.1 * reshape(cos.(2π .* times_arr), 1, N)
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys, pulse, ψ_init, ψ_goal)
 
     qcp = SmoothPulseProblem(qtraj, N; Q = 50.0, R = 1e-3)
@@ -1149,8 +1348,9 @@ end
     fid = fidelity(ψ_final, ψ_goal)
     @test fid > 0.85
 
-    # Test dynamics constraints are satisfied (relaxed tolerance for time-dependent
-    # Hamiltonian with random initialization and limited iterations)
+    # Test dynamics constraints are satisfied (relaxed tolerance for the
+    # time-dependent Hamiltonian under a non-terminated cutoff — measured
+    # ~5e-10 / ~2e-9 at max_iter = 100 under Ipopt / MadNLP)
     dynamics_integrator = qcp.prob.integrators[1]
     δ = zeros(dynamics_integrator.dim)
     DirectTrajOpt.evaluate!(δ, dynamics_integrator, traj)
@@ -1174,7 +1374,9 @@ end
 
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
 
-    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob isa SamplingProblem
+    @test sampling_prob isa AbstractQuantumControlProblem
+    @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:UnitaryTrajectory}
 
     # Check trajectory has sample states
@@ -1185,13 +1387,16 @@ end
     # Solve
     solve!(sampling_prob; max_iter = 150, verbose = false, print_level = 5)
 
-    # Test dynamics constraints are satisfied
-    for integrator in sampling_prob.prob.integrators
-        if integrator isa BilinearIntegrator
-            δ = zeros(integrator.dim)
-            DirectTrajOpt.evaluate!(δ, integrator, traj)
-            @test norm(δ, Inf) < 1e-2
-        end
+    # Test dynamics constraints are satisfied. The #334 sampling default builds
+    # one HermitianExponentialIntegrator per member — the filter must FIND them
+    # (a silent empty match would be a false pass).
+    dynamics_integrators =
+        filter(i -> i isa HermitianExponentialIntegrator, sampling_prob.prob.integrators)
+    @test !isempty(dynamics_integrators)
+    for integrator in dynamics_integrators
+        δ = zeros(integrator.dim)
+        DirectTrajOpt.evaluate!(δ, integrator, traj)
+        @test norm(δ, Inf) < 1e-2
     end
 end
 
@@ -1209,13 +1414,31 @@ end
     ψ_init = ComplexF64[1.0, 0.0]
     ψ_goal = ComplexF64[0.0, 1.0]
 
-    pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
+    # Deterministic small smooth init — the old 0.1 * randn(1, N) made the
+    # cutoff residual seed-dependent.
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_init = 0.1 * reshape(cos.(2π .* times_arr), 1, N)
+    pulse = ZeroOrderPulse(u_init, collect(range(0.0, T, length = N)))
     qtraj = KetTrajectory(sys_nominal, pulse, ψ_init, ψ_goal)
-    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2)
+
+    # #358 hardening: construct with the duration pinned to the trajectory's
+    # (T = 10, N = 50) grid — Δt_bounds = (0.2, 0.2). The free-Δt variant of
+    # this cell never converges: under the DTO 0.11 MadNLP default it reports
+    # ITERATION_LIMIT even at max_iter = 500 with a seed-dependent residual
+    # tail (observed 1.9e-5 .. 8.4e-2 across randn inits at the old
+    # max_iter = 50; under Ipopt one seed landed at 9.8e-4 against the 1e-3
+    # bound), so the residual assertion below rode cutoff luck, not a solver
+    # guarantee. With the duration pinned the cell CONVERGES under BOTH
+    # backends — LOCALLY_SOLVED in ~39 iterations (Ipopt) and ~30-70
+    # (MadNLP) from deterministic or randn inits, residual ~1e-12 — so the
+    # 1e-3 bound now carries nine orders of measured margin.
+    qcp = SmoothPulseProblem(qtraj, N; Q = 100.0, R = 1e-2, Δt_bounds = (0.2, 0.2))
 
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
 
-    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob isa SamplingProblem
+    @test sampling_prob isa AbstractQuantumControlProblem
+    @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:KetTrajectory}
 
     # Check trajectory has sample states
@@ -1223,16 +1446,26 @@ end
     @test haskey(traj.components, :ψ̃1)
     @test haskey(traj.components, :ψ̃2)
 
-    # Solve
-    solve!(sampling_prob; max_iter = 50, verbose = false, print_level = 1)
+    # Solve and REQUIRE convergence — with the duration pinned this cell is a
+    # well-posed converger under both backends, so the status is a loud
+    # contract: a future regression back to a thrashing cutoff fails HERE
+    # with a status, not below with a mystery residual number. String-matching
+    # the MOI enum also accepts the acceptable-point ALMOST_LOCALLY_SOLVED
+    # and keeps the assert working on DTO versions that predate the C2
+    # solve_status_symbol vocabulary.
+    stats = solve!(sampling_prob; max_iter = 300, verbose = false, print_level = 1)
+    @test occursin("LOCALLY_SOLVED", string(stats.status))
 
-    # Test dynamics constraints are satisfied
-    for integrator in sampling_prob.prob.integrators
-        if integrator isa BilinearIntegrator
-            δ = zeros(integrator.dim)
-            DirectTrajOpt.evaluate!(δ, integrator, traj)
-            @test norm(δ, Inf) < 1e-3
-        end
+    # Test dynamics constraints are satisfied. The #334 sampling default builds
+    # one HermitianExponentialIntegrator per member — the filter must FIND them
+    # (a silent empty match would be a false pass).
+    dynamics_integrators =
+        filter(i -> i isa HermitianExponentialIntegrator, sampling_prob.prob.integrators)
+    @test !isempty(dynamics_integrators)
+    for integrator in dynamics_integrators
+        δ = zeros(integrator.dim)
+        DirectTrajOpt.evaluate!(δ, integrator, traj)
+        @test norm(δ, Inf) < 1e-3
     end
 end
 
@@ -1261,8 +1494,8 @@ end
     @test qcp.qtraj isa MultiKetTrajectory
 
     # TimeConsistencyConstraint is auto-applied via get_trajectory_constraints
-    # Should have: 2 dynamics + 2 derivatives = 4 integrators
-    @test length(qcp.prob.integrators) == 4
+    # #334 default: 1 shared HermitianExponentialIntegrator + 2 derivatives = 3
+    @test length(qcp.prob.integrators) == 3
 
     # Solve and verify
     solve!(qcp; max_iter = 50, print_level = 1, verbose = false)
@@ -1307,7 +1540,9 @@ end
     # Create sampling problem
     sampling_prob = SamplingProblem(qcp, [sys_nominal, sys_perturbed]; Q = 100.0)
 
-    @test sampling_prob isa QuantumControlProblem
+    @test sampling_prob isa SamplingProblem
+    @test sampling_prob isa AbstractQuantumControlProblem
+    @test inner(sampling_prob) isa QuantumControlProblem
     @test sampling_prob.qtraj isa SamplingTrajectory{<:AbstractPulse,<:UnitaryTrajectory}
 
     # Check trajectory has sample states
@@ -1325,15 +1560,18 @@ end
     solve!(sampling_prob; max_iter = 300, verbose = false, print_level = 1)
 
     # Loosened to 5e-2 with explicit reason: the assertion is checking that
-    # IPOPT made the BilinearIntegrator residual small, not that it hit the
-    # optimum. 1e-2 was within IPOPT's stochastic noise floor for time-dependent
-    # SamplingTrajectory at this size.
-    for integrator in sampling_prob.prob.integrators
-        if integrator isa BilinearIntegrator
-            δ = zeros(integrator.dim)
-            DirectTrajOpt.evaluate!(δ, integrator, traj)
-            @test norm(δ, Inf) < 5e-2
-        end
+    # the solver drove the dynamics-integrator residual small, not that it hit
+    # the optimum. 1e-2 was within the solver's stochastic noise floor for
+    # time-dependent SamplingTrajectory at this size. The #334 sampling default
+    # builds one HermitianExponentialIntegrator per member — the filter must
+    # FIND them (a silent empty match would be a false pass).
+    dynamics_integrators =
+        filter(i -> i isa HermitianExponentialIntegrator, sampling_prob.prob.integrators)
+    @test !isempty(dynamics_integrators)
+    for integrator in dynamics_integrators
+        δ = zeros(integrator.dim)
+        DirectTrajOpt.evaluate!(δ, integrator, traj)
+        @test norm(δ, Inf) < 5e-2
     end
 end
 
@@ -1349,7 +1587,7 @@ end
     end
 
     δ_init = 0.1
-    sys = QuantumSystem(H, [1.0]; time_dependent = true, global_params = (δ = δ_init,))
+    sys = QuantumSystem(H, [1.0]; global_params = (δ = δ_init,))
     U_goal = GATES.X
 
     pulse = ZeroOrderPulse(0.1 * randn(1, N), collect(range(0.0, T, length = N)))
@@ -1370,7 +1608,7 @@ end
     using DirectTrajOpt
 
     # Test that global_bounds throws an informative error when global doesn't exist
-    # (global_data must come from integrator - e.g., HermitianExponentialIntegrator from Piccolissimo)
+    # (global_data must come from integrator - e.g., Piccolo's native HermitianExponentialIntegrator)
 
     T = 5.0
     N = 10
@@ -1467,6 +1705,36 @@ end
 
     # Check bounds were set
     @test length(qcp.prob.constraints) > 0
+
+    # The free-phase branch must honor trajectory weights, matching the
+    # fixed-phase branch of the same template (issue #263)
+    ψp = ComplexF64[1.0, 1.0] / √2
+    ψm = ComplexF64[1.0, -1.0] / √2
+    times_arr = (0:(N-1)) ./ (N - 1)
+    u_det =
+        0.1 *
+        vcat(reshape(cos.(2π .* times_arr), 1, N), reshape(sin.(2π .* times_arr), 1, N))
+    pulse_det = ZeroOrderPulse(u_det, collect(range(0.0, T, length = N)))
+
+    function free_phase_objective_value(ws)
+        qtraj = MultiKetTrajectory(sys, pulse_det, [ψ0, ψ1, ψp], [ψ1, ψ0, ψm]; weights = ws)
+        p = SmoothPulseProblem(
+            qtraj,
+            N;
+            Q = 100.0,
+            R = 1e-2,
+            free_phase = true,
+            subsystem_levels = [2],
+        )
+        objective_value(p.prob.objective, p.prob.trajectory)
+    end
+
+    @test free_phase_objective_value([0.8, 0.1, 0.1]) !=
+          free_phase_objective_value([0.1, 0.1, 0.8])
+
+    # Uniform weights leave today's value exactly where it was
+    @test free_phase_objective_value(fill(1 / 3, 3)) ===
+          free_phase_objective_value(fill(1.0, 3))
 end
 
 @testitem "SmoothPulseProblem free_phase requires subsystem_levels" begin
@@ -1545,6 +1813,45 @@ end
     val_inc = objective_value(J_incoherent, traj)
     @test val_coh ≈ 0.0 atol = 1e-8
     @test val_inc ≈ 0.0 atol = 1e-8
+
+    # The coherent branch must not discard per-state weights (issue #261).
+    # Asymmetric states: ⟨ψ1|ψ̃1⟩ = 1, ⟨ψ0|ψ̃2⟩ = ½
+    ψ̃1_asym = zeros(ket_dim, N)
+    ψ̃2_asym = zeros(ket_dim, N)
+    for k = 1:N
+        ψ̃1_asym[:, k] = ket_to_iso(ψ1)
+        ψ̃2_asym[:, k] = ket_to_iso(0.5 * ψ0)
+    end
+    traj_asym = NamedTrajectory(
+        (ψ̃1 = ψ̃1_asym, ψ̃2 = ψ̃2_asym, u = randn(1, N), Δt = fill(0.1, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    coh(ws) = objective_value(
+        _ensemble_ket_objective(
+            qtraj,
+            traj_asym,
+            [:ψ̃1, :ψ̃2],
+            ws,
+            goals,
+            100.0;
+            coherent = true,
+        ),
+        traj_asym,
+    )
+
+    # F = |0.9·1 + 0.1·½|² = 0.9025  and  |0.1·1 + 0.9·½|² = 0.3025
+    @test coh([0.9, 0.1]) ≈ 100.0 * (1 - 0.9025)
+    @test coh([0.1, 0.9]) ≈ 100.0 * (1 - 0.3025)
+    @test coh([0.9, 0.1]) != coh([0.1, 0.9])
+
+    # Uniform weights leave the unweighted value exactly where it was
+    @test coh([0.5, 0.5]) === coh([1.0, 1.0])
+
+    # Weights carried by the trajectory itself reach the coherent objective
+    qtraj_w = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], goals; weights = [0.9, 0.1])
+    @test coh(qtraj_w.weights) ≈ coh([0.9, 0.1])
 end
 
 @testitem "SmoothPulseProblem auto-computes leakage indices" begin
@@ -1575,4 +1882,251 @@ end
     # Verify leakage constraints were added — problem should have more constraints
     # than a problem without leakage
     @test length(qcp.prob.constraints) >= 2
+end
+
+@testitem "SmoothPulseProblem free_phase error contract (single trajectory)" begin
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(21)
+    T, N = 5.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # KetTrajectory: no subsystem_levels plumbing on this method at all
+    qtraj_k = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    @test_throws ErrorException SmoothPulseProblem(qtraj_k, N; free_phase = true)
+
+    # UnitaryTrajectory with a plain-matrix goal: free_phase requires EmbeddedOperator
+    qtraj_u = UnitaryTrajectory(sys, pulse, GATES[:X])
+    @test_throws AssertionError SmoothPulseProblem(qtraj_u, N; free_phase = true)
+
+    # EmbeddedOperator goal: the θ globals are set up, then construction stops
+    # at the integrator requirement — the default construction does not thread
+    # user-specified global_names (or free-phase θ's) into its integrator, so an
+    # explicit globals-carrying integrator must be passed.
+    op = EmbeddedOperator(GATES[:X], 1:2, 2)
+    qtraj_e = UnitaryTrajectory(sys, pulse, op)
+    @test_throws ErrorException SmoothPulseProblem(
+        qtraj_e,
+        N;
+        free_phase = true,
+        piccolo_options = PiccoloOptions(display = :silent),
+    )
+end
+
+@testitem "SmoothPulseProblem builds global_data from system global_params" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(31)
+    T, N = 2.0, 10
+    sys = QuantumSystem(
+        GATES[:Z],
+        [GATES[:X], GATES[:Y]],
+        [1.0, 1.0];
+        global_params = (δ = 0.1,),
+    )
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # Single-trajectory path: global_data seeded from sys.global_params
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    traj = get_trajectory(qcp)
+    @test haskey(traj.global_components, :δ)
+    @test traj.global_data[traj.global_components[:δ]] ≈ [0.1]
+
+    # MultiKet path: same seeding
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    qtraj_mk = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    qcp_mk = SmoothPulseProblem(
+        qtraj_mk,
+        N;
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test haskey(get_trajectory(qcp_mk).global_components, :δ)
+end
+
+@testitem "SmoothPulseProblem accepts prebuilt integrators" begin
+    using DirectTrajOpt
+    using NamedTrajectories
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(41)
+    T, N = 5.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    pulse = ZeroOrderPulse(0.1 * randn(2, N), collect(range(0.0, T, length = N)))
+
+    # Single integrator (not a vector) for the single-trajectory method
+    qtraj = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+    qcp = SmoothPulseProblem(
+        qtraj,
+        N;
+        integrator = BilinearIntegrator(qtraj, N),
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test qcp isa QuantumControlProblem
+
+    # Vector of integrators for the MultiKet method (one per state)
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψ1 = ComplexF64[0.0, 1.0]
+    qtraj_mk = MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])
+    integrators = collect(BilinearIntegrator(qtraj_mk, N))
+    qcp_mk = SmoothPulseProblem(
+        qtraj_mk,
+        N;
+        integrator = integrators,
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test qcp_mk isa QuantumControlProblem
+end
+
+@testitem "SmoothPulseProblem integrator kwarg accepts a vector on the single-trajectory constructor" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(45)
+    T, N = 1.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 .* randn(1, N), times)
+    kq = KetTrajectory(sys, pulse, ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0])
+
+    # the documented vector shape, exercised through the single-trajectory
+    # method (the splat lane)
+    qcp = SmoothPulseProblem(
+        kq,
+        N;
+        integrator = [BilinearIntegrator(kq, N)],
+        piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+    )
+    @test qcp isa QuantumControlProblem
+end
+
+@testitem "SmoothPulseProblem MultiKet global_names requires a custom integrator" begin
+    using DirectTrajOpt
+    using LinearAlgebra
+    using Random
+
+    Random.seed!(46)
+    T, N = 1.0, 10
+    sys = QuantumSystem(GATES[:Z], [GATES[:X]], [1.0])
+    times = collect(range(0.0, T, length = N))
+    pulse = ZeroOrderPulse(0.05 .* randn(1, N), times)
+    mkq = MultiKetTrajectory(
+        sys,
+        pulse,
+        [ComplexF64[1.0, 0.0], ComplexF64[0.0, 1.0]],
+        [ComplexF64[0.0, 1.0], ComplexF64[1.0, 0.0]],
+    )
+
+    # the ensemble constructor gates global_names behind a globals-capable
+    # integrator, exactly like the single-trajectory constructor
+    err = try
+        SmoothPulseProblem(
+            mkq,
+            N;
+            global_names = [:δ],
+            piccolo_options = PiccoloOptions(display = :silent, timesteps_all_equal = true),
+        )
+        nothing
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("custom integrator", sprint(showerror, err))
+end
+
+@testitem "SmoothPulseProblem free_phase on a CompositeQuantumSystem (#378)" begin
+    # Composite systems with free-phase globals under the Hermitian exponential
+    # integrator. Two failure modes, both fixed together:
+    #   integrator without globals → "assign 32×2 to 32×0" (θ columns sized by
+    #     the trajectory, the per-knot block by the integrator);
+    #   integrator declaring the θ's → DimensionMismatch in the composite H/G
+    #     closure (extended control [u; θ] not sliced to the drives).
+    # The θ's live only in the objective, so both integrator choices must build
+    # the same problem and solve the same way, with collocation == rollout.
+    using LinearAlgebra
+    using Random
+    using DirectTrajOpt
+    using Piccolo.Control.QuantumControlProblems: ROLLOUT_DIVERGENCE_RTOL
+
+    function free_phase_problem(sys, U, T, N, declare_globals; seed = 378)
+        Random.seed!(seed)
+        pulse = ZeroOrderPulse(
+            0.05 * randn(sys.n_drives, N),
+            collect(range(0.0, T, length = N)),
+        )
+        qtraj = UnitaryTrajectory(sys, pulse, EmbeddedOperator(U, sys))
+        integrator =
+            declare_globals ?
+            HermitianExponentialIntegrator(qtraj, N; global_names = [:φ_1, :φ_2]) :
+            HermitianExponentialIntegrator(qtraj, N)
+        qcp = SmoothPulseProblem(
+            qtraj,
+            N;
+            integrator = integrator,
+            free_phase = true,
+            piccolo_options = PiccoloOptions(display = :silent),
+        )
+        return qcp, integrator
+    end
+
+    # the dynamics constraint at the rollout-seeded trajectory: collocation == rollout
+    function seed_residual(qcp, integrator)
+        δ = zeros(integrator.dim)
+        DirectTrajOpt.evaluate!(δ, integrator, qcp.prob.trajectory)
+        return norm(δ, Inf)
+    end
+
+    # ---- composite of two qubits: build, solve, verify ----
+    q = QuantumSystem(0.5 * PAULIS[:Z], [PAULIS[:X], PAULIS[:Y]], [1.0, 1.0])
+    csys = CompositeQuantumSystem(0.1 * kron(PAULIS[:Z], PAULIS[:Z]), [q, q], Float64[])
+    @test csys isa CompositeQuantumSystem
+    U_xx = kron(GATES[:X], GATES[:X])
+
+    F = Dict{Bool,Float64}()
+    for declare_globals in (false, true)
+        qcp, ℰ = free_phase_problem(csys, U_xx, 10.0, 21, declare_globals)
+        traj = get_trajectory(qcp)
+        @test haskey(traj.global_components, :φ_1)
+        @test haskey(traj.global_components, :φ_2)
+        @test ℰ.global_dim == (declare_globals ? 2 : 0)
+        @test seed_residual(qcp, ℰ) < 1e-10
+
+        solve!(qcp; max_iter = 100, print_level = 0, verbose = false)
+        v = verify(qcp)
+        @test v.F_rollout > 0.99
+        @test v.ΔF < 1e-4
+        @test rollout_divergence(qcp) < ROLLOUT_DIVERGENCE_RTOL[]
+        F[declare_globals] = v.F_rollout
+    end
+    # θ's do not enter the composite dynamics: both integrator choices agree
+    @test F[false] ≈ F[true] atol = 1e-6
+
+    # ---- 2-transmon MultiTransmonSystem (a CompositeQuantumSystem): build + solve ----
+    tsys = MultiTransmonSystem(
+        [4.0, 4.1],
+        [0.2, 0.21],
+        [0.0 0.01; 0.01 0.0];
+        drive_bounds = 0.2,
+    )
+    @test tsys isa CompositeQuantumSystem
+    for declare_globals in (false, true)
+        qcp, ℰ =
+            free_phase_problem(tsys, kron(GATES[:X], GATES[:I]), 20.0, 21, declare_globals)
+        @test seed_residual(qcp, ℰ) < 1e-10
+        solve!(qcp; max_iter = 3, print_level = 0, verbose = false)
+        @test rollout_divergence(qcp) isa Float64
+        @test verify(qcp).F_rollout isa Float64
+    end
 end

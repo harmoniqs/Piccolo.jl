@@ -76,8 +76,7 @@ function iso_vec_to_operator(Ũ⃗::AbstractVector{ℝ}) where {ℝ<:Real}
     N = Int(sqrt(Ũ⃗_dim))
     U = Matrix{complex(ℝ)}(undef, N, N)
     for i = 0:(N-1)
-        U[:, i+1] .=
-            @view(Ũ⃗[i*2N .+ (1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N .+ ((N+1):2N)])
+        U[:, i+1] .= @view(Ũ⃗[i*2N .+ (1:N)]) + one(ℝ) * im * @view(Ũ⃗[i*2N .+ ((N+1):2N)])
     end
     return U
 end
@@ -684,6 +683,29 @@ end
         ψ′ = bloch_to_ket(bloch)
         @test abs2(dot(ψ′, ψ)) ≈ 1.0 atol = 1e-10
     end
+end
+
+@testitem "Operator iso round-trips and Bloch density correspondence" begin
+    using LinearAlgebra
+
+    # operator -> iso-operator vector -> operator must reproduce U exactly
+    U = exp(im * π / 7 * [0.0 -im; im 0.0])
+    @test iso_operator_to_operator(operator_to_iso_operator(U)) ≈ U
+
+    # ket Bloch correspondence through the density route: pure states live on
+    # the unit sphere and reconstruct their own density matrix
+    ψ = normalize(ComplexF64[1.0, im])
+    v = Piccolo.Isomorphisms.density_to_bloch(ψ)
+    @test sum(abs2, v) ≈ 1.0 atol = 1e-12
+    ρ = Piccolo.Isomorphisms.bloch_to_density(v)
+    @test ρ ≈ ψ * ψ'
+    @test ishermitian(ρ)
+    @test tr(ρ) ≈ 1.0
+
+    # canonical states land on the poles / axes
+    @test Piccolo.Isomorphisms.density_to_bloch(ComplexF64[1.0, 0.0]) ≈ [0.0, 0.0, 1.0]
+    @test Piccolo.Isomorphisms.bloch_to_density([0.0, 0.0, 1.0]) ≈
+          ComplexF64[1.0 0.0; 0.0 0.0]
 end
 
 end

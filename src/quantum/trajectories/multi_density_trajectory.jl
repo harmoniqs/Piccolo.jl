@@ -30,7 +30,7 @@ mutable struct MultiDensityTrajectory{P<:AbstractPulse,S} <: AbstractQuantumTraj
 end
 
 """
-    MultiDensityTrajectory(system, pulse, initials, goals; weights=..., algorithm=Tsit5(), abstol=1e-8, reltol=1e-8, n_save=101)
+    MultiDensityTrajectory(system, pulse, initials, goals; weights=..., algorithm=nothing, abstol=1e-8, reltol=1e-8, n_save=101)
 
 Create a multi-density trajectory by solving multiple Lindblad master equations.
 
@@ -42,7 +42,7 @@ Create a multi-density trajectory by solving multiple Lindblad master equations.
 
 # Keyword Arguments
 - `weights`: Weights for fidelity (default: uniform)
-- `algorithm`: ODE solver algorithm (default: Tsit5())
+- `algorithm`: rollout algorithm (default: `nothing` — on a time-independent system the exact `PiecewiseExponential` for a `ZeroOrderPulse` and `Tsit5()` for a spline pulse, otherwise `default_algorithm(system)`)
 - `abstol`: Absolute tolerance for adaptive integration (default: 1e-8)
 - `reltol`: Relative tolerance for adaptive integration (default: 1e-8)
 - `n_save`: Number of output time points (default: 101)
@@ -53,7 +53,7 @@ function MultiDensityTrajectory(
     initials::Vector{<:AbstractMatrix{<:Number}},
     goals::Vector{<:AbstractMatrix{<:Number}};
     weights::AbstractVector{<:Real} = fill(1.0 / length(initials), length(initials)),
-    algorithm = Tsit5(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
     n_save::Int = 101,
@@ -72,16 +72,15 @@ function MultiDensityTrajectory(
     # Build ensemble problem
     dummy = zeros(ComplexF64, system.levels, system.levels)
     base_prob = DensityODEProblem(system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat = nothing) =
-        remake(prob, u0 = ρ0s[_sim_index(i_or_ctx)])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
-    sol = solve(
-        ensemble_prob,
+    sol = _solve_ensemble_rollout(
+        base_prob,
+        ρ0s,
+        system,
+        pulse,
+        save_times,
         algorithm;
-        trajectories = length(initials),
-        saveat = save_times,
-        abstol = abstol,
-        reltol = reltol,
+        abstol,
+        reltol,
     )
 
     return MultiDensityTrajectory{typeof(pulse),typeof(sol)}(
@@ -95,9 +94,10 @@ function MultiDensityTrajectory(
 end
 
 """
-    MultiDensityTrajectory(system, initials, goals, T::Real; weights=..., drive_name=:u, algorithm=Tsit5(), abstol=1e-8, reltol=1e-8)
+    MultiDensityTrajectory(system, initials, goals, T::Real; weights=..., drive_name=:u, algorithm=nothing, abstol=1e-8, reltol=1e-8)
 
-Convenience constructor that creates a zero pulse of duration T.
+Convenience constructor that creates a random pulse of duration T
+(each drive sampled uniformly within its `drive_bounds`; pass `rng` for reproducibility).
 
 # Arguments
 - `system::OpenQuantumSystem`: The open quantum system
@@ -108,7 +108,7 @@ Convenience constructor that creates a zero pulse of duration T.
 # Keyword Arguments
 - `weights`: Weights for fidelity (default: uniform)
 - `drive_name::Symbol`: Name of the drive variable (default: `:u`)
-- `algorithm`: ODE solver algorithm (default: Tsit5())
+- `algorithm`: rollout algorithm (default: `nothing` — on a time-independent system the exact `PiecewiseExponential` for a `ZeroOrderPulse` and `Tsit5()` for a spline pulse, otherwise `default_algorithm(system)`)
 - `abstol`: Absolute tolerance (default: 1e-8)
 - `reltol`: Relative tolerance (default: 1e-8)
 """
@@ -119,12 +119,14 @@ function MultiDensityTrajectory(
     T::Real;
     weights::AbstractVector{<:Real} = fill(1.0 / length(initials), length(initials)),
     drive_name::Symbol = :u,
-    algorithm = Tsit5(),
+    algorithm = nothing,
     abstol::Real = 1e-8,
     reltol::Real = 1e-8,
+    rng::AbstractRNG = default_rng(),
 )
     times = [0.0, T]
-    controls = vcat([rand(Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
+    controls =
+        vcat([rand(rng, Uniform(b...), 1, length(times)) for b in system.drive_bounds]...)
     pulse = ZeroOrderPulse(controls, times; drive_name)
     return MultiDensityTrajectory(
         system,

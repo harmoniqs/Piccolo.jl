@@ -32,7 +32,7 @@ T = 10.0  # duration
 qtraj = UnitaryTrajectory(sys, U_goal, T)  # creates zero pulse internally
 
 # 3. Build optimization problem
-N = 51  # number of timesteps
+N = 51  # number of knot points
 qcp = SmoothPulseProblem(qtraj, N; Q=100.0, R=1e-2)
 
 # 4. Solve (use 'options' keyword for IpoptOptions)
@@ -149,7 +149,7 @@ solve!(sampling_prob; max_iter=200)
 The central type wrapping optimization:
 
 ```julia
-struct QuantumControlProblem{Q<:AbstractQuantumTrajectory}
+struct QuantumControlProblem{T<:AbstractProblemTemplate, QT<:AbstractQuantumTrajectory} <: AbstractQuantumControlProblem
     qtraj::Q                    # Quantum trajectory (physics info)
     prob::DirectTrajOptProblem  # Optimization problem (objectives, constraints)
 end
@@ -169,6 +169,14 @@ end
 | `SplinePulseProblem` | Spline-based pulse optimization | `LinearSplinePulse`, `CubicSplinePulse` |
 | `MinimumTimeProblem` | Time-optimal control | Any (converts existing problem) |
 | `SamplingProblem` | Robust control over parameters | Any (wraps existing problem) |
+| `PlaybackProblem` | Optimize the PLAYED waveform on a coarse clock (`playback = spec` on Smooth/Spline) | Any knot pulse (wraps the design problem) |
+
+**PlaybackProblem** (#387): the NLP lives on the played lattice (fixed `Δt = dt_out`,
+exponential integrator, played samples as `u`); the design parameters are one global
+block `:<u>_design`, tied to `u` by the linear `PlaybackTieConstraint` (`vec(u) = P·θ`,
+`P = playback_jacobian`). `PlaybackTiedIntegrator` hides that block from the exponential
+integrator (which treats every global as a dynamics global). `inner(qcp)` is the
+design-then-play baseline; `played_fidelity(qcp)` / `design_pulse(qcp)` read the result.
 
 **SmoothPulseProblem** (for ZeroOrderPulse):
 - Adds derivative variables `:du`, `:ddu` for smoothness
@@ -191,7 +199,7 @@ using Piccolissimo  # For HermitianExponentialIntegrator or SplineIntegrator
 
 # System with global parameter
 H = (u, t) -> u[2] * GATES.Z + u[1] * GATES.X  # δ = u[2] is global
-sys = QuantumSystem(H, [1.0]; time_dependent=true, global_params=(δ=0.1,))
+sys = QuantumSystem(H, [1.0]; global_params=(δ=0.1,))
 qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 
 # Integrator that supports globals
@@ -262,7 +270,7 @@ control/
 
 1. **Pulse type determines problem template**: Use `SmoothPulseProblem` for `ZeroOrderPulse`, `SplinePulseProblem` for spline pulses
 2. **N is timesteps, not knot points**: For `N=51`, you get 50 intervals
-3. **Trajectories always have `:t`**: Time is accumulated automatically, no need for `time_dependent` flag
+3. **Trajectories always have `:t`**: Time is accumulated automatically — but a Hamiltonian that *reads* `t` still needs `time_dependent = true` (the Pair constructors set it on modulation). The flag routes the system away from integrators that pin `t = 0`: the exponential and spline integrators refuse a flagged system (#376, #386), `BilinearIntegrator` builds a `TimeDependentBilinearIntegrator`. A bare `H(u, t)` left unflagged only gets a construction-time warning.
 4. **MultiKetTrajectory vs SamplingTrajectory**: Ensemble = same system, different initial states; Sampling = different systems, same initial state
 5. **Fidelity vs Infidelity**: Objectives minimize infidelity, constraints bound infidelity (e.g., `1 - fidelity ≤ 1 - 0.99`)
 6. **Bootstrapping between system sizes**: Pass the **pulse object** (`qcp.qtraj.pulse`), not the `NamedTrajectory` or extracted controls. This preserves both `u` and `du` optimization state.
@@ -271,6 +279,5 @@ control/
 ## Removed Patterns (Don't Reintroduce!)
 
 - ❌ `adapt_trajectory` / `unadapt_trajectory` - Control scaling was removed
-- ❌ `@test sys.time_dependent` in tests - Not needed since `:t` is always present
-- ❌ `QuantumSystem(...; time_dependent=true)` in tests - Redundant
+- ❌ `QuantumSystem(...; time_dependent=true)` on a system whose H does *not* read `t` - Redundant (the `:t` component is always present). It is required when H does read `t` (#386).
 - ❌ Control name `:a` - Canonical control name is `:u`

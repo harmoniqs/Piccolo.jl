@@ -59,6 +59,7 @@ pages = [
         "Multilevel Transmon" => "generated/multilevel_transmon.md",
         "State Transfer" => "generated/state_transfer.md",
         "Robust Control" => "generated/robust_control.md",
+        "Two-Qubit Gate Validation" => "generated/two_qubit_gate_validation.md",
     ],
     "Problem Templates" => [
         "Overview" => "problem-templates/index.md",
@@ -83,6 +84,7 @@ pages = [
         "Leakage Suppression" => "generated/guides/leakage_suppression.md",
         "Global Variables" => "generated/guides/global_variables.md",
         "Visualization" => "generated/guides/visualization.md",
+        "Wigner Bosonic Qubits" => "generated/guides/wigner_bosonic_qubits.md",
         "Custom Objectives" => "generated/guides/custom_objectives.md",
     ],
     "API Reference" => ["Overview" => "reference/index.md", "Library" => "lib.md"],
@@ -107,7 +109,16 @@ generate_docs(
     literate_kwargs = (execute = false,),
     format_kwargs = (
         canonical = "https://docs.harmoniqs.co/Piccolo.jl",
-        size_threshold = 500 * 2^10,  # 400 KiB for lib.md
+        # Headroom for lib.md, which is the whole auto-generated API reference and is therefore
+        # inherently the largest page. It grows monotonically with every docstring added anywhere
+        # in the package. Phase 1b's parametric-typing surface (the tag types, constrained
+        # aliases, trait methods and `@problem_template` itself) pushed the generated HTML past
+        # the previous 500 KiB ceiling — #260 and #262 each raised this independently to 700 KiB
+        # and 1 MiB. Resolved to 1 MiB with headroom; `size_threshold_warn` still flags growth.
+        #
+        # The durable fix is to split lib.md per-module rather than keep raising this.
+        size_threshold = 1024 * 2^10,      # 1 MiB hard limit for lib.md
+        size_threshold_warn = 500 * 2^10,  # warn at the old ceiling
     ),
     mask_cached_solve = true,
     makedocs_kwargs = (draft = draft, plugins = [CopyButton()]),

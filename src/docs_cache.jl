@@ -2,7 +2,12 @@ module DocsCache
 
 using JLD2
 using NamedTrajectories: NamedTrajectory, load_traj
-using ..Control: QuantumControlProblem, solve!, sync_trajectory!, get_trajectory
+using ..Control:
+    QuantumControlProblem,
+    AbstractQuantumControlProblem,
+    solve!,
+    sync_trajectory!,
+    get_trajectory
 using TestItems
 
 export cached_solve!
@@ -149,14 +154,14 @@ _maybe_snip(output::String, snip::Tuple{Int,Int}) =
 """
     cached_solve!(qcp, name; data_dir, force, verbose, kwargs...)
 
-Solve a `QuantumControlProblem` with transparent caching.
+Solve a control problem with transparent caching.
 
 If a cached solution exists in `data_dir` for `name`, loads the trajectory and
 replays the saved solver output. Otherwise, runs `solve!`, captures the output,
 and saves both to a `.jld2` file named `{name}_{git_hash}.jld2`.
 
 # Arguments
-- `qcp::QuantumControlProblem`: The problem to solve.
+- `qcp::AbstractQuantumControlProblem`: The problem to solve.
 - `name::String`: Unique cache identifier (e.g., `"multilevel_transmon"`).
 
 # Keyword Arguments
@@ -178,7 +183,7 @@ fidelity(qcp)  # works as if solve! was called directly
 ```
 """
 function cached_solve!(
-    qcp::QuantumControlProblem,
+    qcp::AbstractQuantumControlProblem,
     name::String;
     data_dir::String = joinpath(
         dirname(something(Base.active_project(), @__DIR__)),

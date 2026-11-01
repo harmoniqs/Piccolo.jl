@@ -77,6 +77,9 @@ end
 @testitem "extract_pulse with ZeroOrderPulse - UnitaryTrajectory" begin
     using LinearAlgebra
     using NamedTrajectories
+    # Explicit bind: NT >= 0.9.3 also exports `duration` (TimeWarp), so the bare
+    # name does not resolve in this dual-using namespace (#323).
+    using Piccolo.Quantum.Pulses: duration
 
     system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
 
@@ -97,6 +100,29 @@ end
     @test sampled ≈ new_controls
     @test pulse.drive_name == :u
     @test duration(pulse) ≈ T
+end
+
+@testitem "extract_pulse rejects non-monotone knot times (#383)" begin
+    using NamedTrajectories
+
+    system = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    N = 11
+    times = collect(range(0.0, 1.0, length = N))
+    ψ0 = ComplexF64[1.0, 0.0]
+    ψg = ComplexF64[0.0, 1.0]
+    for pulse in (
+        ZeroOrderPulse(0.1 * ones(1, N), times),
+        LinearSplinePulse(0.1 * ones(1, N), times),
+        CubicSplinePulse(0.1 * ones(1, N), zeros(1, N), times),
+    )
+        qtraj = KetTrajectory(system, pulse, ψ0, ψg)
+        traj = NamedTrajectory(qtraj, N)
+        # A solver that drove a free timestep negative (the bang-bang docs failure).
+        traj.Δt[4] = -9.9e-9
+        @test_throws ArgumentError extract_pulse(qtraj, traj)
+        @test_throws "non-decreasing" extract_pulse(qtraj, traj)
+        @test_throws "Δt_bounds" extract_pulse(qtraj, traj)
+    end
 end
 
 @testitem "extract_pulse with LinearSplinePulse - KetTrajectory" begin

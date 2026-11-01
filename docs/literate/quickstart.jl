@@ -41,7 +41,7 @@ sys = QuantumSystem(H_drift, H_drives, drive_bounds)
 
 ## Time parameters
 T = 10.0   # Total gate duration
-N = 100    # Number of timesteps
+N = 100    # Number of knot points
 
 ## Create time vector
 times = collect(range(0, T, length = N))
@@ -167,8 +167,8 @@ cached_solve!(
 
 # Compare durations:
 
-initial_duration = sum(get_timesteps(get_trajectory(qcp_free)))
-minimum_duration = sum(get_timesteps(get_trajectory(qcp_mintime)))
+initial_duration = get_duration(get_trajectory(qcp_free))
+minimum_duration = get_duration(get_trajectory(qcp_mintime))
 
 initial_duration
 

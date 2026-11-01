@@ -1,0 +1,27 @@
+# Cross-language hash landmine (Plan 2 review correction #3): mixes integer-valued
+# fields (schema_version=1, N=100, subsystem_levels=[3,3]) with a float T=100.0.
+# smol-toml parses 100 -> JS number 100; TOML.jl parses 100.0 -> Float64. The
+# int/float-agnostic numeric rule must render both as the bare integer "100" so the
+# canonical JSON — and therefore structure_hash/problem_hash — agree byte-for-byte.
+schema_version = 1
+kind = "control"
+
+[system]
+kind = "template"
+template = "TransmonSystem"
+
+[goal]
+kind = "unitary"
+gate = "CZ"
+subsystem_levels = [3, 3]
+
+[pulse]
+kind = "cubic_spline"
+T = 100.0
+
+[problem]
+template = "SplinePulseProblem"
+N = 100
+
+[solver]
+backend = "ipopt"
