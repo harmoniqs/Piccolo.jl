@@ -108,6 +108,27 @@ reached when `ℰ.matrix_free && ℰ.H_dirs !== nothing`.
 """
 function matrix_free_jacobian_op end
 
+# The exponential step `exp(Δtₖ · G(uₖ))` is exact only for a generator that is
+# constant over each interval. Explicit time dependence `G(u, t)` cannot be
+# represented (there is no midpoint/Magnus option here), so time-dependent systems
+# are refused rather than silently frozen at t = 0 (#376).
+function _refuse_time_dependent(sys, family::AbstractString)
+    hasproperty(sys, :time_dependent) && sys.time_dependent || return nothing
+    throw(
+        ArgumentError(
+            "$family is exact only for generators that are constant over each " *
+            "interval and cannot represent an explicitly time-dependent system " *
+            "(sys.time_dependent == true). Route explicit time dependence to an " *
+            "integrator that evaluates G(u, t) inside each interval: " *
+            "`BilinearIntegrator(qtraj, N)` dispatches to TimeDependentBilinearIntegrator " *
+            "(ZOH or linear pulses); the SplineIntegrator family with a Magnus/ODE " *
+            "algorithm (`alg = MagnusGL4Alg()` / `Tsit5Alg()`) is the spline-faithful " *
+            "route once it threads absolute time through the generator — today it " *
+            "evaluates drives at t = 0, so check before relying on it.",
+        ),
+    )
+end
+
 """
     exp_eigen(G::AbstractMatrix{<:Real})
 
@@ -418,6 +439,68 @@ end
     @test NonHermitianExponentialIntegrator <: AbstractExponentialIntegrator
     # Field-existence probe via names(typeof(...)) is harder without an instance;
     # Task 9 adds the constructor-based test
+end
+
+@testitem "exponential integrators refuse time-dependent systems (#376)" begin
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
+
+    N = 6
+    times = collect(range(0, 1.0, length = N))
+    pulse = ZeroOrderPulse(zeros(1, N), times)
+    ψ0 = ComplexF64[1, 0]
+    ψ1 = ComplexF64[0, 1]
+    ρ0 = ComplexF64[1 0; 0 0]
+    ρ1 = ComplexF64[0 0; 0 1]
+    L = ComplexF64[0 0.1; 0 0]
+
+    td = QuantumSystem(PAULIS.Z, [PAULIS.X => t -> cos(2π * t)], [1.0])
+    ti = QuantumSystem(PAULIS.Z, [PAULIS.X], [1.0])
+    open_td = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [L],
+        time_dependent = true,
+    )
+    open_ti = OpenQuantumSystem(PAULIS.Z, [PAULIS.X], [1.0]; dissipation_operators = [L])
+    @test td.time_dependent && open_td.time_dependent
+
+    closed_trajs(sys) = [
+        KetTrajectory(sys, pulse, ψ0, ψ1),
+        UnitaryTrajectory(sys, pulse, GATES[:X]),
+        MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0]),
+    ]
+    open_trajs(sys) = [
+        DensityTrajectory(sys, pulse, ρ0, ρ1),
+        MultiDensityTrajectory(sys, pulse, [ρ0, ρ1], [ρ1, ρ0]),
+    ]
+
+    for qtraj in
+        [closed_trajs(td); [SamplingTrajectory(q, [ti, td]) for q in closed_trajs(ti)]]
+        @test_throws ArgumentError HermitianExponentialIntegrator(qtraj, N)
+        @test_throws "SplineIntegrator" HermitianExponentialIntegrator(qtraj, N)
+        @test_throws "Magnus" HermitianExponentialIntegrator(qtraj, N)
+    end
+    for qtraj in [
+        open_trajs(open_td)
+        [SamplingTrajectory(q, [open_ti, open_td]) for q in open_trajs(open_ti)]
+    ]
+        @test_throws ArgumentError NonHermitianExponentialIntegrator(qtraj, N)
+        @test_throws "SplineIntegrator" NonHermitianExponentialIntegrator(qtraj, N)
+    end
+
+    # Time-independent systems are unaffected.
+    for qtraj in
+        [closed_trajs(ti); [SamplingTrajectory(q, [ti, ti]) for q in closed_trajs(ti)]]
+        @test HermitianExponentialIntegrator(qtraj, N) !== nothing
+    end
+    for qtraj in [
+        open_trajs(open_ti);
+        [SamplingTrajectory(q, [open_ti]) for q in open_trajs(open_ti)]
+    ]
+        @test NonHermitianExponentialIntegrator(qtraj, N) !== nothing
+    end
 end
 
 end

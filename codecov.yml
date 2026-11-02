@@ -24,10 +24,93 @@
 #
 # Deliberately NOT done here: lowering the patch target. The remaining diff is
 # library code and should be held to the project's own bar.
+#
+# Accepted-permanent misses — the constant-fold one-liner class (#349 policy
+# call (a)). Julia emits NO coverage counters for methods whose entire body is
+# a constant literal (`has_modulation(d::ModulatedDrive) = true`,
+# `drive_coeff_dt(::LinearDrive, ...) = 0.0`, the SII `is_parameter(...) =
+# false` predicates, `return nothing` fallthroughs): there is no statement to
+# instrument, so the line is unmarkable by ANY test — verified empirically on
+# Julia 1.12 with both concrete- and dynamically-dispatched calls. Julia has no
+# per-line coverage-exclusion pragma to annotate these with, and Codecov only
+# supports path-level `ignore`. The family convention is therefore: leave them
+# in place, behavior-test the surrounding contract (the dispatch behavior these
+# one-liners encode IS exercised: modulation detection drives
+# `QuantumSystem.time_dependent`, the zero-derivative/Hessian contract is
+# asserted for unmodulated drives, the SII predicates are exercised through
+# `solve`), and count them here as documented measurement noise — never delete
+# working code to move a number. When Julia grows a coverage-exclusion pragma,
+# this class can be annotated instead.
+#
+# Behavior-unreachable misses — the E3 census classes (the drift-fill audit,
+# #349), re-verified under the #334/#357 default-integrator flip (misses MOVE
+# when defaults change; each class was re-probed against the new defaults):
+#
+#   (1) Seam-blocked free-phase lanes. The single-trajectory free-phase
+#       objective constructions (SmoothPulseProblem 299/301, and
+#       BangBangPulseProblem's free-phase objectives 241/243) sit behind the
+#       constructors' explicit-integrator gate, an asserted error contract
+#       (the free_phase error-contract testitems). #357 re-verification: the
+#       gate's ORIGINAL rationale — Piccolo ships no globals-capable
+#       integrator (BilinearIntegrator has no global_names support), so the
+#       lanes were unreachable AND untestable without constructing a
+#       silently-broken problem — NO LONGER HOLDS: the #334 default
+#       HermitianExponentialIntegrator is globals-capable and native. The
+#       lanes stay unmarked because the gate (still asserted) blocks the
+#       default path — the default construction does not thread
+#       user-specified global_names or free-phase θ's into its integrator,
+#       and authorizing that threading is a behavior change this campaign
+#       did not make. Lifting the gate would both mark these lanes and
+#       retire the error-contract tests: a deliberate follow-up decision,
+#       not a coverage accident. The ensemble free-phase lanes (no such
+#       gate) are covered.
+#
+#   (2) Defensive default-integrator lanes (smooth 282, bang-bang 228,
+#       spline 371): the `default_int isa AbstractVector` splat branches in
+#       the single-trajectory template constructors. Post-#334 the declared
+#       constructor surfaces (Unitary/Ket/Density — MultiKet routes to the
+#       ensemble method, SamplingTrajectory hits the wrong-pulse
+#       catch-all) still yield a SCALAR from the defaults
+#       (HermitianExponentialIntegrator / NonHermitianExponentialIntegrator /
+#       SplineIntegrator), so the branches remain belt-and-braces mirroring
+#       of the resolver lanes — unreachable by construction, exactly as
+#       pre-flip, with different integrators underneath.
+#
+#       The miss that MOVED and CLOSED (documented per #357): the ensemble
+#       spline constructor's dispatch (spline ~733) was pre-#334 a defensive
+#       scalar-wrap (its Bilinear default over a MultiKetTrajectory always
+#       produced a per-member VECTOR). The #334 default SplineIntegrator
+#       over a MultiKetTrajectory is ONE shared propagator, so the
+#       scalar-wrap branch is now the TAKEN branch — covered by every
+#       default ensemble spline construction — and the vector branch is
+#       exercised by the `integrator_type = :pwc` escape-hatch test. Both
+#       sides of that dispatch are covered as of #357; it is no longer a
+#       doctrine entry.
+#
+#   (3) Best-effort @debug catch lanes (schema.jl 818/837): the
+#       precompile_workload catch handlers exist so a tier-1 warm-up failure
+#       never crashes precompilation; the happy path IS tested
+#       (precompile_workload is callable and returns nothing).
+#
+#   (4) The φ-declared-but-empty fidelity guard (problems.jl 527): that
+#       corrupt state is only constructible by a deserialized/catalog
+#       trajectory that declared φ_ components but persisted no values —
+#       DirectTrajOptProblem drops empty global components, so the public
+#       constructor cannot represent it. The shared refusal IS
+#       behavior-tested through verify()'s explicit `phases = Float64[]`
+#       lane (stored_phases distinguishes no-φ from φ-declared-but-empty).
+#
+#   (5) Makie theme-fallback lanes (pulse_plots 57/59/74/76): the
+#       key-missing branches of _theme_palette/_theme_neutral — Makie's
+#       current_default_theme always carries merged :palette/:textcolor
+#       entries, so the public API cannot produce a key-less theme state.
+#       The theme-robustness CONTRACT (helpers still return usable values
+#       under a bare set_theme!(Theme())) is behavior-tested; the
+#       key-missing lanes themselves cannot fire.
 
 ignore:
   - "src/specs/schema/regenerate.jl"
-  - "src/specs/schema/emit_hash_fixtures.jl"
+  - "scripts/emit_hash_fixtures.jl"
 
 coverage:
   status:

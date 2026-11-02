@@ -353,7 +353,9 @@ function OpenQuantumSystem(
         n_drives,
         levels,
         diss_list,
-        time_dependent,
+        # A ModulatedDrive is explicit time dependence, flagged as the closed-system
+        # Pair constructor flags it (#386).
+        time_dependent || any(d -> d isa ModulatedDrive, drives),
         _float_params(global_params),
     )
 end
@@ -445,6 +447,9 @@ function OpenQuantumSystem(
     levels = size(H_drift, 1)
 
     diss_iso_mats = [Isomorphisms.iso_D(L) for L in diss_mats]
+
+    # Warn on an undeclared t-dependence, as QuantumSystem(H::Function, ...) does (#386).
+    time_dependent || _warn_undeclared_time_dependence(H, drive_bounds, global_params)
 
     𝒢_fn = let 𝒟s = diss_iso_mats, dss = diss_list, H_user = H
         u -> begin

@@ -12,6 +12,11 @@ module PiccoloSpecsCorpus
 # Regeneration (must reproduce every byte):
 #   julia --project=<env with this checkout dev'd> test/specs_corpus/generate.jl
 #
+# Re-freeze log (deliberate, reviewed byte changes):
+#   - #360 (2026-10-02): `solver.backend` default flipped `ipopt` → `madnlp`
+#     (inherited from DirectTrajOpt 0.11's MadNLP-default) — every fixture's
+#     wire form and both hashes changed together.
+#
 # Disclosure note: fixtures reference public Piccolo names only (feature-level
 # content) — safe for the open repo by construction.
 

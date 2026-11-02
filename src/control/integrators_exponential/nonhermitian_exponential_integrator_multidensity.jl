@@ -42,6 +42,7 @@ function NonHermitianExponentialIntegrator(
     gauss_newton::Bool = false,
 )
     sys = get_system(qtraj)
+    _refuse_time_dependent(sys, "NonHermitianExponentialIntegrator")
     x_names = state_names(qtraj)
     u = drive_name(qtraj)
     n_densities = length(x_names)
@@ -68,14 +69,8 @@ function NonHermitianExponentialIntegrator(
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
     @assert all(name in traj.names for name in x_names) "All ensemble state names must be in trajectory"
 
-    # Determine global dim from trajectory
-    if traj.global_dim > 0
-        global_dim = traj.global_dim
-    elseif !isempty(global_names)
-        global_dim = length(global_names)
-    else
-        global_dim = 0
-    end
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
 
     n = sys.levels
     statedim = n^2  # compact density iso dimension per density
@@ -120,7 +115,14 @@ function NonHermitianExponentialIntegrator(
     for (i, name) in enumerate(x_names)
         # Single-density sparsity templates (per density; index into the full
         # trajectory column space via traj.components[name]).
-        ∂ℰ_template = jacobian_structure(MultiDensityTrajectory, name, u, statedim, traj)
+        ∂ℰ_template = jacobian_structure(
+            MultiDensityTrajectory,
+            name,
+            u,
+            statedim,
+            traj;
+            global_dim = global_dim,
+        )
         μ∂²ℰ_template = hessian_structure(x_dim, u_dim, global_dim)
 
         ∂ℰs = [copy(∂ℰ_template) for _ = 1:(N-1)]
@@ -172,12 +174,12 @@ function jacobian_structure(
     x_name::Symbol,
     u_name::Symbol,
     statedim::Int,
-    traj::NamedTrajectory,
+    traj::NamedTrajectory;
+    global_dim::Int = traj.global_dim,
 )
     x_dim = traj.dims[x_name]
     u_dim = traj.dims[u_name]
     z_dim = traj.dim
-    global_dim = traj.global_dim
     x_comps = traj.components[x_name]
     u_comps = traj.components[u_name]
     Δt_comp = traj.components[traj.timestep][1]
@@ -437,12 +439,20 @@ function get_jacobian_structure(
     N = traj.N
     x_dim = traj.dims[x_name(ℰ)]
     z_dim = traj.dim
-    global_dim = traj.global_dim
+    # per-knot global block = declared globals; Z spans all trajectory globals
+    global_dim = ℰ.global_dim
     F_dim = x_dim * (N - 1)
-    Z_dim = z_dim * N + global_dim
+    Z_dim = z_dim * N + traj.global_dim
     ∂F = spzeros(F_dim, Z_dim)
 
-    ∂ℰ_k = jacobian_structure(MultiDensityTrajectory, x_name(ℰ), ℰ.u_name, ℰ.statedim, traj)
+    ∂ℰ_k = jacobian_structure(
+        MultiDensityTrajectory,
+        x_name(ℰ),
+        ℰ.u_name,
+        ℰ.statedim,
+        traj;
+        global_dim = global_dim,
+    )
 
     for k = 1:(N-1)
         ∂F[slice(k, x_dim), slice(k, 1:2z_dim, z_dim)] = ∂ℰ_k[:, 1:2z_dim]
@@ -450,7 +460,7 @@ function get_jacobian_structure(
 
     if global_dim > 0
         g_cols_local = (2z_dim+1):(2z_dim+global_dim)
-        g_cols_full = (z_dim*N+1):(z_dim*N+global_dim)
+        g_cols_full = _global_full_cols(ℰ, traj)
         for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ∂ℰ_k[:, g_cols_local]
         end
@@ -524,9 +534,9 @@ end
             ℰ.∂ℰs[k][:, ℰ.z_dim .+ var_comps_now]
     end
 
-    if traj.global_dim > 0
-        g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+traj.global_dim)
-        g_cols_full = (z_dim*N+1):(z_dim*N+traj.global_dim)
+    if ℰ.global_dim > 0
+        g_cols_local = (2*ℰ.z_dim+1):(2*ℰ.z_dim+ℰ.global_dim)
+        g_cols_full = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ℰ.∂ℰs[k][:, g_cols_local]
         end
@@ -579,10 +589,10 @@ end
             ℰ.μ∂²ℰs[k][canonical_comps, canonical_comps]
     end
 
-    global_dim = traj.global_dim
+    global_dim = ℰ.global_dim
     if global_dim > 0
         g_can = (2*knot_dim+1):(2*knot_dim+global_dim)
-        g_traj = (z_dim*N+1):(z_dim*N+global_dim)
+        g_traj = _global_full_cols(ℰ, traj)
         @inbounds for k = 1:(N-1)
             μ∂²F[slice(k, traj_comps, z_dim), g_traj] .=
                 ℰ.μ∂²ℰs[k][canonical_comps, collect(g_can)]
@@ -702,4 +712,52 @@ end
         !isapprox(integ.G([0.3, 0.1]), integ.G([0.3, 0.5]); atol = 1e-10) for
         integ in integrators
     )
+end
+
+
+@testitem "NonHermitianExponentialIntegrator{MultiDensity} globals end-to-end" begin
+    using LinearAlgebra, NamedTrajectories, Piccolo, DirectTrajOpt
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
+    using SparseArrays
+
+    drive_global = NonlinearDrive(PAULIS.X, u -> u[1] * u[2]; active_controls = [1, 2])
+    diss_global = NonlinearDissipator(PAULIS.Z / sqrt(2), u -> u[3]; active_controls = [3])
+    sys = OpenQuantumSystem(
+        PAULIS.Z,
+        AbstractDrive[drive_global],
+        [1.0, 1.0, 1.0];
+        dissipators = [diss_global],
+        global_params = (θ = 1.0, γ = 0.1),
+    )
+    ρa = ComplexF64[1 0; 0 0]
+    ρb = ComplexF64[0 0; 0 1]
+    ρc = ComplexF64[0 1; 1 0] / 2
+    N = 8
+    times = collect(range(0, 1.0, length = N))
+    pulse = LinearSplinePulse(repeat([0.3, 1.0, 0.1], 1, N), times)
+    qtraj = MultiDensityTrajectory(sys, pulse, [ρa, ρc], [ρb, ρb])
+
+    ℰs = NonHermitianExponentialIntegrator(qtraj, N)
+    @test length(ℰs) == 2
+    for ℰ in ℰs
+        @test ℰ.global_names == [:θ, :γ]
+        @test ℰ.global_dim == 2
+    end
+
+    traj = NamedTrajectory(qtraj, N; global_data = Dict(:θ => [1.0], :γ => [0.1]))
+    @test traj.global_dim == 2
+
+    # Full oracle on the globals-carrying trajectory, one integrator per density
+    for ℰ in ℰs
+        test_integrator(ℰ, traj; atol = 1e-3)
+    end
+
+    J = DirectTrajOpt.CommonInterface.eval_jacobian(ℰs[1], traj)
+    Z_dim = traj.dim * traj.N + traj.global_dim
+    @test all(iszero, Matrix(J)[:, (Z_dim-1):Z_dim])
+
+    S = DirectTrajOpt.Integrators.get_jacobian_structure(ℰs[1], traj)
+    @test size(S) == size(J)
+    Jn, Sn = Matrix(J), Matrix(S)
+    @test all(iszero(Jn[i, j]) || !iszero(Sn[i, j]) for i = 1:size(J, 1), j = 1:size(J, 2))
 end

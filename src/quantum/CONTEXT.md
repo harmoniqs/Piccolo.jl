@@ -263,6 +263,6 @@ quantum/
 2. **fidelity(qtraj) is O(1), not O(solve)** - It uses the pre-computed solution stored in qtraj
 3. **Isomorphism convention** - `[real; imag]` stacking, column-major for operators
 4. **drive_bounds normalization** - Scalars become symmetric bounds: `1.0 → (-1.0, 1.0)`
-5. **time_dependent flag** - Only needed for explicit time dependence like `cos(ωt)` in the Hamiltonian function. The `:t` trajectory component is always present regardless.
+5. **time_dependent flag** - Required for explicit time dependence like `cos(ωt)` in a Hamiltonian *function* (the Pair constructors and a `ModulatedDrive` set it automatically). It is not inferred from `H(u, t)`: an unflagged function that reads `t` only draws a construction-time warning, and integrators that pin `t = 0` would drop the dependence (#386). The `:t` trajectory component is always present regardless.
 6. **MultiKetTrajectory state names** - Uses `:ψ̃1`, `:ψ̃2`, etc., not `:ψ̃` directly
 7. **CubicSplinePulse** - The `:du` component is a true DOF (Hermite tangent), not a derived quantity

@@ -165,6 +165,24 @@ struct ZeroOrderPulse{I<:ConstantInterpolation} <: AbstractPulse
     snap_to_knots::Bool
 end
 
+# Knot times must be non-decreasing: every interpolant (and `searchsortedfirst`
+# in the ZOH snap) assumes sorted knots, and an unsorted grid otherwise surfaces
+# far downstream as an opaque `view(::Float64, ::UnitRange)` MethodError in the
+# rollout (#383). The usual source is a free timestep the solver drove negative.
+function _check_knot_times(times::AbstractVector)
+    k = findfirst(i -> !(times[i] >= times[i-1]), 2:length(times))
+    isnothing(k) && return nothing
+    i = k + 1
+    throw(
+        ArgumentError(
+            "pulse knot times must be non-decreasing, but knot $i (t = $(times[i])) " *
+            "is earlier than knot $(i - 1) (t = $(times[i - 1])). If the times come from an " *
+            "optimized trajectory, a free timestep went negative: give the problem a " *
+            "positive lower bound, e.g. `Δt_bounds = (Δt_min, Δt_max)`.",
+        ),
+    )
+end
+
 """
     ZeroOrderPulse(controls::AbstractMatrix, times::AbstractVector; drive_name=:u, initial_value=nothing, final_value=nothing, snap_to_knots=true)
 
@@ -179,7 +197,8 @@ Create a zero-order hold pulse from control samples and times.
 - `initial_value`: Initial boundary condition (default: zeros(n_drives))
 - `final_value`: Final boundary condition (default: zeros(n_drives))
 - `snap_to_knots`: When `true` (default), `evaluate` snaps query times within
-  `1e-12` of a stored knot time to that knot's value. This avoids the
+  float roundoff of a stored knot time (`max(1e-12, 64·eps(knot))`, relative so
+  long gates snap too) to that knot's value. This avoids the
   off-by-one that arises when recomputed times (e.g. from `range()` or a
   `cumsum` round-trip through `NamedTrajectory`) differ from stored times by
   float roundoff at `ConstantInterpolation`'s left-continuous discontinuities,
@@ -195,6 +214,7 @@ function ZeroOrderPulse(
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     snap_to_knots::Bool = true,
 )
+    _check_knot_times(times)
     n_drives = size(controls, 1)
     # :free means "no boundary constraint" (stored as NaN sentinel)
     # nothing defaults to zeros for backward compatibility
@@ -238,11 +258,19 @@ end
 
 derivative(p::ZeroOrderPulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
+# A time is "at" a knot when it differs from it by float roundoff only. The
+# tolerance is relative (64 ulps of the knot time) with the historical absolute
+# 1e-12 as a floor: for long gates (T ≳ 4.5e3) one ulp of the time already exceeds
+# 1e-12, so an absolute tolerance missed cumsum-vs-range roundoff and shifted the
+# ZOH staircase by one knot (#376). 64 ulps stays far below any knot spacing.
+_knot_tol(knot::Real) = max(1e-12, 64 * eps(abs(Float64(knot))))
+_near_knot(t, knot) = abs(t - knot) < _knot_tol(knot)
+
 function evaluate(p::ZeroOrderPulse, t)
     if p.snap_to_knots
         knots = p.controls.t
         idx = searchsortedfirst(knots, t)
-        if idx <= length(knots) && abs(t - knots[idx]) < 1e-12
+        if idx <= length(knots) && _near_knot(t, knots[idx])
             return p.controls.u[:, idx]
         end
     end
@@ -251,9 +279,7 @@ end
 
 function sample(pulse::ZeroOrderPulse, times::AbstractVector)
     knot_times = collect(pulse.controls.t)
-    is_native =
-        length(times) == length(knot_times) &&
-        all(isapprox.(times, knot_times; atol = 1e-12))
+    is_native = length(times) == length(knot_times) && all(_near_knot.(times, knot_times))
     if is_native
         return Matrix(pulse.controls.u)
     else
@@ -308,6 +334,7 @@ function LinearSplinePulse(
     initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
+    _check_knot_times(times)
     n_drives = size(controls, 1)
     init_val = if initial_value === :free
         fill(NaN, n_drives)
@@ -399,6 +426,7 @@ function CubicSplinePulse(
     initial_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
     final_value::Union{Nothing,Symbol,Vector{<:Real}} = nothing,
 )
+    _check_knot_times(times)
     n_drives = size(controls, 1)
     init_val = if initial_value === :free
         fill(NaN, n_drives)
@@ -473,7 +501,12 @@ end
 # TODO: Unimplemented by DataInterpolations
 # derivative(p::CubicSplinePulse, t::Real) = DataInterpolations.derivative(p.controls, t)
 
-evaluate(p::CubicSplinePulse, t) = p.controls(t)
+# Constant extrapolation by clamping: DataInterpolations implements
+# `ExtrapolationType.Constant` through `_derivative`, which has no method for a
+# matrix-valued `CubicHermiteSpline`, so any query past the last knot (an ODE
+# integrator overshooting `T` by roundoff, #379) would throw a `MethodError`.
+evaluate(p::CubicSplinePulse, t) =
+    p.controls(clamp(t, first(p.controls.t), last(p.controls.t)))
 
 # ============================================================================ #
 # Spline pulse knot accessors
@@ -518,6 +551,46 @@ get_knot_derivatives(p::CubicSplinePulse) = p.controls.du
 
 export get_knot_times, get_knot_count, get_knot_values, get_knot_derivatives
 export shape_metrics
+export interpolation_basis
+
+# ============================================================================ #
+# Interpolation basis trait (#375)
+# ============================================================================ #
+
+@doc raw"""
+    interpolation_basis(x) -> Union{Symbol,Nothing}
+
+The interpolation basis a pulse **describes**, or that an integrator **integrates
+in**. Problem constructors require `interpolation_basis(integrator) ==
+interpolation_basis(pulse)` for every dynamics integrator, unless the caller
+declares the approximation with `allow_basis_approximation = true`.
+
+| value       | meaning                                                         |
+|:------------|:----------------------------------------------------------------|
+| `:zoh`      | zero-order hold — piecewise constant between knots              |
+| `:linear`   | linear interpolation between knots                              |
+| `:cubic`    | cubic Hermite interpolation (`:du` are the knot tangents)       |
+| `:analytic` | a closed-form envelope with no knot basis (Gaussian, erf, …)    |
+| `nothing`   | unknown — the trait makes no claim, so no pairing check applies |
+
+Pulse methods: `ZeroOrderPulse → :zoh`, `LinearSplinePulse → :linear`,
+`CubicSplinePulse → :cubic`, every other `AbstractPulse → :analytic`. A new
+pulse type with a knot basis must add its own method; without one it is treated as
+`:analytic` and is refused by the spline integrator.
+
+Integrator methods (defined with the integrators): the exponential integrators and
+`BilinearIntegrator → :zoh`, `SplineIntegrator → :linear`/`:cubic` by its spline
+order, any other `AbstractIntegrator → nothing`. Downstream integrator types
+should add a method so the template guards can check them.
+
+Quantum trajectories (and problems) forward to their pulse.
+"""
+function interpolation_basis end
+
+interpolation_basis(::AbstractPulse) = :analytic
+interpolation_basis(::ZeroOrderPulse) = :zoh
+interpolation_basis(::LinearSplinePulse) = :linear
+interpolation_basis(::CubicSplinePulse) = :cubic
 
 # ============================================================================ #
 # Shape metrics (#309) — the P-series quartet as public chassis
@@ -737,6 +810,7 @@ struct GaussianPulse{F<:Function} <: AbstractPulse
     centers::Vector{Float64}
     duration::Float64
     n_drives::Int
+    drive_name::Symbol
 end
 
 """
@@ -749,12 +823,16 @@ Create a Gaussian pulse with per-drive parameters.
 - `sigmas`: Gaussian width (standard deviation) for each drive
 - `centers`: Center time for each drive
 - `duration`: Total pulse duration
+
+# Keyword Arguments
+- `drive_name`: Name of the drive variable (default `:u`)
 """
 function GaussianPulse(
     amplitudes::AbstractVector{<:Real},
     sigmas::AbstractVector{<:Real},
     centers::AbstractVector{<:Real},
-    duration::Real,
+    duration::Real;
+    drive_name::Symbol = :u,
 )
     n = length(amplitudes)
     @assert length(sigmas) == n "sigmas must have same length as amplitudes"
@@ -766,7 +844,7 @@ function GaussianPulse(
     dur = Float64(duration)
 
     f = t -> [amps[i] * exp(-(t - ctrs[i])^2 / (2 * sigs[i]^2)) for i = 1:n]
-    return GaussianPulse(f, amps, sigs, ctrs, dur, n)
+    return GaussianPulse(f, amps, sigs, ctrs, dur, n, drive_name)
 end
 
 """
@@ -787,13 +865,15 @@ function GaussianPulse(
     sigma::Real,
     duration::Real;
     center::Real = duration / 2,
+    drive_name::Symbol = :u,
 )
     n = length(amplitudes)
     return GaussianPulse(
         amplitudes,
         fill(Float64(sigma), n),
         fill(Float64(center), n),
-        duration,
+        duration;
+        drive_name = drive_name,
     )
 end
 
@@ -1345,9 +1425,11 @@ end
         @test length(derivative(pulse, last(times))) == n_drives(pulse)
     end
 
-    # CubicHermiteSpline known failure mode
+    # CubicHermiteSpline: used to fail at the last knot (DataInterpolations' constant
+    # extrapolation needs a `_derivative` it lacks); evaluation now clamps to the knot
+    # span (#379), so the boundary derivative is the one-sided interior one.
     pulse = CubicSplinePulse(inits, times)
-    @test_broken derivative(pulse, last(times)) isa AbstractVector
+    @test derivative(pulse, last(times)) isa AbstractVector
 end
 
 @testitem "GaussianPulse" begin
@@ -1788,6 +1870,38 @@ end
     # regardless of the snap flag — verify that holds for the legacy path too.
     sampled_legacy_batch, _ = sample(pulse_raw, N)
     @test sampled_legacy_batch == stored
+end
+
+@testitem "pulse constructors reject non-monotone knot times (#383)" begin
+    bad = [0.0, 0.25, 0.2, 0.5]
+    for make in (
+        t -> ZeroOrderPulse(ones(1, 4), t),
+        t -> LinearSplinePulse(ones(1, 4), t),
+        t -> CubicSplinePulse(ones(1, 4), zeros(1, 4), t),
+    )
+        @test_throws ArgumentError make(bad)
+        @test_throws "non-decreasing" make(bad)
+        @test_throws "knot 3" make(bad)
+        @test make([0.0, 0.1, 0.2, 0.5]) isa AbstractPulse
+    end
+end
+
+@testitem "ZeroOrderPulse knot snapping is relative to the time scale (#376)" begin
+    # Long gates (bosonic ~1.5e4 ns) put float roundoff between cumsum and range
+    # knot times far above an absolute 1e-12, which shifted the staircase by a knot.
+    for T in (1.0, 1e3, 1e5), N in (101, 997, 1524)
+        controls = Float64.(reshape(1:N, 1, N))
+        times_cumsum = cumsum([0.0; fill(T / (N - 1), N - 1)])
+        times_range = collect(range(0.0, T, length = N))
+        pulse = ZeroOrderPulse(controls, times_cumsum)
+        stored = Matrix(pulse.controls.u)
+        @test hcat([pulse(t) for t in times_range]...) == stored
+        @test sample(pulse, times_range) == stored
+        @test first(sample(pulse, N)) == stored
+
+        # A query between knots still holds the left knot's value.
+        @test pulse(times_cumsum[3] + 0.5 * T / (N - 1)) == stored[:, 3]
+    end
 end
 
 @testitem "ZeroOrderPulse → NamedTrajectory round-trip preserves knot values" begin

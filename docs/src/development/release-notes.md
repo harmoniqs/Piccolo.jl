@@ -2,6 +2,25 @@
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed (breaking)
+
+- **Quantum templates default to the native exponential/spline integrator tier
+  (#334, #357)** — `SmoothPulseProblem` / `BangBangPulseProblem` construct with
+  the native `HermitianExponentialIntegrator` (exact PWC, analytic
+  Daleckii–Krein derivatives, `sys.global_params`-aware; open-system
+  `DensityTrajectory` problems use its `NonHermitianExponentialIntegrator`
+  counterpart), and `SplinePulseProblem` constructs with the native
+  spline-faithful `SplineIntegrator`. `BilinearIntegrator` is demoted to the
+  explicit `integrator_type = :pwc` / `integrator = BilinearIntegrator(...)`
+  choice — never a default. Consequences: `integrator_type = :spline` is a
+  valid alias of the new spline default again (the #275 "not available" essay
+  and the CubicSplinePulse default refusal die with the old PWC default;
+  `:pwc` + cubic warns instead); for ZOH pulses the exponential tier defines
+  the same NLP as the bilinear default to solver precision, at 4–9× lower
+  per-iteration cost.
+
 ## [v2.0.1] - 2026-08-21
 
 The 2.0.0 follow-up: the specs-path correctness fixes found by the coverage

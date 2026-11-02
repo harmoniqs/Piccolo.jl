@@ -184,12 +184,13 @@ end
 """
     SolverSpec
 
-The `[solver]` block. Phase 1 executes `:ipopt` only; `:altissimo` (with
-`device`/`precision`) is registered for schema but its backend dispatch is
-deferred.
+The `[solver]` block. The default backend is `:madnlp` — DirectTrajOpt's
+default since DTO 0.11, inherited by Piccolo (#360); `:ipopt` remains a fully
+selectable declared backend. `:altissimo` (with `device`/`precision`) is
+registered for schema but its backend dispatch is deferred with Piccolissimo.
 """
 Base.@kwdef struct SolverSpec
-    backend::Symbol = :ipopt            # ipopt | altissimo
+    backend::Symbol = :madnlp           # madnlp | ipopt | altissimo (schema-only)
     device::Symbol = :cpu               # cpu | gpu
     precision::Symbol = :f64
     max_iter::Int = 500
@@ -293,4 +294,7 @@ end
         goal = g,
     )
     @test s.kind == :control
+    # The SolverSpec default backend is the inherited DTO-0.11 default (#360):
+    # madnlp, with ipopt remaining a fully selectable declared backend.
+    @test Specs.SolverSpec().backend === :madnlp
 end

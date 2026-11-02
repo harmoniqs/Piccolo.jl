@@ -218,6 +218,7 @@ qcp_cub = SplinePulseProblem(
     R_du = 0.1,
     piccolo_options = PiccoloOptions(timesteps_all_equal = true),
     integrator_type = :pwc,  # declared PWC — see the spline_pulse template's warning
+    allow_basis_approximation = true,  # #375: the PWC-on-spline approximation is opt-in
 )
 
 cached_solve!(qcp_cub, "two_qubit_cubic_spline"; max_iter = 80)

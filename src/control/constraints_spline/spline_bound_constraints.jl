@@ -725,6 +725,24 @@ end
         du_dτ = dh00 * u_k + dh10 * Δt * du_k + dh01 * u_kp1 + dh11 * Δt * du_kp1
         @test abs(du_dτ) < 1e-10  # Derivative should be ~0 at critical point
     end
+
+    # Linear lane: a ≈ 0 degenerates the quadratic to bτ + c = 0.
+    # u_k = u_{k+1} = 0, du_k = 1, du_{k+1} = −1 gives a = 0, b = −2Δt·du_k ≠ 0,
+    # root τ* = −c/b = 1/2 ∈ (0,1).
+    τ_lin = find_cubic_critical_points(0.0, 0.0, 1.0, -1.0, 0.5)
+    @test length(τ_lin) == 1
+    @test τ_lin[1] ≈ 0.5
+
+    # Quadratic case where the (+√D) root ALSO lands in (0,1):
+    # a = −18, b = 18, c = −2 → roots ≈ 0.1273 and 0.8727, both interior.
+    τ_both = find_cubic_critical_points(0.0, 1.0, -2.0, -2.0, 1.0)
+    @test length(τ_both) == 2
+    @test all(0 .< τ_both .< 1)
+    for τ in τ_both
+        dh00, dh10, dh01, dh11 = hermite_derivative_basis(τ)
+        du_dτ = dh00 * 0.0 + dh10 * 1.0 * (-2.0) + dh01 * 1.0 + dh11 * 1.0 * (-2.0)
+        @test abs(du_dτ) < 1e-10
+    end
 end
 
 @testitem "CubicSplineExtremaConstraint - basic" begin
@@ -917,4 +935,56 @@ end
     # Should return 3 eval points × 2 bounds × 1 drive × (N-1) segments
     @test length(g) == 3 * 2 * 1 * (N-1)
     @test all(isfinite.(g))
+end
+
+@testitem "Per-drive Vector{Tuple} bound ctors: sufficient bound and slope" begin
+    using NamedTrajectories
+    using Piccolo: CubicSplineSufficientBoundConstraint, CubicSplineSlopeConstraint
+    using DirectTrajOpt.CommonInterface: evaluate!
+    using LinearAlgebra
+
+    N = 8
+    traj = NamedTrajectory(
+        (u = randn(2, N), du = 0.1 * randn(2, N), Δt = fill(0.5, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+
+    # Per-drive sufficient bounds: drive 1 ∈ [−5, 5], drive 2 ∈ [−3, 3]
+    u_bounds = [(-5.0, 5.0), (-3.0, 3.0)]
+    con = CubicSplineSufficientBoundConstraint(traj, u_bounds; safety_factor = 2.0)
+    @test con.dim == 2 * (N - 1)
+
+    vals = zeros(con.dim)
+    evaluate!(vals, con, traj)
+    # Residual per (drive, segment): |du_k[i]| − 2·min(gap_i)/Δt
+    Δt = 0.5
+    for k = 1:(N-1)
+        for i = 1:2
+            lo, hi = u_bounds[i]
+            gap = min(hi - traj.u[i, k], traj.u[i, k] - lo)
+            expected = abs(traj.du[i, k]) - 2.0 * gap / Δt
+            @test vals[(k-1)*2+i] ≈ expected atol = 1e-12
+        end
+    end
+
+    # Per-drive slope bounds over the same two drives
+    du_bounds = [(-2.0, 2.0), (-0.5, 0.5)]
+    slope_con = CubicSplineSlopeConstraint(traj, du_bounds)
+    # 3 eval points × 2 bounds × 2 drives × (N−1) segments
+    @test slope_con.dim == 3 * 2 * 2 * (N - 1)
+
+    g = zeros(slope_con.dim)
+    evaluate!(g, slope_con, traj)
+    @test all(isfinite.(g))
+    # A flat zero trajectory with zero slopes must be feasible (all residuals ≤ 0):
+    # slope is identically 0, so the residuals are du_min − 0 ≤ 0 and 0 − du_max ≤ 0.
+    flat = NamedTrajectory(
+        (u = zeros(2, N), du = zeros(2, N), Δt = fill(0.5, N));
+        timestep = :Δt,
+        controls = :u,
+    )
+    g_flat = zeros(slope_con.dim)
+    evaluate!(g_flat, slope_con, flat)
+    @test all(g_flat .<= 0.0)
 end

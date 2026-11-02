@@ -1666,3 +1666,41 @@ end
     @test b == a
     @test b <= 4096
 end
+
+@testitem "HermiteSmoothAccelerationConstraint - stencil traits and accessors" begin
+    using NamedTrajectories
+    using DirectTrajOpt
+    using DirectTrajOpt.CommonInterface: jacobian_structure, hessian_structure
+    using Piccolo
+    using Piccolo:
+        constraint_stencil_table,
+        refresh_constraint_coefficients!,
+        stencil_width,
+        supports_matrix_free_constraint_hvp,
+        supports_matrix_free_constraint_gradient
+    using LinearAlgebra
+
+    N = 5
+    times = collect(range(0, 2.0, N))
+    pulse = CubicSplinePulse(randn(2, N), randn(2, N), times)
+    qtraj =
+        UnitaryTrajectory(TransmonSystem(levels = 3), pulse, Matrix{ComplexF64}(I, 3, 3))
+    traj = NamedTrajectory(qtraj, N)
+
+    constraint = HermiteSmoothAccelerationConstraint(traj; a_max = 10.0)
+
+    # Table + width accessors: the declared stencil width is one knot either side
+    @test constraint_stencil_table(constraint) === constraint.table
+    @test stencil_width(constraint) == 1
+
+    # Stored structures come back from the CommonInterface accessors unchanged
+    @test jacobian_structure(constraint) === constraint.jac_structure
+    @test hessian_structure(constraint) === constraint.hess_structure
+
+    # HSA opts into BOTH matrix-free kernels (stencil gradient + exact HVP)
+    @test supports_matrix_free_constraint_gradient(constraint)
+    @test supports_matrix_free_constraint_hvp(constraint)
+
+    # refresh_constraint_coefficients! is callable standalone on the constraint
+    @test isnothing(refresh_constraint_coefficients!(constraint, traj))
+end

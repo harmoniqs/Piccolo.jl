@@ -479,4 +479,39 @@ end
     @test is_reachable(target, [rx, ry], hermitian = false, verbose = false)
 end
 
+@testitem "Dependence, independent subsets, and span fitting" begin
+    using LinearAlgebra
+    using Piccolo.Quantum.QuantumSystemUtils:
+        is_linearly_dependent, linearly_independent_subset, is_in_span
+
+    # Wide matrices are dependent by counting alone (verbose branch)
+    @test is_linearly_dependent(rand(ComplexF64, 2, 3))
+    @test !is_linearly_dependent(Matrix{ComplexF64}(I, 2, 2))
+    @test is_linearly_dependent(ComplexF64[1 2; 0 0; 1 2])  # col2 = 2·col1
+
+    # subset drops dependent members and returns independent deep copies
+    basis = [PAULIS[:X], PAULIS[:Y], 2 * PAULIS[:X]]
+    subset = linearly_independent_subset(basis)
+    @test length(subset) == 2
+    @test subset[1] ≈ PAULIS[:X]
+    @test subset[2] ≈ PAULIS[:Y]
+
+    # span fitting returns the effective generator on request
+    gen = PAULIS[:X] + PAULIS[:Z]
+    ok, g_eff = is_in_span(gen, [PAULIS[:X], PAULIS[:Z]]; return_effective_gen = true)
+    @test ok
+    @test g_eff ≈ gen
+
+    # a Y component cannot be fitted from X, Z alone
+    @test !is_in_span(PAULIS[:X] + PAULIS[:Y], [PAULIS[:X], PAULIS[:Z]])
+
+    # compute_basis=false uses the given Hamiltonians directly
+    @test is_reachable(
+        GATES[:X],
+        [PAULIS[:X], PAULIS[:Y]];
+        compute_basis = false,
+        verbose = false,
+    )
+end
+
 end

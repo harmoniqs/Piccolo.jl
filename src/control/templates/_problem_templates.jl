@@ -112,6 +112,7 @@ include("bang_bang_pulse_problem.jl")
 include("spline_pulse_problem.jl")
 include("minimum_time_problem.jl")
 include("sampling_problem.jl")
+include("playback_problem.jl")
 
 """
     _unbind_state!(traj::NamedTrajectory, name::Symbol)
@@ -303,6 +304,104 @@ function setup_free_phase_globals!(
 
     return θ_names, global_data, global_bounds
 end
+
+"""
+    DEFAULT_Δt_LOWER_FRACTION
+
+Default positive floor on free timesteps, as a fraction of the initial (smallest)
+timestep: when a template is given no `Δt_bounds`, each `Δtₖ` is bounded to
+`[DEFAULT_Δt_LOWER_FRACTION · minₖ Δtₖ⁰, Inf)` (#383).
+
+A lower bound of exactly 0 is not enough: interior-point solvers relax bounds by
+roughly 1e-8, so an unseeded solve could end with `Δt ≈ -1e-8`, the extracted pulse
+then had unsorted knot times, and the rollout failed. The floor allows up to a
+1000× compression of any timestep, which leaves `MinimumTimeProblem` its room;
+pass `Δt_bounds = (lo, hi)` to choose another range.
+"""
+const DEFAULT_Δt_LOWER_FRACTION = 1e-3
+
+# The `Δt_bounds` a template hands to `NamedTrajectory(qtraj, N_or_times)`: the
+# user's bounds as given, else the positive default floor on the timesteps that
+# conversion will produce (`N_or_times` is an `Int`, a time vector, or `nothing`
+# for a spline pulse's own knots).
+function _default_Δt_bounds(Δt_bounds, qtraj, N_or_times)
+    isnothing(Δt_bounds) || return Δt_bounds
+    times = Quantum.QuantumTrajectories._sample_times(qtraj, N_or_times)
+    return (DEFAULT_Δt_LOWER_FRACTION * minimum(diff(times)), Inf)
+end
+
+"""
+    _default_quantum_integrator(qtraj, N::Int)
+
+#334 default: the native exact-PWC exponential tier, dispatched by system kind —
+closed-system trajectories (unitary/ket/multi-ket, and sampling ensembles over
+them) get the `HermitianExponentialIntegrator`; open-system density
+trajectories get its `NonHermitianExponentialIntegrator` counterpart (the
+Lindbladian generator is not Hermitian, so the closed-system eigensolver does
+not apply). Both auto-detect `sys.global_params` and thread them into the
+dynamics. `BilinearIntegrator` survives as the explicit `integrator_type =
+:pwc` / `integrator = BilinearIntegrator(...)` choice — never as a default.
+"""
+function _default_quantum_integrator(qtraj, N::Int)
+    if _is_open_system_trajectory(qtraj)
+        return NonHermitianExponentialIntegrator(qtraj, N)
+    end
+    return HermitianExponentialIntegrator(qtraj, N)
+end
+
+_is_open_system_trajectory(::Union{DensityTrajectory,MultiDensityTrajectory}) = true
+_is_open_system_trajectory(qtraj::SamplingTrajectory) =
+    _is_open_system_trajectory(qtraj.base_trajectory)
+_is_open_system_trajectory(::AbstractQuantumTrajectory) = false
+
+export check_basis_pairing
+
+"""
+    check_basis_pairing(template, qtraj, integrators; allow_basis_approximation = false)
+
+Refuse a dynamics integrator whose [`interpolation_basis`](@ref) differs from the
+pulse's (#375). Every problem template calls this on its dynamics integrators, so a
+pulse is never integrated in another basis without the caller saying so.
+Integrators whose basis is unknown (`nothing`, e.g. `DerivativeIntegrator` or a
+downstream type without a method) are not checked.
+
+`allow_basis_approximation = true` is the named opt-in for research that knowingly
+integrates in another basis (a spline pulse under a piecewise-constant integrator,
+say). The check is skipped and nothing else changes.
+
+Throws an `ArgumentError` naming the pulse, the integrator, both bases, and the fix.
+"""
+function check_basis_pairing(
+    template,
+    qtraj,
+    integrators;
+    allow_basis_approximation::Bool = false,
+)
+    allow_basis_approximation && return nothing
+    pulse_basis = interpolation_basis(qtraj)
+    for integ in integrators
+        integ_basis = interpolation_basis(integ)
+        (isnothing(integ_basis) || integ_basis === pulse_basis) && continue
+        throw(
+            ArgumentError(
+                "$template: the pulse is a $(nameof(typeof(get_pulse(qtraj)))) " *
+                "(basis :$pulse_basis) but the dynamics integrator " *
+                "$(nameof(typeof(integ))) integrates in basis :$integ_basis, so the " *
+                "optimizer would constrain a different waveform than the pulse " *
+                "describes. $(_basis_pairing_hint(pulse_basis)) To make the " *
+                "approximation deliberately, pass `allow_basis_approximation = true`.",
+            ),
+        )
+    end
+    return nothing
+end
+
+_basis_pairing_hint(basis::Symbol) =
+    basis === :zoh ?
+    "Use HermitianExponentialIntegrator (the default; NonHermitianExponentialIntegrator for open systems) or BilinearIntegrator." :
+    basis === :linear || basis === :cubic ?
+    "Use SplineIntegrator (the SplinePulseProblem default)." :
+    "Convert the pulse to a ZeroOrderPulse or a spline pulse first."
 
 """
     _make_free_phase_goal(op::EmbeddedOperator)
@@ -954,6 +1053,37 @@ end
         state_leakage_indices = [[3, 4], [3, 4]],
     )
     @test length(filter(c -> c isa NonlinearKnotPointConstraint, cons_mk2)) == 2
+end
+
+@testitem "free-Δt templates enforce Δt > 0 by default (#383)" begin
+    using NamedTrajectories
+
+    sys = QuantumSystem(GATES[:Z], [GATES[:X], GATES[:Y]], [1.0, 1.0])
+    T, N = 2.0, 11
+    times = collect(range(0.0, T, length = N))
+    zoh() = UnitaryTrajectory(sys, ZeroOrderPulse(0.1 * ones(2, N), times), GATES[:X])
+    lin() = UnitaryTrajectory(sys, LinearSplinePulse(0.1 * ones(2, N), times), GATES[:X])
+    Δt_lower(p) = get_trajectory(p).bounds[:Δt][1]
+    Δt₀ = T / (N - 1)
+
+    smooth = SmoothPulseProblem(zoh(), N)
+    problems = [
+        smooth,
+        BangBangPulseProblem(zoh(), N),
+        SplinePulseProblem(lin(), N),
+        MinimumTimeProblem(smooth; final_fidelity = 0.9),
+    ]
+    for p in problems
+        lo = Δt_lower(p)
+        @test all(lo .> 0)
+        @test all(lo .≈ Piccolo.Control.ProblemTemplates.DEFAULT_Δt_LOWER_FRACTION * Δt₀)
+        @test all(get_trajectory(p).bounds[:Δt][2] .== Inf)
+    end
+
+    # An explicit Δt_bounds is the user's and is kept.
+    @test Δt_lower(SmoothPulseProblem(zoh(), N; Δt_bounds = (0.01, 0.5))) == [0.01]
+    @test Δt_lower(BangBangPulseProblem(zoh(), N; Δt_bounds = (0.02, 0.5))) == [0.02]
+    @test Δt_lower(SplinePulseProblem(lin(), N; Δt_bounds = (0.03, 0.5))) == [0.03]
 end
 
 end

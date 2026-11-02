@@ -95,7 +95,13 @@ Construct a QuantumSystem from a Hamiltonian function.
   - Scalars which are interpreted as symmetric bounds `(-value, value)`
 
 # Keyword Arguments
-- `time_dependent::Bool=false`: Set to `true` if the Hamiltonian has explicit time dependence (e.g., cos(ωt) modulation)
+- `time_dependent::Bool=false`: **Must** be `true` if `H` reads `t` (e.g. cos(ωt) modulation).
+  The flag is not inferred: it is what routes a system away from integrators that
+  evaluate the generator at a frozen `t = 0` (the exponential and spline integrators
+  refuse a flagged system; `BilinearIntegrator` builds a `TimeDependentBilinearIntegrator`
+  for it). When it is left `false`, construction probes `H` at a few points and warns if
+  `H(u, t) ≠ H(u, 0)` there (#386) — a heuristic that can miss a dependence, never a
+  substitute for the declaration.
 - `global_params::NamedTuple=NamedTuple()`: Global parameters stored with the system for bookkeeping
 
 # Example
@@ -141,6 +147,10 @@ function QuantumSystem(
         @assert is_hermitian(H_test) "Hamiltonian H(u, t=0) is not Hermitian for test control values u=$u_test"
     end
 
+    # A bare H(u, t) carries no record of whether it reads t; the flag is the user's
+    # declaration, so an undeclared dependence is warned about, not inferred (#386).
+    time_dependent || _warn_undeclared_time_dependence(H, drive_bounds, global_params)
+
     return QuantumSystem(
         (u, t) -> H(u, t),
         (u, t) -> Isomorphisms.G(H(u, t)),
@@ -155,6 +165,41 @@ function QuantumSystem(
         hermitian,
     )
 end
+
+"""
+    _warn_undeclared_time_dependence(H, drive_bounds, global_params)
+
+Warn when a bare `H(u, t)` built with `time_dependent = false` reads `t` (#386). The
+probe compares `H(u, t)` against `H(u, 0)` at a few incommensurate times, with `u` at
+the lower and the upper drive bounds (globals appended at their stored values), so a
+dependence entering through a control-weighted term (`u[1]·cos(ωt)·X`) is seen even
+where the midpoint control is zero. A function that ignores `t` returns
+bitwise-identical matrices, so exact comparison has no false positives.
+
+It is a heuristic, not a proof — a dependence that vanishes at every probe point is
+missed — so it warns rather than setting the flag: `time_dependent` stays the
+caller's declaration.
+"""
+function _warn_undeclared_time_dependence(H, drive_bounds, global_params::NamedTuple)
+    globals = collect(Float64, values(global_params))
+    probes = (vcat(first.(drive_bounds), globals), vcat(last.(drive_bounds), globals))
+    reads_t = any(probes) do u
+        H0 = H(u, 0.0)
+        return any(t -> H(u, t) != H0, _TIME_PROBES)
+    end
+    reads_t || return nothing
+    @warn "The Hamiltonian function reads `t` (H(u, t) ≠ H(u, 0) on a probe), but the " *
+          "system was built with `time_dependent = false`. Integrators that evaluate the " *
+          "generator at a frozen t = 0 (HermitianExponentialIntegrator, " *
+          "NonHermitianExponentialIntegrator, BilinearIntegrator's time-independent " *
+          "path) will silently drop the time dependence. Pass `time_dependent = true` " *
+          "to declare it."
+    return nothing
+end
+
+# Incommensurate probe times (in the caller's time units): no common period, and
+# none a rational multiple of another, so a periodic modulation cannot alias all.
+const _TIME_PROBES = (0.5772156649015329, 1.4142135623730951, 2.718281828459045)
 
 """
     QuantumSystem(
@@ -473,15 +518,6 @@ end
 _normalize_drift_entry(H::AbstractMatrix) = DriftTerm(sparse(ComplexF64.(H)))
 _normalize_drift_entry(p::Pair{<:AbstractMatrix,<:Function}) =
     DriftTerm(sparse(ComplexF64.(p.first)), p.second)
-
-"""Normalize a single drive input into an AbstractDrive."""
-_normalize_drive(H::AbstractMatrix, index::Int) = LinearDrive(sparse(ComplexF64.(H)), index)
-function _normalize_drive(p::Pair{<:AbstractMatrix,<:Function}, index::Int)
-    return ModulatedDrive(LinearDrive(sparse(ComplexF64.(p.first)), index), p.second)
-end
-_normalize_drive(d::AbstractDrive, ::Int) = d
-_normalize_drive(p::Pair{<:AbstractDrive,<:Function}, ::Int) =
-    ModulatedDrive(p.first, p.second)
 
 """Check if any drift_terms or drives have non-identity modulation."""
 function _has_any_modulation(drift_terms, drives)
@@ -1158,4 +1194,19 @@ end
     @test sys_gp.global_params isa NamedTuple
     @test all(v -> v isa Float64, values(sys_gp.global_params))
     @test sys_gp.global_params == (δ = 1.0, Ω = 2.0)
+end
+
+@testitem "QuantumSystem: driveless H/G evaluation is constant in controls and time" begin
+    using Piccolo
+    using LinearAlgebra
+
+    sys = QuantumSystem(PAULIS.Z)
+    @test sys.n_drives == 0
+
+    # No drives: H and G must ignore controls and time and equal the drift
+    u = rand(0)
+    @test sys.H(u, 0.0) ≈ PAULIS.Z
+    @test sys.H(u, 17.3) ≈ sys.H(u, 0.0)
+    @test sys.G(u, 0.0) ≈ Piccolo.Isomorphisms.G(PAULIS.Z)
+    @test sys.G((), 0.9) ≈ sys.G((), 0.1)
 end

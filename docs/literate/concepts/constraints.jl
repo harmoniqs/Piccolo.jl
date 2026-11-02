@@ -15,7 +15,7 @@
 #
 # | Class | Mathematical Form | Piccolo Source |
 # |-------|-------------------|----------------|
-# | **Dynamics** (equality) | ``x_{k+1} = \exp(\Delta t_k\, G(\boldsymbol{u}_k))\, x_k`` | `BilinearIntegrator` |
+# | **Dynamics** (equality) | ``x_{k+1} = \exp(\Delta t_k\, G(\boldsymbol{u}_k))\, x_k`` | the default integrator tier (`HermitianExponentialIntegrator`; `SplineIntegrator` for spline pulses) |
 # | **Box bounds** (inequality) | ``\boldsymbol{u}_{\min} \leq \boldsymbol{u}_k \leq \boldsymbol{u}_{\max}`` | `QuantumSystem.drive_bounds` |
 # | **Custom** (equality / inequality) | fidelity floors, leakage ceilings, … | `PiccoloOptions`, manual |
 #
