@@ -86,6 +86,7 @@ using ..Quantum:
     AbstractDrive,
     LinearDrive,
     NonlinearDrive,
+    ModulatedDrive,
     drive_coeff,
     drive_coeff_jac,
     drive_coeff_hess,

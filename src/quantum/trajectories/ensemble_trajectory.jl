@@ -90,7 +90,7 @@ mutable struct RolloutStates
 end
 
 """
-    MultiKetTrajectory(system, pulse, initials, goals; weights=..., algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8, n_save=101)
+    MultiKetTrajectory(system, pulse, initials, goals; weights=..., algorithm=nothing, abstol=1e-8, reltol=1e-8, n_save=101)
 
 Create a multi-ket trajectory by solving multiple Schrödinger equations.
 
@@ -102,7 +102,7 @@ Create a multi-ket trajectory by solving multiple Schrödinger equations.
 
 # Keyword Arguments
 - `weights`: Weights for fidelity (default: uniform)
-- `algorithm`: ODE solver algorithm (default: MagnusAdapt4())
+- `algorithm`: rollout algorithm (default: `nothing` — on a time-independent system the exact `PiecewiseExponential` for a `ZeroOrderPulse` and `Tsit5()` for a spline pulse, otherwise `default_algorithm(system)`)
 - `abstol`: Absolute tolerance for adaptive integration (default: 1e-8)
 - `reltol`: Relative tolerance for adaptive integration (default: 1e-8)
 - `n_save`: Number of output time points (default: 101)
@@ -146,10 +146,6 @@ function MultiKetTrajectory(
         throw(ArgumentError("rollout must be :cpu or :none, got $(repr(rollout))"))
     end
 
-    if isnothing(algorithm)
-        algorithm = default_algorithm(system)
-    end
-
     ψ0s = [Vector{ComplexF64}(ψ) for ψ in initials]
     ψgs = [Vector{ComplexF64}(ψ) for ψ in goals]
     ws = Vector{Float64}(weights)
@@ -161,23 +157,22 @@ function MultiKetTrajectory(
     # Build ensemble problem
     dummy = zeros(ComplexF64, system.levels)
     base_prob = KetOperatorODEProblem(system, pulse, dummy, tstops)
-    prob_func(prob, i_or_ctx, _repeat = nothing) =
-        remake(prob, u0 = ψ0s[_sim_index(i_or_ctx)])
-    ensemble_prob = EnsembleProblem(base_prob; prob_func = prob_func)
-    sol = solve(
-        ensemble_prob,
+    sol = _solve_ensemble_rollout(
+        base_prob,
+        ψ0s,
+        system,
+        pulse,
+        save_times,
         algorithm;
-        trajectories = length(initials),
-        saveat = save_times,
-        abstol = abstol,
-        reltol = reltol,
+        abstol,
+        reltol,
     )
 
     return MultiKetTrajectory{typeof(pulse),typeof(sol)}(system, pulse, ψ0s, ψgs, ws, sol)
 end
 
 """
-    MultiKetTrajectory(system, initials, goals, T::Real; weights=..., drive_name=:u, algorithm=MagnusAdapt4(), abstol=1e-8, reltol=1e-8)
+    MultiKetTrajectory(system, initials, goals, T::Real; weights=..., drive_name=:u, algorithm=nothing, abstol=1e-8, reltol=1e-8)
 
 Convenience constructor that creates a random pulse of duration T
 (each drive sampled uniformly within its `drive_bounds`; pass `rng` for reproducibility).
@@ -191,7 +186,7 @@ Convenience constructor that creates a random pulse of duration T
 # Keyword Arguments
 - `weights`: Weights for fidelity (default: uniform)
 - `drive_name::Symbol`: Name of the drive variable (default: `:u`)
-- `algorithm`: ODE solver algorithm (default: MagnusAdapt4())
+- `algorithm`: rollout algorithm (default: `nothing` — on a time-independent system the exact `PiecewiseExponential` for a `ZeroOrderPulse` and `Tsit5()` for a spline pulse, otherwise `default_algorithm(system)`)
 - `abstol`: Absolute tolerance (default: 1e-8)
 - `reltol`: Relative tolerance (default: 1e-8)
 """

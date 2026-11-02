@@ -367,12 +367,7 @@ end
     N = 6
     T0 = 1.7
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     qtraj = KetTrajectory(sys, ψ0, ψg, T0)

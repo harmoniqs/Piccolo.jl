@@ -384,7 +384,11 @@ end
     sampling_bilin = SamplingProblem(prob, [sys_nom, sys_pert])
     solve!(sampling_bilin; max_iter = 50, print_level = 0)
 
-    prob2 = SmoothPulseProblem(qtraj, N; Q = 100.0)
+    # #375: the spline lane takes a spline pulse — SplineIntegrator refuses the
+    # ZOH pulse above (it used to integrate it silently as a linear spline).
+    qtraj2 =
+        KetTrajectory(sys_nom, LinearSplinePulse(0.1 * randn(2, N), times), ψ_init, ψ_goal)
+    prob2 = SplinePulseProblem(qtraj2, N; Q = 100.0)
     sampling_spl = SamplingProblem(
         prob2,
         [sys_nom, sys_pert];

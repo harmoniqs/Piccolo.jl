@@ -354,8 +354,53 @@ result is passed to inner functions to avoid repeated allocation/lookup.
 """
 function extract_globals(ℰ::AbstractExponentialIntegrator, traj::NamedTrajectory)
     ℰ.global_dim == 0 && return nothing
+    _require_declared_globals(ℰ.global_names, traj)
     return vcat(
         [traj.global_data[traj.global_components[name]] for name in ℰ.global_names]...,
+    )
+end
+
+"""
+    _declared_global_dim(global_names, traj) -> Int
+
+Width of an exponential integrator's per-knot global block: the decision-vector
+entries its DECLARED globals occupy — never `traj.global_dim`. A trajectory may
+carry globals the integrator does not know (e.g. free-phase θ read only by the
+objective); those contribute zero Jacobian/Hessian columns and must not widen the
+block (#378). A declared name the trajectory lacks counts one slot (the
+constructor's scalar-global default); evaluation then refuses it via
+[`_require_declared_globals`](@ref).
+"""
+function _declared_global_dim(global_names::AbstractVector{Symbol}, traj::NamedTrajectory)
+    return sum(
+        (
+            haskey(traj.global_components, name) ? length(traj.global_components[name]) : 1
+            for name in global_names
+        );
+        init = 0,
+    )
+end
+
+"""
+    _require_declared_globals(global_names, traj)
+
+Refuse — with an `ArgumentError` naming what is missing — a trajectory that lacks
+a global the integrator declares (its dynamics read it, so there is no column to
+place its derivative in). Without this the lookup died as a bare `FieldError`.
+"""
+function _require_declared_globals(
+    global_names::AbstractVector{Symbol},
+    traj::NamedTrajectory,
+)
+    absent = filter(name -> !haskey(traj.global_components, name), global_names)
+    isempty(absent) && return nothing
+    throw(
+        ArgumentError(
+            "exponential integrator declares global(s) $(absent) that the trajectory " *
+            "does not carry (trajectory globals: $(collect(keys(traj.global_components)))). " *
+            "Add them to the trajectory's global_data, or build the integrator with " *
+            "`global_names` restricted to globals its dynamics read.",
+        ),
     )
 end
 
@@ -402,6 +447,7 @@ Fixes a permuted-`∂c/∂θ` bug: the per-knot block is filled in `global_names
 the global columns, handing Ipopt a wrong Jacobian.
 """
 function _global_full_cols(ℰ::AbstractExponentialIntegrator, traj::NamedTrajectory)
+    _require_declared_globals(ℰ.global_names, traj)
     base_full = _packed_knot_dim(traj) * traj.N
     full_cols = Int[]
     for name in ℰ.global_names
@@ -520,9 +566,11 @@ function get_hessian_of_lagrangian_structure(
         return _get_hessian_of_lagrangian_structure_warped(ℰ, traj)
 
     N = traj.N
-    global_dim = traj.global_dim
+    # the per-knot global block is the integrator's DECLARED globals; Z spans all
+    # trajectory globals (undeclared ones get zero columns, #378)
+    global_dim = ℰ.global_dim
     z_dim = traj.dim
-    Z_dim = z_dim * N + global_dim
+    Z_dim = z_dim * N + traj.global_dim
     μ∂²F = spzeros(Z_dim, Z_dim)
 
     # Get structure in canonical ordering (includes global blocks if global_dim > 0)
@@ -593,8 +641,8 @@ end
 
     # Global columns: copy from the per-knot blocks to their Z positions, in
     # the trajectory's global_components order (the permuted-∂c/∂θ convention)
-    if traj.global_dim > 0
-        g_cols_local = (2ℰ.z_dim+1):(2ℰ.z_dim+traj.global_dim)
+    if ℰ.global_dim > 0
+        g_cols_local = (2ℰ.z_dim+1):(2ℰ.z_dim+ℰ.global_dim)
         g_cols_full = _global_full_cols(ℰ, traj)
         for k = 1:(N-1)
             ∂F[slice(k, x_dim), g_cols_full] = ℰ.∂ℰs[k][:, g_cols_local]
@@ -642,7 +690,7 @@ function eval_hessian_of_lagrangian(
     # Global blocks: cross-terms with per-knot vars + the g-g block, mapped
     # from canonical (global_names order) to the trajectory's global column
     # order via _global_full_cols (the permuted-∂c/∂θ convention).
-    global_dim = traj.global_dim
+    global_dim = ℰ.global_dim
     if global_dim > 0
         knot_dim = canonical_hessian_knot_dim(ℰ)
         g_can = (2*knot_dim+1):(2*knot_dim+global_dim)
@@ -749,12 +797,7 @@ end
     # Non-canonical component order + globals: the exact regime where the old
     # pre-mapping triu() dropped cross-terms.
     H = (u, t) -> u[3] * GATES.Z + u[4] * GATES.Y + u[1] * GATES.X + u[2] * GATES.Y
-    sys = QuantumSystem(
-        H,
-        [1.0, 1.0];
-        time_dependent = true,
-        global_params = (b = 0.2, a = 0.1),
-    )
+    sys = QuantumSystem(H, [1.0, 1.0]; global_params = (b = 0.2, a = 0.1))
     ψ0 = ComplexF64[1.0, 0.0]
     ψg = ComplexF64[0.0, 1.0]
     N = 6
@@ -790,4 +833,122 @@ end
     # Consumers take triu (only the upper triangle reaches Ipopt/MadNLP); the
     # two paths agree exactly on that contract.
     @test triu(Matrix(H_gen)) ≈ triu(Matrix(H_spec))
+end
+
+@testitem "exponential integrator global columns are exactly its declared globals (#378)" begin
+    # An exponential integrator's per-knot global block holds ITS declared
+    # globals; any other trajectory global (e.g. a free-phase θ that only the
+    # objective reads) contributes exactly zero columns. Historically the
+    # assembly sized that block by `traj.global_dim` — "assign 32×2 to 32×0" —
+    # and an integrator declaring a global the trajectory lacks died with a
+    # bare FieldError instead of an informative refusal.
+    using LinearAlgebra
+    using SparseArrays
+    using NamedTrajectories
+    using DirectTrajOpt
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators: NonHermitianExponentialIntegrator
+    using Piccolo.Control.QuantumIntegrators.ExponentialIntegrators
+    using DirectTrajOpt.Integrators:
+        get_jacobian_structure, get_hessian_of_lagrangian_structure, test_integrator
+    using DirectTrajOpt.CommonInterface: eval_jacobian, eval_hessian_of_lagrangian
+
+    N = 6
+    times = collect(range(0, 1.0, length = N))
+    extra = Dict{Symbol,Vector{Float64}}(:φ_1 => [0.3], :φ_2 => [-0.2])
+
+    sys = QuantumSystem(PAULIS.Z, [PAULIS.X, PAULIS.Y], [1.0, 1.0])
+    pulse = ZeroOrderPulse(0.4 * randn(2, N), times)
+    osys = OpenQuantumSystem(
+        PAULIS.Z,
+        [PAULIS.X],
+        [1.0];
+        dissipation_operators = [ComplexF64[0 0.1; 0 0]],
+    )
+    opulse = ZeroOrderPulse(0.4 * randn(1, N), times)
+    ψ0, ψ1 = ComplexF64[1, 0], ComplexF64[0, 1]
+    ρ0, ρ1 = ψ0 * ψ0', ψ1 * ψ1'
+
+    # δ is a global the HAMILTONIAN reads (declared, nonzero columns); φ_i are
+    # globals it does not know (undeclared, zero columns).
+    Hδ = (u, t) -> PAULIS.Z + u[1] * PAULIS.X + u[2] * PAULIS.Y + u[3] * PAULIS.Z
+    sysδ = QuantumSystem(Hδ, [1.0, 1.0]; global_params = (δ = 0.1,))
+
+    cases = [
+        ("Unitary", UnitaryTrajectory(sys, pulse, GATES.X)),
+        ("Ket", KetTrajectory(sys, pulse, ψ0, ψ1)),
+        ("MultiKet", MultiKetTrajectory(sys, pulse, [ψ0, ψ1], [ψ1, ψ0])),
+        ("Density", DensityTrajectory(osys, opulse, ρ0, ρ1)),
+        ("MultiDensity", MultiDensityTrajectory(osys, opulse, [ρ0, ρ1], [ρ1, ρ0])),
+        ("Ket+δ", KetTrajectory(sysδ, pulse, ψ0, ψ1)),
+        ("Unitary+δ", UnitaryTrajectory(sysδ, pulse, GATES.X)),
+    ]
+
+    for (label, qtraj) in cases
+        @testset "$label: undeclared trajectory globals are ignored" begin
+            sysq = get_system(qtraj)
+            built =
+                qtraj isa Union{DensityTrajectory,MultiDensityTrajectory} ?
+                NonHermitianExponentialIntegrator(qtraj, N) :
+                HermitianExponentialIntegrator(qtraj, N)
+            ℰs = built isa AbstractVector ? built : [built]
+            gd = Dict{Symbol,Vector{Float64}}(extra)
+            for (name, v) in pairs(sysq.global_params)
+                gd[name] = [v]
+            end
+            traj = NamedTrajectory(qtraj, N; global_data = gd)
+            Z_dim = traj.dim * traj.N + traj.global_dim
+            φ_cols =
+                [traj.dim * traj.N + traj.global_components[n][1] for n in (:φ_1, :φ_2)]
+            for ℰ in ℰs
+                @test ℰ.global_dim == length(sysq.global_params)
+
+                S = get_jacobian_structure(ℰ, traj)
+                J = eval_jacobian(ℰ, traj)
+                @test size(S) == size(J) == (ℰ.dim, Z_dim)
+                @test all(iszero, J[:, φ_cols])
+                @test all(iszero, S[:, φ_cols])
+                @test all(
+                    iszero(J[i, j]) || !iszero(S[i, j]) for (i, j, _) in zip(findnz(J)...)
+                )
+
+                μ = randn(ℰ.dim)
+                HS = get_hessian_of_lagrangian_structure(ℰ, traj)
+                Hm = eval_hessian_of_lagrangian(ℰ, traj, μ)
+                @test size(HS) == size(Hm) == (Z_dim, Z_dim)
+                @test all(iszero, Hm[:, φ_cols])
+                @test all(!iszero(HS[i, j]) for (i, j, _) in zip(findnz(Hm)...))
+
+                if haskey(sysq.global_params, :δ)
+                    δ_col = traj.dim * traj.N + traj.global_components[:δ][1]
+                    @test !all(iszero, J[:, δ_col])
+                end
+
+                # full FD oracle over the packed vector — the φ columns are part of it
+                test_integrator(ℰ, deepcopy(traj); atol = 1e-3)
+            end
+        end
+    end
+
+    @testset "declared global absent from the trajectory is refused informatively" begin
+        qtraj = KetTrajectory(sysδ, pulse, ψ0, ψ1)
+        ℰ = HermitianExponentialIntegrator(qtraj, N)
+        @test ℰ.global_names == [:δ]
+        bare = NamedTrajectory(qtraj, N; global_data = extra)   # φ only, no δ
+        for f in (
+            () -> get_jacobian_structure(ℰ, bare),
+            () -> eval_jacobian(ℰ, bare),
+            () -> get_hessian_of_lagrangian_structure(ℰ, bare),
+            () -> DirectTrajOpt.evaluate!(zeros(ℰ.dim), ℰ, bare),
+        )
+            err = try
+                f()
+                nothing
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test err isa ArgumentError && occursin("δ", err.msg)
+        end
+    end
 end

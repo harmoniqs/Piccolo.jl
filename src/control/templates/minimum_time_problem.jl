@@ -41,6 +41,10 @@ where q represents the quantum state (unitary, ket, or density matrix).
 # Keyword Arguments
 - `final_fidelity::Float64=0.99`: Minimum fidelity constraint at final time
 - `D::Float64=100.0`: Weight on minimum-time objective ∑Δt
+- `Δt_bounds::Union{Nothing, Tuple{Float64, Float64}}=nothing`: Replace the base
+  problem's timestep bounds. With `nothing` the base bounds are kept — for a
+  template-built base given no `Δt_bounds`, the positive default floor
+  (`DEFAULT_Δt_LOWER_FRACTION`, #383), so min-time cannot drive a timestep negative.
 - `piccolo_options::PiccoloOptions=PiccoloOptions()`: Piccolo solver options
 
 # Returns

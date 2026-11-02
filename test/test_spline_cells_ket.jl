@@ -639,11 +639,20 @@ end
     N = 5
     times = collect(range(0.0, 1.0, N))
 
-    # Non-spline pulse through the inner constructor: defaults to order 1
+    # Non-spline pulse through the inner constructor: refused (#375; it used to
+    # default silently to order 1), built only as a declared approximation.
     zo = ZeroOrderPulse(0.3 * fill(1.0, 2, N), times)
     qtraj_zo = KetTrajectory(sys, zo, ψ_init, ψ_goal)
     traj_zo = NamedTrajectory(qtraj_zo, N)
-    𝒮 = _spline_ket(sys, zo, state_name(qtraj_zo), drive_name(qtraj_zo), traj_zo)
+    @test_throws ArgumentError _spline_ket(
+        sys,
+        zo,
+        state_name(qtraj_zo),
+        drive_name(qtraj_zo),
+        traj_zo,
+    )
+    approx = (spline_order = 1, allow_basis_approximation = true)
+    𝒮 = _spline_ket(sys, zo, state_name(qtraj_zo), drive_name(qtraj_zo), traj_zo; approx...)
     @test spline_order(𝒮) == 1
     δ = zeros(𝒮.dim)
     evaluate!(δ, 𝒮, traj_zo)
@@ -656,12 +665,13 @@ end
     zo_g = ZeroOrderPulse(0.3 * fill(1.0, 1, N), times)
     gq = KetTrajectory(gsys, zo_g, ψ_init, ψ_goal)
     gtraj = NamedTrajectory(gq, N)
-    𝒮_g = _spline_ket(gsys, zo_g, state_name(gq), drive_name(gq), gtraj)
+    𝒮_g = _spline_ket(gsys, zo_g, state_name(gq), drive_name(gq), gtraj; approx...)
     @test 𝒮_g.global_names == [:δ]
     @test 𝒮_g.global_dim == 1
 
     # …and a drive-global-free system resolves to an empty name list
-    𝒮_0 = _spline_ket(sys, zo, state_name(qtraj_zo), drive_name(qtraj_zo), traj_zo)
+    𝒮_0 =
+        _spline_ket(sys, zo, state_name(qtraj_zo), drive_name(qtraj_zo), traj_zo; approx...)
     @test isempty(𝒮_0.global_names)
     @test 𝒮_0.global_dim == 0
 end
@@ -817,4 +827,79 @@ end
     @test 𝒮.exact_hessian
     @test !isnothing(𝒮.hess_probs)
     test_integrator(𝒮, traj; atol = 1e-4, gauss_newton = false)
+end
+
+@testitem "#375: SplineIntegrator refuses non-spline pulses and conflicting orders" begin
+    using Piccolo
+    using Piccolo.Control.QuantumIntegrators.SplineIntegrators: spline_order
+
+    sys = QuantumSystem(GATES.Z, [GATES.X, GATES.Y], [1.0, 1.0])
+    ψ_init = ComplexF64[1.0, 0.0]
+    ψ_goal = ComplexF64[0.0, 1.0]
+    N = 5
+    times = collect(range(0.0, 1.0, N))
+    ket(p) = KetTrajectory(sys, p, ψ_init, ψ_goal)
+    msg(f) =
+        try
+            f()
+            ""
+        catch e
+            e isa ArgumentError ? e.msg : "not an ArgumentError: $e"
+        end
+
+    # A ZOH pulse is refused, pointing at the exponential integrator.
+    zoh = ket(ZeroOrderPulse(0.3 * ones(2, N), times))
+    m = msg(() -> SplineIntegrator(zoh, N))
+    @test occursin("ZeroOrderPulse", m) && occursin("HermitianExponentialIntegrator", m)
+    # …also when an order is given but the approximation is not declared.
+    @test occursin(
+        "allow_basis_approximation",
+        msg(() -> SplineIntegrator(zoh, N; spline_order = 1)),
+    )
+
+    # An analytic pulse is refused, pointing at the spline conversion.
+    gauss = ket(GaussianPulse([0.2, 0.1], 0.2, 1.0))
+    m = msg(() -> SplineIntegrator(gauss, N))
+    @test occursin("GaussianPulse", m) && occursin("LinearSplinePulse(pulse, n)", m)
+
+    # The declared approximation builds, at the requested order (and needs it).
+    @test spline_order(
+        SplineIntegrator(zoh, N; spline_order = 1, allow_basis_approximation = true),
+    ) == 1
+    @test spline_order(
+        SplineIntegrator(gauss, N; spline_order = 3, allow_basis_approximation = true),
+    ) == 3
+    @test occursin(
+        "spline_order",
+        msg(() -> SplineIntegrator(zoh, N; allow_basis_approximation = true)),
+    )
+
+    # An explicit order that conflicts with the spline pulse throws.
+    lin = ket(LinearSplinePulse(0.3 * ones(2, N), times))
+    cub = ket(CubicSplinePulse(0.3 * ones(2, N), zeros(2, N), times))
+    @test occursin("conflicts", msg(() -> SplineIntegrator(lin, N; spline_order = 3)))
+    @test occursin("conflicts", msg(() -> SplineIntegrator(cub, N; spline_order = 1)))
+    # …a matching one is fine.
+    @test spline_order(SplineIntegrator(cub, N; spline_order = 3)) == 3
+
+    # An order outside {1, 3} is an ArgumentError (was an UndefVarError deep inside).
+    @test_throws ArgumentError SplineIntegrator(lin, N; spline_order = 2)
+    @test_throws ArgumentError SplineIntegrator(
+        zoh,
+        N;
+        spline_order = 2,
+        allow_basis_approximation = true,
+    )
+
+    # Every trajectory kind takes the same path: unitary, multi-ket, sampling.
+    uz = UnitaryTrajectory(sys, ZeroOrderPulse(0.3 * ones(2, N), times), GATES[:X])
+    @test_throws ArgumentError SplineIntegrator(uz, N)
+    mz = MultiKetTrajectory(
+        sys,
+        ZeroOrderPulse(0.3 * ones(2, N), times),
+        [ψ_init, ψ_goal],
+        [ψ_goal, ψ_init],
+    )
+    @test_throws ArgumentError SplineIntegrator(mz, N)
+    @test_throws ArgumentError SplineIntegrator(SamplingTrajectory(uz, [sys, sys]), N)
 end

@@ -22,16 +22,11 @@ function _sampling_nonhermitian_density(
     global_names::Vector{Symbol};
     gauss_newton::Bool = false,
 )
+    _refuse_time_dependent(sys, "NonHermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
 
-    # Determine global dim from trajectory
-    if !isempty(global_names) && traj.global_dim > 0
-        global_dim = traj.global_dim
-    elseif !isempty(global_names)
-        global_dim = length(global_names)
-    else
-        global_dim = 0
-    end
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
 
     n = sys.levels
     statedim = n^2  # compact density iso dimension
@@ -55,7 +50,8 @@ function _sampling_nonhermitian_density(
     )
 
     # Sparsity templates
-    ∂ℰ_template = jacobian_structure(DensityTrajectory, x, u, statedim, traj)
+    ∂ℰ_template =
+        jacobian_structure(DensityTrajectory, x, u, statedim, traj; global_dim = global_dim)
     μ∂²ℰ_template = hessian_structure(x_dim, u_dim, global_dim)
     ∂ℰs = [copy(∂ℰ_template) for _ = 1:(N-1)]
     μ∂²ℰs = [copy(μ∂²ℰ_template) for _ = 1:(N-1)]
@@ -103,16 +99,12 @@ function _sampling_nonhermitian_multidensity(
     global_names::Vector{Symbol};
     gauss_newton::Bool = false,
 )
+    _refuse_time_dependent(sys, "NonHermitianExponentialIntegrator")
     @assert traj.N > 1 "Trajectory must have at least two timesteps."
     @assert all(name in traj.names for name in xs) "All state names must be in trajectory"
 
-    if !isempty(global_names) && traj.global_dim > 0
-        global_dim = traj.global_dim
-    elseif !isempty(global_names)
-        global_dim = length(global_names)
-    else
-        global_dim = 0
-    end
+    # the integrator's OWN globals — not every global the trajectory carries (#378)
+    global_dim = _declared_global_dim(global_names, traj)
 
     n = sys.levels
     statedim = n^2
@@ -142,7 +134,14 @@ function _sampling_nonhermitian_multidensity(
 
     integrators = NonHermitianExponentialIntegrator{MultiDensityTrajectory}[]
     for name in xs
-        ∂ℰ_template = jacobian_structure(MultiDensityTrajectory, name, u, statedim, traj)
+        ∂ℰ_template = jacobian_structure(
+            MultiDensityTrajectory,
+            name,
+            u,
+            statedim,
+            traj;
+            global_dim = global_dim,
+        )
         μ∂²ℰ_template = hessian_structure(x_dim, u_dim, global_dim)
         ∂ℰs = [copy(∂ℰ_template) for _ = 1:(N-1)]
         μ∂²ℰs = [copy(μ∂²ℰ_template) for _ = 1:(N-1)]
@@ -329,7 +328,16 @@ end
     @test length(integrators) == 2
     @test [x_name(ℰ) for ℰ in integrators] == [:ρ⃗̃1, :ρ⃗̃2]
 
+    # Off-solution probe point: the conversion seeds every member with the exact ZOH rollout of a
+    # stationary state, where the exact-exponential residual is identically zero and DirectTrajOpt's
+    # test_integrator (which asserts a non-zero residual) cannot exercise evaluate!/derivatives.
     for ℰ in integrators
+        xn = x_name(ℰ)
+        update!(
+            expanded_traj,
+            xn,
+            expanded_traj[xn] .+ 1e-3 .* randn(size(expanded_traj[xn])...),
+        )
         test_integrator(ℰ, expanded_traj; atol = 1e-3)
     end
 end
@@ -358,7 +366,16 @@ end
     @test length(integrators) == 4
     @test [x_name(ℰ) for ℰ in integrators] == [:ρ⃗̃1, :ρ⃗̃2, :ρ⃗̃3, :ρ⃗̃4]
 
+    # Off-solution probe point: the conversion seeds every member with the exact ZOH rollout of a
+    # stationary state, where the exact-exponential residual is identically zero and DirectTrajOpt's
+    # test_integrator (which asserts a non-zero residual) cannot exercise evaluate!/derivatives.
     for ℰ in integrators
+        xn = x_name(ℰ)
+        update!(
+            expanded_traj,
+            xn,
+            expanded_traj[xn] .+ 1e-3 .* randn(size(expanded_traj[xn])...),
+        )
         test_integrator(ℰ, expanded_traj; atol = 1e-3)
     end
 end

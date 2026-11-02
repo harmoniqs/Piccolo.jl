@@ -852,11 +852,14 @@ end
     N = 5
     times = collect(range(0.0, 1.0, N))
 
-    # Non-spline pulse through the inner constructor: defaults to linear
+    # Non-spline pulse through the inner constructor: refused (#375; it used to
+    # default silently to linear), built only as a declared approximation.
     zo = ZeroOrderPulse(0.3 * fill(1.0, 2, N), times)
     qtraj_zo = UnitaryTrajectory(sys, zo, U_init)
     traj_zo = NamedTrajectory(qtraj_zo, N)
-    𝒮 = _spline_unitary(sys, zo, :Ũ⃗, :u, traj_zo)
+    @test_throws ArgumentError _spline_unitary(sys, zo, :Ũ⃗, :u, traj_zo)
+    approx = (spline_order = 1, allow_basis_approximation = true)
+    𝒮 = _spline_unitary(sys, zo, :Ũ⃗, :u, traj_zo; approx...)
     @test spline_order(𝒮) == 1
     δ = zeros(𝒮.dim)
     evaluate!(δ, 𝒮, traj_zo)
@@ -866,11 +869,19 @@ end
     # u-vector for globals, then the global seed read fails loudly (a traj must
     # carry the global data it declares — the empty global-component NamedTuple
     # throws FieldError on :δ access).
-    @test_throws FieldError _spline_unitary(sys, zo, :Ũ⃗, :u, traj_zo; global_names = [:δ])
+    @test_throws FieldError _spline_unitary(
+        sys,
+        zo,
+        :Ũ⃗,
+        :u,
+        traj_zo;
+        global_names = [:δ],
+        approx...,
+    )
 
     # Drive-free system: the explicit-drives ArgumentError
     sys_free = QuantumSystem(GATES.Z)
-    @test_throws ArgumentError _spline_unitary(sys_free, zo, :Ũ⃗, :u, traj_zo)
+    @test_throws ArgumentError _spline_unitary(sys_free, zo, :Ũ⃗, :u, traj_zo; approx...)
 
     # ChebyshevAlg refusal: unitary states buy nothing from matrix-free
     @test_throws ErrorException _spline_unitary(

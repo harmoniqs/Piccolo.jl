@@ -48,6 +48,12 @@ Modules = [Piccolo.Quantum.QuantumTrajectories]
 Modules = [Piccolo.Quantum.Pulses]
 ```
 
+## [Hardware Playback](@id lib-playback)
+
+```@autodocs
+Modules = [Piccolo.Quantum.Playback]
+```
+
 ## [Rollouts](@id lib-rollouts)
 
 ```@autodocs

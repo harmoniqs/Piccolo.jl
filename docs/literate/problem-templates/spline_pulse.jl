@@ -33,7 +33,7 @@
 # pulse = CubicSplinePulse(controls, tangents, times)
 # qtraj = UnitaryTrajectory(sys, pulse, U_goal)
 # qcp = SplinePulseProblem(qtraj)  # spline-faithful by default
-# # PWC escape hatch, when explicitly wanted: qcp = SplinePulseProblem(qtraj; integrator_type = :pwc)
+# # PWC escape hatch, when explicitly wanted: qcp = SplinePulseProblem(qtraj; integrator_type = :pwc, allow_basis_approximation = true)
 # ```
 #
 # ## Constructor Variants
@@ -123,8 +123,9 @@ cached_solve!(qcp, "spline_pulse_basic"; max_iter = 100)
 #     Since #334 the default backend is Piccolo's native `SplineIntegrator`: the
 #     collocation integrates the same interpolated waveform the pulse object
 #     describes. The piecewise-constant `BilinearIntegrator` remains available as
-#     the **explicit** `integrator_type = :pwc` choice — and it *warns* for
-#     `CubicSplinePulse`, because it never reads the Hermite tangents (`:du`):
+#     the **explicit** `integrator_type = :pwc` choice, and since #375 it is
+#     refused unless you also pass `allow_basis_approximation = true` (and it still
+#     *warns* for `CubicSplinePulse`), because it never reads the Hermite tangents (`:du`):
 #     the optimizer would minimize against a different waveform than the one your
 #     pulse actually produces. Historically that backend was the silent default
 #     (measured: optimizer-reported ~1e-8 infidelity for pulses actually achieving
@@ -153,7 +154,13 @@ verify(qcp)
 # To see the trap the old default set, declare the PWC backend explicitly and
 # compare — this is the acknowledged escape hatch in action:
 
-qcp_pwc = SplinePulseProblem(qtraj; Q = 100.0, du_bound = 10.0, integrator_type = :pwc)
+qcp_pwc = SplinePulseProblem(
+    qtraj;
+    Q = 100.0,
+    du_bound = 10.0,
+    integrator_type = :pwc,
+    allow_basis_approximation = true,
+)
 cached_solve!(qcp_pwc, "spline_pulse_pwc_escape_hatch"; max_iter = 100)
 verify(qcp_pwc)
 
